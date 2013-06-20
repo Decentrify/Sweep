@@ -46,3 +46,7 @@ resources
 
 # ignore pocs
 pocs
+
+#ignore IntelliJ IDEA files
+.idea
+*.iml
