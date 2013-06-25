@@ -19,6 +19,8 @@
 
 <properties>
  <java.compiler.version>1.6</java.compiler.version>
+        <nattraverser.version>1.0-SNAPSHOT</nattraverser.version>
+        <kompics.version>0.4.4-SNAPSHOT</kompics.version>
 </properties>
 
 
