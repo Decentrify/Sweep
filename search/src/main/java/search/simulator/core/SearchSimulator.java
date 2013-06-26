@@ -150,7 +150,7 @@ public final class SearchSimulator extends ComponentDefinition {
 	};
 
 	/**
-	 * Add real magnetic links from a specified xml file to the system.
+	 * Add real magnet links from a specified xml file to the system.
 	 */
 	Handler<AddMagnetEntry> handleAddMagnetEntry = new Handler<AddMagnetEntry>() {
 		@Override

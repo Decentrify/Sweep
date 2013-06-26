@@ -12,12 +12,12 @@ import org.xml.sax.SAXException;
 import common.entities.IndexEntry;
 
 /**
- * Provides functionality to access the entries of an xml file from the pirate
- * bay one by one.
+ * Provides functionality to access the entries of an xml file with magnet links
+ * one by one.
  */
 public class MagnetFileIterator {
 	private BufferedReader br;
-	private MagneticParser parser;
+	private MagnetParser parser;
 
 	/**
 	 * Creates a new instance for the file at the given path.
@@ -27,13 +27,13 @@ public class MagnetFileIterator {
 	 * @throws FileNotFoundException
 	 *             if the file at the given path does not exist
 	 * @throws ParserConfigurationException
-	 *             {@link MagneticParser#MagneticParser()}
+	 *             {@link MagnetParser#MagneticParser()}
 	 * @throws SAXException
-	 *             {@link MagneticParser#MagneticParser()}
+	 *             {@link MagnetParser#MagneticParser()}
 	 */
 	public MagnetFileIterator(String path) throws FileNotFoundException,
 			ParserConfigurationException, SAXException {
-		this.parser = new MagneticParser();
+		this.parser = new MagnetParser();
 		this.br = new BufferedReader(new FileReader(path));
 	}
 
@@ -45,7 +45,7 @@ public class MagnetFileIterator {
 	 * @throws IOException
 	 *             {@link BufferedReader#readLine()}
 	 * @throws SAXException
-	 *             {@link MagneticParser#parse(String)}
+	 *             {@link MagnetParser#parse(String)}
 	 */
 	public IndexEntry next() throws IOException, SAXException {
 		String xmlEntry = "";
