@@ -19,6 +19,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.IntField;
 import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
@@ -1171,11 +1172,11 @@ public final class Search extends ComponentDefinition {
 	private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
 		Document doc = new Document();
 		doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
-		doc.add(new StringField(IndexEntry.URL, entry.getUrl(), Field.Store.YES));
+		doc.add(new StoredField(IndexEntry.URL, entry.getUrl()));
 		doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
 		doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
 		doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
-		doc.add(new StringField(IndexEntry.HASH, entry.getHash(), Field.Store.YES));
+		doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
 		doc.add(new StringField(IndexEntry.LEADER_ID, entry.getLeaderId(), Field.Store.YES));
 
 		if (entry.getFileSize() != 0) {
