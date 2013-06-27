@@ -8,7 +8,7 @@ import se.sics.kompics.address.Address;
  * Stores information about a peer for snapshots.
  */
 public class PeerInfo {
-	private int numIndexEntries;
+	private long numIndexEntries;
 	private ArrayList<Address> neighbours;
 	private boolean leader;
 	private String electionView;
@@ -23,7 +23,7 @@ public class PeerInfo {
 	/**
 	 * @return the number of index entries this peer has stored
 	 */
-	public synchronized int getNumIndexEntries() {
+	public synchronized long getNumIndexEntries() {
 		return numIndexEntries;
 	}
 

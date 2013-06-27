@@ -115,7 +115,7 @@ public final class Timeouts {
 	 * index store was found.
 	 */
 	protected static class GapTimeout extends Timeout {
-		private final int id;
+		private final long id;
 
 		/**
 		 * @param request
@@ -123,7 +123,7 @@ public final class Timeouts {
 		 * @param id
 		 *            the id of the suspected entry
 		 */
-		public GapTimeout(ScheduleTimeout request, int id) {
+		public GapTimeout(ScheduleTimeout request, long id) {
 			super(request);
 			this.id = id;
 		}
@@ -131,7 +131,7 @@ public final class Timeouts {
 		/**
 		 * @return the id of the suspected entry
 		 */
-		public int getId() {
+		public long getId() {
 			return id;
 		}
 	}
@@ -141,7 +141,7 @@ public final class Timeouts {
 	 * s.
 	 */
 	protected static class GapDetectionTimeout extends Timeout {
-		private final int id;
+		private final long id;
 
 		/**
 		 * @param request
@@ -149,7 +149,7 @@ public final class Timeouts {
 		 * @param id
 		 *            the id of the suspected entry
 		 */
-		public GapDetectionTimeout(ScheduleTimeout request, int id) {
+		public GapDetectionTimeout(ScheduleTimeout request, long id) {
 			super(request);
 			this.id = id;
 		}
@@ -157,7 +157,7 @@ public final class Timeouts {
 		/**
 		 * @return the id of the suspected entry
 		 */
-		public int getId() {
+		public long getId() {
 			return id;
 		}
 	}

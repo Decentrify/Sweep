@@ -17,9 +17,9 @@ public class Snapshot {
 			.synchronizedSortedMap(new TreeMap<Address, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
-	private static ConcurrentSkipListSet<Integer> detectedGaps = new ConcurrentSkipListSet<Integer>();
-	private static int lastId = -1;
-	private static ConcurrentSkipListSet<Integer> idDuplicates = new ConcurrentSkipListSet<Integer>();
+	private static ConcurrentSkipListSet<Long> detectedGaps = new ConcurrentSkipListSet<Long>();
+	private static long lastId = -1;
+	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
 	private static int entriesAdded = 0;
 	private static ConcurrentSkipListSet<Address> oldLeaders = new ConcurrentSkipListSet<Address>();
 
@@ -145,7 +145,7 @@ public class Snapshot {
 	 * @param gapNumber
 	 *            the id of the gap
 	 */
-	public static void addGap(int gapNumber) {
+	public static void addGap(long gapNumber) {
 		detectedGaps.add(gapNumber);
 	}
 
@@ -155,7 +155,7 @@ public class Snapshot {
 	 * @param id
 	 *            the id of the lastest added index value
 	 */
-	public static synchronized void setLastId(int id) {
+	public static synchronized void setLastId(long id) {
 		if (id <= lastId) {
 			idDuplicates.add(id);
 		}
@@ -230,8 +230,8 @@ public class Snapshot {
 	private static void reportDetails(StringBuilder builder) {
 		Address maxPeer = null;
 		Address minPeer = null;
-		int maxNumIndexEntries = 0;
-		int minNumIndexEntries = Integer.MAX_VALUE;
+		long maxNumIndexEntries = 0;
+		long minNumIndexEntries = Integer.MAX_VALUE;
 		for (Address node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
@@ -262,7 +262,7 @@ public class Snapshot {
 	 */
 	private static void reportDetectedGaps(StringBuilder builder) {
 		builder.append("Detected index gaps: ");
-		for (Integer number : detectedGaps) {
+		for (Long number : detectedGaps) {
 			builder.append(number);
 			builder.append(" ");
 		}
@@ -289,7 +289,7 @@ public class Snapshot {
 	 */
 	private static void reportIdDuplicates(StringBuilder builder) {
 		builder.append("Duplicated index ids: ");
-		for (Integer number : idDuplicates) {
+		for (Long number : idDuplicates) {
 			builder.append(number);
 			builder.append(" ");
 		}

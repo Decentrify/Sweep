@@ -3,7 +3,7 @@ package common.simulation.scenarios;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 /**
- * Scenario adding real magnet links from The Pirate Bay.
+ * Scenario adding real magnet links.
  */
 @SuppressWarnings("serial")
 public class Scenario5 extends Scenario {

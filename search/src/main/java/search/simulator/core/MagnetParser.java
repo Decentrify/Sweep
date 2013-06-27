@@ -13,6 +13,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import common.entities.IndexEntry;
+import common.entities.IndexEntry.Category;
 
 /**
  * Parser for an xml string describing a magnetic link. Some xml files entries
@@ -21,7 +22,7 @@ import common.entities.IndexEntry;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-	private IndexEntry entry = new IndexEntry();
+	private IndexEntry entry = new IndexEntry("", "", Category.Books, "", "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.
@@ -58,12 +59,12 @@ public class MagnetParser {
 		@Override
 		public void characters(char[] ch, int start, int length) throws SAXException {
 			if (title) {
-				entry.setTitle(new String(ch, start, length));
+				entry.setFileName((new String(ch, start, length)));
 				title = false;
 			}
 
 			if (magnet) {
-				entry.setMagneticLink(new String(ch, start, length));
+				entry.setUrl(new String(ch, start, length));
 				magnet = false;
 			}
 		}
@@ -91,6 +92,7 @@ public class MagnetParser {
 	 */
 	public IndexEntry parse(String entry) throws SAXException, IOException {
 		saxParser.parse(new InputSource(new StringReader(entry)), handler);
+		this.entry.setLeaderId("");
 		return this.entry;
 	}
 }

@@ -20,8 +20,8 @@ public final class IndexExchangeMessages {
 	 */
 	public static class IndexUpdateRequest extends Message {
 		private static final long serialVersionUID = 563812527860881003L;
-		private final int oldestMissingIndexValue;
-		private final Integer[] existingEntries;
+		private final long oldestMissingIndexValue;
+		private final Long[] existingEntries;
 
 		/**
 		 * @param source
@@ -34,8 +34,8 @@ public final class IndexExchangeMessages {
 		 *            an array of existing entries with greater ids than
 		 *            oldestMissingIndexValue
 		 */
-		public IndexUpdateRequest(Address source, Address destination, int oldestMissingIndexValue,
-				Integer[] existingEntries) {
+		public IndexUpdateRequest(Address source, Address destination, long oldestMissingIndexValue,
+				Long[] existingEntries) {
 			super(source, destination);
 			this.oldestMissingIndexValue = oldestMissingIndexValue;
 			this.existingEntries = existingEntries;
@@ -44,7 +44,7 @@ public final class IndexExchangeMessages {
 		/**
 		 * @return the oldest index id the inquirer is asking for
 		 */
-		public int getOldestMissingIndexValue() {
+		public long getOldestMissingIndexValue() {
 			return oldestMissingIndexValue;
 		}
 
@@ -52,7 +52,7 @@ public final class IndexExchangeMessages {
 		 * @return a set of existing entries with greater ids than
 		 *         oldestMissingIndexValue
 		 */
-		public Integer[] getExistingEntries() {
+		public Long[] getExistingEntries() {
 			return existingEntries;
 		}
 	}

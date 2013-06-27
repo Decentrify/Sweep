@@ -8,7 +8,7 @@ import se.sics.kompics.network.Message;
  */
 public abstract class GapDetectionMessage extends Message {
 	private static final long serialVersionUID = -6614409671029387450L;
-	private final int id;
+	private final long id;
 
 	/**
 	 * @param source
@@ -18,7 +18,7 @@ public abstract class GapDetectionMessage extends Message {
 	 * @param id
 	 *            the id of the suspected entry
 	 */
-	public GapDetectionMessage(Address source, Address destination, int id) {
+	public GapDetectionMessage(Address source, Address destination, long id) {
 		super(source, destination);
 		this.id = id;
 	}
@@ -26,7 +26,7 @@ public abstract class GapDetectionMessage extends Message {
 	/**
 	 * @return the id of the suspected entry
 	 */
-	public int getId() {
+	public long getId() {
 		return id;
 	}
 
@@ -48,7 +48,7 @@ public abstract class GapDetectionMessage extends Message {
 		 * @param ttl
 		 *            the amount of hops this message is forwarded
 		 */
-		public GapDetectionRequest(Address source, Address destination, int id, int ttl) {
+		public GapDetectionRequest(Address source, Address destination, long id, int ttl) {
 			super(source, destination, id);
 			this.ttl = ttl;
 		}
@@ -95,7 +95,7 @@ public abstract class GapDetectionMessage extends Message {
 		 * @param gap
 		 *            true if an entry with this id does not exist locally
 		 */
-		public GapDetectionResponse(Address source, Address destination, int id, boolean gap) {
+		public GapDetectionResponse(Address source, Address destination, long id, boolean gap) {
 			super(source, destination, id);
 			this.gap = gap;
 		}

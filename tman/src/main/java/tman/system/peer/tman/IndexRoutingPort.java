@@ -67,7 +67,7 @@ public class IndexRoutingPort extends PortType {
 	 */
 	public static class IndexResponseMessage extends Message {
 		private static final long serialVersionUID = 6251581501397927390L;
-		private final int index;
+		private final long index;
 		private final UUID messageId;
 
 		/**
@@ -82,7 +82,7 @@ public class IndexRoutingPort extends PortType {
 		 * @param destination
 		 *            the destination address
 		 */
-		public IndexResponseMessage(int index, UUID messageId, Address source, Address destination) {
+		public IndexResponseMessage(long index, UUID messageId, Address source, Address destination) {
 			super(source, destination);
 			this.index = index;
 			this.messageId = messageId;
@@ -93,7 +93,7 @@ public class IndexRoutingPort extends PortType {
 		 * 
 		 * @return the index id
 		 */
-		public int getIndex() {
+		public long getIndex() {
 			return this.index;
 		}
 
@@ -125,7 +125,7 @@ public class IndexRoutingPort extends PortType {
 	 * is incremented
 	 */
 	public static class IndexDisseminationEvent extends IndexEvent {
-		private final int index;
+		private final long index;
 
 		/**
 		 * Default constructor
@@ -133,7 +133,7 @@ public class IndexRoutingPort extends PortType {
 		 * @param index
 		 *            the new index id
 		 */
-		public IndexDisseminationEvent(int index) {
+		public IndexDisseminationEvent(long index) {
 			super();
 			this.index = index;
 		}
@@ -143,7 +143,7 @@ public class IndexRoutingPort extends PortType {
 		 * 
 		 * @return the index id
 		 */
-		public int getIndex() {
+		public long getIndex() {
 			return index;
 		}
 	}
@@ -180,7 +180,7 @@ public class IndexRoutingPort extends PortType {
 	 * Event sent from the leader to it's followers, requesting their index id
 	 */
 	public static class IndexRequestEvent extends IndexEvent {
-		private final int index;
+		private final long index;
 		private final UUID messageId;
 		private final Address leaderAddress;
 
@@ -194,7 +194,7 @@ public class IndexRoutingPort extends PortType {
 		 * @param leaderAddress
 		 *            the leader's address
 		 */
-		public IndexRequestEvent(int index, UUID messageId, Address leaderAddress) {
+		public IndexRequestEvent(long index, UUID messageId, Address leaderAddress) {
 			super();
 			this.index = index;
 			this.leaderAddress = leaderAddress;
@@ -206,7 +206,7 @@ public class IndexRoutingPort extends PortType {
 		 * 
 		 * @return the index id
 		 */
-		public int getIndex() {
+		public long getIndex() {
 			return index;
 		}
 

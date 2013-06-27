@@ -38,6 +38,7 @@ import common.configuration.ElectionConfiguration;
 import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
 import common.entities.IndexEntry;
+import common.entities.IndexEntry.Category;
 import common.simulation.AddIndexEntry;
 import common.simulation.AddMagnetEntry;
 import common.simulation.ConsistentHashtable;
@@ -144,8 +145,10 @@ public final class SearchSimulator extends ComponentDefinition {
 			Long successor = ringNodes.getNode(event.getId());
 			Component peer = peers.get(successor);
 
-			trigger(new AddIndexSimulated(new IndexEntry(randomText())),
-					peer.getNegative(IndexPort.class));
+			IndexEntry index = new IndexEntry("", "", Category.Books, "", "");
+			index.setFileName(randomText());
+			index.setLeaderId("");
+			trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
 		}
 	};
 

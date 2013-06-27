@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,13 +18,15 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
@@ -31,6 +34,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
@@ -81,6 +85,7 @@ import tman.system.peer.tman.TMan;
 
 import common.configuration.SearchConfiguration;
 import common.entities.IndexEntry;
+import common.entities.IndexEntry.Category;
 import common.peer.PeerDescriptor;
 import common.snapshot.Snapshot;
 
@@ -112,11 +117,11 @@ public final class Search extends ComponentDefinition {
 	private Address self;
 	private SearchConfiguration searchConfiguration;
 	// The last smallest missing index number.
-	private int oldestMissingIndexValue;
+	private long oldestMissingIndexValue;
 	// Set of existing entries higher than the oldestMissingIndexValue
-	private SortedSet<Integer> existingEntries;
+	private SortedSet<Long> existingEntries;
 	// The last id used for adding new entries in case this node is the leader
-	private int lastInsertionId;
+	private long lastInsertionId;
 	// Open web requests from web clients
 	private Map<UUID, WebRequest> openRequests;
 	// Data structure to keep track of acknowledgments for newly added indexes
@@ -125,7 +130,7 @@ public final class Search extends ComponentDefinition {
 	// The number of the local partition
 	private int partition;
 	// Structure that maps index ids to UUIDs of open gap timeouts
-	private Map<Integer, UUID> gapTimeouts;
+	private Map<Long, UUID> gapTimeouts;
 
 	/**
 	 * Enum describing the status of the gap detection process.
@@ -135,14 +140,14 @@ public final class Search extends ComponentDefinition {
 	}
 
 	// Maps index ids for currently issued gap detections to their status
-	private Map<Integer, GapStatus> gapDetections;
+	private Map<Long, GapStatus> gapDetections;
 
 	// Set of recent add requests to avoid duplication
 	private Map<UUID, Long> recentRequests;
 
 	// Apache Lucene used for searching
 	private StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_42);
-	private Directory index = new RAMDirectory();
+	private Directory index;
 	private IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_42, analyzer);
 
 	// Lucene variables used to store and search in collected answers
@@ -198,6 +203,17 @@ public final class Search extends ComponentDefinition {
 	Handler<SearchInit> handleInit = new Handler<SearchInit>() {
 		public void handle(SearchInit init) {
 			self = init.getSelf();
+
+			index = new RAMDirectory();
+			// TODO use this for persistence
+//			File file = new File("resources/index_" + self.getId());
+//			try {
+//				index = FSDirectory.open(file);
+//			} catch (IOException e1) {
+//				e1.printStackTrace();
+//				System.exit(-1);
+//			}
+
 			searchConfiguration = init.getConfiguration();
 			routingTable = new HashMap<Integer, TreeSet<PeerDescriptor>>(
 					searchConfiguration.getNumPartitions());
@@ -207,9 +223,9 @@ public final class Search extends ComponentDefinition {
 			random = new Random(init.getConfiguration().getSeed());
 			partition = self.getId() % searchConfiguration.getNumPartitions();
 			oldestMissingIndexValue = partition;
-			existingEntries = new TreeSet<Integer>();
-			gapTimeouts = new HashMap<Integer, UUID>();
-			gapDetections = new HashMap<Integer, Search.GapStatus>();
+			existingEntries = new TreeSet<Long>();
+			gapTimeouts = new HashMap<Long, UUID>();
+			gapDetections = new HashMap<Long, Search.GapStatus>();
 
 			recentRequests = new HashMap<UUID, Long>();
 			// Garbage collect the data structure
@@ -241,7 +257,12 @@ public final class Search extends ComponentDefinition {
 			if (args[0].compareToIgnoreCase("search") == 0 && args.length == 2) {
 				startSearch(event, args[1]);
 			} else if (args[0].compareToIgnoreCase("add") == 0 && args.length == 3) {
-				addEntryGlobal(new IndexEntry(args[1], args[2]), event);
+				// TODO interface to add all values
+				IndexEntry index = new IndexEntry("", "", Category.Books, "", "");
+				index.setFileName(args[1]);
+				index.setUrl(args[2]);
+				index.setLeaderId("");
+				addEntryGlobal(index, event);
 			} else {
 				trigger(new WebResponse("Invalid request", event, 1, 1), webPort);
 			}
@@ -289,8 +310,8 @@ public final class Search extends ComponentDefinition {
 				int n = random.nextInt(bucket.size());
 				trigger(new IndexUpdateRequest(self,
 						((PeerDescriptor) bucket.toArray()[n]).getAddress(),
-						oldestMissingIndexValue,
-						existingEntries.toArray(new Integer[existingEntries.size()])), networkPort);
+						oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
+								.size()])), networkPort);
 			}
 		}
 	};
@@ -335,8 +356,8 @@ public final class Search extends ComponentDefinition {
 				List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
 
 				// Search for entries the inquirer is missing
-				Integer lastId = event.getOldestMissingIndexValue();
-				for (Integer i : event.getExistingEntries()) {
+				Long lastId = event.getOldestMissingIndexValue();
+				for (Long i : event.getExistingEntries()) {
 					indexEntries.addAll(findIdRange(lastId,
 							i - searchConfiguration.getNumPartitions(),
 							searchConfiguration.getMaxExchangeCount() - indexEntries.size()));
@@ -349,7 +370,7 @@ public final class Search extends ComponentDefinition {
 
 				// In case there is some space left search for more
 				if (indexEntries.size() < searchConfiguration.getMaxExchangeCount()) {
-					indexEntries.addAll(findIdRange(lastId, Integer.MAX_VALUE,
+					indexEntries.addAll(findIdRange(lastId, Long.MAX_VALUE,
 							searchConfiguration.getMaxExchangeCount() - indexEntries.size()));
 				}
 
@@ -392,13 +413,14 @@ public final class Search extends ComponentDefinition {
 				// Search the next id and a non-empty bucket an place the entry
 				// there
 				IndexEntry newEntry = event.getIndexEntry();
-				int id, entryPartition;
+				long id;
+				int entryPartition;
 				TreeSet<PeerDescriptor> bucket;
 				int i = routingTable.size();
 				do {
 					id = getCurrentInsertionId();
 
-					entryPartition = id % searchConfiguration.getNumPartitions();
+					entryPartition = (int) (id % searchConfiguration.getNumPartitions());
 					bucket = routingTable.get(entryPartition);
 					i--;
 				} while ((bucket == null || searchConfiguration.getReplicationMinimum() > bucket
@@ -687,8 +709,13 @@ public final class Search extends ComponentDefinition {
 				return;
 			}
 
-			for (PeerDescriptor descriptor : routingTable.get(event.getId()
-					% searchConfiguration.getNumPartitions())) {
+			TreeSet<PeerDescriptor> bucket = routingTable.get(event.getId()
+					% searchConfiguration.getNumPartitions());
+			if (bucket == null) {
+				return;
+			}
+
+			for (PeerDescriptor descriptor : bucket) {
 				gapDetections.put(event.getId(), GapStatus.UNDECIDED);
 				trigger(new GapDetectionRequest(self, descriptor.getAddress(), event.getId(),
 						searchConfiguration.getGapDetectionTtl()), networkPort);
@@ -757,7 +784,8 @@ public final class Search extends ComponentDefinition {
 		@Override
 		public void handle(GapDetectionTimeout event) {
 			if (gapDetections.remove(event.getId()) == GapStatus.TRUE) {
-				int entryPartition = event.getId() % searchConfiguration.getMaxNumRoutingEntries();
+				int entryPartition = (int) (event.getId() % searchConfiguration
+						.getMaxNumRoutingEntries());
 				TreeSet<PeerDescriptor> bucket = routingTable.get(entryPartition);
 
 				Snapshot.addGap(event.getId());
@@ -767,7 +795,7 @@ public final class Search extends ComponentDefinition {
 				}
 
 				// An entry with an empty title is a tombstone
-				IndexEntry tombstone = new IndexEntry("", "", event.getId());
+				IndexEntry tombstone = new IndexEntry(event.getId());
 				if (entryPartition == partition) {
 					try {
 						addEntryLocal(tombstone);
@@ -917,13 +945,7 @@ public final class Search extends ComponentDefinition {
 			return;
 		}
 
-		IndexWriter w = new IndexWriter(index, config);
-		Document doc = new Document();
-		doc.add(new TextField("title", indexEntry.getTitle(), Field.Store.YES));
-		doc.add(new TextField("magnetic", indexEntry.getMagneticLink(), Field.Store.YES));
-		doc.add(new IntField("id", indexEntry.getId(), Field.Store.YES));
-		w.addDocument(doc);
-		w.close();
+		addIndexEntry(index, indexEntry);
 		Snapshot.incNumIndexEntries(self);
 
 		// Cancel gap detection timeouts for the given index
@@ -943,7 +965,7 @@ public final class Search extends ComponentDefinition {
 			existingEntries.add(indexEntry.getId());
 
 			// Suspect all missing entries less than the new as gaps
-			for (int i = oldestMissingIndexValue; i < indexEntry.getId(); i = i
+			for (long i = oldestMissingIndexValue; i < indexEntry.getId(); i = i
 					+ searchConfiguration.getNumPartitions()) {
 				if (gapTimeouts.containsKey(i)) {
 					continue;
@@ -965,7 +987,7 @@ public final class Search extends ComponentDefinition {
 	 * 
 	 * @param sb
 	 *            the string builder used to append the results
-	 * @param querystr
+	 * @param query
 	 *            the original query sent by the client
 	 * @return the string builder handed as a parameter which includes the
 	 *         results
@@ -974,8 +996,8 @@ public final class Search extends ComponentDefinition {
 	 * @throws IOException
 	 *             In case IOExceptions occurred in Lucene
 	 */
-	private String query(StringBuilder sb, String querystr) throws ParseException, IOException {
-		Query q = new QueryParser(Version.LUCENE_42, "title", analyzer).parse(querystr);
+	private String query(StringBuilder sb, String query) throws ParseException, IOException {
+		Query q = new TermQuery(new Term(IndexEntry.FILE_NAME, query));
 		IndexSearcher searcher = null;
 		IndexReader reader = null;
 		try {
@@ -988,7 +1010,6 @@ public final class Search extends ComponentDefinition {
 
 		TopScoreDocCollector collector = TopScoreDocCollector.create(
 				searchConfiguration.getHitsPerQuery(), true);
-
 		searcher.search(q, collector);
 		ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
@@ -997,8 +1018,9 @@ public final class Search extends ComponentDefinition {
 		for (int i = 0; i < hits.length; ++i) {
 			int docId = hits[i].doc;
 			Document d = searcher.doc(docId);
-			sb.append("<tr><td>").append(i + 1).append("</td><td>").append(d.get("title"))
-					.append(".</td><td>").append(d.get("magnetic")).append("</td></tr>");
+			sb.append("<tr><td>").append(i + 1).append("</td><td>")
+					.append(d.get(IndexEntry.FILE_NAME)).append(".</td><td>")
+					.append(d.get(IndexEntry.URL)).append("</td></tr>");
 		}
 		sb.append("</ul>");
 
@@ -1022,20 +1044,19 @@ public final class Search extends ComponentDefinition {
 	 * @throws IOException
 	 *             if Lucene errors occur
 	 */
-	private List<IndexEntry> findIdRange(int min, int max, int limit) throws IOException {
+	private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
 		IndexReader reader = null;
 		try {
 			reader = DirectoryReader.open(index);
 			IndexSearcher searcher = new IndexSearcher(reader);
 
-			Query query = NumericRangeQuery.newIntRange("id", min, max, true, true);
-			TopDocs topDocs = searcher
-					.search(query, limit, new Sort(new SortField("id", Type.INT)));
+			Query query = NumericRangeQuery.newLongRange("id", min, max, true, true);
+			TopDocs topDocs = searcher.search(query, limit,
+					new Sort(new SortField("id", Type.LONG)));
 			ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
 			for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
 				Document d = searcher.doc(scoreDoc.doc);
-				indexEntries.add(new IndexEntry(d.get("title"), d.get("magnetic"), Integer
-						.valueOf(d.get("id"))));
+				indexEntries.add(createIndexEntry(d));
 			}
 
 			return indexEntries;
@@ -1049,7 +1070,7 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * @return a new id for a new {@link IndexEntry}
 	 */
-	private int getCurrentInsertionId() {
+	private long getCurrentInsertionId() {
 		lastInsertionId++;
 		trigger(new IndexDisseminationEvent(lastInsertionId), indexRoutingPort);
 		return lastInsertionId;
@@ -1064,7 +1085,7 @@ public final class Search extends ComponentDefinition {
 	 * @throws IOException
 	 *             if Lucene errors occur
 	 */
-	private boolean entryExists(int id) throws IOException {
+	private boolean entryExists(long id) throws IOException {
 		IndexEntry indexEntry = findById(id);
 		return indexEntry != null ? true : false;
 	}
@@ -1078,7 +1099,7 @@ public final class Search extends ComponentDefinition {
 	 * @throws IOException
 	 *             if Lucene errors occur
 	 */
-	private IndexEntry findById(int id) throws IOException {
+	private IndexEntry findById(long id) throws IOException {
 		List<IndexEntry> indexEntries = findIdRange(id, id, 1);
 		if (indexEntries.isEmpty()) {
 			return null;
@@ -1093,26 +1114,10 @@ public final class Search extends ComponentDefinition {
 	 *            the entries to be added
 	 */
 	private void addSearchResponse(Collection<IndexEntry> entries) {
-		IndexWriter writer = null;
 		try {
-			writer = new IndexWriter(searchIndex, config);
-			for (IndexEntry indexEntry : entries) {
-				Document doc = new Document();
-				doc.add(new TextField("title", indexEntry.getTitle(), Field.Store.YES));
-				doc.add(new TextField("magnetic", indexEntry.getMagneticLink(), Field.Store.YES));
-				doc.add(new IntField("id", indexEntry.getId(), Field.Store.YES));
-				writer.addDocument(doc);
-			}
-			writer.commit();
+			addIndexEntries(searchIndex, entries);
 		} catch (IOException e) {
 			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
-		} finally {
-			if (writer != null) {
-				try {
-					writer.close();
-				} catch (IOException e) {
-				}
-			}
 		}
 
 		searchRequest.incrementReceived();
@@ -1137,13 +1142,11 @@ public final class Search extends ComponentDefinition {
 	private ArrayList<IndexEntry> searchLocal(String query) throws ParseException, IOException {
 		IndexReader reader = null;
 		try {
-			Query q = new QueryParser(Version.LUCENE_42, "title", analyzer).parse(query);
 			reader = DirectoryReader.open(index);
 			IndexSearcher searcher = new IndexSearcher(reader);
-
-			int hitsPerPage = 10;
-			TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
-
+			TopScoreDocCollector collector = TopScoreDocCollector.create(
+					searchConfiguration.getHitsPerQuery(), true);
+			Query q = new TermQuery(new Term(IndexEntry.FILE_NAME, query));
 			searcher.search(q, collector);
 			ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
@@ -1151,8 +1154,7 @@ public final class Search extends ComponentDefinition {
 			for (int i = 0; i < hits.length; ++i) {
 				int docId = hits[i].doc;
 				Document d = searcher.doc(docId);
-				result.add(new IndexEntry(d.get("title"), d.get("magnetic"), Integer.valueOf(d
-						.get("id"))));
+				result.add(createIndexEntry(d));
 			}
 
 			return result;
@@ -1164,5 +1166,80 @@ public final class Search extends ComponentDefinition {
 				}
 			}
 		}
+	}
+
+	private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
+		Document doc = new Document();
+		doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
+		doc.add(new StringField(IndexEntry.URL, entry.getUrl(), Field.Store.YES));
+		doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
+		doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
+		doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
+		doc.add(new StringField(IndexEntry.HASH, entry.getHash(), Field.Store.YES));
+		doc.add(new StringField(IndexEntry.LEADER_ID, entry.getLeaderId(), Field.Store.YES));
+
+		if (entry.getFileSize() != 0) {
+			doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
+		}
+
+		if (entry.getUploaded() != null) {
+			doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(),
+					Field.Store.YES));
+		}
+
+		if (entry.getLanguage() != null) {
+			doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
+		}
+
+		writer.addDocument(doc);
+	}
+
+	private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
+		IndexWriter writer = new IndexWriter(index, config);
+		addIndexEntry(writer, entry);
+		writer.close();
+	}
+
+	private void addIndexEntries(Directory index, Collection<IndexEntry> entries)
+			throws IOException {
+		IndexWriter writer = null;
+		try {
+			writer = new IndexWriter(index, config);
+			for (IndexEntry entry : entries) {
+				addIndexEntry(writer, entry);
+			}
+			writer.commit();
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException e) {
+				}
+			}
+		}
+	}
+
+	private IndexEntry createIndexEntry(Document d) {
+		IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
+				d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+				Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+				d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), d.get(IndexEntry.LEADER_ID));
+
+		String value = d.get(IndexEntry.FILE_SIZE);
+		if (value != null) {
+			entry.setFileSize(Long.valueOf(value));
+		}
+
+		value = d.get(IndexEntry.LANGUAGE);
+		if (value != null) {
+			entry.setLanguage(value);
+		}
+
+		value = d.get(IndexEntry.UPLOADED);
+		if (value != null) {
+			entry.setUploaded(new Date(Long.valueOf(value)));
+		}
+
+		return entry;
 	}
 }

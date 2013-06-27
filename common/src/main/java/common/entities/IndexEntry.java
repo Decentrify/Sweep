@@ -1,112 +1,229 @@
 package common.entities;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * Representation of one entry in the search database.
  */
 public class IndexEntry implements Serializable {
-	private static final long serialVersionUID = 5710212524130900513L;
-	private String title;
-	private int id;
-	private String magneticLink;
+	private static final long serialVersionUID = -1043774025075199568L;
 
-	/**
-	 * Creates a new IndexEntry.
-	 */
-	public IndexEntry() {
-	}
+	public static final String ID = "id";
+	public static final String URL = "url";
+	public static final String FILE_NAME = "file_name";
+	public static final String FILE_SIZE = "file_size";
+	public static final String UPLOADED = "uploaded";
+	public static final String LANGUAGE = "language";
+	public static final String CATEGORY = "category";
+	public static final String DESCRIPTION = "description";
+	public static final String HASH = "hash";
+	public static final String LEADER_ID = "leader_id";
 
-	/**
-	 * Creates a new title with the given title.
-	 * 
-	 * @param title
-	 *            the text describing the content
-	 */
-	public IndexEntry(String title) {
-		super();
-		this.title = title;
-		this.magneticLink = "no magnetic link";
-	}
+	public static enum Category {
+		Video, Music, Books
+	};
 
-	/**
-	 * Creates a new title with the given title and magnetic link.
-	 * 
-	 * @param title
-	 *            the text describing the content
-	 * @param magneticLink
-	 *            the magnetic link of the index entry
-	 */
-	public IndexEntry(String title, String magneticLink) {
-		super();
-		this.title = title;
-		this.magneticLink = magneticLink;
-	}
+	private long id;
+	private String url;
+	private String fileName;
+	private long fileSize;
+	private Date uploaded;
+	private String language;
+	private Category category;
+	private String description;
+	private String hash;
+	private String leaderId;
 
-	/**
-	 * Creates a new title with the given title, magnetic link and id.
-	 * 
-	 * @param title
-	 *            the text describing the content
-	 * @param magneticLink
-	 *            the magnetic link of the index entry
-	 * @param id
-	 *            the internal id in the search index
-	 */
-	public IndexEntry(String title, String magneticLink, int id) {
-		super();
-		this.title = title;
-		this.magneticLink = magneticLink;
-		this.id = id;
-	}
-
-	/**
-	 * @param title
-	 *            the text describing the content
-	 */
-	public void setTitle(String title) {
-		this.title = title;
-	}
-
-	/**
-	 * @return the text describing the content
-	 */
-	public String getTitle() {
-		return title;
-	}
-
-	/**
-	 * @return the internal id in the search index
-	 */
-	public int getId() {
+	public long getId() {
 		return id;
 	}
 
-	/**
-	 * @param id
-	 *            the internal id in the search index
-	 */
-	public void setId(int id) {
-		this.id = id;
+	public void setId(long indexId) {
+		this.id = indexId;
 	}
 
-	/**
-	 * @return the magnetic link of the index entry
-	 */
-	public String getMagneticLink() {
-		return magneticLink;
+	public String getUrl() {
+		return url;
 	}
 
-	/**
-	 * @param magnet
-	 *            the magnetic link of the index entry
-	 */
-	public void setMagneticLink(String magnet) {
-		this.magneticLink = magnet;
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public String getFileName() {
+		return fileName;
+	}
+
+	public void setFileName(String fileName) {
+		this.fileName = fileName;
+	}
+
+	public long getFileSize() {
+		return fileSize;
+	}
+
+	public void setFileSize(long fileSize) {
+		this.fileSize = fileSize;
+	}
+
+	public Date getUploaded() {
+		return uploaded;
+	}
+
+	public void setUploaded(Date uploaded) {
+		this.uploaded = uploaded;
+	}
+
+	public String getLanguage() {
+		return language;
+	}
+
+	public void setLanguage(String language) {
+		this.language = language;
+	}
+
+	public Category getCategory() {
+		return category;
+	}
+
+	public void setCategory(Category category) {
+		this.category = category;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	public String getHash() {
+		return hash;
+	}
+
+	public void setHash(String hash) {
+		this.hash = hash;
+	}
+
+	public String getLeaderId() {
+		return leaderId;
+	}
+
+	public void setLeaderId(String leaderId) {
+		this.leaderId = leaderId;
 	}
 
 	@Override
 	public String toString() {
-		return "IndexEntry [title=" + title + ", id=" + id + ", magneticLink=" + magneticLink + "]";
+		return "IndexEntry [indexId=" + id + ", url=" + url + ", fileName=" + fileName
+				+ ", fileSize=" + fileSize + ", uploaded=" + uploaded + ", language=" + language
+				+ ", category=" + category + ", description=" + description + ", hash=" + hash
+				+ ", leaderId=" + leaderId + "]";
+	}
+
+	/**
+	 * 
+	 */
+	public IndexEntry() {
+
+	}
+
+	/**
+	 * @param url
+	 * @param fileName
+	 * @param category
+	 * @param description
+	 * @param hash
+	 */
+	public IndexEntry(String url, String fileName, Category category, String description,
+			String hash) {
+		super();
+		this.url = url;
+		this.fileName = fileName;
+		this.category = category;
+		this.description = description;
+		this.hash = hash;
+	}
+
+	/**
+	 * @param indexId
+	 * @param url
+	 * @param fileName
+	 * @param category
+	 * @param description
+	 * @param hash
+	 * @param leaderId
+	 */
+	public IndexEntry(long indexId, String url, String fileName, Category category,
+			String description, String hash, String leaderId) {
+		super();
+		this.id = indexId;
+		this.url = url;
+		this.fileName = fileName;
+		this.category = category;
+		this.description = description;
+		this.hash = hash;
+		this.leaderId = leaderId;
+	}
+
+	/**
+	 * @param url
+	 * @param fileName
+	 * @param fileSize
+	 * @param uploaded
+	 * @param language
+	 * @param category
+	 * @param description
+	 * @param hash
+	 */
+	public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language,
+			Category category, String description, String hash) {
+		this.url = url;
+		this.fileName = fileName;
+		this.fileSize = fileSize;
+		this.uploaded = uploaded;
+		this.language = language;
+		this.category = category;
+		this.description = description;
+		this.hash = hash;
+	}
+
+	/**
+	 * @param indexId
+	 * @param url
+	 * @param fileName
+	 * @param fileSize
+	 * @param uploaded
+	 * @param language
+	 * @param category
+	 * @param description
+	 * @param hash
+	 * @param leaderId
+	 */
+	public IndexEntry(long indexId, String url, String fileName, long fileSize, Date uploaded,
+			String language, Category category, String description, String hash, String leaderId) {
+		this.id = indexId;
+		this.url = url;
+		this.fileName = fileName;
+		this.fileSize = fileSize;
+		this.uploaded = uploaded;
+		this.language = language;
+		this.category = category;
+		this.description = description;
+		this.hash = hash;
+		this.leaderId = leaderId;
+	}
+
+	/**
+	 * Create a tombstone for the given indexId
+	 * 
+	 * @param indexId
+	 *            the id of the entry
+	 */
+	public IndexEntry(long indexId) {
+		this.id = indexId;
+		this.fileName = "";
 	}
 }
