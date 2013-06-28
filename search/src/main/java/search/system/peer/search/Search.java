@@ -1,5 +1,6 @@
 package search.system.peer.search;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +40,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
@@ -105,6 +107,11 @@ import cyclon.CyclonSamplePort;
  * in the routing tables for the partition of the local node.
  */
 public final class Search extends ComponentDefinition {
+	/**
+	 * Set to true to store the Lucene index on disk
+	 */
+	public static final boolean PERSISTENT_INDEX = false;
+
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
 	Positive<Network> networkPort = positive(Network.class);
 	Positive<Timer> timerPort = positive(Timer.class);
@@ -204,17 +211,6 @@ public final class Search extends ComponentDefinition {
 	Handler<SearchInit> handleInit = new Handler<SearchInit>() {
 		public void handle(SearchInit init) {
 			self = init.getSelf();
-
-			index = new RAMDirectory();
-			// TODO use this for persistence
-//			File file = new File("resources/index_" + self.getId());
-//			try {
-//				index = FSDirectory.open(file);
-//			} catch (IOException e1) {
-//				e1.printStackTrace();
-//				System.exit(-1);
-//			}
-
 			searchConfiguration = init.getConfiguration();
 			routingTable = new HashMap<Integer, TreeSet<PeerDescriptor>>(
 					searchConfiguration.getNumPartitions());
@@ -228,6 +224,29 @@ public final class Search extends ComponentDefinition {
 			gapTimeouts = new HashMap<Long, UUID>();
 			gapDetections = new HashMap<Long, Search.GapStatus>();
 
+			if (PERSISTENT_INDEX) {
+				File file = new File("resources/index_" + self.getId());
+				try {
+					index = FSDirectory.open(file);
+				} catch (IOException e1) {
+					// TODO proper exception handling
+					e1.printStackTrace();
+					System.exit(-1);
+				}
+
+				if (file.exists()) {
+					try {
+						initializeIndexCaches();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						System.exit(-1);
+					}
+				}
+			} else {
+				index = new RAMDirectory();
+			}
+
 			recentRequests = new HashMap<UUID, Long>();
 			// Garbage collect the data structure
 			SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
@@ -236,6 +255,7 @@ public final class Search extends ComponentDefinition {
 			rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst));
 			trigger(rst, timerPort);
 
+			// TODO check if still needed
 			// Can't open the index before committing a writer once
 			IndexWriter writer;
 			try {
@@ -244,9 +264,86 @@ public final class Search extends ComponentDefinition {
 				writer.close();
 			} catch (IOException e) {
 				e.printStackTrace();
+				System.exit(-1);
 			}
 		}
 	};
+
+	/**
+	 * Initialize the local index id cashing data structures from the persistent
+	 * file.
+	 * 
+	 * @throws IOException
+	 *             in case errors occur while reading the index
+	 */
+	private void initializeIndexCaches() throws IOException {
+		IndexReader reader = null;
+		IndexSearcher searcher = null;
+		try {
+			reader = DirectoryReader.open(index);
+			searcher = new IndexSearcher(reader);
+
+			boolean continuous = true;
+			// TODO check which limit performs well
+			int readLimit = 20000;
+			// Would not terminate in case it reaches the limit of long ;)
+			for (long i = 0;; i += readLimit) {
+				Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true,
+						false);
+				TopDocs topDocs = searcher.search(query, readLimit, new Sort(new SortField(
+						IndexEntry.ID, Type.LONG)));
+
+				if (topDocs.totalHits == 0) {
+					break;
+				}
+
+				ScoreDoc[] hits = topDocs.scoreDocs;
+				if (continuous) {
+					// Get all ids for the next entries
+					Long[] ids = new Long[hits.length];
+					for (int j = 0; j < hits.length; j++) {
+						ids[j] = Long.valueOf(searcher.doc(hits[j].doc).get(IndexEntry.ID));
+					}
+
+					// Check if there is a gap between the last missing value
+					// and the smallest newly given one
+					if (ids[0] != partition && oldestMissingIndexValue != ids[0]) {
+						continuous = false;
+						for (Long id : ids) {
+							existingEntries.add(id);
+						}
+					} else {
+						// Search for gaps between the given ids
+						for (int j = 0; j < ids.length; j++) {
+							oldestMissingIndexValue = ids[j]
+									+ searchConfiguration.getNumPartitions();
+							// If a gap was found add higher ids to the existing
+							// entries
+							if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
+								continuous = false;
+								for (int k = j + 1; k < ids.length; k++) {
+									existingEntries.add(ids[k]);
+								}
+								break;
+							}
+						}
+					}
+				} else {
+					for (int j = 0; j < hits.length; j++) {
+						existingEntries.add(Long.valueOf(searcher.doc(hits[j].doc).get(
+								IndexEntry.ID)));
+					}
+				}
+			}
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (IOException ex) {
+				}
+			}
+		}
+	}
 
 	/**
 	 * Parse the GET request of a web request and decide what to do.
@@ -420,7 +517,6 @@ public final class Search extends ComponentDefinition {
 				int i = routingTable.size();
 				do {
 					id = getCurrentInsertionId();
-
 					entryPartition = (int) (id % searchConfiguration.getNumPartitions());
 					bucket = routingTable.get(entryPartition);
 					i--;
@@ -1169,6 +1265,17 @@ public final class Search extends ComponentDefinition {
 		}
 	}
 
+	/**
+	 * Add the given {@link IndexEntry} to the Lucene index using the given
+	 * writer.
+	 * 
+	 * @param writer
+	 *            the writer used to add the {@link IndexEntry}
+	 * @param entry
+	 *            the {@link IndexEntry} to be added
+	 * @throws IOException
+	 *             in case the adding operation failed
+	 */
 	private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
 		Document doc = new Document();
 		doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
@@ -1195,12 +1302,33 @@ public final class Search extends ComponentDefinition {
 		writer.addDocument(doc);
 	}
 
+	/**
+	 * Add the given {@link IndexEntry} to the given Lucene directory
+	 * 
+	 * @param index
+	 *            the directory to which the given {@link IndexEntry} should be
+	 *            added
+	 * @param entry
+	 *            the {@link IndexEntry} to be added
+	 * @throws IOException
+	 *             in case the adding operation failed
+	 */
 	private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
 		IndexWriter writer = new IndexWriter(index, config);
 		addIndexEntry(writer, entry);
 		writer.close();
 	}
 
+	/**
+	 * Add the given {@link IndexEntry}s to the given Lucene directory
+	 * 
+	 * @param index
+	 *            the directory to which the given entries should be added
+	 * @param entries
+	 *            a collection of index entries to be added
+	 * @throws IOException
+	 *             in case the adding operation failed
+	 */
 	private void addIndexEntries(Directory index, Collection<IndexEntry> entries)
 			throws IOException {
 		IndexWriter writer = null;
@@ -1220,6 +1348,13 @@ public final class Search extends ComponentDefinition {
 		}
 	}
 
+	/**
+	 * Create an {@link IndexEntry} from the given document.
+	 * 
+	 * @param d
+	 *            the document to create an {@link IndexEntry} from
+	 * @return an {@link IndexEntry} representing the given document
+	 */
 	private IndexEntry createIndexEntry(Document d) {
 		IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
 				d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
