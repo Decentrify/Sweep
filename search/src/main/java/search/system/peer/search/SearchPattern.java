@@ -1,0 +1,176 @@
+package search.system.peer.search;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.NumericRangeQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+
+import common.entities.IndexEntry;
+import common.entities.IndexEntry.Category;
+
+/**
+ * Represents a pattern for searching an index entry in the Lucene index.
+ */
+public class SearchPattern implements Serializable {
+	private static final long serialVersionUID = -8499646226474655358L;
+
+	private final String fileNamePattern;
+	private final int minFileSize;
+	private final int maxFileSize;
+	private final Date minUploadDate;
+	private final Date maxUploadDate;
+	private final String language;
+	private final Category category;
+	private final String descriptionPattern;
+
+	/**
+	 * Creates a new search pattern. Fields can be set to null or 0 in case of
+	 * sizes to be ignored.
+	 * 
+	 * @param fileNamePattern
+	 *            a string with keywords to match the file name
+	 * @param minFileSize
+	 *            the minimum file size
+	 * @param maxFileSize
+	 *            the maximum file size
+	 * @param minUploadDate
+	 *            the minimum upload date
+	 * @param maxUploadDate
+	 *            the maximum upload date
+	 * @param language
+	 *            a string representing the language
+	 * @param category
+	 *            the category
+	 * @param descriptionPattern
+	 *            keywords to match the description text
+	 */
+	public SearchPattern(String fileNamePattern, int minFileSize, int maxFileSize,
+			Date minUploadDate, Date maxUploadDate, String language, Category category,
+			String descriptionPattern) {
+		this.fileNamePattern = fileNamePattern;
+		this.minFileSize = minFileSize;
+		this.maxFileSize = maxFileSize;
+		this.minUploadDate = minUploadDate;
+		this.maxUploadDate = maxUploadDate;
+		this.language = language;
+		this.category = category;
+		this.descriptionPattern = descriptionPattern;
+	}
+
+	/**
+	 * @return the file name pattern
+	 */
+	public String getFileNamePattern() {
+		return fileNamePattern;
+	}
+
+	/**
+	 * @return the minimum file size
+	 */
+	public int getMinFileSize() {
+		return minFileSize;
+	}
+
+	/**
+	 * @return the maximum file size
+	 */
+	public int getMaxFileSize() {
+		return maxFileSize;
+	}
+
+	/**
+	 * @return the minimum upload date
+	 */
+	public Date getMinUploadDate() {
+		return minUploadDate;
+	}
+
+	/**
+	 * @return the maximum upload date
+	 */
+	public Date getMaxUploadDate() {
+		return maxUploadDate;
+	}
+
+	/**
+	 * @return the language
+	 */
+	public String getLanguage() {
+		return language;
+	}
+
+	/**
+	 * @return the category
+	 */
+	public Category getCategory() {
+		return category;
+	}
+
+	/**
+	 * @return the description pattern
+	 */
+	public String getDescriptionPattern() {
+		return descriptionPattern;
+	}
+
+	/**
+	 * Create a query from the search pattern.
+	 * 
+	 * @return the query created from the search pattern
+	 */
+	public Query getQuery() {
+		BooleanQuery booleanQuery = new BooleanQuery();
+
+		if (fileNamePattern != null) {
+			Query query = new TermQuery(new Term(IndexEntry.FILE_NAME, fileNamePattern));
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		if (minFileSize >= 0 && maxFileSize > 0) {
+			Query query = NumericRangeQuery.newIntRange(IndexEntry.FILE_SIZE, minFileSize,
+					maxFileSize, true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		} else if (minFileSize > 0 && maxFileSize == 0) {
+			Query query = NumericRangeQuery.newIntRange(IndexEntry.FILE_SIZE, minFileSize,
+					Integer.MAX_VALUE, true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		if (minUploadDate != null && maxUploadDate != null) {
+			Query query = NumericRangeQuery.newLongRange(IndexEntry.UPLOADED,
+					minUploadDate.getTime(), maxUploadDate.getTime(), true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		} else if (minUploadDate != null) {
+			Query query = NumericRangeQuery.newLongRange(IndexEntry.UPLOADED,
+					minUploadDate.getTime(), Long.MAX_VALUE, true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		} else if (maxUploadDate != null) {
+			Query query = NumericRangeQuery.newLongRange(IndexEntry.UPLOADED, 0l,
+					maxUploadDate.getTime(), true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		if (language != null) {
+			Query query = new TermQuery(new Term(IndexEntry.LANGUAGE, language));
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		if (category != null) {
+			Query query = NumericRangeQuery.newIntRange(IndexEntry.CATEGORY, category.ordinal(),
+					category.ordinal(), true, true);
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		if (descriptionPattern != null) {
+			Query query = new TermQuery(new Term(IndexEntry.DESCRIPTION, descriptionPattern));
+			booleanQuery.add(query, BooleanClause.Occur.MUST);
+		}
+
+		return booleanQuery;
+	}
+}

@@ -9,7 +9,7 @@ import se.sics.kompics.web.WebRequest;
  */
 public class LocalSearchRequest {
 	private final WebRequest webRequest;
-	private final String query;
+	private final SearchPattern pattern;
 	private final UUID searchId;
 	private int nodesQueried;
 	private int nodesAnswered;
@@ -20,13 +20,13 @@ public class LocalSearchRequest {
 	 * 
 	 * @param webRequest
 	 *            the {@link WebRequest} of the issuing client
-	 * @param query
-	 *            the query string of the search
+	 * @param pattern
+	 *            the pattern of the search
 	 */
-	public LocalSearchRequest(WebRequest webRequest, String query) {
+	public LocalSearchRequest(WebRequest webRequest, SearchPattern pattern) {
 		super();
 		this.webRequest = webRequest;
-		this.query = query;
+		this.pattern = pattern;
 		// Create a unique id for each request
 		this.searchId = UUID.randomUUID();
 	}
@@ -39,10 +39,10 @@ public class LocalSearchRequest {
 	}
 
 	/**
-	 * @return the query string of the search
+	 * @return the pattern of the search
 	 */
-	public String getQuery() {
-		return query;
+	public SearchPattern getSearchPattern() {
+		return pattern;
 	}
 
 	/**

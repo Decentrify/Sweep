@@ -27,8 +27,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
@@ -36,7 +34,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
-import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
@@ -353,9 +350,10 @@ public final class Search extends ComponentDefinition {
 			String[] args = event.getTarget().split("-");
 			logger.debug("Handling Webpage Request");
 			if (args[0].compareToIgnoreCase("search") == 0 && args.length == 2) {
-				startSearch(event, args[1]);
+				// TODO UI to query all fields
+				startSearch(event, new SearchPattern(args[1], 0, 0, null, null, null, null, null));
 			} else if (args[0].compareToIgnoreCase("add") == 0 && args.length == 3) {
-				// TODO interface to add all values
+				// TODO UI to add all values
 				IndexEntry index = new IndexEntry("", "", Category.Books, "", "");
 				index.setFileName(args[1]);
 				index.setUrl(args[2]);
@@ -633,12 +631,9 @@ public final class Search extends ComponentDefinition {
 		@Override
 		public void handle(SearchRequest event) {
 			try {
-				ArrayList<IndexEntry> result = searchLocal(event.getQuery());
+				ArrayList<IndexEntry> result = searchLocal(event.getSearchPattern());
 				trigger(new SearchResponse(self, event.getSource(), event.getRequestId(), result),
 						networkPort);
-			} catch (ParseException ex) {
-				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
-						ex);
 			} catch (IOException ex) {
 				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
 						ex);
@@ -911,16 +906,16 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * Send a search request for a given query to one node in each partition
-	 * except the local partition.
+	 * Send a search request for a given search pattern to one node in each
+	 * partition except the local partition.
 	 * 
 	 * @param event
 	 *            the web event of the client that issued the search
-	 * @param query
-	 *            the query string
+	 * @param pattern
+	 *            the search pattern
 	 */
-	private void startSearch(WebRequest event, String query) {
-		searchRequest = new LocalSearchRequest(event, query);
+	private void startSearch(WebRequest event, SearchPattern pattern) {
+		searchRequest = new LocalSearchRequest(event, pattern);
 		searchIndex = new RAMDirectory();
 
 		// Can't open the index before committing a writer once
@@ -943,7 +938,7 @@ public final class Search extends ComponentDefinition {
 
 			int n = random.nextInt(bucket.size());
 			trigger(new SearchRequest(self, ((PeerDescriptor) bucket.toArray()[n]).getAddress(),
-					searchRequest.getSearchId(), query), networkPort);
+					searchRequest.getSearchId(), pattern), networkPort);
 			searchRequest.incrementNodesQueried();
 			i++;
 		}
@@ -955,11 +950,9 @@ public final class Search extends ComponentDefinition {
 
 		// Add result form local partition
 		try {
-			ArrayList<IndexEntry> result = searchLocal(query);
+			ArrayList<IndexEntry> result = searchLocal(pattern);
 			searchRequest.incrementNodesQueried();
 			addSearchResponse(result);
-		} catch (ParseException e) {
-			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
 		} catch (IOException e) {
 			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
 		}
@@ -982,10 +975,7 @@ public final class Search extends ComponentDefinition {
 		sb.append("ID2210 (Decentralized Search for Piratebay)</h2><br>");
 		sb.append("<table>");
 		try {
-			query(sb, searchRequest.getQuery());
-		} catch (ParseException ex) {
-			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
-			sb.append(ex.getMessage());
+			search(sb, searchRequest.getSearchPattern());
 		} catch (IOException ex) {
 			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
 			sb.append(ex.getMessage());
@@ -1079,22 +1069,19 @@ public final class Search extends ComponentDefinition {
 
 	/**
 	 * Query the Lucene index storing search request answers from different
-	 * partition with the original query to get the best results of all
+	 * partition with the original search pattern to get the best results of all
 	 * partitions.
 	 * 
 	 * @param sb
 	 *            the string builder used to append the results
-	 * @param query
-	 *            the original query sent by the client
+	 * @param pattern
+	 *            the original search pattern sent by the client
 	 * @return the string builder handed as a parameter which includes the
 	 *         results
-	 * @throws ParseException
-	 *             if the query could not be parsed by Lucene
 	 * @throws IOException
 	 *             In case IOExceptions occurred in Lucene
 	 */
-	private String query(StringBuilder sb, String query) throws ParseException, IOException {
-		Query q = new TermQuery(new Term(IndexEntry.FILE_NAME, query));
+	private String search(StringBuilder sb, SearchPattern pattern) throws IOException {
 		IndexSearcher searcher = null;
 		IndexReader reader = null;
 		try {
@@ -1107,7 +1094,7 @@ public final class Search extends ComponentDefinition {
 
 		TopScoreDocCollector collector = TopScoreDocCollector.create(
 				searchConfiguration.getHitsPerQuery(), true);
-		searcher.search(q, collector);
+		searcher.search(pattern.getQuery(), collector);
 		ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
 		// display results
@@ -1147,9 +1134,9 @@ public final class Search extends ComponentDefinition {
 			reader = DirectoryReader.open(index);
 			IndexSearcher searcher = new IndexSearcher(reader);
 
-			Query query = NumericRangeQuery.newLongRange("id", min, max, true, true);
-			TopDocs topDocs = searcher.search(query, limit,
-					new Sort(new SortField("id", Type.LONG)));
+			Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
+			TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
+					Type.LONG)));
 			ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
 			for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
 				Document d = searcher.doc(scoreDoc.doc);
@@ -1231,20 +1218,17 @@ public final class Search extends ComponentDefinition {
 	 * @param query
 	 *            the query string
 	 * @return a list of matching entries
-	 * @throws ParseException
-	 *             if Lucene errors occur
 	 * @throws IOException
 	 *             if Lucene errors occur
 	 */
-	private ArrayList<IndexEntry> searchLocal(String query) throws ParseException, IOException {
+	private ArrayList<IndexEntry> searchLocal(SearchPattern pattern) throws IOException {
 		IndexReader reader = null;
 		try {
 			reader = DirectoryReader.open(index);
 			IndexSearcher searcher = new IndexSearcher(reader);
 			TopScoreDocCollector collector = TopScoreDocCollector.create(
 					searchConfiguration.getHitsPerQuery(), true);
-			Query q = new TermQuery(new Term(IndexEntry.FILE_NAME, query));
-			searcher.search(q, collector);
+			searcher.search(pattern.getQuery(), collector);
 			ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
 			ArrayList<IndexEntry> result = new ArrayList<IndexEntry>();

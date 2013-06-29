@@ -37,11 +37,11 @@ public abstract class SearchMessage extends Message {
 
 	/**
 	 * Search request sent to other nodes to request their entries that match
-	 * the given query string.
+	 * the given search pattern.
 	 */
 	public static class SearchRequest extends SearchMessage {
 		private static final long serialVersionUID = 7206588576049792634L;
-		private final String query;
+		private final SearchPattern pattern;
 
 		/**
 		 * @param source
@@ -50,19 +50,20 @@ public abstract class SearchMessage extends Message {
 		 *            the destination of the message
 		 * @param uuid
 		 *            the unique request id
-		 * @param query
-		 *            the query string
+		 * @param pattern
+		 *            the search pattern
 		 */
-		public SearchRequest(Address source, Address destination, UUID requestId, String query) {
+		public SearchRequest(Address source, Address destination, UUID requestId,
+				SearchPattern pattern) {
 			super(source, destination, requestId);
-			this.query = query;
+			this.pattern = pattern;
 		}
 
 		/**
-		 * @return the unique request id
+		 * @return the search pattern
 		 */
-		public String getQuery() {
-			return query;
+		public SearchPattern getSearchPattern() {
+			return pattern;
 		}
 	}
 
