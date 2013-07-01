@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package se.sics.peersearch.msgs;
+package se.sics.peersearch.messages;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,13 +15,13 @@ import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.peersearch.net.PsMsgFrameDecoder;
+import se.sics.peersearch.net.MessageFrameDecoder;
 
 /**
  *
  * @author jdowling
  */
-public class SearchMsg {
+public class SearchMessage {
 
     public static class IllegalSearchString extends Exception {
 
@@ -58,13 +58,13 @@ public class SearchMsg {
 
         @Override
         public RewriteableMsg copy() {
-             SearchMsg.Request r = null;
+             SearchMessage.Request r = null;
             try {
-                r = new SearchMsg.Request(vodSrc, vodDest, timeoutId, query);
+                r = new SearchMessage.Request(vodSrc, vodDest, timeoutId, query);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
-                Logger.getLogger(SearchMsg.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(SearchMessage.class.getName()).log(Level.SEVERE, null, ex);
             }
              return r;
         }
@@ -78,7 +78,7 @@ public class SearchMsg {
 
         @Override
         public byte getOpcode() {
-            return PsMsgFrameDecoder.SEARCH_REQUEST;
+            return MessageFrameDecoder.SEARCH_REQUEST;
         }
     }
 
@@ -128,12 +128,12 @@ public class SearchMsg {
         @Override
         public RewriteableMsg copy() {
             try {
-                return new SearchMsg.Response(vodSrc, vodDest, timeoutId,            
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId,
                         numResponses, responseNumber, results);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
-                Logger.getLogger(SearchMsg.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(SearchMessage.class.getName()).log(Level.SEVERE, null, ex);
             }
             // shouldn't get here.
             return null;
@@ -150,7 +150,7 @@ public class SearchMsg {
 
         @Override
         public byte getOpcode() {
-            return PsMsgFrameDecoder.SEARCH_RESPONSE;
+            return MessageFrameDecoder.SEARCH_RESPONSE;
 
         }
     }

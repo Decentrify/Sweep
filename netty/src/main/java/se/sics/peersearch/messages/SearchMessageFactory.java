@@ -1,4 +1,4 @@
-package se.sics.peersearch.msgs;
+package se.sics.peersearch.messages;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -7,28 +7,29 @@ import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.peersearch.messages.SearchMessage;
 
-public class SearchMsgFactory  {
+public class SearchMessageFactory  {
 
     public static class Request extends DirectMsgNettyFactory {
 
         private Request() {
         }
 
-        public static SearchMsg.Request fromBuffer(ChannelBuffer buffer) 
+        public static SearchMessage.Request fromBuffer(ChannelBuffer buffer)
                 throws MessageDecodingException {
-            return (SearchMsg.Request)
-                    new SearchMsgFactory.Request().decode(buffer, true);
+            return (SearchMessage.Request)
+                    new SearchMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected SearchMsg.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
             String query = UserTypesDecoderFactory.readStringLength256(buffer);
             try {
-                return new SearchMsg.Request(vodSrc, vodDest,
+                return new SearchMessage.Request(vodSrc, vodDest,
                         timeoutId, query);
-            } catch (SearchMsg.IllegalSearchString ex) {
-                Logger.getLogger(SearchMsgFactory.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (SearchMessage.IllegalSearchString ex) {
+                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
         }
@@ -40,10 +41,10 @@ public class SearchMsgFactory  {
         private Response() {
         }
 
-        public static SearchMsg.Response fromBuffer(ChannelBuffer buffer)
+        public static SearchMessage.Response fromBuffer(ChannelBuffer buffer)
                 throws MessageDecodingException {
-            return (SearchMsg.Response)
-                    new SearchMsgFactory.Response().decode(buffer, true);
+            return (SearchMessage.Response)
+                    new SearchMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
@@ -52,9 +53,9 @@ public class SearchMsgFactory  {
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             String results = UserTypesDecoderFactory.readStringLength65536(buffer);
             try {
-                return new SearchMsg.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
-            } catch (SearchMsg.IllegalSearchString ex) {
-                Logger.getLogger(SearchMsgFactory.class.getName()).log(Level.SEVERE, null, ex);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
+            } catch (SearchMessage.IllegalSearchString ex) {
+                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
         }

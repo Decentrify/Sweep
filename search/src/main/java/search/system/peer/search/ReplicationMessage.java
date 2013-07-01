@@ -5,7 +5,7 @@ import java.util.UUID;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 
-import common.entities.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry;
 
 /**
  * Superclass for messages used by the leader to store new entries on nodes.

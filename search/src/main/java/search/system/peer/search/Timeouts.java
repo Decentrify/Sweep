@@ -12,7 +12,7 @@ import search.system.peer.search.SearchMessage.SearchRequest;
 import tman.system.peer.tman.GapDetectionMessage.GapDetectionResponse;
 import tman.system.peer.tman.LeaderRequest.AddIndexEntry;
 
-import common.entities.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry;
 
 /**
  * Class that groups all timeouts used for by the {@link Search} class.
