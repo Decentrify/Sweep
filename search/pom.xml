@@ -24,6 +24,11 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>se.sics.nat-traverser</groupId>
+			<artifactId>nat-traverser</artifactId>
+			<version>${nattraverser.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.lucene</groupId>
 			<artifactId>lucene-memory</artifactId>
 			<version>4.2.0</version>

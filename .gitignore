@@ -50,3 +50,5 @@ pocs
 #ignore IntelliJ IDEA files
 .idea
 *.iml
+/election/target/
+/netty/target/
