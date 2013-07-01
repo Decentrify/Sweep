@@ -6,7 +6,7 @@ import java.util.UUID;
 import se.sics.kompics.Event;
 import se.sics.kompics.address.Address;
 
-import common.entities.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry;
 
 /**
  * Superclass for requests sent to the leader.

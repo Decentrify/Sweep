@@ -12,8 +12,8 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
+import se.sics.peersearch.data.types.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry.Category;
 
 /**
  * Parser for an xml string describing a magnetic link. Some xml files entries

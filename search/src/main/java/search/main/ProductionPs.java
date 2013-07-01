@@ -32,9 +32,8 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
-import se.sics.peersearch.net.PsMsgFrameDecoder;
+import se.sics.peersearch.net.MessageFrameDecoder;
 import search.system.peer.SearchPeer;
-import search.system.peer.SearchPeerInit;
 
 public class ProductionPs extends ComponentDefinition {
     private static final Logger logger = LoggerFactory.getLogger(ProductionPs.class);
@@ -82,7 +81,7 @@ public class ProductionPs extends ComponentDefinition {
             InetAddress localIp = event.getIpAddress();
             Address myAddr = new Address(localIp, VodConfig.getPort(), 1);
             NettyInit nInit = new NettyInit(myAddr, true, VodConfig.getSeed(),
-                    PsMsgFrameDecoder.class);
+                    MessageFrameDecoder.class);
             trigger(nInit, network.getControl());
             
             self = new SelfImpl(ToVodAddr.systemAddr(myAddr));

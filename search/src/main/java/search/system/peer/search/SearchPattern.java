@@ -10,8 +10,8 @@ import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
+import se.sics.peersearch.data.types.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry.Category;
 
 /**
  * Represents a pattern for searching an index entry in the Lucene index.

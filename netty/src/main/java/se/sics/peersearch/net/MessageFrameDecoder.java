@@ -10,7 +10,8 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.peersearch.msgs.SearchMsgFactory;
+import se.sics.peersearch.messages.AddIndexEntryMessageFactory;
+import se.sics.peersearch.messages.SearchMessageFactory;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 
@@ -18,21 +19,23 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
  *
  * @author jdowling
  */
-public class PsMsgFrameDecoder extends BaseMsgFrameDecoder {
+public class MessageFrameDecoder extends BaseMsgFrameDecoder {
 
-    private static final Logger logger = LoggerFactory.getLogger(PsMsgFrameDecoder.class);
+    private static final Logger logger = LoggerFactory.getLogger(MessageFrameDecoder.class);
     // PEERSEARCH MESSAGES
     public static final byte SEARCH_REQUEST                = 0x60;
-    public static final byte SEARCH_RESPONSE               = 0x62;
+    public static final byte SEARCH_RESPONSE               = 0x61;
+    public static final byte ADD_ENTRY_REQUEST             = 0x62;
+    public static final byte ADD_ENTRY_RESPONSE            = 0x63;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
-    public PsMsgFrameDecoder() {
+    public MessageFrameDecoder() {
         super();
     }
 
     /**
      * Subclasses should call super() on their first line, and if a msg is
-     * returned, then return, else test msgs in this class.
+     * returned, then return, else test messages in this class.
      *
      * @param ctx
      * @param channel
@@ -52,9 +55,13 @@ public class PsMsgFrameDecoder extends BaseMsgFrameDecoder {
         }
         switch (opKod) {
             case SEARCH_REQUEST:
-                return SearchMsgFactory.Request.fromBuffer(buffer);
+                return SearchMessageFactory.Request.fromBuffer(buffer);
             case SEARCH_RESPONSE:
-                return SearchMsgFactory.Response.fromBuffer(buffer);
+                return SearchMessageFactory.Response.fromBuffer(buffer);
+            case ADD_ENTRY_REQUEST:
+                return AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
+            case ADD_ENTRY_RESPONSE:
+                return AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }

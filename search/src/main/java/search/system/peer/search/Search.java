@@ -84,8 +84,8 @@ import tman.system.peer.tman.RoutedEventsPort;
 import tman.system.peer.tman.TMan;
 
 import common.configuration.SearchConfiguration;
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
+import se.sics.peersearch.data.types.IndexEntry;
+import se.sics.peersearch.data.types.IndexEntry.Category;
 import common.peer.PeerDescriptor;
 import common.snapshot.Snapshot;
 
