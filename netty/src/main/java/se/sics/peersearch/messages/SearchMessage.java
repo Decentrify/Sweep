@@ -15,8 +15,11 @@ import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  *
@@ -24,13 +27,14 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  */
 public class SearchMessage {
     public static class Request extends VodMsgNetty {
-        
+        private final UUID requestId;
         private final String query;
 
-        public Request(VodAddress source, VodAddress destination, 
-                TimeoutId timeoutId, String query) throws IllegalSearchString
+        public Request(VodAddress source, VodAddress destination,
+                       TimeoutId timeoutId, UUID requestId, String query) throws IllegalSearchString
         {
             super(source, destination, timeoutId);
+            this.requestId = requestId;
             if (query.length() > 255) {
                 throw new IllegalSearchString("Search string is too long. Max length is 255 chars.");
             }
@@ -39,6 +43,10 @@ public class SearchMessage {
 
         public String getQuery() {
             return query;
+        }
+
+        public UUID getRequestId() {
+            return requestId;
         }
 
         @Override
@@ -52,7 +60,7 @@ public class SearchMessage {
         public RewriteableMsg copy() {
              SearchMessage.Request r = null;
             try {
-                r = new SearchMessage.Request(vodSrc, vodDest, timeoutId, query);
+                r = new SearchMessage.Request(vodSrc, vodDest, timeoutId, requestId, query);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
@@ -64,6 +72,7 @@ public class SearchMessage {
         @Override
         public ChannelBuffer toByteArray() throws MessageEncodingException {
             ChannelBuffer buffer = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeStringLength256(buffer, query);
             return buffer;
         }
@@ -77,27 +86,26 @@ public class SearchMessage {
     public static class Response extends VodMsgNetty {
         
         public static final int MAX_RESULTS_STR_LEN = 1400;
-        
-        private final String results;
+
+        private final UUID requestId;
+        private final IndexEntry[] results;
         private final int numResponses;
         private final int responseNumber;
         
         public Response(VodAddress source,
-                VodAddress destination, TimeoutId timeoutId, 
-                int numResponses, int responseNumber,
-                String results) throws IllegalSearchString
+                        VodAddress destination, TimeoutId timeoutId,
+                        UUID requestId, int numResponses, int responseNumber,
+                        IndexEntry[] results) throws IllegalSearchString
         {
             super(source, destination, timeoutId);
-            if (results.length() > MAX_RESULTS_STR_LEN ) {
-                throw new IllegalSearchString(("Size of results string is too large. It was " 
-                        + results.length() + " Max size allowed is: " + MAX_RESULTS_STR_LEN));
-            }
+            this.requestId = requestId;
+
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
             this.results = results;
         }
 
-        public String getResults() {
+        public IndexEntry[] getResults() {
             return results;
         }
 
@@ -108,7 +116,11 @@ public class SearchMessage {
         public int getNumResponses() {
             return numResponses;
         }
-        
+
+        public UUID getRequestId() {
+            return requestId;
+        }
+
         @Override
         public int getSize() {
             return getHeaderSize()
@@ -121,7 +133,7 @@ public class SearchMessage {
         public RewriteableMsg copy() {
             try {
                 return new SearchMessage.Response(vodSrc, vodDest, timeoutId,
-                        numResponses, responseNumber, results);
+                        requestId, numResponses, responseNumber, results);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
@@ -134,9 +146,10 @@ public class SearchMessage {
         @Override
         public ChannelBuffer toByteArray() throws MessageEncodingException {
             ChannelBuffer buffer = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
-            UserTypesEncoderFactory.writeStringLength65536(buffer, results);
+            ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, results);
             return buffer;
         }
 

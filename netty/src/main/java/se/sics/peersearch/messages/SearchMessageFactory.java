@@ -7,7 +7,10 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.net.msgs.VodMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
+import se.sics.peersearch.types.IndexEntry;
 
 public class SearchMessageFactory {
 
@@ -24,10 +27,11 @@ public class SearchMessageFactory {
 
         @Override
         protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             String query = UserTypesDecoderFactory.readStringLength256(buffer);
             try {
                 return new SearchMessage.Request(vodSrc, vodDest,
-                        timeoutId, query);
+                        timeoutId, requestId, query);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -49,11 +53,12 @@ public class SearchMessageFactory {
 
         @Override
         protected VodMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            String results = UserTypesDecoderFactory.readStringLength65536(buffer);
+            IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, requestId, numResponses, responseNum, results);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }

@@ -6,6 +6,7 @@ package se.sics.peersearch.net;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 
@@ -31,5 +32,32 @@ public class ApplicationTypesDecoderFactory {
         String leaderId = UserTypesDecoderFactory.readStringLength256(buffer);
 
         return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, leaderId);
+    }
+
+    public static IndexEntry[] readIndexEntryArray(ChannelBuffer buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        IndexEntry[] items = new IndexEntry[len];
+        for (int i = 0; i < len; i++) {
+            items[i] = readIndexEntry(buffer);
+        }
+        return items;
+    }
+
+    public static Long[] readLongArray(ChannelBuffer buffer) {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        Long[] items = new Long[len];
+        for (int i = 0; i < len; i++) {
+            items[i] = buffer.readLong();
+        }
+        return items;
+    }
+
+    public static VodAddress[] readVodAddressArray(ChannelBuffer buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        VodAddress[] items = new VodAddress[len];
+        for (int i = 0; i < len; i++) {
+            items[i] = UserTypesDecoderFactory.readVodAddress(buffer);
+        }
+        return items;
     }
 }
