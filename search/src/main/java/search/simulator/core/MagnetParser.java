@@ -22,7 +22,7 @@ import se.sics.peersearch.types.IndexEntry;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-	private IndexEntry entry = new IndexEntry("", "", 123, new Date(), "", IndexEntry.Category.Books, "", "");
+    private IndexEntry entry = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.
@@ -56,18 +56,18 @@ public class MagnetParser {
 		 * 
 		 * @see org.xml.sax.helpers.DefaultHandler#characters(char[], int, int)
 		 */
-//		@Override
-//		public void characters(char[] ch, int start, int length) throws SAXException {
-//			if (title) {
-//				entry.setFileName((new String(ch, start, length)));
-//				title = false;
-//			}
-//
-//			if (magnet) {
-//				entry.setUrl(new String(ch, start, length));
-//				magnet = false;
-//			}
-//		}
+		@Override
+		public void characters(char[] ch, int start, int length) throws SAXException {
+			if (title) {
+				entry.setFileName((new String(ch, start, length)));
+				title = false;
+			}
+
+			if (magnet) {
+				entry.setUrl(new String(ch, start, length));
+				magnet = false;
+			}
+		}
 	};
 
 	/**

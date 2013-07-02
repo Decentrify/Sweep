@@ -354,7 +354,11 @@ public final class Search extends ComponentDefinition {
 			} else if (args[0].compareToIgnoreCase("add") == 0 && args.length == 3) {
 				// TODO UI to add all values
 
-                IndexEntry index = new IndexEntry(args[2], args[1], 123, new Date(), "", IndexEntry.Category.Books, "", "");
+                IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+                index.setFileName(args[1]);
+                index.setUrl(args[2]);
+                index.setLeaderId("");
+
 				addEntryGlobal(index, event);
 			} else {
 				trigger(new WebResponse("Invalid request", event, 1, 1), webPort);
@@ -1334,9 +1338,8 @@ public final class Search extends ComponentDefinition {
 	 */
 	private IndexEntry createIndexEntry(Document d) {
 		IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
-				d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME), Long.valueOf(d.get(IndexEntry.FILE_SIZE)),
-                new Date(d.get(IndexEntry.UPLOADED)), d.get(IndexEntry.LANGUAGE),
-				IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
 				d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), d.get(IndexEntry.LEADER_ID));
 
 		return entry;

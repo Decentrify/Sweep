@@ -25,14 +25,14 @@ public class IndexEntry implements Serializable {
 	};
 
 	private Long id;
-	private final String url;
-	private final String fileName;
-	private final long fileSize;
-	private final Date uploaded;
-	private final String language;
-	private final Category category;
-	private final String description;
-	private final String hash;
+	private String url;
+	private String fileName;
+	private long fileSize;
+	private Date uploaded;
+	private String language;
+	private Category category;
+	private String description;
+	private String hash;
 	private String leaderId;
 
 	public Long getId() {
@@ -82,6 +82,39 @@ public class IndexEntry implements Serializable {
 	public void setLeaderId(String leaderId) {
 		this.leaderId = leaderId;
 	}
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public void setFileSize(long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public void setUploaded(Date uploaded) {
+        this.uploaded = uploaded;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setHash(String hash) {
+        this.hash = hash;
+    }
+
 
 	@Override
 	public String toString() {
@@ -148,15 +181,45 @@ public class IndexEntry implements Serializable {
      */
     public IndexEntry(long id) {
         this.id = id;
+        this.fileName = "";
+    }
 
-        url = null;
-        fileName = null;
-        fileSize = 0;
-        uploaded = null;
-        language = null;
-        category = null;
-        description = null;
-        hash = null;
+    /**
+     * @param url
+     * @param fileName
+     * @param category
+     * @param description
+     * @param hash
+     */
+    public IndexEntry(String url, String fileName, Category category, String description,
+                      String hash) {
+        super();
+        this.url = url;
+        this.fileName = fileName;
+        this.category = category;
+        this.description = description;
+        this.hash = hash;
+    }
+
+    /**
+     * @param indexId
+     * @param url
+     * @param fileName
+     * @param category
+     * @param description
+     * @param hash
+     * @param leaderId
+     */
+    public IndexEntry(long indexId, String url, String fileName, Category category,
+                      String description, String hash, String leaderId) {
+        super();
+        this.id = indexId;
+        this.url = url;
+        this.fileName = fileName;
+        this.category = category;
+        this.description = description;
+        this.hash = hash;
+        this.leaderId = leaderId;
     }
 
 
