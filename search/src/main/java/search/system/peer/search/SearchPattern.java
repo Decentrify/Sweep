@@ -10,8 +10,7 @@ import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 
-import se.sics.peersearch.data.types.IndexEntry;
-import se.sics.peersearch.data.types.IndexEntry.Category;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Represents a pattern for searching an index entry in the Lucene index.
@@ -25,7 +24,7 @@ public class SearchPattern implements Serializable {
 	private final Date minUploadDate;
 	private final Date maxUploadDate;
 	private final String language;
-	private final Category category;
+	private final IndexEntry.Category category;
 	private final String descriptionPattern;
 
 	/**
@@ -50,7 +49,7 @@ public class SearchPattern implements Serializable {
 	 *            keywords to match the description text
 	 */
 	public SearchPattern(String fileNamePattern, int minFileSize, int maxFileSize,
-			Date minUploadDate, Date maxUploadDate, String language, Category category,
+			Date minUploadDate, Date maxUploadDate, String language, IndexEntry.Category category,
 			String descriptionPattern) {
 		this.fileNamePattern = fileNamePattern;
 		this.minFileSize = minFileSize;
@@ -107,7 +106,7 @@ public class SearchPattern implements Serializable {
 	/**
 	 * @return the category
 	 */
-	public Category getCategory() {
+	public IndexEntry.Category getCategory() {
 		return category;
 	}
 

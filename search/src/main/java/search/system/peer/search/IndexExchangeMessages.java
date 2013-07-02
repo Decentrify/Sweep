@@ -4,8 +4,8 @@ import java.util.List;
 
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
+import se.sics.peersearch.types.IndexEntry;
 
-import se.sics.peersearch.data.types.IndexEntry;
 
 /**
  * Messages used to exchanges indexes between peers.

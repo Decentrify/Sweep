@@ -33,6 +33,8 @@ import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.AddIndexEntryMessageFactory;
 import se.sics.peersearch.messages.SearchMessage;
 import se.sics.peersearch.messages.SearchMessageFactory;
+import se.sics.peersearch.messages.*;
+import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
@@ -239,6 +241,66 @@ public class EncodingDecodingTest {
             assert (response.getEntry().getLeaderId().equals(leaderId));
             assert (entryId.equals(response.getEntry().getId()));
             assert (response.getEntry().getCategory() == IndexEntry.Category.Music);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void ReplicationRequest() {
+        TimeoutId id = UUID.nextUUID();
+        int numResponses = 5, responseNum = 1;
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), (UUID) id, entry, numResponses, responseNum);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            ReplicationMessage.Request request =
+                    ReplicationMessageFactory.Request.fromBuffer(buffer);
+            assert (id.equals(request.getId()));
+            assert (request.getNumResponses() == numResponses);
+            assert (request.getResponseNumber() == responseNum);
+            assert (request.getIndexEntry().getUrl().equals(url));
+            assert (request.getIndexEntry().getFileName().equals(fileName));
+            assert (request.getIndexEntry().getFileSize() == size);
+            assert (request.getIndexEntry().getUploaded().equals(time));
+            assert (request.getIndexEntry().getLanguage().equals(language));
+            assert (request.getIndexEntry().getDescription().equals(description));
+            assert (request.getIndexEntry().getHash().equals(hash));
+            assert (request.getIndexEntry().getCategory() == IndexEntry.Category.Music);
+            assert (request.getIndexEntry().getId().equals(Long.MIN_VALUE));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void ReplicationResponse() {
+        TimeoutId id = UUID.nextUUID();
+        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID(), (UUID) id);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            ReplicationMessage.Response request =
+                    ReplicationMessageFactory.Response.fromBuffer(buffer);
+            assert (id.equals(request.getId()));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
