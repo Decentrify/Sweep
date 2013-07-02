@@ -3,7 +3,7 @@ package search.system.peer;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
-import se.sics.peersearch.data.types.IndexEntry;
+import se.sics.peersearch.types.IndexEntry;
 
 public class IndexPort extends PortType {
 	{

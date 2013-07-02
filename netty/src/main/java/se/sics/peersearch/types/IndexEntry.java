@@ -113,6 +113,7 @@ public class IndexEntry implements Serializable {
         this.hash = hash;
 
         this.id = Long.MIN_VALUE;
+        this.leaderId = null;
     }
 
     /**

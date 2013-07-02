@@ -5,14 +5,13 @@ import java.util.UUID;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
+import se.sics.peersearch.types.IndexEntry;
 import search.system.peer.search.LeaderResponse.IndexEntryAdded;
 import search.system.peer.search.ReplicationMessage.Replicate;
 import search.system.peer.search.ReplicationMessage.ReplicationConfirmation;
 import search.system.peer.search.SearchMessage.SearchRequest;
 import tman.system.peer.tman.GapDetectionMessage.GapDetectionResponse;
 import tman.system.peer.tman.LeaderRequest.AddIndexEntry;
-
-import se.sics.peersearch.data.types.IndexEntry;
 
 /**
  * Class that groups all timeouts used for by the {@link Search} class.

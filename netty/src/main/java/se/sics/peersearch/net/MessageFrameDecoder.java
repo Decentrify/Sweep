@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.peersearch.messages.AddIndexEntryMessageFactory;
+import se.sics.peersearch.messages.ReplicationMessageFactory;
 import se.sics.peersearch.messages.SearchMessageFactory;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
@@ -27,6 +28,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte SEARCH_RESPONSE               = 0x61;
     public static final byte ADD_ENTRY_REQUEST             = 0x62;
     public static final byte ADD_ENTRY_RESPONSE            = 0x63;
+    public static final byte REPLICATION_REQUEST           = 0x64;
+    public static final byte REPLICATION_RESPONSE          = 0x65;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -62,6 +65,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
             case ADD_ENTRY_RESPONSE:
                 return AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
+            case REPLICATION_REQUEST:
+                return ReplicationMessageFactory.Request.fromBuffer(buffer);
+            case REPLICATION_RESPONSE:
+                return ReplicationMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }
