@@ -144,7 +144,9 @@ public final class SearchSimulator extends ComponentDefinition {
 			Long successor = ringNodes.getNode(event.getId());
 			Component peer = peers.get(successor);
 
-			IndexEntry index = new IndexEntry("", randomText(), 123, new java.util.Date(), "English", IndexEntry.Category.Books, "", "");
+            IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+            index.setFileName(randomText());
+            index.setLeaderId("");
 			trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
 		}
 	};
