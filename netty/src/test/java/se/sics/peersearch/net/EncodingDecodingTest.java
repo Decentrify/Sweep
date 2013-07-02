@@ -6,6 +6,7 @@ package se.sics.peersearch.net;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,6 +16,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import se.sics.gvod.common.msgs.*;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.BaseCommandLineConfig;
@@ -111,14 +113,16 @@ public class EncodingDecodingTest {
     @Test
     public void searchRequest() {
         try {
+            UUID requestId = (UUID)UUID.nextUUID();
             String query = "bbbbbbbbbbbbbbbbbbb";
-            SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), query);
+            SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, query);
             try {
                 ChannelBuffer buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
                 SearchMessage.Request request =
                         SearchMessageFactory.Request.fromBuffer(buffer);
                 assert (query.equals(request.getQuery()));
+                assert (request.getRequestId().equals(requestId));
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
@@ -135,18 +139,18 @@ public class EncodingDecodingTest {
     @Test
     public void searchResponse() {
         try {
+            UUID requestId = (UUID)UUID.nextUUID();
             TimeoutId id = UUID.nextUUID();
             int numResponses = 5, responseNum = 1;
-            String res = "day of the diesels day of the diesels day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels" + "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels"
-                    + "day of the diesels" + "day of the diesels" + "day of the diesels"+ "day of the diesels" + "day of the diesels";
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, numResponses, responseNum, res);
+            String url = "url";
+            String fileName = "fileName";
+            Long size = 123L;
+            Date time = new Date();
+            String language = "language";
+            String description = "description";
+            String hash = "hash";
+            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, requestId, numResponses, responseNum, new IndexEntry[] {entry});
             try {
                 ChannelBuffer buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
@@ -155,7 +159,8 @@ public class EncodingDecodingTest {
                 assert (id.equals(response.getTimeoutId()));
                 assert (response.getNumResponses() == numResponses);
                 assert (response.getResponseNumber() == responseNum);
-                assert (res.compareTo(response.getResults()) == 0);
+                assert (response.getRequestId().equals(requestId));
+                assert (response.getResults()[0].equals(entry));
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
@@ -301,6 +306,343 @@ public class EncodingDecodingTest {
             ReplicationMessage.Response request =
                     ReplicationMessageFactory.Response.fromBuffer(buffer);
             assert (id.equals(request.getId()));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void IndexExchangeRequest() {
+        long oldestMissingIndexValue = 1L;
+        Long[] existingEntries = new Long[]{1L, 2L};
+        int numResponses=1;
+        int responseNumber=2;
+        IndexExchangeMessage.Request msg = new IndexExchangeMessage.Request(gSrc, gDest, UUID.nextUUID(), oldestMissingIndexValue, existingEntries, numResponses, responseNumber);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            IndexExchangeMessage.Request request =
+                    IndexExchangeMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getOldestMissingIndexValue() == oldestMissingIndexValue);
+            for(int i=0; i<request.getExistingEntries().length; i++) {
+                assert (request.getExistingEntries()[i] == existingEntries[i]);
+            }
+            assert (request.getNumResponses() == numResponses);
+            assert (request.getResponseNumber() == responseNumber);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void IndexExchangeResponse() {
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry;
+        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        IndexEntry[] items = new IndexEntry[]{entry};
+        int numResponses=1;
+        int responseNumber=2;
+        IndexExchangeMessage.Response msg = new IndexExchangeMessage.Response(gSrc, gDest, UUID.nextUUID(), items, numResponses, responseNumber);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            IndexExchangeMessage.Response response =
+                    IndexExchangeMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getIndexEntries()[0].equals(entry));
+            assert (response.getNumResponses() == numResponses);
+            assert (response.getResponseNumber() == responseNumber);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void GapDetectionRequest() {
+        long id = 1L;
+        GapDetectionMessage.Request msg = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), id);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            GapDetectionMessage.Request request =
+                    GapDetectionMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getMissingEntryId() == id);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void GapDetectionResponse() {
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = null;
+        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        int numResponses=1;
+        int responseNumber=2;
+        GapDetectionMessage.Response msg = new GapDetectionMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNumber);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            GapDetectionMessage.Response response =
+                    GapDetectionMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getMissingEntry().equals(entry));
+            assert (response.getNumResponses() == numResponses);
+            assert (response.getResponseNumber() == responseNumber);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void ElectionRequest() {
+
+        ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID());
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            ElectionMessage.Request request =
+                    ElectionMessageFactory.Request.fromBuffer(buffer);
+
+            assert (request.getClientId() == 1);
+            assert (request.getRemoteId() == 2);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void ElectionResponse() {
+
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            ElectionMessage.Response response =
+                    ElectionMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getClientId() == 1);
+            assert (response.getRemoteId() == 2);
+            assert (response.getStatus() == RelayMsgNetty.Status.OK);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void GradientShuffleRequest() {
+        InetAddress address1 = null;
+        try {
+            address1 = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
+
+        GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            GradientShuffleMessage.Request request =
+                    GradientShuffleMessageFactory.Request.fromBuffer(buffer);
+            for(int i=0; i<request.getAddresses().length; i++)
+                assert (request.getAddresses()[i].equals(vodAddress1));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void GradientShuffleResponse() {
+        InetAddress address1 = null;
+        try {
+            address1 = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
+
+        GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            GradientShuffleMessage.Response response =
+                    GradientShuffleMessageFactory.Response.fromBuffer(buffer);
+            for(int i=0; i<response.getAddresses().length; i++)
+                assert (response.getAddresses()[i].equals(vodAddress1));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void LeaderAnnouncement() {
+        InetAddress address1 = null;
+        try {
+            address1 = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
+
+        LeaderAnnouncementMessage msg = new LeaderAnnouncementMessage(gSrc, gDest, vodAddress1);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderAnnouncementMessage response =
+                    LeaderAnnouncementMessageFactory.fromBuffer(buffer);
+            assert (response.getLeader().equals(vodAddress1));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void LeaderSuspectionRequest() {
+
+        LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID());
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderSuspectionMessage.Request request =
+                    LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
+
+            assert (request.getClientId() == 1);
+            assert (request.getRemoteId() == 2);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void LeaderSuspectionResponse() {
+        boolean isSuspected = true;
+
+        LeaderSuspectionMessage.Response msg = new LeaderSuspectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderSuspectionMessage.Response response =
+                    LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getClientId() == 1);
+            assert (response.getRemoteId() == 2);
+            assert (response.getStatus() == RelayMsgNetty.Status.OK);
+            assert (response.isSuspected() == isSuspected);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void HeartbeatRequest() {
+
+        HeartbeatMessage.Request msg = new HeartbeatMessage.Request(gSrc, gDest, UUID.nextUUID());
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            HeartbeatMessage.Request request =
+                    HeartbeatMessageFactory.Request.fromBuffer(buffer);
+
+            assert (request.getVodDestination().equals(gDest));
+            assert (request.getVodSource().equals(gSrc));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void HeartbeatResponse() {
+
+        HeartbeatMessage.Response msg = new HeartbeatMessage.Response(gSrc, gDest, UUID.nextUUID());
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            HeartbeatMessage.Response response =
+                    HeartbeatMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getVodDestination().equals(gDest));
+            assert (response.getVodSource().equals(gSrc));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

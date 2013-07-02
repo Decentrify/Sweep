@@ -159,6 +159,7 @@ public class IndexEntry implements Serializable {
         hash = null;
     }
 
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -166,9 +167,16 @@ public class IndexEntry implements Serializable {
 
         IndexEntry that = (IndexEntry) o;
 
-        if (id != that.id) return false;
+        if (fileSize != that.fileSize) return false;
+        if (category != that.category) return false;
+        if (!description.equals(that.description)) return false;
+        if (!fileName.equals(that.fileName)) return false;
         if (!hash.equals(that.hash)) return false;
+        if (id != null ? !id.equals(that.id) : that.id != null) return false;
+        if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;
+        if (!uploaded.equals(that.uploaded)) return false;
+        if (!url.equals(that.url)) return false;
 
         return true;
     }

@@ -8,6 +8,10 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.messages.SearchMessage;
+import se.sics.gvod.timer.UUID;
+import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
+import se.sics.peersearch.types.IndexEntry;
 
 public class SearchMessageFactory  {
 
@@ -24,12 +28,13 @@ public class SearchMessageFactory  {
 
         @Override
         protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             String query = UserTypesDecoderFactory.readStringLength256(buffer);
             try {
                 return new SearchMessage.Request(vodSrc, vodDest,
-                        timeoutId, query);
-            } catch (SearchMessage.IllegalSearchString ex) {
-                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
+                        timeoutId, requestId, query);
+            } catch (SearchMessage.IllegalSearchString illegalSearchString) {
+                illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
             return null;
         }
@@ -49,11 +54,12 @@ public class SearchMessageFactory  {
 
         @Override
         protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            String results = UserTypesDecoderFactory.readStringLength65536(buffer);
+            IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, requestId, numResponses, responseNum, results);
             } catch (SearchMessage.IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
