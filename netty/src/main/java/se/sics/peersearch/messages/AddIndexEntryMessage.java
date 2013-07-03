@@ -3,7 +3,7 @@ package se.sics.peersearch.messages;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.gvod.common.msgs.VodMsgNetty;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
@@ -22,7 +22,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 6:48 PM
  */
 public class AddIndexEntryMessage {
-    public static class Request extends VodMsgNetty {
+    public static class Request extends DirectMsgNetty {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry entry;
@@ -81,7 +81,7 @@ public class AddIndexEntryMessage {
         }
     }
 
-    public static class Response extends VodMsgNetty {
+    public static class Response extends DirectMsgNetty {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry entry;

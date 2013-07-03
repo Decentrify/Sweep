@@ -4,8 +4,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
-import se.sics.gvod.net.msgs.VodMsg;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
@@ -14,7 +14,7 @@ import se.sics.peersearch.types.IndexEntry;
 
 public class SearchMessageFactory {
 
-    public static class Request extends VodMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory {
 
         private Request() {
         }
@@ -40,7 +40,7 @@ public class SearchMessageFactory {
 
     }
 
-    public static class Response extends VodMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory {
 
         private Response() {
         }
@@ -52,7 +52,7 @@ public class SearchMessageFactory {
         }
 
         @Override
-        protected VodMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
             UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);

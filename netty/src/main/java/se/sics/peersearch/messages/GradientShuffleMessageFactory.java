@@ -2,9 +2,9 @@ package se.sics.peersearch.messages;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.net.msgs.VodMsg;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 
 /**
@@ -14,7 +14,7 @@ import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
  * Time: 12:26 PM
  */
 public class GradientShuffleMessageFactory {
-    public static class Request extends VodMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory {
 
         private Request() {
         }
@@ -34,7 +34,7 @@ public class GradientShuffleMessageFactory {
 
     }
 
-    public static class Response extends VodMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory {
 
         private Response() {
         }
@@ -46,7 +46,7 @@ public class GradientShuffleMessageFactory {
         }
 
         @Override
-        protected VodMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
             VodAddress[] addresses = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
             return new GradientShuffleMessage.Response(vodSrc, vodDest, timeoutId, addresses);
         }

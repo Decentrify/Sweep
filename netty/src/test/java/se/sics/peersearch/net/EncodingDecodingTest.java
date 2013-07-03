@@ -31,6 +31,7 @@ import se.sics.peersearch.messages.*;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 
 /**
  *
@@ -85,7 +86,7 @@ public class EncodingDecodingTest {
                 1,
                 100 * 1000l);
 
-        VodMsgNettyFactory.setMsgFrameDecoder(MessageFrameDecoder.class);
+        DirectMsgNettyFactory.setMsgFrameDecoder(MessageFrameDecoder.class);
 
     }
 

@@ -2,8 +2,8 @@ package se.sics.peersearch.messages;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
-import se.sics.gvod.net.msgs.VodMsg;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
@@ -15,7 +15,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 12:14 PM
  */
 public class GapDetectionMessageFactory {
-    public static class Request extends VodMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory {
 
         private Request() {
         }
@@ -35,7 +35,7 @@ public class GapDetectionMessageFactory {
 
     }
 
-    public static class Response extends VodMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory {
 
         private Response() {
         }
@@ -47,7 +47,7 @@ public class GapDetectionMessageFactory {
         }
 
         @Override
-        protected VodMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
