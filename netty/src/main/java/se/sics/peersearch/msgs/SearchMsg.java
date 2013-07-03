@@ -7,8 +7,8 @@ package se.sics.peersearch.msgs;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.gvod.common.msgs.VodMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
@@ -31,7 +31,7 @@ public class SearchMsg {
         
     }
     
-    public static class Request extends VodMsgNetty {
+    public static class Request extends DirectMsgNetty {
         
         private final String query;
 
@@ -82,7 +82,7 @@ public class SearchMsg {
         }
     }
 
-    public static class Response extends VodMsgNetty {
+    public static class Response extends DirectMsgNetty {
         
         public static final int MAX_RESULTS_STR_LEN = 1400;
         

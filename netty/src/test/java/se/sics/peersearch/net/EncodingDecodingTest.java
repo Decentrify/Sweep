@@ -24,11 +24,11 @@ import se.sics.gvod.common.UtilityVod;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.common.hp.HPMechanism;
 import se.sics.gvod.common.hp.HPRole;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.Encodable;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.peersearch.msgs.SearchMsgFactory;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.msgs.SearchMsg;
@@ -86,7 +86,7 @@ public class EncodingDecodingTest {
                 1,
                 100 * 1000l);
 
-        VodMsgNettyFactory.setMsgFrameDecoder(PsMsgFrameDecoder.class);
+        DirectMsgNettyFactory.setMsgFrameDecoder(PsMsgFrameDecoder.class);
 
     }
 
