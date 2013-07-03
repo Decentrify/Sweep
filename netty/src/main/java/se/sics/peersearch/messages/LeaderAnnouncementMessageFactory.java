@@ -2,7 +2,7 @@ package se.sics.peersearch.messages;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 
@@ -12,7 +12,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/2/13
  * Time: 12:34 PM
  */
-public class LeaderAnnouncementMessageFactory extends VodMsgNettyFactory {
+public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory {
     public static LeaderAnnouncementMessage fromBuffer(ChannelBuffer buffer)
             throws MessageDecodingException {
         return (LeaderAnnouncementMessage)

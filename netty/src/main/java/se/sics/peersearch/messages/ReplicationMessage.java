@@ -2,7 +2,7 @@ package se.sics.peersearch.messages;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.gvod.common.msgs.VodMsgNetty;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
@@ -10,7 +10,6 @@ import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
-import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.peersearch.types.IndexEntry;
@@ -22,7 +21,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 9:11 AM
  */
 public class ReplicationMessage {
-    public static class Request extends VodMsgNetty {
+    public static class Request extends DirectMsgNetty {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final UUID id;
@@ -81,7 +80,7 @@ public class ReplicationMessage {
         }
     }
 
-    public static class Response extends VodMsgNetty {
+    public static class Response extends DirectMsgNetty {
         private final UUID id;
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, UUID id) {

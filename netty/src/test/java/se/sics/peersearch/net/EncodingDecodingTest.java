@@ -40,6 +40,7 @@ import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 
 /**
  *
