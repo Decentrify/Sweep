@@ -30,17 +30,14 @@ import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.Encodable;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.AddIndexEntryMessageFactory;
 import se.sics.peersearch.messages.SearchMessage;
 import se.sics.peersearch.messages.SearchMessageFactory;
 import se.sics.peersearch.messages.*;
-import se.sics.gvod.common.msgs.VodMsgNettyFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
-import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 
 /**
  *
