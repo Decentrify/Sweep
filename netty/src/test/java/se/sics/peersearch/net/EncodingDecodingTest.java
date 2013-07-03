@@ -26,18 +26,12 @@ import se.sics.gvod.common.UtilityVod;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.common.hp.HPMechanism;
 import se.sics.gvod.common.hp.HPRole;
-import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
-import se.sics.gvod.common.msgs.Encodable;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.peersearch.messages.AddIndexEntryMessage;
-import se.sics.peersearch.messages.AddIndexEntryMessageFactory;
-import se.sics.peersearch.messages.SearchMessage;
-import se.sics.peersearch.messages.SearchMessageFactory;
+import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.messages.*;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 
 /**
  *
@@ -128,8 +122,9 @@ public class EncodingDecodingTest {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
             }
-        } catch (SearchMessage.IllegalSearchString illegalSearchString) {
-            illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (IllegalSearchString ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert(false);
         }
     }    
     
@@ -166,8 +161,9 @@ public class EncodingDecodingTest {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
             }
-        } catch (SearchMessage.IllegalSearchString illegalSearchString) {
-            illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (IllegalSearchString ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+                assert (false);
         }
     }
 

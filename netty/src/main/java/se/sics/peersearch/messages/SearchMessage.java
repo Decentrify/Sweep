@@ -7,8 +7,8 @@ package se.sics.peersearch.messages;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
-import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
@@ -16,6 +16,7 @@ import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
+import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.peersearch.types.IndexEntry;
@@ -25,14 +26,6 @@ import se.sics.peersearch.types.IndexEntry;
  * @author jdowling
  */
 public class SearchMessage {
-    public static class IllegalSearchString extends Exception {
-
-        public IllegalSearchString(String message) {
-            super(message);
-        }
-        
-    }
-    
     public static class Request extends DirectMsgNetty {
         private final UUID requestId;
         private final String query;

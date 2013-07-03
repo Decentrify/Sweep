@@ -3,17 +3,16 @@ package se.sics.peersearch.messages;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
-import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
-import se.sics.peersearch.messages.SearchMessage;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 
-public class SearchMessageFactory  {
+public class SearchMessageFactory {
 
     public static class Request extends DirectMsgNettyFactory {
 
@@ -33,8 +32,8 @@ public class SearchMessageFactory  {
             try {
                 return new SearchMessage.Request(vodSrc, vodDest,
                         timeoutId, requestId, query);
-            } catch (SearchMessage.IllegalSearchString illegalSearchString) {
-                illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (IllegalSearchString ex) {
+                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
         }
@@ -60,7 +59,7 @@ public class SearchMessageFactory  {
             IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
             try {
                 return new SearchMessage.Response(vodSrc, vodDest, timeoutId, requestId, numResponses, responseNum, results);
-            } catch (SearchMessage.IllegalSearchString ex) {
+            } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }
             return null;
