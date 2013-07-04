@@ -5,14 +5,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.logging.Level;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -43,16 +41,17 @@ import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.croupier.CroupierPort;
+import se.sics.gvod.croupier.PeerSamplePort;
+import se.sics.gvod.croupier.events.CroupierSample;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
@@ -88,10 +87,6 @@ import common.configuration.SearchConfiguration;
 import common.peer.PeerDescriptor;
 import common.snapshot.Snapshot;
 
-import cyclon.CyclonPort;
-import cyclon.CyclonSample;
-import cyclon.CyclonSamplePort;
-
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
@@ -109,16 +104,16 @@ public final class Search extends ComponentDefinition {
 	public static final boolean PERSISTENT_INDEX = false;
 
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
-	Positive<Network> networkPort = positive(Network.class);
+	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Positive<Timer> timerPort = positive(Timer.class);
 	Negative<Web> webPort = negative(Web.class);
-	Positive<CyclonSamplePort> cyclonSamplePort = positive(CyclonSamplePort.class);
+	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
 	Positive<RoutedEventsPort> routedEventsPort = positive(RoutedEventsPort.class);
-	Positive<CyclonPort> partitionCyclonPort = positive(CyclonPort.class);
+	Positive<CroupierPort> partitionCroupierPort = positive(CroupierPort.class);
 	Positive<IndexRoutingPort> indexRoutingPort = positive(IndexRoutingPort.class);
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
-	private Address self;
+	private Self self;
 	private SearchConfiguration searchConfiguration;
 	// The last smallest missing index number.
 	private long oldestMissingIndexValue;
@@ -160,11 +155,11 @@ public final class Search extends ComponentDefinition {
 
 	// When you partition the index you need to find new nodes
 	// This is a routing table maintaining a list of pairs in each partition.
-	private Map<Integer, TreeSet<PeerDescriptor>> routingTable;
-	Comparator<PeerDescriptor> peerAgeComparator = new Comparator<PeerDescriptor>() {
+	private Map<Integer, TreeSet<VodDescriptor>> routingTable;
+	Comparator<VodDescriptor> peerAgeComparator = new Comparator<VodDescriptor>() {
 		@Override
-		public int compare(PeerDescriptor t0, PeerDescriptor t1) {
-			if (t0.getAddress().equals(t1.getAddress())) {
+		public int compare(VodDescriptor t0, VodDescriptor t1) {
+			if (t0.getVodAddress().equals(t1.getVodAddress())) {
 				return 0;
 			} else if (t0.getAge() > t1.getAge()) {
 				return 1;
@@ -177,7 +172,7 @@ public final class Search extends ComponentDefinition {
 	public Search() {
 		subscribe(handleInit, control);
 		subscribe(handleWebRequest, webPort);
-		subscribe(handleCyclonSample, cyclonSamplePort);
+		subscribe(handleCroupierSample, croupierSamplePort);
 		subscribe(handleAddIndexSimulated, indexPort);
 		subscribe(handleIndexUpdateRequest, networkPort);
 		subscribe(handleIndexUpdateResponse, networkPort);
@@ -208,7 +203,7 @@ public final class Search extends ComponentDefinition {
 		public void handle(SearchInit init) {
 			self = init.getSelf();
 			searchConfiguration = init.getConfiguration();
-			routingTable = new HashMap<Integer, TreeSet<PeerDescriptor>>(
+			routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(
 					searchConfiguration.getNumPartitions());
 			lastInsertionId = -1;
 			openRequests = new HashMap<UUID, WebRequest>();
@@ -370,31 +365,31 @@ public final class Search extends ComponentDefinition {
 	 * Handle samples from Cyclon. Use them to update the routing tables and
 	 * issue an index exchange with another node.
 	 */
-	Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
+	Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
 		@Override
-		public void handle(CyclonSample event) {
+		public void handle(CroupierSample event) {
 			// receive a new list of neighbors
-			ArrayList<Address> peers = event.getSample();
+			List<VodDescriptor> peers = event.getNodes();
 			if (peers.isEmpty()) {
 				return;
 			}
 
 			// update routing tables
-			for (Address p : event.getSample()) {
-				int samplePartition = p.getId() % searchConfiguration.getNumPartitions();
-				TreeSet<PeerDescriptor> nodes = routingTable.get(samplePartition);
+			for (VodDescriptor p : event.getNodes()) {
+				int samplePartition = p.getVodAddress().getId() % searchConfiguration.getNumPartitions();
+				TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
 				if (nodes == null) {
-					nodes = new TreeSet<PeerDescriptor>(peerAgeComparator);
+					nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
 					routingTable.put(samplePartition, nodes);
 				}
 
 				// Increment age
-				for (PeerDescriptor peer : nodes) {
+				for (VodDescriptor peer : nodes) {
 					peer.incrementAndGetAge();
 				}
 
 				// Note - this might replace an existing entry
-				nodes.add(new PeerDescriptor(p));
+				nodes.add(p);
 				// keep the freshest descriptors in this partition
 				while (nodes.size() > searchConfiguration.getMaxNumRoutingEntries()) {
 					nodes.pollLast();
@@ -402,7 +397,7 @@ public final class Search extends ComponentDefinition {
 			}
 
 			// Exchange index with one sample from our partition
-			TreeSet<PeerDescriptor> bucket = routingTable.get(partition);
+			TreeSet<VodDescriptor> bucket = routingTable.get(partition);
 			if (bucket != null) {
 				int n = random.nextInt(bucket.size());
 				trigger(new IndexUpdateRequest(self,
@@ -422,7 +417,7 @@ public final class Search extends ComponentDefinition {
 			// logger.info(self.getId() + " - adding index entry: {}-{}",
 			// event.getEntry().getTitle(),
 			// event.getEntry().getMagneticLink());
-			addEntryGlobal(event.getEntry(), UUID.randomUUID());
+			addEntryGlobal(event.getEntry(), (UUID)UUID.nextUUID());
 		}
 	};
 
@@ -512,7 +507,7 @@ public final class Search extends ComponentDefinition {
 				IndexEntry newEntry = event.getIndexEntry();
 				long id;
 				int entryPartition;
-				TreeSet<PeerDescriptor> bucket;
+				TreeSet<VodDescriptor> bucket;
 				int i = routingTable.size();
 				do {
 					id = getCurrentInsertionId();
@@ -537,7 +532,7 @@ public final class Search extends ComponentDefinition {
 
 				i = bucket.size() > searchConfiguration.getReplicationMaximum() ? searchConfiguration
 						.getReplicationMaximum() : bucket.size();
-				for (PeerDescriptor peer : bucket) {
+				for (VodDescriptor peer : bucket) {
 					if (i == 0) {
 						break;
 					}
@@ -701,7 +696,7 @@ public final class Search extends ComponentDefinition {
 				}
 			} else {
 				event.incrementTries();
-				addEntryGlobal(event.getEntry(), event.getTimeoutId());
+				addEntryGlobal(event.getEntry(), (UUID)event.getTimeoutId());
 
 				ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getAddTimeout());
 				rst.setTimeoutEvent(event);
@@ -802,13 +797,13 @@ public final class Search extends ComponentDefinition {
 				return;
 			}
 
-			TreeSet<PeerDescriptor> bucket = routingTable.get(event.getId()
+			TreeSet<VodDescriptor> bucket = routingTable.get(event.getId()
 					% searchConfiguration.getNumPartitions());
 			if (bucket == null) {
 				return;
 			}
 
-			for (PeerDescriptor descriptor : bucket) {
+			for (VodDescriptor descriptor : bucket) {
 				gapDetections.put(event.getId(), GapStatus.UNDECIDED);
 				trigger(new GapDetectionRequest(self, descriptor.getAddress(), event.getId(),
 						searchConfiguration.getGapDetectionTtl()), networkPort);
@@ -833,7 +828,7 @@ public final class Search extends ComponentDefinition {
 
 				event.decrementTtl();
 				if (event.getTtl() == 0) {
-					TreeSet<PeerDescriptor> bucket = routingTable.get(event.getId()
+					TreeSet<VodDescriptor> bucket = routingTable.get(event.getId()
 							% searchConfiguration.getNumPartitions());
 
 					if (bucket != null) {
@@ -879,7 +874,7 @@ public final class Search extends ComponentDefinition {
 			if (gapDetections.remove(event.getId()) == GapStatus.TRUE) {
 				int entryPartition = (int) (event.getId() % searchConfiguration
 						.getMaxNumRoutingEntries());
-				TreeSet<PeerDescriptor> bucket = routingTable.get(entryPartition);
+				TreeSet<VodDescriptor> bucket = routingTable.get(entryPartition);
 
 				Snapshot.addGap(event.getId());
 
@@ -898,8 +893,8 @@ public final class Search extends ComponentDefinition {
 					}
 				}
 
-				for (PeerDescriptor peer : bucket) {
-					trigger(new Replicate(self, peer.getAddress(), tombstone, UUID.randomUUID()),
+				for (VodDescriptor peer : bucket) {
+					trigger(new Replicate(self, peer.getAddress(), tombstone, UUID.nextUUID()),
 							networkPort);
 				}
 			}
@@ -930,7 +925,7 @@ public final class Search extends ComponentDefinition {
 		}
 
 		int i = 0;
-		for (SortedSet<PeerDescriptor> bucket : routingTable.values()) {
+		for (SortedSet<VodDescriptor> bucket : routingTable.values()) {
 			// Skip local partition
 			if (i == partition) {
 				i++;
@@ -946,7 +941,7 @@ public final class Search extends ComponentDefinition {
 
 		ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getSearchTimeout());
 		rst.setTimeoutEvent(new SearchTimeout(rst));
-		searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
+		searchRequest.setTimeoutId((UUID)rst.getTimeoutEvent().getTimeoutId());
 		trigger(rst, timerPort);
 
 		// Add result form local partition
@@ -1003,8 +998,8 @@ public final class Search extends ComponentDefinition {
 		rst.setTimeoutEvent(new AddRequestTimeout(rst, searchConfiguration.getRetryCount(), entry));
 		trigger(rst, timerPort);
 
-		openRequests.put(rst.getTimeoutEvent().getTimeoutId(), event);
-		addEntryGlobal(entry, rst.getTimeoutEvent().getTimeoutId());
+		openRequests.put((UUID)rst.getTimeoutEvent().getTimeoutId(), event);
+		addEntryGlobal(entry, (UUID)rst.getTimeoutEvent().getTimeoutId());
 	}
 
 	/**
@@ -1032,7 +1027,7 @@ public final class Search extends ComponentDefinition {
 		}
 
 		addIndexEntry(index, indexEntry);
-		Snapshot.incNumIndexEntries(self);
+		Snapshot.incNumIndexEntries(self.getAddress().getPeerAddress());
 
 		// Cancel gap detection timeouts for the given index
 		UUID timeoutId = gapTimeouts.get(indexEntry.getId());
@@ -1060,7 +1055,7 @@ public final class Search extends ComponentDefinition {
 				// This might be a gap so start a timeouts
 				ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getGapTimeout());
 				rst.setTimeoutEvent(new GapTimeout(rst, i));
-				gapTimeouts.put(indexEntry.getId(), rst.getTimeoutEvent().getTimeoutId());
+				gapTimeouts.put(indexEntry.getId(), (UUID)rst.getTimeoutEvent().getTimeoutId());
 				trigger(rst, timerPort);
 			}
 		}

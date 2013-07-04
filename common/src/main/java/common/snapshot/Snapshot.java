@@ -6,15 +6,16 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import se.sics.kompics.address.Address;
+import se.sics.gvod.address.Address;
+import se.sics.gvod.net.VodAddress;
 
 /**
  * Keep track of the system state for evaluation and debugging. Write the
  * information in a log file.
  */
 public class Snapshot {
-	private static SortedMap<Address, PeerInfo> peers = Collections
-			.synchronizedSortedMap(new TreeMap<Address, PeerInfo>());
+	private static SortedMap<VodAddress, PeerInfo> peers = Collections
+			.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
 	private static ConcurrentSkipListSet<Long> detectedGaps = new ConcurrentSkipListSet<Long>();
@@ -33,7 +34,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void addPeer(Address address) {
+	public static void addPeer(VodAddress address) {
 		peers.put(address, new PeerInfo());
 	}
 
@@ -89,11 +90,11 @@ public class Snapshot {
 	 * @param leader
 	 *            the leader status
 	 */
-	public static void setLeaderStatus(Address address, boolean leader) {
-		PeerInfo peerInfo = peers.get(address);
+	public static void setLeaderStatus(VodAddress address, boolean leader) {
+		PeerInfo peerInfo = peers.get(address.getPeerAddress());
 
 		if (leader) {
-			oldLeaders.add(address);
+			oldLeaders.add(address.getPeerAddress());
 		}
 		
 		if (peerInfo == null) {
@@ -111,8 +112,8 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the TMan view
 	 */
-	public static void setElectionView(Address address, String view) {
-		PeerInfo peerInfo = peers.get(address);
+	public static void setElectionView(VodAddress address, String view) {
+		PeerInfo peerInfo = peers.get(address.getPeerAddress());
 
 		if (peerInfo == null) {
 			return;
@@ -129,8 +130,8 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the TMan view
 	 */
-	public static void setCurrentView(Address address, String view) {
-		PeerInfo peerInfo = peers.get(address);
+	public static void setCurrentView(VodAddress address, String view) {
+		PeerInfo peerInfo = peers.get(address.getPeerAddress());
 
 		if (peerInfo == null) {
 			return;
@@ -206,7 +207,7 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLeaders(StringBuilder builder) {
-		for (Address p : peers.keySet()) {
+		for (VodAddress p : peers.keySet()) {
 			PeerInfo info = peers.get(p);
 			if (info.isLeader()) {
 				builder.append(p.getId());
@@ -228,11 +229,11 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportDetails(StringBuilder builder) {
-		Address maxPeer = null;
-		Address minPeer = null;
+        VodAddress maxPeer = null;
+        VodAddress minPeer = null;
 		long maxNumIndexEntries = 0;
 		long minNumIndexEntries = Integer.MAX_VALUE;
-		for (Address node : peers.keySet()) {
+		for (VodAddress node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
 				minNumIndexEntries = p.getNumIndexEntries();

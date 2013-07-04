@@ -1,7 +1,6 @@
 package search.system.peer.search;
 
-import java.util.UUID;
-
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.web.WebRequest;
 
 /**
@@ -28,7 +27,7 @@ public class LocalSearchRequest {
 		this.webRequest = webRequest;
 		this.pattern = pattern;
 		// Create a unique id for each request
-		this.searchId = UUID.randomUUID();
+		this.searchId = (UUID)UUID.nextUUID();
 	}
 
 	/**

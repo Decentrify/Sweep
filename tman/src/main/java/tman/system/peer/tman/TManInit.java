@@ -1,6 +1,7 @@
 package tman.system.peer.tman;
 
 import common.configuration.TManConfiguration;
+import se.sics.gvod.common.Self;
 import se.sics.kompics.Init;
 import se.sics.kompics.address.Address;
 
@@ -8,7 +9,7 @@ import se.sics.kompics.address.Address;
  * The init event for TMan.
  */
 public final class TManInit extends Init {
-	private final Address self;
+	private final Self self;
 	private final TManConfiguration configuration;
 
 	/**
@@ -17,7 +18,7 @@ public final class TManInit extends Init {
 	 * @param configuration
 	 *            the configuration file
 	 */
-	public TManInit(Address self, TManConfiguration configuration) {
+	public TManInit(Self self, TManConfiguration configuration) {
 		super();
 		this.self = self;
 		this.configuration = configuration;
@@ -26,7 +27,7 @@ public final class TManInit extends Init {
 	/**
 	 * @return the address of the local node
 	 */
-	public Address getSelf() {
+	public Self getSelf() {
 		return this.self;
 	}
 

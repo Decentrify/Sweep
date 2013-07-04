@@ -7,6 +7,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeMap;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.address.Address;
 
 import common.peer.PeerDescriptor;
@@ -18,7 +21,7 @@ import common.peer.PeerDescriptor;
  */
 public class TManView {
 	private TreeMap<Address, PeerDescriptor> entries;
-	private Address self;
+	private Self self;
 	private int size;
 	private Comparator<Address> closerComparator;
 	private boolean converged;
@@ -33,9 +36,9 @@ public class TManView {
 	 *            the percentage of nodes allowed to change in order to be
 	 *            converged
 	 */
-	public TManView(Address self, int size, double convergenceSimilarity) {
+	public TManView(Self self, int size, double convergenceSimilarity) {
 		this.entries = new TreeMap<Address, PeerDescriptor>();
-		this.closerComparator = new Closer(self);
+		this.closerComparator = new Closer(self.getAddress());
 		this.self = self;
 		this.size = size;
 		this.converged = false;
@@ -117,8 +120,8 @@ public class TManView {
 	 *            the maximum number of entries to return
 	 * @return a collection of the most preferred nodes
 	 */
-	public Collection<Address> getExchangeNodes(Address address, int number) {
-		List<Address> list = getClosestNodes(address, number);
+	public Collection<VodDescriptor> getExchangeNodes(VodDescriptor address, int number) {
+		List<VodDescriptor> list = getClosestNodes(address, number);
 		list.add(self);
 		Collections.sort(list, new Closer(address));
 		list.remove(address);
@@ -197,16 +200,16 @@ public class TManView {
 	 * closer to the base are the best once. Closer nodes are preferred to nodes
 	 * further away.
 	 */
-	private class Closer implements Comparator<Address> {
-		private Address base;
+	private class Closer implements Comparator<VodAddress> {
+		private VodAddress base;
 
-		public Closer(Address base) {
+		public Closer(VodAddress base) {
 			super();
 			this.base = base;
 		}
 
 		@Override
-		public int compare(Address o1, Address o2) {
+		public int compare(VodAddress o1, VodAddress o2) {
 			assert (o1.getId() == o2.getId());
 
 			if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
@@ -242,8 +245,8 @@ public class TManView {
 	 *            the maximum number of nodes to return
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<Address> getClosestNodes(Address address, int number) {
-		return getClosestNodes(address, number, new Closer(address));
+	private List<Address> getClosestNodes(VodDescriptor address, int number) {
+		return getClosestNodes(address, number, new Closer(address.getVodAddress()));
 	}
 
 	/**
@@ -257,7 +260,7 @@ public class TManView {
 	 *            the comparator to use
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<Address> getClosestNodes(Address address, int number, Comparator<Address> c) {
+	private List<Address> getClosestNodes(VodAddress address, int number, Comparator<VodAddress> c) {
 		ArrayList<Address> addresses = getAll();
 		Collections.sort(addresses, new Closer(address));
 		return addresses.subList(0, number < addresses.size() ? number : addresses.size());

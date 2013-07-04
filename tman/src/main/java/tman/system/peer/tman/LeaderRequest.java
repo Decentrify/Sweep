@@ -1,8 +1,8 @@
 package tman.system.peer.tman;
 
 import java.io.Serializable;
-import java.util.UUID;
 
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.Event;
 import se.sics.kompics.address.Address;
 import se.sics.peersearch.types.IndexEntry;

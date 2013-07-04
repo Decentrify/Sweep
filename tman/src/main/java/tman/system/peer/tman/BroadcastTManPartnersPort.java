@@ -2,9 +2,9 @@ package tman.system.peer.tman;
 
 import java.util.ArrayList;
 
+import se.sics.gvod.address.Address;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
-import se.sics.kompics.address.Address;
 
 /**
  * This class is a port created for the purpose of broadcasting TMan's view

@@ -1,20 +1,15 @@
 package election.system.peer.election;
 
 import java.util.ArrayList;
-import java.util.UUID;
 
+import se.sics.gvod.address.Address;
+import se.sics.gvod.common.Self;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.CancelPeriodicTimeout;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
-import se.sics.kompics.timer.Timer;
 import tman.system.peer.tman.BroadcastTManPartnersPort;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort;
@@ -44,7 +39,7 @@ import election.system.peer.election.VotingMsg.VotingResultMsg;
  */
 public class ElectionLeader extends ComponentDefinition {
 	Positive<Timer> timerPort = positive(Timer.class);
-	Positive<Network> networkPort = positive(Network.class);
+	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Negative<BroadcastTManPartnersPort> tmanBroadcast = negative(BroadcastTManPartnersPort.class);
 	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 	Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
@@ -54,9 +49,9 @@ public class ElectionLeader extends ComponentDefinition {
 	private SynchronizedCounter yesVotes, totalVotes, electionCounter, convergedCounter,
 			indexMessageCounter;
 	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
-	private Address self;
+	private Self self;
 	private ArrayList<Address> lowerNodes, higherNodes;
-	private UUID scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
+	private TimeoutId scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
@@ -159,7 +154,7 @@ public class ElectionLeader extends ComponentDefinition {
 			for (Address node : lowerNodes) {
 				builder.append(node.getId() + " ");
 			}
-			Snapshot.setCurrentView(self, builder.toString());
+			Snapshot.setCurrentView(self.getAddress(), builder.toString());
 
 			if (event.isConverged() == true
 					&& iAmLeader == false
@@ -224,7 +219,7 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<ElectionSchedule> handleHeartBeats = new Handler<ElectionSchedule>() {
 		@Override
 		public void handle(ElectionSchedule event) {
-			Address lowestId = self;
+			Address lowestId = self.getAddress().getPeerAddress();
 
 			// It is assumed that the list doesn't have to be sorted
 			// Looks for the node with the lowest ID
@@ -378,13 +373,13 @@ public class ElectionLeader extends ComponentDefinition {
 				for (Address node : lowerNodes) {
 					builder.append(node.getId() + " ");
 				}
-				Snapshot.setElectionView(self, builder.toString());
-				Snapshot.setLeaderStatus(self, true);
+				Snapshot.setElectionView(self.getAddress(), builder.toString());
+				Snapshot.setLeaderStatus(self.getAddress(), true);
 
 				variableCleanUp();
 				iAmLeader = true;
 				allowingIndexMessages = true;
-				indexMessageID = UUID.randomUUID();
+				indexMessageID = UUID.nextUUID();
 				trigger(new StartIndexRequestEvent(indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
@@ -464,7 +459,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void rejected() {
 		if (iAmLeader == true) {
-			Snapshot.setLeaderStatus(self, false);
+			Snapshot.setLeaderStatus(self.getAddress(), false);
 		}
 
 		iAmLeader = false;

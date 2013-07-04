@@ -8,19 +8,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.croupier.PeerSamplePort;
+import se.sics.gvod.croupier.events.CroupierSample;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
-import se.sics.kompics.timer.Timer;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort.IndexEvent;
 import tman.system.peer.tman.IndexRoutingPort.IndexMessage;
@@ -35,16 +34,13 @@ import tman.system.peer.tman.TmanMessage.TManResponse;
 import common.configuration.TManConfiguration;
 import common.peer.RequestTimeout;
 
-import cyclon.CyclonSample;
-import cyclon.CyclonSamplePort;
-
 /**
  * Component creating a gradient network from Cyclon samples according to a
  * preference function using the TMan framework.
  */
 public final class TMan extends ComponentDefinition {
-	Positive<CyclonSamplePort> cyclonSamplePort = positive(CyclonSamplePort.class);
-	Positive<Network> networkPort = positive(Network.class);
+	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
+	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Positive<Timer> timerPort = positive(Timer.class);
 	Negative<RoutedEventsPort> routedEventsPort = negative(RoutedEventsPort.class);
 	Positive<BroadcastTManPartnersPort> broadcastTmanPartnersPort = positive(BroadcastTManPartnersPort.class);
@@ -52,11 +48,11 @@ public final class TMan extends ComponentDefinition {
 	Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
 
 	private long period;
-	private Address self;
+	private Self self;
 	private TManConfiguration tmanConfiguration;
 	private Random random;
 	private TManView tmanView;
-	private Map<UUID, Address> outstandingShuffles;
+	private Map<UUID, VodDescriptor> outstandingShuffles;
 	private boolean leader;
 
 	/**
@@ -73,7 +69,7 @@ public final class TMan extends ComponentDefinition {
 		subscribe(handleInit, control);
 		subscribe(handleRound, timerPort);
 		subscribe(handleRequestTimeout, timerPort);
-		subscribe(handleCyclonSample, cyclonSamplePort);
+		subscribe(handleCyclonSample, croupierSamplePort);
 		subscribe(handleTManResponse, networkPort);
 		subscribe(handleTManRequest, networkPort);
 		subscribe(handleAddIndexEntryRequest, routedEventsPort);
@@ -123,10 +119,10 @@ public final class TMan extends ComponentDefinition {
 	 * Initiate a exchange with a random node of each Cyclon sample to speed up
 	 * convergence and prevent partitioning.
 	 */
-	Handler<CyclonSample> handleCyclonSample = new Handler<CyclonSample>() {
+	Handler<CroupierSample> handleCyclonSample = new Handler<CroupierSample>() {
 		@Override
-		public void handle(CyclonSample event) {
-			ArrayList<Address> sample = event.getSample();
+		public void handle(CroupierSample event) {
+			List<VodDescriptor> sample = event.getNodes();
 
 			if (sample.size() > 0) {
 				int n = random.nextInt(sample.size());
@@ -143,9 +139,9 @@ public final class TMan extends ComponentDefinition {
 		@Override
 		public void handle(TManRequest event) {
 			Address exchangePartner = event.getSource();
-			Collection<Address> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
+			Collection<VodDescriptor> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
 					tmanConfiguration.getExchangeCount());
-			TManResponse rResponse = new TManResponse(event.getRequestId(), exchangeSets, self,
+			TManResponse rResponse = new TManResponse(event.getRequestId(), exchangeSets, self.getAddress(),
 					exchangePartner);
 			trigger(rResponse, networkPort);
 
@@ -217,7 +213,7 @@ public final class TMan extends ComponentDefinition {
 	Handler<RequestTimeout> handleRequestTimeout = new Handler<RequestTimeout>() {
 		@Override
 		public void handle(RequestTimeout event) {
-			UUID rTimeoutId = event.getTimeoutId();
+			UUID rTimeoutId = (UUID)event.getTimeoutId();
 			Address deadNode = outstandingShuffles.remove(rTimeoutId);
 
 			if (deadNode != null) {
@@ -303,13 +299,13 @@ public final class TMan extends ComponentDefinition {
 	 * @param exchangePartner
 	 *            the address of the node to shuffle with
 	 */
-	private void initiateShuffle(Address exchangePartner) {
+	private void initiateShuffle(VodDescriptor exchangePartner) {
 		Collection<Address> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
 				tmanConfiguration.getExchangeCount());
 
 		ScheduleTimeout rst = new ScheduleTimeout(tmanConfiguration.getPeriod());
 		rst.setTimeoutEvent(new RequestTimeout(rst));
-		UUID rTimeoutId = rst.getTimeoutEvent().getTimeoutId();
+		UUID rTimeoutId = (UUID)rst.getTimeoutEvent().getTimeoutId();
 
 		outstandingShuffles.put(rTimeoutId, exchangePartner);
 		TManRequest rRequest = new TManRequest(rTimeoutId, exchangeSets, self, exchangePartner);

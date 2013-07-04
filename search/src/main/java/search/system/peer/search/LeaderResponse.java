@@ -1,7 +1,6 @@
 package search.system.peer.search;
 
-import java.util.UUID;
-
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 import tman.system.peer.tman.LeaderRequest.AddIndexEntry;
