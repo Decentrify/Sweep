@@ -2,17 +2,22 @@ package tman.system.peer.tman;
 
 import java.util.Collection;
 
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.UUID;
+import se.sics.kompics.Event;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 
 /**
  * Superclass used for TMan components to exchange identifiers with each other.
  */
-public abstract class TmanMessage extends Message {
+public abstract class TmanMessage extends Event {
 	private static final long serialVersionUID = 8493601671018888143L;
 	private final UUID requestId;
-	private final Collection<Address> exchangeCollection;
+	private final Collection<VodAddress> exchangeCollection;
+    private final VodAddress source;
+    private final VodAddress destination;
 
 	/**
 	 * @param requestId
@@ -24,11 +29,13 @@ public abstract class TmanMessage extends Message {
 	 * @param destination
 	 *            the message destination
 	 */
-	public TmanMessage(UUID requestId, Collection<Address> exchangeCollection, Address source,
-			Address destination) {
-		super(source, destination);
+	public TmanMessage(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
+			VodAddress destination) {
+        super();
 		this.requestId = requestId;
 		this.exchangeCollection = exchangeCollection;
+        this.source = source;
+        this.destination = destination;
 	}
 
 	/**
@@ -38,10 +45,18 @@ public abstract class TmanMessage extends Message {
 		return requestId;
 	}
 
-	/**
+    public VodAddress getSource() {
+        return source;
+    }
+
+    public VodAddress getDestination() {
+        return destination;
+    }
+
+    /**
 	 * @return a collection of nodes for exchange
 	 */
-	public Collection<Address> getExchangeCollection() {
+	public Collection<VodAddress> getExchangeCollection() {
 		return exchangeCollection;
 	}
 
@@ -61,8 +76,8 @@ public abstract class TmanMessage extends Message {
 		 * @param destination
 		 *            the message destination
 		 */
-		public TManRequest(UUID requestId, Collection<Address> exchangeCollection, Address source,
-				Address destination) {
+		public TManRequest(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
+				VodAddress destination) {
 			super(requestId, exchangeCollection, source, destination);
 		}
 	}
@@ -83,8 +98,8 @@ public abstract class TmanMessage extends Message {
 		 * @param destination
 		 *            the message destination
 		 */
-		public TManResponse(UUID requestId, Collection<Address> exchangeCollection, Address source,
-				Address destination) {
+		public TManResponse(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
+				VodAddress destination) {
 			super(requestId, exchangeCollection, source, destination);
 		}
 	}

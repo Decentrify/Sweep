@@ -13,6 +13,7 @@ import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
@@ -52,7 +53,7 @@ public final class TMan extends ComponentDefinition {
 	private TManConfiguration tmanConfiguration;
 	private Random random;
 	private TManView tmanView;
-	private Map<UUID, VodDescriptor> outstandingShuffles;
+	private Map<UUID, VodAddress> outstandingShuffles;
 	private boolean leader;
 
 	/**
@@ -91,7 +92,7 @@ public final class TMan extends ComponentDefinition {
 			self = init.getSelf();
 			tmanConfiguration = init.getConfiguration();
 			period = tmanConfiguration.getPeriod();
-			outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, Address>());
+			outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
 			random = new Random(init.getConfiguration().getSeed());
 			tmanView = new TManView(self, tmanConfiguration.getViewSize(),
 					tmanConfiguration.getConvergenceSimilarity());
@@ -126,7 +127,7 @@ public final class TMan extends ComponentDefinition {
 
 			if (sample.size() > 0) {
 				int n = random.nextInt(sample.size());
-				initiateShuffle(sample.get(n));
+				initiateShuffle(sample.get(n).getVodAddress());
 			}
 		}
 	};
@@ -138,8 +139,8 @@ public final class TMan extends ComponentDefinition {
 	Handler<TManRequest> handleTManRequest = new Handler<TManRequest>() {
 		@Override
 		public void handle(TManRequest event) {
-			Address exchangePartner = event.getSource();
-			Collection<VodDescriptor> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
+			VodAddress exchangePartner = event.getSource();
+			Collection<VodAddress> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
 					tmanConfiguration.getExchangeCount());
 			TManResponse rResponse = new TManResponse(event.getRequestId(), exchangeSets, self.getAddress(),
 					exchangePartner);
@@ -200,7 +201,7 @@ public final class TMan extends ComponentDefinition {
 		@Override
 		public void handle(NodeSuggestion event) {
 			if (event.getSuggestion() != null && event.getSuggestion().getId() < self.getId()) {
-				ArrayList<Address> suggestionList = new ArrayList<Address>();
+				ArrayList<VodAddress> suggestionList = new ArrayList<VodAddress>();
 				suggestionList.add(event.getSuggestion());
 				tmanView.merge(suggestionList);
 			}
@@ -214,7 +215,7 @@ public final class TMan extends ComponentDefinition {
 		@Override
 		public void handle(RequestTimeout event) {
 			UUID rTimeoutId = (UUID)event.getTimeoutId();
-			Address deadNode = outstandingShuffles.remove(rTimeoutId);
+			VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 
 			if (deadNode != null) {
 				tmanView.remove(deadNode);
@@ -232,7 +233,7 @@ public final class TMan extends ComponentDefinition {
 			if (leader) {
 				trigger(event, routedEventsPort);
 			} else {
-				forwardToLeader(new RoutedMessage(self, event));
+				forwardToLeader(new RoutedMessage(self.getAddress(), event));
 			}
 		}
 	};
@@ -260,7 +261,7 @@ public final class TMan extends ComponentDefinition {
 		public void handle(IndexEvent event) {
 			IndexMessage indexMessage = null;
 
-			for (Address addr : tmanView.getLowerNodes()) {
+			for (VodAddress addr : tmanView.getLowerNodes()) {
 				indexMessage = new IndexMessage(event, self, addr);
 				trigger(indexMessage, networkPort);
 			}
@@ -288,7 +289,7 @@ public final class TMan extends ComponentDefinition {
 			if (leader) {
 				trigger(event, routedEventsPort);
 			} else {
-				forwardToLeader(new RoutedMessage(self, event));
+				forwardToLeader(new RoutedMessage(self.getAddress(), event));
 			}
 		}
 	};
@@ -299,8 +300,8 @@ public final class TMan extends ComponentDefinition {
 	 * @param exchangePartner
 	 *            the address of the node to shuffle with
 	 */
-	private void initiateShuffle(VodDescriptor exchangePartner) {
-		Collection<Address> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
+	private void initiateShuffle(VodAddress exchangePartner) {
+		Collection<VodAddress> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
 				tmanConfiguration.getExchangeCount());
 
 		ScheduleTimeout rst = new ScheduleTimeout(tmanConfiguration.getPeriod());
@@ -323,7 +324,7 @@ public final class TMan extends ComponentDefinition {
 	 *            the message to be forwarded
 	 */
 	private void forwardToLeader(RoutedMessage message) {
-		ArrayList<Address> peers = tmanView.getHigherNodes();
+		ArrayList<VodAddress> peers = tmanView.getHigherNodes();
 		if (peers.size() == 0) {
 			return;
 		}
@@ -347,7 +348,7 @@ public final class TMan extends ComponentDefinition {
 	// A temperature of '0.0' will throw a divide by zero exception :)
 	// Reference:
 	// http://webdocs.cs.ualberta.ca/~sutton/book/2/node4.html
-	private Address getSoftMaxAddress(List<Address> entries) {
+	private VodAddress getSoftMaxAddress(List<VodAddress> entries) {
 		Collections.sort(entries, new ClosetIdToLeader());
 
 		double rnd = random.nextDouble();
@@ -376,9 +377,9 @@ public final class TMan extends ComponentDefinition {
 		return entries.get(entries.size() - 1);
 	}
 
-	private class ClosetIdToLeader implements Comparator<Address> {
+	private class ClosetIdToLeader implements Comparator<VodAddress> {
 		@Override
-		public int compare(Address o1, Address o2) {
+		public int compare(VodAddress o1, VodAddress o2) {
 			assert (o1.getId() == o2.getId());
 
 			if (o1.getId() > o2.getId()) {

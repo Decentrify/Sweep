@@ -1,5 +1,6 @@
 package tman.system.peer.tman;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 import se.sics.kompics.address.Address;
@@ -53,7 +54,7 @@ public class LeaderStatusPort extends PortType {
 	 * as dead
 	 */
 	public static class NodeCrashEvent extends Event {
-		private final Address deadNode;
+		private final VodAddress deadNode;
 
 		/**
 		 * Default constructor
@@ -61,7 +62,7 @@ public class LeaderStatusPort extends PortType {
 		 * @param deadNode
 		 *            the address of the dead node
 		 */
-		public NodeCrashEvent(Address deadNode) {
+		public NodeCrashEvent(VodAddress deadNode) {
 			super();
 			this.deadNode = deadNode;
 		}
@@ -71,7 +72,7 @@ public class LeaderStatusPort extends PortType {
 		 * 
 		 * @return the address of the dead node
 		 */
-		public Address getDeadNode() {
+		public VodAddress getDeadNode() {
 			return deadNode;
 		}
 	}
@@ -80,7 +81,7 @@ public class LeaderStatusPort extends PortType {
 	 * An event carrying a suggestion for the TMan view
 	 */
 	public static class NodeSuggestion extends Event {
-		private final Address suggestion;
+		private final VodAddress suggestion;
 
 		/**
 		 * Default constructor
@@ -88,7 +89,7 @@ public class LeaderStatusPort extends PortType {
 		 * @param suggestion
 		 *            the suggested address
 		 */
-		public NodeSuggestion(Address suggestion) {
+		public NodeSuggestion(VodAddress suggestion) {
 			super();
 			this.suggestion = suggestion;
 		}
@@ -98,7 +99,7 @@ public class LeaderStatusPort extends PortType {
 		 * 
 		 * @return the suggested address
 		 */
-		public Address getSuggestion() {
+		public VodAddress getSuggestion() {
 			return this.suggestion;
 		}
 	}

@@ -536,7 +536,7 @@ public final class Search extends ComponentDefinition {
 					if (i == 0) {
 						break;
 					}
-					trigger(new Replicate(self, peer.getAddress(), newEntry, event.getUuid()),
+					trigger(new Replicate(self, peer.getVodAddress(), newEntry, event.getUuid()),
 							networkPort);
 					i--;
 				}
@@ -805,7 +805,7 @@ public final class Search extends ComponentDefinition {
 
 			for (VodDescriptor descriptor : bucket) {
 				gapDetections.put(event.getId(), GapStatus.UNDECIDED);
-				trigger(new GapDetectionRequest(self, descriptor.getAddress(), event.getId(),
+				trigger(new GapDetectionRequest(self, descriptor.getVodAddress(), event.getId(),
 						searchConfiguration.getGapDetectionTtl()), networkPort);
 			}
 
@@ -894,7 +894,7 @@ public final class Search extends ComponentDefinition {
 				}
 
 				for (VodDescriptor peer : bucket) {
-					trigger(new Replicate(self, peer.getAddress(), tombstone, UUID.nextUUID()),
+					trigger(new Replicate(self, peer.getVodAddress(), tombstone, UUID.nextUUID()),
 							networkPort);
 				}
 			}

@@ -20,10 +20,10 @@ import common.peer.PeerDescriptor;
  * exchange partners for a given node.
  */
 public class TManView {
-	private TreeMap<Address, PeerDescriptor> entries;
+	private TreeMap<VodAddress, VodDescriptor> entries;
 	private Self self;
 	private int size;
-	private Comparator<Address> closerComparator;
+	private Comparator<VodAddress> closerComparator;
 	private boolean converged;
 	private final double convergenceSimilarity;
 
@@ -37,7 +37,7 @@ public class TManView {
 	 *            converged
 	 */
 	public TManView(Self self, int size, double convergenceSimilarity) {
-		this.entries = new TreeMap<Address, PeerDescriptor>();
+		this.entries = new TreeMap<VodAddress, VodDescriptor>();
 		this.closerComparator = new Closer(self.getAddress());
 		this.self = self;
 		this.size = size;
@@ -52,12 +52,12 @@ public class TManView {
 	 * @param address
 	 *            the node to be added
 	 */
-	public void add(Address address) {
-		entries.put(address, new PeerDescriptor(address));
+	public void add(VodAddress address) {
+		entries.put(address, new VodDescriptor(address));
 
 		if (entries.size() > size) {
-			List<Address> list = getClosestNodes(size);
-			Address leastPreferred = list.get(0);
+			List<VodAddress> list = getClosestNodes(size);
+			VodAddress leastPreferred = list.get(0);
 			remove(leastPreferred);
 		}
 	}
@@ -68,7 +68,7 @@ public class TManView {
 	 * @param address
 	 *            the node to be removed
 	 */
-	public void remove(Address address) {
+	public void remove(VodAddress address) {
 		entries.remove(address);
 	}
 
@@ -77,15 +77,15 @@ public class TManView {
 	 * 
 	 * @return the address of the node with the oldest age
 	 */
-	public Address selectPeerToShuffleWith() {
+	public VodAddress selectPeerToShuffleWith() {
 		if (entries.isEmpty()) {
 			return null;
 		}
 
 		incrementDescriptorAges();
-		PeerDescriptor oldestEntry = Collections.max(entries.values());
+		VodDescriptor oldestEntry = Collections.max(entries.values());
 
-		return oldestEntry.getAddress();
+		return oldestEntry.getVodAddress();
 	}
 
 	/**
@@ -95,11 +95,11 @@ public class TManView {
 	 * @param addresses
 	 *            the nodes to be merged
 	 */
-	public void merge(Collection<Address> addresses) {
-		Collection<Address> old = new ArrayList<Address>(entries.keySet());
+	public void merge(Collection<VodAddress> addresses) {
+		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 
-		for (Address address : addresses) {
+		for (VodAddress address : addresses) {
 			add(address);
 		}
 
@@ -120,9 +120,9 @@ public class TManView {
 	 *            the maximum number of entries to return
 	 * @return a collection of the most preferred nodes
 	 */
-	public Collection<VodDescriptor> getExchangeNodes(VodDescriptor address, int number) {
-		List<VodDescriptor> list = getClosestNodes(address, number);
-		list.add(self);
+	public Collection<VodAddress> getExchangeNodes(VodAddress address, int number) {
+		List<VodAddress> list = getClosestNodes(address, number);
+		list.add(self.getAddress());
 		Collections.sort(list, new Closer(address));
 		list.remove(address);
 		return list.subList(0, number < list.size() ? number : list.size());
@@ -131,22 +131,22 @@ public class TManView {
 	/**
 	 * @return all nodes with a higher preference value than self
 	 */
-	public ArrayList<Address> getHigherNodes() {
-		return new ArrayList<Address>(entries.headMap(self).keySet());
+	public ArrayList<VodAddress> getHigherNodes() {
+		return new ArrayList<VodAddress>(entries.headMap(self.getAddress()).keySet());
 	}
 
 	/**
 	 * @return all nodes with a lower preference value than self
 	 */
-	public ArrayList<Address> getLowerNodes() {
-		return new ArrayList<Address>(entries.tailMap(self).keySet());
+	public ArrayList<VodAddress> getLowerNodes() {
+		return new ArrayList<VodAddress>(entries.tailMap(self.getAddress()).keySet());
 	}
 
 	/**
 	 * @return a list of all entries in the view
 	 */
-	public ArrayList<Address> getAll() {
-		return new ArrayList<Address>(entries.keySet());
+	public ArrayList<VodAddress> getAll() {
+		return new ArrayList<VodAddress>(entries.keySet());
 	}
 
 	/**
@@ -180,7 +180,7 @@ public class TManView {
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		for (Address node : entries.keySet()) {
+		for (VodAddress node : entries.keySet()) {
 			builder.append(node.getId() + " ");
 		}
 		return builder.toString();
@@ -190,7 +190,7 @@ public class TManView {
 	 * Increment the age of all descriptors in the view
 	 */
 	private void incrementDescriptorAges() {
-		for (PeerDescriptor descriptor : entries.values()) {
+		for (VodDescriptor descriptor : entries.values()) {
 			descriptor.incrementAndGetAge();
 		}
 	}
@@ -232,8 +232,8 @@ public class TManView {
 	 *            the maximum number of nodes to return
 	 * @return the list of the closest nodes to self
 	 */
-	private List<Address> getClosestNodes(int number) {
-		return getClosestNodes(self, number, closerComparator);
+	private List<VodAddress> getClosestNodes(int number) {
+		return getClosestNodes(self.getAddress(), number, closerComparator);
 	}
 
 	/**
@@ -245,8 +245,8 @@ public class TManView {
 	 *            the maximum number of nodes to return
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<Address> getClosestNodes(VodDescriptor address, int number) {
-		return getClosestNodes(address, number, new Closer(address.getVodAddress()));
+	private List<VodAddress> getClosestNodes(VodAddress address, int number) {
+		return getClosestNodes(address, number, new Closer(address));
 	}
 
 	/**
@@ -260,8 +260,8 @@ public class TManView {
 	 *            the comparator to use
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<Address> getClosestNodes(VodAddress address, int number, Comparator<VodAddress> c) {
-		ArrayList<Address> addresses = getAll();
+	private List<VodAddress> getClosestNodes(VodAddress address, int number, Comparator<VodAddress> c) {
+		ArrayList<VodAddress> addresses = getAll();
 		Collections.sort(addresses, new Closer(address));
 		return addresses.subList(0, number < addresses.size() ? number : addresses.size());
 	}
