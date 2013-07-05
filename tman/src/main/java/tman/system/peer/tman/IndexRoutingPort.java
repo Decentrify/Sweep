@@ -1,7 +1,7 @@
 package tman.system.peer.tman;
 
-import java.util.UUID;
-
+import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 import se.sics.kompics.address.Address;
@@ -65,10 +65,12 @@ public class IndexRoutingPort extends PortType {
 	/**
 	 * Message sent back to a node that has requested to get the index id
 	 */
-	public static class IndexResponseMessage extends Message {
+	public static class IndexResponseMessage extends Event {
 		private static final long serialVersionUID = 6251581501397927390L;
 		private final long index;
 		private final UUID messageId;
+        private final VodAddress source;
+        private final VodAddress destination;
 
 		/**
 		 * Default constructor
@@ -82,10 +84,11 @@ public class IndexRoutingPort extends PortType {
 		 * @param destination
 		 *            the destination address
 		 */
-		public IndexResponseMessage(long index, UUID messageId, Address source, Address destination) {
-			super(source, destination);
+		public IndexResponseMessage(long index, UUID messageId, VodAddress source, VodAddress destination) {
 			this.index = index;
 			this.messageId = messageId;
+            this.source = source;
+            this.destination = destination;
 		}
 
 		/**
@@ -105,7 +108,15 @@ public class IndexRoutingPort extends PortType {
 		public UUID getMessageId() {
 			return this.messageId;
 		}
-	}
+
+        public VodAddress getSource() {
+            return source;
+        }
+
+        public VodAddress getDestination() {
+            return destination;
+        }
+    }
 
 	/**
 	 * The default event that will be routed
@@ -182,7 +193,7 @@ public class IndexRoutingPort extends PortType {
 	public static class IndexRequestEvent extends IndexEvent {
 		private final long index;
 		private final UUID messageId;
-		private final Address leaderAddress;
+		private final VodAddress leaderAddress;
 
 		/**
 		 * Default constructor
@@ -194,7 +205,7 @@ public class IndexRoutingPort extends PortType {
 		 * @param leaderAddress
 		 *            the leader's address
 		 */
-		public IndexRequestEvent(long index, UUID messageId, Address leaderAddress) {
+		public IndexRequestEvent(long index, UUID messageId, VodAddress leaderAddress) {
 			super();
 			this.index = index;
 			this.leaderAddress = leaderAddress;
@@ -224,7 +235,7 @@ public class IndexRoutingPort extends PortType {
 		 * 
 		 * @return the leader's address
 		 */
-		public Address getLeaderAddress() {
+		public VodAddress getLeaderAddress() {
 			return leaderAddress;
 		}
 	}

@@ -32,6 +32,7 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.peersearch.types.SearchPattern;
 
 /**
  *
@@ -105,16 +106,16 @@ public class EncodingDecodingTest {
     @Test
     public void searchRequest() {
         try {
+            SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
             UUID requestId = (UUID)UUID.nextUUID();
-            String query = "bbbbbbbbbbbbbbbbbbb";
-            SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, query);
+            SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
             try {
                 ChannelBuffer buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
                 SearchMessage.Request request =
                         SearchMessageFactory.Request.fromBuffer(buffer);
-                assert (query.equals(request.getQuery()));
                 assert (request.getRequestId().equals(requestId));
+                assert (request.getPattern().equals(pattern));
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
@@ -559,8 +560,16 @@ public class EncodingDecodingTest {
 
     @Test
     public void LeaderSuspectionRequest() {
+        InetAddress address1 = null;
+        try {
+            address1 = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID());
+        LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), vodAddress1);
         try {
             ChannelBuffer buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -569,6 +578,7 @@ public class EncodingDecodingTest {
 
             assert (request.getClientId() == 1);
             assert (request.getRemoteId() == 2);
+            assert (request.getLeader().equals(vodAddress1));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -582,8 +592,16 @@ public class EncodingDecodingTest {
     @Test
     public void LeaderSuspectionResponse() {
         boolean isSuspected = true;
+        InetAddress address1 = null;
+        try {
+            address1 = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LeaderSuspectionMessage.Response msg = new LeaderSuspectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected);
+        LeaderSuspectionMessage.Response msg = new LeaderSuspectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected, vodAddress1);
         try {
             ChannelBuffer buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -594,6 +612,7 @@ public class EncodingDecodingTest {
             assert (response.getRemoteId() == 2);
             assert (response.getStatus() == RelayMsgNetty.Status.OK);
             assert (response.isSuspected() == isSuspected);
+            assert (response.getLeader().equals(vodAddress1));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -670,7 +689,7 @@ public class EncodingDecodingTest {
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
-            assert (response.getMessage().equals(request));
+            assert (response.getMessage().getEntry().equals(entry));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

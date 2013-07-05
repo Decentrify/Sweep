@@ -2,8 +2,8 @@ package election.system.peer.election;
 
 import java.util.ArrayList;
 
-import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
@@ -50,7 +50,7 @@ public class ElectionLeader extends ComponentDefinition {
 			indexMessageCounter;
 	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
 	private Self self;
-	private ArrayList<Address> lowerNodes, higherNodes;
+	private ArrayList<VodAddress> lowerNodes, higherNodes;
 	private TimeoutId scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
 
 	/**
@@ -124,8 +124,8 @@ public class ElectionLeader extends ComponentDefinition {
 			electionInProgress = false;
 			allowingIndexMessages = false;
 
-			lowerNodes = new ArrayList<Address>();
-			higherNodes = new ArrayList<Address>();
+			lowerNodes = new ArrayList<VodAddress>();
+			higherNodes = new ArrayList<VodAddress>();
 
 			yesVotes = new SynchronizedCounter();
 			totalVotes = new SynchronizedCounter();
@@ -148,10 +148,10 @@ public class ElectionLeader extends ComponentDefinition {
 
 			// Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
-			for (Address node : higherNodes) {
+			for (VodAddress node : higherNodes) {
 				builder.append(node.getId() + " ");
 			}
-			for (Address node : lowerNodes) {
+			for (VodAddress node : lowerNodes) {
 				builder.append(node.getId() + " ");
 			}
 			Snapshot.setCurrentView(self.getAddress(), builder.toString());
@@ -219,11 +219,11 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<ElectionSchedule> handleHeartBeats = new Handler<ElectionSchedule>() {
 		@Override
 		public void handle(ElectionSchedule event) {
-			Address lowestId = self.getAddress().getPeerAddress();
+			VodAddress lowestId = self.getAddress().getPeerAddress();
 
 			// It is assumed that the list doesn't have to be sorted
 			// Looks for the node with the lowest ID
-			for (Address addr : higherNodes) {
+			for (VodAddress addr : higherNodes) {
 				if (addr.getId() < lowestId.getId()) {
 					lowestId = addr;
 				}
@@ -260,7 +260,7 @@ public class ElectionLeader extends ComponentDefinition {
 			boolean sourceIsInView = false;
 
 			// Checks if the node is still in the leader's view
-			for (Address addr : lowerNodes) {
+			for (VodAddress addr : lowerNodes) {
 				if (addr.getId() == event.getSource().getId()) {
 					sourceIsInView = true;
 					break;
@@ -282,7 +282,7 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(IndexResponseMessage event) {
 			// Make sure that only recent messages are checked
-			if (allowingIndexMessages == true && event.getMessageId() == indexMessageID) {
+			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
 				// Increase the counter and send the update to search
 				indexMessageCounter.incrementValue();
 				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
@@ -370,7 +370,7 @@ public class ElectionLeader extends ComponentDefinition {
 			if (iAmLeader == false) {
 				// Create view for Snapshot
 				StringBuilder builder = new StringBuilder();
-				for (Address node : lowerNodes) {
+				for (VodAddress node : lowerNodes) {
 					builder.append(node.getId() + " ");
 				}
 				Snapshot.setElectionView(self.getAddress(), builder.toString());
@@ -413,7 +413,7 @@ public class ElectionLeader extends ComponentDefinition {
 		VotingRequestMsg vote = null;
 
 		// Broadcasts the vote requests to the nodes in the view
-		for (Address receiver : lowerNodes) {
+		for (VodAddress receiver : lowerNodes) {
 			vote = new VotingRequestMsg(electionCounter.getValue(), voteTimeout, self, receiver);
 			trigger(vote, networkPort);
 		}
@@ -430,7 +430,7 @@ public class ElectionLeader extends ComponentDefinition {
 		VotingResultMsg msg = null;
 
 		// Broadcasts the leader's current view to it's followers
-		for (Address receiver : lowerNodes) {
+		for (VodAddress receiver : lowerNodes) {
 			msg = new VotingResultMsg(lowerNodes, self, receiver);
 			trigger(msg, networkPort);
 		}
@@ -468,7 +468,7 @@ public class ElectionLeader extends ComponentDefinition {
 		variableCleanUp();
 	}
 
-	private void rejected(Address byNode, Address betterNode) {
+	private void rejected(VodAddress byNode, VodAddress betterNode) {
 		rejected();
 		
 		// From here one could trigger an event that suggest TMan to put this

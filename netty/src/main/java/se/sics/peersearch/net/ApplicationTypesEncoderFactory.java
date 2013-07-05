@@ -9,6 +9,7 @@ import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
 
@@ -61,5 +62,16 @@ public class ApplicationTypesEncoderFactory {
         UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, items.length);
         for(VodAddress item : items)
             writeVodAddress(buffer, item);
+    }
+
+    public static void writeSearchPattern(ChannelBuffer buffer, SearchPattern pattern) throws MessageEncodingException {
+        writeStringLength256(buffer, pattern.getFileNamePattern());
+        buffer.writeInt(pattern.getMinFileSize());
+        buffer.writeInt(pattern.getMaxFileSize());
+        buffer.writeLong(pattern.getMinUploadDate().getTime());
+        buffer.writeLong(pattern.getMaxUploadDate().getTime());
+        writeStringLength256(buffer, pattern.getLanguage());
+        buffer.writeInt(pattern.getCategory().ordinal());
+        writeStringLength65536(buffer, pattern.getDescriptionPattern());
     }
 }

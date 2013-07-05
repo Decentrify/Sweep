@@ -22,6 +22,7 @@ public class RoutedMessageFactory extends DirectMsgNettyFactory {
     }
     @Override
     protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        buffer.readByte();
         AddIndexEntryMessage.Request request = AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
         return new RoutedMessage(vodSrc, vodDest, request);
     }

@@ -9,6 +9,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 
 import java.util.Date;
 
@@ -59,5 +60,18 @@ public class ApplicationTypesDecoderFactory {
             items[i] = UserTypesDecoderFactory.readVodAddress(buffer);
         }
         return items;
+    }
+
+    public static SearchPattern readSearchPattern(ChannelBuffer buffer) throws MessageDecodingException {
+        String fileNamePattern = UserTypesDecoderFactory.readStringLength256(buffer);
+        int minFileSize = buffer.readInt();
+        int maxFileSize = buffer.readInt();
+        Date minUploadDate = new Date(buffer.readLong());
+        Date maxUploadDate = new Date(buffer.readLong());
+        String language = UserTypesDecoderFactory.readStringLength256(buffer);
+        IndexEntry.Category category = IndexEntry.Category.values()[buffer.readInt()];
+        String descriptionPattern = UserTypesDecoderFactory.readStringLength65536(buffer);
+
+        return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
     }
 }

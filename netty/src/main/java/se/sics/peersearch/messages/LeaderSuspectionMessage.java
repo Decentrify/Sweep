@@ -19,6 +19,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  */
 public class LeaderSuspectionMessage {
     public static class Request extends RelayMsgNetty.Request {
+        private final VodAddress leader;
 
         /**
          * Creates a message for leader suspection
@@ -27,9 +28,15 @@ public class LeaderSuspectionMessage {
          * @param clientId
          * @param remoteId
          * @param timeoutId
+         * @param leader
          */
-        public Request(VodAddress source, VodAddress destination, int clientId, int remoteId, TimeoutId timeoutId) {
+        public Request(VodAddress source, VodAddress destination, int clientId, int remoteId, TimeoutId timeoutId, VodAddress leader) {
             super(source, destination, clientId, remoteId, timeoutId);
+            this.leader = leader;
+        }
+
+        public VodAddress getLeader() {
+            return leader;
         }
 
         @Override
@@ -39,20 +46,33 @@ public class LeaderSuspectionMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, clientId, remoteId, timeoutId);
+            return new Request(vodSrc, vodDest, clientId, remoteId, timeoutId, leader);
+        }
+
+        @Override
+        public ChannelBuffer toByteArray() throws MessageEncodingException {
+            ChannelBuffer buffer = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeVodAddress(buffer, leader);
+            return buffer;
         }
     }
 
     public static class Response extends RelayMsgNetty.Response {
         private final boolean isSuspected;
+        private final VodAddress leader;
 
-        public Response(VodAddress source, VodAddress destination, int clientId, int remoteId, VodAddress nextDest, TimeoutId timeoutId, RelayMsgNetty.Status status, boolean isSuspected) {
+        public Response(VodAddress source, VodAddress destination, int clientId, int remoteId, VodAddress nextDest, TimeoutId timeoutId, RelayMsgNetty.Status status, boolean isSuspected, VodAddress leader) {
             super(source, destination, clientId, remoteId, nextDest, timeoutId, status);
             this.isSuspected = isSuspected;
+            this.leader = leader;
         }
 
         public boolean isSuspected() {
             return isSuspected;
+        }
+
+        public VodAddress getLeader() {
+            return leader;
         }
 
         @Override
@@ -64,6 +84,7 @@ public class LeaderSuspectionMessage {
         public ChannelBuffer toByteArray() throws MessageEncodingException {
             ChannelBuffer buffer = createChannelBufferWithHeader();
             UserTypesEncoderFactory.writeBoolean(buffer, isSuspected);
+            UserTypesEncoderFactory.writeVodAddress(buffer, leader);
             return buffer;
         }
 
@@ -74,7 +95,7 @@ public class LeaderSuspectionMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, clientId, remoteId, nextDest, timeoutId, getStatus(), isSuspected);
+            return new Response(vodSrc, vodDest, clientId, remoteId, nextDest, timeoutId, getStatus(), isSuspected, leader);
         }
     }
 

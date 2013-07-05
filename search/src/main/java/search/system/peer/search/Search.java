@@ -55,16 +55,13 @@ import se.sics.kompics.Positive;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
+import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 import search.system.peer.IndexPort;
 import search.system.peer.IndexPort.AddIndexSimulated;
-import search.system.peer.search.IndexExchangeMessages.IndexUpdateRequest;
-import search.system.peer.search.IndexExchangeMessages.IndexUpdateResponse;
 import search.system.peer.search.LeaderResponse.IndexEntryAdded;
-import search.system.peer.search.ReplicationMessage.Replicate;
-import search.system.peer.search.ReplicationMessage.ReplicationConfirmation;
-import search.system.peer.search.SearchMessage.SearchRequest;
-import search.system.peer.search.SearchMessage.SearchResponse;
 import search.system.peer.search.Timeouts.AddRequestTimeout;
 import search.system.peer.search.Timeouts.GapDetectionTimeout;
 import search.system.peer.search.Timeouts.GapTimeout;
@@ -187,9 +184,6 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleAddRequestTimeout, timerPort);
 		subscribe(handleGapTimeout, timerPort);
 		subscribe(handleGapCheck, routedEventsPort);
-		subscribe(handleGapDetectionRequest, networkPort);
-		subscribe(handleGapDetectionResponse, networkPort);
-		subscribe(handleGapDetectionTimeout, timerPort);
 		subscribe(handleRecentRequestsGcTimeout, timerPort);
 		subscribe(handleIndexUpdate, indexRoutingPort);
 		subscribe(handleStartIndexRequest, indexRoutingPort);
@@ -400,10 +394,10 @@ public final class Search extends ComponentDefinition {
 			TreeSet<VodDescriptor> bucket = routingTable.get(partition);
 			if (bucket != null) {
 				int n = random.nextInt(bucket.size());
-				trigger(new IndexUpdateRequest(self,
-						((PeerDescriptor) bucket.toArray()[n]).getAddress(),
-						oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
-								.size()])), networkPort);
+
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((PeerDescriptor)bucket.toArray()[n]).getAddress(),
+                        UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
+                        .size()]), 0,0), networkPort);
 			}
 		}
 	};
@@ -424,9 +418,9 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Add all entries received from another node to the local index store.
 	 */
-	Handler<IndexUpdateResponse> handleIndexUpdateResponse = new Handler<IndexUpdateResponse>() {
+	Handler<IndexExchangeMessage.Response> handleIndexUpdateResponse = new Handler<IndexExchangeMessage.Response>() {
 		@Override
-		public void handle(IndexUpdateResponse event) {
+		public void handle(IndexExchangeMessage.Response event) {
 			try {
 				for (IndexEntry indexEntry : event.getIndexEntries()) {
 					addEntryLocal(indexEntry);
@@ -441,9 +435,9 @@ public final class Search extends ComponentDefinition {
 	 * Search for entries in the local store that the inquirer might need and
 	 * send them to him.
 	 */
-	Handler<IndexUpdateRequest> handleIndexUpdateRequest = new Handler<IndexUpdateRequest>() {
+	Handler<IndexExchangeMessage.Request> handleIndexUpdateRequest = new Handler<IndexExchangeMessage.Request>() {
 		@Override
-		public void handle(IndexUpdateRequest event) {
+		public void handle(IndexExchangeMessage.Request event) {
 			try {
 				List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
 
@@ -470,7 +464,7 @@ public final class Search extends ComponentDefinition {
 					return;
 				}
 
-				trigger(new IndexUpdateResponse(self, event.getSource(), indexEntries), networkPort);
+                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), (IndexEntry[])indexEntries.toArray(), 0, 0), networkPort);
 			} catch (IOException e) {
 				logger.error(self.getId() + " " + e.getMessage());
 			}
@@ -482,19 +476,19 @@ public final class Search extends ComponentDefinition {
 	 * Handler executed in the role of the leader. Create a new id and search
 	 * for a the according bucket in the routing table. If it does not include
 	 * enough nodes to satisfy the replication requirements then create a new id
-	 * and try again. Send a {@link Replicate} request to a number of nodes as
+	 * and try again. Send a {@link ReplicationMessage} request to a number of nodes as
 	 * specified in the config file and schedule a timeout to wait for
 	 * responses. The adding operation will be acknowledged if either all nodes
-	 * responded to the {@link Replicate} request or the timeout occurred and
+	 * responded to the {@link ReplicationMessage} request or the timeout occurred and
 	 * enough nodes, as specified in the config, responded.
 	 */
-	Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
+	Handler<AddIndexEntryMessage.Request> handleAddIndexEntry = new Handler<AddIndexEntryMessage.Request>() {
 		@Override
-		public void handle(AddIndexEntry event) {
-			if (recentRequests.containsKey(event.getUuid())) {
+		public void handle(AddIndexEntryMessage.Request event) {
+			if (recentRequests.containsKey(event.getId())) {
 				return;
 			}
-			recentRequests.put(event.getUuid(), System.currentTimeMillis());
+			recentRequests.put(event.getId(), System.currentTimeMillis());
 
 			try {
 				if (routingTable.isEmpty()) {
@@ -504,7 +498,7 @@ public final class Search extends ComponentDefinition {
 
 				// Search the next id and a non-empty bucket an place the entry
 				// there
-				IndexEntry newEntry = event.getIndexEntry();
+				IndexEntry newEntry = event.getEntry();
 				long id;
 				int entryPartition;
 				TreeSet<VodDescriptor> bucket;
@@ -527,7 +521,7 @@ public final class Search extends ComponentDefinition {
 					addEntryLocal(newEntry);
 				}
 
-				replicationRequests.put(event.getUuid(), new ReplicationCount(event.getSource(),
+				replicationRequests.put(event.getId(), new ReplicationCount(event.getVodSource(),
 						searchConfiguration.getReplicationMinimum()));
 
 				i = bucket.size() > searchConfiguration.getReplicationMaximum() ? searchConfiguration
@@ -536,14 +530,13 @@ public final class Search extends ComponentDefinition {
 					if (i == 0) {
 						break;
 					}
-					trigger(new Replicate(self, peer.getVodAddress(), newEntry, event.getUuid()),
-							networkPort);
+                    trigger(new ReplicationMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getId(), newEntry, 0,0), networkPort);
 					i--;
 				}
 
 				ScheduleTimeout rst = new ScheduleTimeout(
 						searchConfiguration.getReplicationTimeout());
-				rst.setTimeoutEvent(new ReplicationTimeout(rst, event.getUuid()));
+				rst.setTimeoutEvent(new ReplicationTimeout(rst, event.getId()));
 				trigger(rst, timerPort);
 
 				Snapshot.setLastId(id);
@@ -589,13 +582,13 @@ public final class Search extends ComponentDefinition {
 	 * When receiving a replicate messsage from the leader, add the entry to the
 	 * local store and send an acknowledgment.
 	 */
-	Handler<Replicate> handleReplicate = new Handler<Replicate>() {
+	Handler<ReplicationMessage.Request> handleReplicate = new Handler<ReplicationMessage.Request>() {
 		@Override
-		public void handle(Replicate event) {
+		public void handle(ReplicationMessage.Request event) {
 			try {
 				addEntryLocal(event.getIndexEntry());
-				trigger(new ReplicationConfirmation(self, event.getSource(), event.getUuid()),
-						networkPort);
+
+                trigger(new ReplicationMessage.Response(self.getAddress(), event.getVodDestination(), event.getTimeoutId(), event.getId()), networkPort);
 			} catch (IOException e) {
 				logger.error(self.getId() + " " + e.getMessage());
 			}
@@ -603,18 +596,18 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * As the leader, add an {@link ReplicationConfirmation} to the according
+	 * As the leader, add an {@link ReplicationMessage.Request} to the according
 	 * request and issue the response if the replication constraints were
 	 * satisfied.
 	 */
-	Handler<ReplicationConfirmation> handleReplicationConfirmation = new Handler<ReplicationConfirmation>() {
+	Handler<ReplicationMessage.Request> handleReplicationConfirmation = new Handler<ReplicationMessage.Request>() {
 		@Override
-		public void handle(ReplicationConfirmation event) {
-			ReplicationCount replicationCount = replicationRequests.get(event.getUuid());
+		public void handle(ReplicationMessage.Request event) {
+			ReplicationCount replicationCount = replicationRequests.get(event.getId());
 			if (replicationCount != null && replicationCount.incrementAndCheckReceived()) {
-				trigger(new IndexEntryAdded(self, replicationCount.getSource(), event.getUuid()),
-						networkPort);
-				replicationRequests.remove(event.getUuid());
+
+                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), event.getTimeoutId(), event.getIndexEntry(), event.getId(), 0, 0), networkPort);
+				replicationRequests.remove(event.getId());
 			}
 		}
 	};
@@ -623,26 +616,28 @@ public final class Search extends ComponentDefinition {
 	 * Query the local store with the given query string and send the response
 	 * back to the inquirer.
 	 */
-	Handler<SearchRequest> handleSearchRequest = new Handler<SearchRequest>() {
+	Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
 		@Override
-		public void handle(SearchRequest event) {
+		public void handle(SearchMessage.Request event) {
 			try {
-				ArrayList<IndexEntry> result = searchLocal(event.getSearchPattern());
-				trigger(new SearchResponse(self, event.getSource(), event.getRequestId(), result),
-						networkPort);
+				ArrayList<IndexEntry> result = searchLocal(event.getPattern());
+
+                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getRequestId(), 0, 0, (IndexEntry[])result.toArray()), networkPort);
 			} catch (IOException ex) {
 				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
 						ex);
-			}
-		}
+			} catch (IllegalSearchString illegalSearchString) {
+                illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
 	};
 
 	/**
 	 * Add the response to the search index store.
 	 */
-	Handler<SearchResponse> handleSearchResponse = new Handler<SearchResponse>() {
+	Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
 		@Override
-		public void handle(SearchResponse event) {
+		public void handle(SearchMessage.Response event) {
 			if (searchRequest == null
 					|| event.getRequestId().equals(searchRequest.getSearchId()) == false) {
 				return;
@@ -727,7 +722,7 @@ public final class Search extends ComponentDefinition {
 	Handler<StartIndexRequestEvent> handleStartIndexRequest = new Handler<StartIndexRequestEvent>() {
 		@Override
 		public void handle(StartIndexRequestEvent event) {
-			trigger(new IndexRequestEvent(lastInsertionId, event.getMessageID(), self),
+			trigger(new IndexRequestEvent(lastInsertionId, event.getMessageID(), self.getAddress()),
 					indexRoutingPort);
 		}
 	};
@@ -739,7 +734,7 @@ public final class Search extends ComponentDefinition {
 	Handler<IndexRequestEvent> handleIndexRequest = new Handler<IndexRequestEvent>() {
 		@Override
 		public void handle(IndexRequestEvent event) {
-			trigger(new IndexResponseMessage(lastInsertionId, event.getMessageId(), self,
+			trigger(new IndexResponseMessage(lastInsertionId, event.getMessageId(), self.getAddress(),
 					event.getLeaderAddress()), networkPort);
 		}
 	};
@@ -805,99 +800,13 @@ public final class Search extends ComponentDefinition {
 
 			for (VodDescriptor descriptor : bucket) {
 				gapDetections.put(event.getId(), GapStatus.UNDECIDED);
-				trigger(new GapDetectionRequest(self, descriptor.getVodAddress(), event.getId(),
-						searchConfiguration.getGapDetectionTtl()), networkPort);
+
+                trigger(new GapDetectionMessage.Request(self.getAddress(), descriptor.getVodAddress(), UUID.nextUUID(), event.getId()), networkPort);
 			}
 
 			ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getGapDetectionTimeout());
 			rst.setTimeoutEvent(new GapDetectionTimeout(rst, event.getId()));
 			trigger(rst, timerPort);
-		}
-	};
-
-	/**
-	 * Answer a gap detection request from the leader and forward it to a random
-	 * node if the TTL is not expired.
-	 */
-	Handler<GapDetectionRequest> handleGapDetectionRequest = new Handler<GapDetectionRequest>() {
-		@Override
-		public void handle(GapDetectionRequest event) {
-			try {
-				trigger(new GapDetectionResponse(self, event.getSource(), event.getId(),
-						!entryExists(event.getId())), networkPort);
-
-				event.decrementTtl();
-				if (event.getTtl() == 0) {
-					TreeSet<VodDescriptor> bucket = routingTable.get(event.getId()
-							% searchConfiguration.getNumPartitions());
-
-					if (bucket != null) {
-						int n = random.nextInt(bucket.size());
-						event.setDestination(((PeerDescriptor) bucket.toArray()[n]).getAddress());
-						trigger(event, networkPort);
-					}
-				}
-			} catch (IOException e) {
-				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
-						e);
-			}
-		}
-	};
-
-	/**
-	 * As leader, collect answers from a gap detection random walk.
-	 */
-	Handler<GapDetectionResponse> handleGapDetectionResponse = new Handler<GapDetectionResponse>() {
-		@Override
-		public void handle(GapDetectionResponse event) {
-			if (gapDetections.containsKey(event.getId())) {
-				if (gapDetections.get(event.getId()) == GapStatus.FALSE) {
-					return;
-				}
-
-				if (event.isGap() == false) {
-					gapDetections.put(event.getId(), GapStatus.FALSE);
-				} else {
-					gapDetections.put(event.getId(), GapStatus.TRUE);
-				}
-			}
-		}
-	};
-
-	/**
-	 * As the leader, evaluate the {@link GapDetectionResponse}s collected and
-	 * create a tombstone if necessary.
-	 */
-	Handler<GapDetectionTimeout> handleGapDetectionTimeout = new Handler<GapDetectionTimeout>() {
-		@Override
-		public void handle(GapDetectionTimeout event) {
-			if (gapDetections.remove(event.getId()) == GapStatus.TRUE) {
-				int entryPartition = (int) (event.getId() % searchConfiguration
-						.getMaxNumRoutingEntries());
-				TreeSet<VodDescriptor> bucket = routingTable.get(entryPartition);
-
-				Snapshot.addGap(event.getId());
-
-				if (bucket == null) {
-					return;
-				}
-
-				// An entry with an empty title is a tombstone
-				IndexEntry tombstone = new IndexEntry(event.getId());
-				if (entryPartition == partition) {
-					try {
-						addEntryLocal(tombstone);
-					} catch (IOException e) {
-						java.util.logging.Logger.getLogger(Search.class.getName()).log(
-								Level.SEVERE, null, e);
-					}
-				}
-
-				for (VodDescriptor peer : bucket) {
-					trigger(new Replicate(self, peer.getVodAddress(), tombstone, UUID.nextUUID()),
-							networkPort);
-				}
-			}
 		}
 	};
 
@@ -933,8 +842,8 @@ public final class Search extends ComponentDefinition {
 			}
 
 			int n = random.nextInt(bucket.size());
-			trigger(new SearchRequest(self, ((PeerDescriptor) bucket.toArray()[n]).getAddress(),
-					searchRequest.getSearchId(), pattern), networkPort);
+
+            trigger(new SearchMessage.Request(self.getAddress(),((PeerDescriptor) bucket.toArray()[n]).getAddress(), searchRequest.getTimeoutId(), searchRequest.getSearchId(), pattern), networkPort);
 			searchRequest.incrementNodesQueried();
 			i++;
 		}
@@ -948,7 +857,7 @@ public final class Search extends ComponentDefinition {
 		try {
 			ArrayList<IndexEntry> result = searchLocal(pattern);
 			searchRequest.incrementNodesQueried();
-			addSearchResponse(result);
+			addSearchResponse((IndexEntry[])result.toArray());
 		} catch (IOException e) {
 			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
 		}
@@ -1009,7 +918,7 @@ public final class Search extends ComponentDefinition {
 	 *            the {@link IndexEntry} to be added
 	 */
 	private void addEntryGlobal(IndexEntry entry, UUID requestId) {
-		trigger(new AddIndexEntry(self, requestId, entry), routedEventsPort);
+		trigger(new AddIndexEntry(self.getAddress(), requestId, entry), routedEventsPort);
 	}
 
 	/**
@@ -1186,12 +1095,12 @@ public final class Search extends ComponentDefinition {
 	}
 
 	/**
-	 * Add all entries from a {@link SearchResponse} to the search index.
+	 * Add all entries from a {@link SearchMessage.Response} to the search index.
 	 * 
 	 * @param entries
 	 *            the entries to be added
 	 */
-	private void addSearchResponse(Collection<IndexEntry> entries) {
+	private void addSearchResponse(IndexEntry[] entries) {
 		try {
 			addIndexEntries(searchIndex, entries);
 		} catch (IOException e) {
@@ -1305,7 +1214,7 @@ public final class Search extends ComponentDefinition {
 	 * @throws IOException
 	 *             in case the adding operation failed
 	 */
-	private void addIndexEntries(Directory index, Collection<IndexEntry> entries)
+	private void addIndexEntries(Directory index, IndexEntry[] entries)
 			throws IOException {
 		IndexWriter writer = null;
 		try {

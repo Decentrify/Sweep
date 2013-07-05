@@ -2,6 +2,7 @@ package search.system.peer.search;
 
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.web.WebRequest;
+import se.sics.peersearch.types.SearchPattern;
 
 /**
  * Stores information about a currently executed search request.

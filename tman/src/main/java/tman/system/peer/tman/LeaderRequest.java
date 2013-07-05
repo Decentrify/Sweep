@@ -2,6 +2,7 @@ package tman.system.peer.tman;
 
 import java.io.Serializable;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.Event;
 import se.sics.kompics.address.Address;
@@ -13,7 +14,7 @@ import se.sics.peersearch.types.IndexEntry;
  */
 public abstract class LeaderRequest extends Event implements Serializable {
 	private static final long serialVersionUID = -7670704362921626978L;
-	private final Address source;
+	private final VodAddress source;
 	private final UUID uuid;
 
 	/**
@@ -22,7 +23,7 @@ public abstract class LeaderRequest extends Event implements Serializable {
 	 * @param uuid
 	 *            the unique request id
 	 */
-	public LeaderRequest(Address source, UUID uuid) {
+	public LeaderRequest(VodAddress source, UUID uuid) {
 		super();
 		this.source = source;
 		this.uuid = uuid;
@@ -31,7 +32,7 @@ public abstract class LeaderRequest extends Event implements Serializable {
 	/**
 	 * @return the message source
 	 */
-	public Address getSource() {
+	public VodAddress getSource() {
 		return source;
 	}
 
@@ -57,7 +58,7 @@ public abstract class LeaderRequest extends Event implements Serializable {
 		 * @param indexEntry
 		 *            the {@link IndexEntry} to be added
 		 */
-		public AddIndexEntry(Address source, UUID uuid, IndexEntry indexEntry) {
+		public AddIndexEntry(VodAddress source, UUID uuid, IndexEntry indexEntry) {
 			super(source, uuid);
 			this.indexEntry = indexEntry;
 		}

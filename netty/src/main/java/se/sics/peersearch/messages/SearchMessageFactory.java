@@ -11,6 +11,7 @@ import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 
 public class SearchMessageFactory {
 
@@ -28,10 +29,10 @@ public class SearchMessageFactory {
         @Override
         protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
             UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
-            String query = UserTypesDecoderFactory.readStringLength256(buffer);
+            SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
             try {
                 return new SearchMessage.Request(vodSrc, vodDest,
-                        timeoutId, requestId, query);
+                        timeoutId, requestId, pattern);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }

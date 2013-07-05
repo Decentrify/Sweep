@@ -19,7 +19,9 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.GradientShuffleMessage;
+import se.sics.peersearch.messages.RoutedMessage;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort.IndexEvent;
 import tman.system.peer.tman.IndexRoutingPort.IndexMessage;
@@ -231,7 +233,7 @@ public final class TMan extends ComponentDefinition {
 			if (leader) {
 				trigger(event, routedEventsPort);
 			} else {
-				forwardToLeader(new RoutedMessage(self.getAddress(), event));
+				forwardToLeader(self.getAddress(), event);
 			}
 		}
 	};
@@ -243,9 +245,9 @@ public final class TMan extends ComponentDefinition {
 		@Override
 		public void handle(RoutedMessage event) {
 			if (leader) {
-				trigger(event.getEvent(), routedEventsPort);
+				trigger(event.getMessage(), routedEventsPort);
 			} else {
-				forwardToLeader(event);
+				forwardToLeader(self.getAddress(), event.getMessage());
 			}
 		}
 	};
@@ -318,16 +320,14 @@ public final class TMan extends ComponentDefinition {
 	 * Route a message to the leader. Forwards the message to nodes closer to
 	 * the leader with a higher probability so that not always the same route is
 	 * chosen. His decreases the probability of always choosing a wrong route.
-	 * 
-	 * @param message
-	 *            the message to be forwarded
 	 */
-	private void forwardToLeader(RoutedMessage message) {
+	private void forwardToLeader(VodAddress source,
+                                 AddIndexEntryMessage.Request request) {
 		ArrayList<VodAddress> peers = tmanView.getHigherNodes();
 		if (peers.size() == 0) {
 			return;
 		}
-		message.setDestination(getSoftMaxAddress(peers));
+        RoutedMessage message = new RoutedMessage(source, getSoftMaxAddress(peers), request);
 		trigger(message, networkPort);
 	}
 

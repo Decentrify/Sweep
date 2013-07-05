@@ -3,6 +3,7 @@ package election.system.peer.election;
 import java.util.Collection;
 import java.util.UUID;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 
@@ -199,7 +200,7 @@ public class VotingMsg {
 		 * @param node
 		 *            the address of the highest node
 		 */
-		public void setHighestNode(Address node) {
+		public void setHighestNode(VodAddress node) {
 			this.highestNode = node;
 		}
 	}
