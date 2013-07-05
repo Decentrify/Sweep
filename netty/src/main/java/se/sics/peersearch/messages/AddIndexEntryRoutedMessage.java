@@ -13,10 +13,10 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/5/13
  * Time: 12:21 PM
  */
-public class RoutedMessage extends DirectMsgNetty {
+public class AddIndexEntryRoutedMessage extends DirectMsgNetty {
     private final AddIndexEntryMessage.Request message;
 
-    public RoutedMessage(VodAddress source, VodAddress destination, AddIndexEntryMessage.Request message) {
+    public AddIndexEntryRoutedMessage(VodAddress source, VodAddress destination, AddIndexEntryMessage.Request message) {
         super(source, destination);
         this.message = message;
     }
@@ -33,7 +33,7 @@ public class RoutedMessage extends DirectMsgNetty {
 
     @Override
     public RewriteableMsg copy() {
-        return new RoutedMessage(vodSrc, vodDest, message);
+        return new AddIndexEntryRoutedMessage(vodSrc, vodDest, message);
     }
 
     @Override
@@ -45,6 +45,6 @@ public class RoutedMessage extends DirectMsgNetty {
 
     @Override
     public byte getOpcode() {
-        return MessageFrameDecoder.ROUTED_MESSAGE;
+        return MessageFrameDecoder.ADD_INDEX_ENTRY_ROUTED;
     }
 }

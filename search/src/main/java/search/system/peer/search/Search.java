@@ -3,7 +3,6 @@ package search.system.peer.search;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -68,8 +67,6 @@ import search.system.peer.search.Timeouts.GapTimeout;
 import search.system.peer.search.Timeouts.RecentRequestsGcTimeout;
 import search.system.peer.search.Timeouts.ReplicationTimeout;
 import search.system.peer.search.Timeouts.SearchTimeout;
-import tman.system.peer.tman.GapDetectionMessage.GapDetectionRequest;
-import tman.system.peer.tman.GapDetectionMessage.GapDetectionResponse;
 import tman.system.peer.tman.IndexRoutingPort;
 import tman.system.peer.tman.IndexRoutingPort.IndexDisseminationEvent;
 import tman.system.peer.tman.IndexRoutingPort.IndexRequestEvent;
@@ -771,7 +768,7 @@ public final class Search extends ComponentDefinition {
 		public void handle(GapTimeout event) {
 			try {
 				if (entryExists(event.getId()) == false) {
-					trigger(new GapCheck(event.getId()), routedEventsPort);
+					trigger(new GapCheck(self.getAddress(), event.getId()), routedEventsPort);
 				}
 			} catch (IOException e) {
 				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,

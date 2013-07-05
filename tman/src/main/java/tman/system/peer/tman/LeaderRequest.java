@@ -77,15 +77,18 @@ public abstract class LeaderRequest extends Event implements Serializable {
 	 */
 	public static class GapCheck extends Event implements Serializable {
 		private static final long serialVersionUID = 1952986693481364473L;
+
+        private final VodAddress source;
 		private final long id;
 
 		/**
-		 * @param id
-		 *            the id of the suspected entry
-		 */
-		public GapCheck(long id) {
+         * @param source
+         * @param id
+         */
+		public GapCheck(VodAddress source, long id) {
 			super();
-			this.id = id;
+            this.source = source;
+            this.id = id;
 		}
 
 		/**
@@ -94,5 +97,9 @@ public abstract class LeaderRequest extends Event implements Serializable {
 		public long getId() {
 			return id;
 		}
-	}
+
+        public VodAddress getSource() {
+            return source;
+        }
+    }
 }

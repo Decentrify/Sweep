@@ -105,29 +105,24 @@ public class EncodingDecodingTest {
 
     @Test
     public void searchRequest() {
+        SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
+        UUID requestId = (UUID)UUID.nextUUID();
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
         try {
-            SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
-            UUID requestId = (UUID)UUID.nextUUID();
-            SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
-            try {
-                ChannelBuffer buffer = msg.toByteArray();
-                opCodeCorrect(buffer, msg);
-                SearchMessage.Request request =
-                        SearchMessageFactory.Request.fromBuffer(buffer);
-                assert (request.getRequestId().equals(requestId));
-                assert (request.getPattern().equals(pattern));
-            } catch (MessageDecodingException ex) {
-                Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-                assert (false);
-            } catch (MessageEncodingException ex) {
-                Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-                assert (false);
-            }
-        } catch (IllegalSearchString ex) {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            SearchMessage.Request request =
+                    SearchMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getRequestId().equals(requestId));
+            assert (request.getPattern().equals(pattern));
+        } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert(false);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
         }
-    }    
+    }
     
     
     @Test
@@ -668,7 +663,7 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void RoutedMessage() {
+    public void AddIndexEntryRoutedMessage() {
         TimeoutId id = UUID.nextUUID();
         int numResponses = 5, responseNum = 1;
         String url = "url";
@@ -680,16 +675,49 @@ public class EncodingDecodingTest {
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
         AddIndexEntryMessage.Request request = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
-        RoutedMessage msg = new RoutedMessage(gSrc, gDest, request);
+        AddIndexEntryRoutedMessage msg = new AddIndexEntryRoutedMessage(gSrc, gDest, request);
         try {
             ChannelBuffer buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            RoutedMessage response =
-                    RoutedMessageFactory.fromBuffer(buffer);
+            AddIndexEntryRoutedMessage response =
+                    AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
             assert (response.getMessage().getEntry().equals(entry));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void GapDetectionRoutedMessage() {
+        TimeoutId id = UUID.nextUUID();
+        int numResponses = 5, responseNum = 1;
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        GapDetectionMessage.Request request = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), 1L);
+        GapDetectionRoutedMessage msg = new GapDetectionRoutedMessage(gSrc, gDest, request);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            GapDetectionRoutedMessage response =
+                    GapDetectionRoutedMessageFactory.fromBuffer(buffer);
+
+            assert (response.getVodDestination().equals(gDest));
+            assert (response.getVodSource().equals(gSrc));
+            assert (response.getMessage().getMissingEntryId()==1L);
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

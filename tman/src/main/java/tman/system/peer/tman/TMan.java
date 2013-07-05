@@ -19,9 +19,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.peersearch.messages.AddIndexEntryMessage;
-import se.sics.peersearch.messages.GradientShuffleMessage;
-import se.sics.peersearch.messages.RoutedMessage;
+import se.sics.peersearch.messages.*;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort.IndexEvent;
 import tman.system.peer.tman.IndexRoutingPort.IndexMessage;
@@ -227,27 +225,27 @@ public final class TMan extends ComponentDefinition {
 	 * Forward a {@link AddIndexEntry} event to the leader. Return it back to
 	 * Search in case this is the leader.
 	 */
-	Handler<AddIndexEntry> handleAddIndexEntryRequest = new Handler<AddIndexEntry>() {
+	Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
 		@Override
-		public void handle(AddIndexEntry event) {
+		public void handle(AddIndexEntryMessage.Request event) {
 			if (leader) {
 				trigger(event, routedEventsPort);
 			} else {
-				forwardToLeader(self.getAddress(), event);
+                forwardAddIndexEntryToLeader(self.getAddress(), event);
 			}
 		}
 	};
 
 	/**
-	 * Forward the {@link RoutedMessage} to the leader.
+	 * Forward the {@link se.sics.peersearch.messages.AddIndexEntryRoutedMessage} to the leader.
 	 */
-	Handler<RoutedMessage> handleRoutedMessage = new Handler<RoutedMessage>() {
+	Handler<AddIndexEntryRoutedMessage> handleRoutedMessage = new Handler<AddIndexEntryRoutedMessage>() {
 		@Override
-		public void handle(RoutedMessage event) {
+		public void handle(AddIndexEntryRoutedMessage event) {
 			if (leader) {
 				trigger(event.getMessage(), routedEventsPort);
 			} else {
-				forwardToLeader(self.getAddress(), event.getMessage());
+                forwardAddIndexEntryToLeader(self.getAddress(), event.getMessage());
 			}
 		}
 	};
@@ -259,7 +257,7 @@ public final class TMan extends ComponentDefinition {
 	Handler<IndexEvent> handleIndexRouting = new Handler<IndexEvent>() {
 		@Override
 		public void handle(IndexEvent event) {
-			IndexMessage indexMessage = null;
+			IndexMessage indexMessage;
 
 			for (VodAddress addr : tmanView.getLowerNodes()) {
 				indexMessage = new IndexMessage(event, self, addr);
@@ -289,7 +287,7 @@ public final class TMan extends ComponentDefinition {
 			if (leader) {
 				trigger(event, routedEventsPort);
 			} else {
-				forwardToLeader(new RoutedMessage(self.getAddress(), event));
+				forwardGapCheckToLeader(self.getAddress(), new GapDetectionMessage.Request(event.getSource(), event.getSource(), UUID.nextUUID(), event.getId()));
 			}
 		}
 	};
@@ -321,15 +319,24 @@ public final class TMan extends ComponentDefinition {
 	 * the leader with a higher probability so that not always the same route is
 	 * chosen. His decreases the probability of always choosing a wrong route.
 	 */
-	private void forwardToLeader(VodAddress source,
+	private void forwardAddIndexEntryToLeader(VodAddress source,
                                  AddIndexEntryMessage.Request request) {
 		ArrayList<VodAddress> peers = tmanView.getHigherNodes();
 		if (peers.size() == 0) {
 			return;
 		}
-        RoutedMessage message = new RoutedMessage(source, getSoftMaxAddress(peers), request);
+        AddIndexEntryRoutedMessage message = new AddIndexEntryRoutedMessage(source, getSoftMaxAddress(peers), request);
 		trigger(message, networkPort);
 	}
+
+    private void forwardGapCheckToLeader(VodAddress vodAddress, GapDetectionMessage.Request request) {
+        ArrayList<VodAddress> peers = tmanView.getHigherNodes();
+        if (peers.size() == 0) {
+            return;
+        }
+        GapDetectionRoutedMessage message = new GapDetectionRoutedMessage(vodAddress, getSoftMaxAddress(peers), request);
+        trigger(message, networkPort);
+    }
 
 	/**
 	 * Broadcast the current view to the listening components.

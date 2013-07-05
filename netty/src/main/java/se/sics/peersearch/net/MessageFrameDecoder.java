@@ -41,7 +41,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte LEADER_ANNOUNCEMENT           = 0x70;
     public static final byte HEARTBEAT_REQUEST             = 0x71;
     public static final byte HEARTBEAT_RESPONSE            = 0x72;
-    public static final byte ROUTED_MESSAGE                = 0x73;
+    public static final byte ADD_INDEX_ENTRY_ROUTED        = 0x73;
+    public static final byte GAP_DETECTION_ROUTED          = 0x74;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -107,8 +108,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return HeartbeatMessageFactory.Request.fromBuffer(buffer);
             case HEARTBEAT_RESPONSE:
                 return HeartbeatMessageFactory.Response.fromBuffer(buffer);
-            case ROUTED_MESSAGE:
-                return RoutedMessageFactory.fromBuffer(buffer);
+            case ADD_INDEX_ENTRY_ROUTED:
+                return AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
+            case GAP_DETECTION_ROUTED:
+                return GapDetectionRoutedMessageFactory.fromBuffer(buffer);
             default:
                 break;
         }

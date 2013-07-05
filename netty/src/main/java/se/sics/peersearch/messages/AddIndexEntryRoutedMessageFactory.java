@@ -11,19 +11,19 @@ import se.sics.gvod.net.msgs.DirectMsg;
  * Date: 7/5/13
  * Time: 12:28 PM
  */
-public class RoutedMessageFactory extends DirectMsgNettyFactory {
-    private RoutedMessageFactory() {
+public class AddIndexEntryRoutedMessageFactory extends DirectMsgNettyFactory {
+    private AddIndexEntryRoutedMessageFactory() {
     }
 
-    public static RoutedMessage fromBuffer(ChannelBuffer buffer)
+    public static AddIndexEntryRoutedMessage fromBuffer(ChannelBuffer buffer)
             throws MessageDecodingException {
-        return (RoutedMessage)
-                new RoutedMessageFactory().decode(buffer, false);
+        return (AddIndexEntryRoutedMessage)
+                new AddIndexEntryRoutedMessageFactory().decode(buffer, false);
     }
     @Override
     protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
         buffer.readByte();
         AddIndexEntryMessage.Request request = AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
-        return new RoutedMessage(vodSrc, vodDest, request);
+        return new AddIndexEntryRoutedMessage(vodSrc, vodDest, request);
     }
 }

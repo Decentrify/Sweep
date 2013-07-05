@@ -376,7 +376,7 @@ public class ElectionFollower extends MsgRetryComponent {
 				&& aliveCounter.getValue() < Math.ceil((float) leaderView.size()
 						* electionConfiguration.getLeaderDeathMajorityPercentage())) {
 
-			TheLeaderIsDefinitelyConfirmedToBeDeadMsg msg = null;
+			TheLeaderIsDefinitelyConfirmedToBeDeadMsg msg;
 
 			for (VodAddress addr : leaderView) {
 				msg = new TheLeaderIsDefinitelyConfirmedToBeDeadMsg(leader, self, addr);

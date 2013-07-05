@@ -219,7 +219,7 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<ElectionSchedule> handleHeartBeats = new Handler<ElectionSchedule>() {
 		@Override
 		public void handle(ElectionSchedule event) {
-			VodAddress lowestId = self.getAddress().getPeerAddress();
+			VodAddress lowestId = self.getAddress();
 
 			// It is assumed that the list doesn't have to be sorted
 			// Looks for the node with the lowest ID
@@ -234,7 +234,7 @@ public class ElectionLeader extends ComponentDefinition {
 				sendLeaderView();
 			} else {
 				scheduledTimeoscutId = event.getTimeoutId();
-				rejected(self, lowestId);
+				rejected(self.getAddress(), lowestId);
 			}
 		}
 	};
@@ -380,7 +380,7 @@ public class ElectionLeader extends ComponentDefinition {
 				iAmLeader = true;
 				allowingIndexMessages = true;
 				indexMessageID = UUID.nextUUID();
-				trigger(new StartIndexRequestEvent(indexMessageID), indexRoutingPort);
+				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout tOut = new SchedulePeriodicTimeout(

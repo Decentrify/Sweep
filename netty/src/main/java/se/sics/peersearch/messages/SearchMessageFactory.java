@@ -30,13 +30,8 @@ public class SearchMessageFactory {
         protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
             UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
-            try {
-                return new SearchMessage.Request(vodSrc, vodDest,
-                        timeoutId, requestId, pattern);
-            } catch (IllegalSearchString ex) {
-                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            return null;
+            return new SearchMessage.Request(vodSrc, vodDest,
+                    timeoutId, requestId, pattern);
         }
 
     }
