@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
@@ -47,8 +49,9 @@ public class ElectionFollower extends ComponentDefinition {
 	Negative<LeaderStatusPort> leaderStatusPortNeg = negative(LeaderStatusPort.class);
 
 	private ElectionConfiguration electionConfiguration;
-	private Address leader, self;
-	private ArrayList<Address> leaderView, higherNodes, lowerNodes;
+    private Self self;
+	private Address leader;
+	private ArrayList<VodAddress> leaderView, higherNodes, lowerNodes;
 	private boolean leaderIsAlive, isConverged;
 	private UUID heartBeatTimeoscutId, deathVoteTimeout;
 	private SynchronizedCounter aliveCounter, deathMessageCounter;
@@ -166,7 +169,7 @@ public class ElectionFollower extends ComponentDefinition {
 	Handler<VotingResultMsg> handleVotingResult = new Handler<VotingResultMsg>() {
 		@Override
 		public void handle(VotingResultMsg event) {
-			Address lowestId = event.getSource();
+			VodAddress lowestId = event.getSource();
 
 			// ----------------------------------------
 			// Checking which address has the lowest ID
@@ -181,7 +184,7 @@ public class ElectionFollower extends ComponentDefinition {
 
 			} // Only need to check nodes with higher ID than the leader
 			if (higherNodes != null) {
-				for (Address addr : higherNodes) {
+				for (VodAddress addr : higherNodes) {
 					if (addr.getId() < lowestId.getId()) {
 						lowestId = addr;
 					}
@@ -240,7 +243,7 @@ public class ElectionFollower extends ComponentDefinition {
 			if (leaderIsAlive == true) {
 				leaderIsAlive = false;
 
-				RejectFollowerMsg msg = new RejectFollowerMsg(self, leader);
+				RejectFollowerMsg msg = new RejectFollowerMsg(self.getAddress(), leader);
 				trigger(msg, networkPort);
 				triggerTimeout(electionConfiguration.getRejectedTimeout());
 			} else if (leader != null) {
@@ -457,7 +460,7 @@ public class ElectionFollower extends ComponentDefinition {
 	 * @param betterNode
 	 *            the better node's Address
 	 */
-	private void rejectLeader(Address node, Address betterNode) {
+	private void rejectLeader(VodAddress node, VodAddress betterNode) {
 		leader = null;
 		leaderView = null;
 		leaderIsAlive = false;

@@ -3,6 +3,7 @@ package tman.system.peer.tman;
 import java.util.ArrayList;
 
 import se.sics.gvod.address.Address;
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
@@ -19,7 +20,7 @@ public class BroadcastTManPartnersPort extends PortType {
 	 */
 	public static class TmanPartners extends Event {
 		private final boolean isConverged;
-		private final ArrayList<Address> higherNodes, lowerNodes;
+		private final ArrayList<VodAddress> higherNodes, lowerNodes;
 
 		/**
 		 * Default constructor
@@ -33,8 +34,8 @@ public class BroadcastTManPartnersPort extends PortType {
 		 *            a list of nodes with lower utility values comepared to
 		 *            itself
 		 */
-		public TmanPartners(boolean isConverged, ArrayList<Address> higherNodes,
-				ArrayList<Address> lowerNodes) {
+		public TmanPartners(boolean isConverged, ArrayList<VodAddress> higherNodes,
+				ArrayList<VodAddress> lowerNodes) {
 			super();
 			this.isConverged = isConverged;
 			this.higherNodes = higherNodes;
@@ -55,7 +56,7 @@ public class BroadcastTManPartnersPort extends PortType {
 		 * 
 		 * @return the list of nodes
 		 */
-		public ArrayList<Address> getHigherNodes() {
+		public ArrayList<VodAddress> getHigherNodes() {
 			return this.higherNodes;
 		}
 
@@ -64,7 +65,7 @@ public class BroadcastTManPartnersPort extends PortType {
 		 * 
 		 * @return the list of nodes
 		 */
-		public ArrayList<Address> getLowerNodes() {
+		public ArrayList<VodAddress> getLowerNodes() {
 			return this.lowerNodes;
 		}
 	}

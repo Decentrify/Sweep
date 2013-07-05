@@ -5,6 +5,8 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
+import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 
 /**

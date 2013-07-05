@@ -1,7 +1,6 @@
 package tman.system.peer.tman;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,7 +19,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.address.Address;
+import se.sics.peersearch.messages.GradientShuffleMessage;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort.IndexEvent;
 import tman.system.peer.tman.IndexRoutingPort.IndexMessage;
@@ -30,7 +29,6 @@ import tman.system.peer.tman.LeaderStatusPort.LeaderStatus;
 import tman.system.peer.tman.LeaderStatusPort.NodeCrashEvent;
 import tman.system.peer.tman.LeaderStatusPort.NodeSuggestion;
 import tman.system.peer.tman.TmanMessage.TManRequest;
-import tman.system.peer.tman.TmanMessage.TManResponse;
 
 import common.configuration.TManConfiguration;
 import common.peer.RequestTimeout;
@@ -136,17 +134,17 @@ public final class TMan extends ComponentDefinition {
 	 * Answer a {@link TManRequest} with the nodes from the view preferred by
 	 * the inquirer.
 	 */
-	Handler<TManRequest> handleTManRequest = new Handler<TManRequest>() {
+	Handler<GradientShuffleMessage.Request> handleTManRequest = new Handler<GradientShuffleMessage.Request>() {
 		@Override
-		public void handle(TManRequest event) {
-			VodAddress exchangePartner = event.getSource();
-			Collection<VodAddress> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
-					tmanConfiguration.getExchangeCount());
-			TManResponse rResponse = new TManResponse(event.getRequestId(), exchangeSets, self.getAddress(),
-					exchangePartner);
+		public void handle(GradientShuffleMessage.Request event) {
+			VodAddress exchangePartner = event.getVodSource();
+			VodAddress[] exchangeSets = (VodAddress[])tmanView.getExchangeNodes(exchangePartner,
+					tmanConfiguration.getExchangeCount()).toArray();
+
+            GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeSets);
 			trigger(rResponse, networkPort);
 
-			tmanView.merge(event.getExchangeCollection());
+			tmanView.merge(event.getAddresses());
 			broadcastView();
 		}
 	};
@@ -154,18 +152,18 @@ public final class TMan extends ComponentDefinition {
 	/**
 	 * Merge the entries from the response to the view.
 	 */
-	Handler<TManResponse> handleTManResponse = new Handler<TManResponse>() {
+	Handler<GradientShuffleMessage.Response> handleTManResponse = new Handler<GradientShuffleMessage.Response>() {
 		@Override
-		public void handle(TManResponse event) {
+		public void handle(GradientShuffleMessage.Response event) {
 			// cancel shuffle timeout
-			UUID shuffleId = event.getRequestId();
+			UUID shuffleId = (UUID)event.getTimeoutId();
 			if (outstandingShuffles.containsKey(shuffleId)) {
 				outstandingShuffles.remove(shuffleId);
 				CancelTimeout ct = new CancelTimeout(shuffleId);
 				trigger(ct, timerPort);
 			}
 
-			tmanView.merge(event.getExchangeCollection());
+			tmanView.merge(event.getAddresses());
 			broadcastView();
 		}
 	};
@@ -203,7 +201,7 @@ public final class TMan extends ComponentDefinition {
 			if (event.getSuggestion() != null && event.getSuggestion().getId() < self.getId()) {
 				ArrayList<VodAddress> suggestionList = new ArrayList<VodAddress>();
 				suggestionList.add(event.getSuggestion());
-				tmanView.merge(suggestionList);
+				tmanView.merge(suggestionList.toArray(new VodAddress[suggestionList.size()]));
 			}
 		}
 	};
@@ -301,15 +299,16 @@ public final class TMan extends ComponentDefinition {
 	 *            the address of the node to shuffle with
 	 */
 	private void initiateShuffle(VodAddress exchangePartner) {
-		Collection<VodAddress> exchangeSets = tmanView.getExchangeNodes(exchangePartner,
-				tmanConfiguration.getExchangeCount());
+		VodAddress[] exchangeSets = (VodAddress[])tmanView.getExchangeNodes(exchangePartner,
+				tmanConfiguration.getExchangeCount()).toArray();
 
 		ScheduleTimeout rst = new ScheduleTimeout(tmanConfiguration.getPeriod());
 		rst.setTimeoutEvent(new RequestTimeout(rst));
 		UUID rTimeoutId = (UUID)rst.getTimeoutEvent().getTimeoutId();
 
 		outstandingShuffles.put(rTimeoutId, exchangePartner);
-		TManRequest rRequest = new TManRequest(rTimeoutId, exchangeSets, self, exchangePartner);
+
+        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeSets);
 
 		trigger(rst, timerPort);
 		trigger(rRequest, networkPort);

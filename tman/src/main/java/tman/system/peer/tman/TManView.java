@@ -95,7 +95,7 @@ public class TManView {
 	 * @param addresses
 	 *            the nodes to be merged
 	 */
-	public void merge(Collection<VodAddress> addresses) {
+	public void merge(VodAddress[] addresses) {
 		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 

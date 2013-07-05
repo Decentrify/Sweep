@@ -415,6 +415,7 @@ public class EncodingDecodingTest {
             assert (response.getMissingEntry().equals(entry));
             assert (response.getNumResponses() == numResponses);
             assert (response.getResponseNumber() == responseNumber);
+            assert (response.getMissingEntry().getUrl().equals(url));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -637,6 +638,39 @@ public class EncodingDecodingTest {
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void RoutedMessage() {
+        TimeoutId id = UUID.nextUUID();
+        int numResponses = 5, responseNum = 1;
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        AddIndexEntryMessage.Request request = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
+        RoutedMessage msg = new RoutedMessage(gSrc, gDest, request);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            RoutedMessage response =
+                    RoutedMessageFactory.fromBuffer(buffer);
+
+            assert (response.getVodDestination().equals(gDest));
+            assert (response.getVodSource().equals(gSrc));
+            assert (response.getMessage().equals(request));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
