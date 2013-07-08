@@ -3,7 +3,9 @@ package se.sics.peersearch.messages;
 import org.jboss.netty.buffer.ChannelBuffer;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.RelayMsgNettyFactory;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.gvod.net.util.UserTypesDecoderFactory;
 
 /**
  * Created with IntelliJ IDEA.
@@ -26,7 +28,8 @@ public class ElectionMessageFactory {
 
         @Override
         protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
-            return new ElectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId);
+            int counter = buffer.readInt();
+            return new ElectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, counter);
         }
     }
 
@@ -44,7 +47,11 @@ public class ElectionMessageFactory {
 
         @Override
         protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
-            return new ElectionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status);
+            int voteId = buffer.readInt();
+            boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
+            boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
+            VodAddress highest = UserTypesDecoderFactory.readVodAddress(buffer);
+            return new ElectionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status, voteId, isConvereged, vote, highest);
         }
     }
 }

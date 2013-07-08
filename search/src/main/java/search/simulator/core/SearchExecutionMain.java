@@ -3,6 +3,7 @@ package search.simulator.core;
 import java.io.IOException;
 import java.net.InetAddress;
 
+import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
@@ -51,8 +52,9 @@ public final class SearchExecutionMain extends ComponentDefinition {
 
 		final BootstrapConfiguration bootConfiguration = BootstrapConfiguration.load(System
 				.getProperty("bootstrap.configuration"));
-		final CyclonConfiguration cyclonConfiguration = CyclonConfiguration.load(System
-				.getProperty("cyclon.configuration"));
+        final CroupierConfiguration croupierConfiguration = null;
+//		final CroupierConfiguration croupierConfiguration = CroupierConfiguration.load(System
+//				.getProperty("cyclon.configuration"));
 		final SearchConfiguration searchConfiguration = SearchConfiguration.load(System
 				.getProperty("search.configuration"));
 		final TManConfiguration tmanConfiguration = TManConfiguration.load(System
@@ -61,7 +63,7 @@ public final class SearchExecutionMain extends ComponentDefinition {
 				.getProperty("election.configuration"));
 
 		trigger(new BootstrapServerInit(bootConfiguration), bootstrapServer.getControl());
-		trigger(new SimulatorInit(bootConfiguration, cyclonConfiguration, tmanConfiguration,
+		trigger(new SimulatorInit(bootConfiguration, croupierConfiguration, tmanConfiguration,
 				searchConfiguration, electionConfiguration), simulator.getControl());
 
 		// connect

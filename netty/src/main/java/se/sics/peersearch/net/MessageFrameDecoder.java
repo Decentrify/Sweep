@@ -43,6 +43,13 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte HEARTBEAT_RESPONSE            = 0x72;
     public static final byte ADD_INDEX_ENTRY_ROUTED        = 0x73;
     public static final byte GAP_DETECTION_ROUTED          = 0x74;
+    public static final byte VOTING_RESULT_MESSAGE         = 0x75;
+    public static final byte REJECT_FOLLOWER_REQUEST       = 0x76;
+    public static final byte REJECT_FOLLOWER_RESPONSE      = 0x77;
+    public static final byte REJECT_LEADER_MESSAGE         = 0x78;
+    public static final byte START_INDEX_REQUEST_MESSAGE   = 0x79;
+    public static final byte INDEX_REQUEST_MESSAGE         = 0x7a;
+    public static final byte INDEX_DESSIMINATION_MESSAGE   = 0x7b;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -112,6 +119,20 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
             case GAP_DETECTION_ROUTED:
                 return GapDetectionRoutedMessageFactory.fromBuffer(buffer);
+            case VOTING_RESULT_MESSAGE:
+                return VotingResultMessageFactory.fromBuffer(buffer);
+            case REJECT_FOLLOWER_REQUEST:
+                return RejectFollowerMessageFactory.Request.fromBuffer(buffer);
+            case REJECT_FOLLOWER_RESPONSE:
+                return RejectFollowerMessageFactory.Response.fromBuffer(buffer);
+            case REJECT_LEADER_MESSAGE:
+                return RejectLeaderMessageFactory.fromBuffer(buffer);
+            case START_INDEX_REQUEST_MESSAGE:
+                return StartIndexRequestMessageFactory.fromBuffer(buffer);
+            case INDEX_REQUEST_MESSAGE:
+                return IndexRequestMessageFactory.fromBuffer(buffer);
+            case INDEX_DESSIMINATION_MESSAGE:
+                return IndexDisseminationMessageFactory.fromBuffer(buffer);
             default:
                 break;
         }

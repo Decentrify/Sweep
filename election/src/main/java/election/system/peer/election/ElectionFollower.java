@@ -1,6 +1,7 @@
 package election.system.peer.election;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
 import se.sics.gvod.common.RetryComponentDelegator;
@@ -13,8 +14,7 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
-import se.sics.peersearch.messages.HeartbeatMessage;
-import se.sics.peersearch.messages.LeaderSuspectionMessage;
+import se.sics.peersearch.messages.*;
 import tman.system.peer.tman.BroadcastTManPartnersPort;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.LeaderStatusPort;
@@ -23,16 +23,6 @@ import tman.system.peer.tman.LeaderStatusPort.LeaderStatusResponse;
 import tman.system.peer.tman.LeaderStatusPort.NodeCrashEvent;
 
 import common.configuration.ElectionConfiguration;
-
-import election.system.peer.election.VotingMsg.RejectFollowerConfirmationMsg;
-import election.system.peer.election.VotingMsg.RejectFollowerMsg;
-import election.system.peer.election.VotingMsg.RejectLeaderMsg;
-import election.system.peer.election.VotingMsg.TheLeaderIsDefinitelyConfirmedToBeDeadMsg;
-import election.system.peer.election.VotingMsg.VotingRequestMsg;
-import election.system.peer.election.VotingMsg.VotingResponseMsg;
-import election.system.peer.election.VotingMsg.VotingResultMsg;
-
-import javax.net.ssl.SSLEngineResult;
 
 /**
  * This class contains functions for those nodes that are directly following a
@@ -121,12 +111,10 @@ public class ElectionFollower extends MsgRetryComponent {
 	 * A handler that will respond to voting requests sent from leader
 	 * candidates. It checks if that leader candidate is a suitable leader
 	 */
-	Handler<VotingRequestMsg> handleVotingRequest = new Handler<VotingRequestMsg>() {
+	Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
 		@Override
-		public synchronized void handle(VotingRequestMsg event) {
+		public synchronized void handle(ElectionMessage.Request event) {
 			boolean candidateAccepted = true;
-			VotingResponseMsg response = new VotingResponseMsg(isConverged, event.getVoteID(),
-					event.getRequestId(), event.getDestination(), event.getSource());
 			VodAddress highestNode = findHighestNodeInView();
 
 			// Don't vote yes unless the source has the lowest ID
@@ -134,11 +122,12 @@ public class ElectionFollower extends MsgRetryComponent {
 					|| (leader != null && leader.getId() < event.getSource().getId())) {
 				candidateAccepted = false;
 			} else {
-				highestNode = event.getSource();
+				highestNode = event.getVodSource();
 			}
 
-			response.setVote(candidateAccepted);
-			response.setHighestNode(highestNode);
+            ElectionMessage.Response response = new ElectionMessage.Response(self.getAddress(), event.getVodSource(), self.getId(),
+                    event.getVodSource().getId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, event.getVoteID(), isConverged, candidateAccepted, highestNode);
+
 			trigger(response, networkPort);
 		}
 	};
@@ -160,10 +149,10 @@ public class ElectionFollower extends MsgRetryComponent {
 	 * if that node is still a suitable leader and handles the situation
 	 * accordingly
 	 */
-	Handler<VotingResultMsg> handleVotingResult = new Handler<VotingResultMsg>() {
+	Handler<VotingResultMessage> handleVotingResult = new Handler<VotingResultMessage>() {
 		@Override
-		public void handle(VotingResultMsg event) {
-			VodAddress lowestId = event.getSource();
+		public void handle(VotingResultMessage event) {
+			VodAddress lowestId = event.getVodSource();
 
 			// ----------------------------------------
 			// Checking which address has the lowest ID
@@ -173,7 +162,7 @@ public class ElectionFollower extends MsgRetryComponent {
 				if (event.getSource().getId() > leader.getId()) {
 					lowestId = leader;
 				} else {
-					lowestId = event.getSource();
+					lowestId = event.getVodSource();
 				}
 
 			} // Only need to check nodes with higher ID than the leader
@@ -194,22 +183,22 @@ public class ElectionFollower extends MsgRetryComponent {
 				// The requester has the lowest ID
 				if (event.getSource().getId() == lowestId.getId()) {
 					// Accept this node
-					acceptLeader(event.getSource(), event.getLeaderView());
+					acceptLeader(event.getVodSource(), Arrays.asList(event.getView()));
 				} else {
 					// reject this node
-					rejectLeader(event.getSource(), lowestId);
+					rejectLeader(event.getVodSource(), lowestId);
 				}
 			}
 			// The current leader has the lowest ID
 			else if (event.getSource().getId() == leader.getId()
 					&& leader.getId() == lowestId.getId()) {
-				acceptLeader(leader, event.getLeaderView());
+				acceptLeader(leader, Arrays.asList(event.getView()));
 			}
 			// The current leader does NOT have the lowest ID
 			else if (event.getSource().getId() == lowestId.getId()
 					&& lowestId.getId() < leader.getId()) {
-				rejectLeader(leader, event.getSource());
-				acceptLeader(event.getSource(), event.getLeaderView());
+				rejectLeader(leader, event.getVodSource());
+				acceptLeader(event.getVodSource(), Arrays.asList(event.getView()));
 			}
 			// The source is the leader, but it is not suited to lead
 			else if (event.getSource().getId() == leader.getId()) {
@@ -217,7 +206,7 @@ public class ElectionFollower extends MsgRetryComponent {
 			}
 			// Someone with a higher ID is sending heart beats
 			else {
-				rejectLeaderCandidate(event.getSource(), lowestId);
+				rejectLeaderCandidate(event.getVodSource(), lowestId);
 			}
 		}
 	};
@@ -237,7 +226,7 @@ public class ElectionFollower extends MsgRetryComponent {
 			if (leaderIsAlive == true) {
 				leaderIsAlive = false;
 
-				RejectFollowerMsg msg = new RejectFollowerMsg(self.getAddress(), leader);
+				RejectFollowerMessage.Request msg = new RejectFollowerMessage.Request(self.getAddress(), leader, UUID.nextUUID());
 				trigger(msg, networkPort);
 				triggerTimeout(electionConfiguration.getRejectedTimeout(), event.getMsg());
 			} else if (leader != null) {
@@ -260,10 +249,10 @@ public class ElectionFollower extends MsgRetryComponent {
 	 * The node will reject the leader in case it has been kicked from the
 	 * leader's view, and is therefore no longer in the voting group
 	 */
-	Handler<RejectFollowerConfirmationMsg> handleRejecttionConfirmation = new Handler<RejectFollowerConfirmationMsg>() {
+	Handler<RejectFollowerMessage.Response> handleRejecttionConfirmation = new Handler<RejectFollowerMessage.Response>() {
 		@Override
-		public void handle(RejectFollowerConfirmationMsg event) {
-			if (event.isNodeInView() == true) {
+		public void handle(RejectFollowerMessage.Response event) {
+			if (event.isInView() == true) {
 				leaderIsAlive = true;
 			} else {
 				leader = null;
@@ -334,9 +323,9 @@ public class ElectionFollower extends MsgRetryComponent {
 	 * A handler that will set the leader to null in case the other nodes have
 	 * confirmed the leader to be dead
 	 */
-	Handler<TheLeaderIsDefinitelyConfirmedToBeDeadMsg> handleLeaderDeath = new Handler<TheLeaderIsDefinitelyConfirmedToBeDeadMsg>() {
+	Handler<LeaderAnnouncementMessage> handleLeaderDeath = new Handler<LeaderAnnouncementMessage>() {
 		@Override
-		public void handle(TheLeaderIsDefinitelyConfirmedToBeDeadMsg event) {
+		public void handle(LeaderAnnouncementMessage event) {
 			if (leader != null && event.getLeader().getId() == leader.getId()) {
 				// cancel timeout and reset
 				cancelTimeout();
@@ -376,10 +365,8 @@ public class ElectionFollower extends MsgRetryComponent {
 				&& aliveCounter.getValue() < Math.ceil((float) leaderView.size()
 						* electionConfiguration.getLeaderDeathMajorityPercentage())) {
 
-			TheLeaderIsDefinitelyConfirmedToBeDeadMsg msg;
-
 			for (VodAddress addr : leaderView) {
-				msg = new TheLeaderIsDefinitelyConfirmedToBeDeadMsg(leader, self, addr);
+                LeaderAnnouncementMessage msg = new LeaderAnnouncementMessage(self.getAddress(), addr, leader);
 				trigger(msg, networkPort);
 			}
 
@@ -390,7 +377,7 @@ public class ElectionFollower extends MsgRetryComponent {
 		} else { // The leader MIGHT be alive
 			// TODO maybe you got rejected?
 			leaderIsAlive = true;
-			triggerTimeout();
+			triggerTimeout(null);
 		}
 
 		deathMessageCounter.setValue(0);
@@ -401,8 +388,8 @@ public class ElectionFollower extends MsgRetryComponent {
 	 * Starts the next heart beat timeout using
 	 * electionConfiguration.getHeartbeatWaitTimeout() as period
 	 */
-	private void triggerTimeout() {
-		triggerTimeout(electionConfiguration.getHeartbeatWaitTimeout());
+	private void triggerTimeout(RewriteableMsg message) {
+		triggerTimeout(electionConfiguration.getHeartbeatWaitTimeout(), message);
 	}
 
 	/**
@@ -443,7 +430,7 @@ public class ElectionFollower extends MsgRetryComponent {
 		leaderView = new ArrayList<VodAddress>(view);
 
 		// Cancel old timeouts and create a new one
-		triggerTimeout();
+		triggerTimeout(null);
 	}
 
 	/**
@@ -461,7 +448,7 @@ public class ElectionFollower extends MsgRetryComponent {
 
 		// Cancel old timeouts
 		cancelTimeout();
-		RejectLeaderMsg msg = new RejectLeaderMsg(betterNode, self, node);
+		RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
 		trigger(msg, networkPort);
 	}
 
@@ -474,7 +461,7 @@ public class ElectionFollower extends MsgRetryComponent {
 	 *            the better node's Address
 	 */
 	private void rejectLeaderCandidate(VodAddress node, VodAddress betterNode) {
-		RejectLeaderMsg msg = new RejectLeaderMsg(betterNode, self, node);
+        RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
 		trigger(msg, networkPort);
 	}
 

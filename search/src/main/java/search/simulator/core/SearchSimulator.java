@@ -9,6 +9,11 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
+import se.sics.gvod.address.Address;
+import se.sics.gvod.common.Self;
+import se.sics.gvod.common.SelfImpl;
+import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.net.VodAddress;
 import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
@@ -18,7 +23,6 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.kompics.Start;
 import se.sics.kompics.Stop;
-import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
@@ -56,7 +60,7 @@ public final class SearchSimulator extends ComponentDefinition {
 	private final HashMap<Long, Component> peers;
 	private final HashMap<Long, Address> peersAddress;
 	private BootstrapConfiguration bootstrapConfiguration;
-	private CyclonConfiguration cyclonConfiguration;
+	private CroupierConfiguration croupierConfiguration;
 	private SearchConfiguration searchConfiguration;
 	private TManConfiguration tManConfiguration;
 	private ElectionConfiguration electionConfiguration;
@@ -91,12 +95,12 @@ public final class SearchSimulator extends ComponentDefinition {
 			peers.clear();
 
 			bootstrapConfiguration = init.getBootstrapConfiguration();
-			cyclonConfiguration = init.getCyclonConfiguration();
+            croupierConfiguration = init.getCyclonConfiguration();
 			searchConfiguration = init.getAggregationConfiguration();
 			tManConfiguration = init.getTmanConfiguration();
 			electionConfiguration = init.getElectionConfiguration();
 
-			identifierSpaceSize = cyclonConfiguration.getIdentifierSpaceSize();
+			identifierSpaceSize = croupierConfiguration.getRto();
 
 			// generate periodic report
 			int snapshotPeriod = Configuration.SNAPSHOT_PERIOD;
@@ -224,22 +228,25 @@ public final class SearchSimulator extends ComponentDefinition {
 	};
 
 	private final void createAndStartNewPeer(long id) {
+        int overlayId = 0;
 		Component peer = create(SearchPeer.class);
 		InetAddress ip = ipGenerator.generateIP();
 		Address address = new Address(ip, 8058, (int) id);
+
+        Self self = new SelfImpl(new VodAddress(address, overlayId));
 
 		connect(network, peer.getNegative(Network.class), new MessageDestinationFilter(address));
 		connect(timer, peer.getNegative(Timer.class));
 		subscribe(handleWebResponse, peer.getPositive(Web.class));
 
-		trigger(new SearchPeerInit(address, bootstrapConfiguration, cyclonConfiguration,
+		trigger(new SearchPeerInit(self, bootstrapConfiguration, croupierConfiguration,
 				searchConfiguration, tManConfiguration, electionConfiguration), peer.getControl());
 
 		trigger(new Start(), peer.getControl());
 		peers.put(id, peer);
 		peersAddress.put(id, address);
 
-		Snapshot.addPeer(address);
+		Snapshot.addPeer(new VodAddress(address, overlayId));
 	}
 
 	private void stopAndDestroyPeer(Long id) {
@@ -265,7 +272,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
 		@Override
 		public Address getValue(Message event) {
-			return event.getDestination();
+            return new Address(event.getDestination().getIp(), event.getDestination().getPort(), event.getDestination().getId());
 		}
 	}
 }

@@ -10,6 +10,10 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.peersearch.messages.ElectionMessage;
+import se.sics.peersearch.messages.RejectFollowerMessage;
+import se.sics.peersearch.messages.RejectLeaderMessage;
+import se.sics.peersearch.messages.VotingResultMessage;
 import tman.system.peer.tman.BroadcastTManPartnersPort;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort;
@@ -24,13 +28,6 @@ import tman.system.peer.tman.LeaderStatusPort.NodeSuggestion;
 
 import common.configuration.ElectionConfiguration;
 import common.snapshot.Snapshot;
-
-import election.system.peer.election.VotingMsg.RejectFollowerConfirmationMsg;
-import election.system.peer.election.VotingMsg.RejectFollowerMsg;
-import election.system.peer.election.VotingMsg.RejectLeaderMsg;
-import election.system.peer.election.VotingMsg.VotingRequestMsg;
-import election.system.peer.election.VotingMsg.VotingResponseMsg;
-import election.system.peer.election.VotingMsg.VotingResultMsg;
 
 /**
  * This component contains functions for how a node will find out if it is the
@@ -174,25 +171,25 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that counts the number of votes received from the followers. If
 	 * all nodes have responded it will call for vote counting
 	 */
-	Handler<VotingResponseMsg> handleVotingResponse = new Handler<VotingResponseMsg>() {
+	Handler<ElectionMessage.Response> handleVotingResponse = new Handler<ElectionMessage.Response>() {
 		@Override
-		public void handle(VotingResponseMsg event) {
+		public void handle(ElectionMessage.Response event) {
 			// Check if the vote comes from this batch of votes
-			if (electionCounter.getValue() == event.getVoteID()) {
+			if (electionCounter.getValue() == event.getVoteId()) {
 				totalVotes.incrementValue();
-				if (event.getVote() == true) {
+				if (event.isVote() == true) {
 					yesVotes.incrementValue();
 				} else {
 					// Rejected because there is a node above me
 				}
-				if (event.isConverged() == true) {
+				if (event.isConvereged() == true) {
 					convergedCounter.incrementValue();
 				}
 			}
 
 			// Reject if there is a no-vote
 			if (totalVotes.getValue() != yesVotes.getValue()) {
-				rejected(event.getSource(), event.getHighestNode());
+				rejected(event.getVodSource(), event.getHighest());
 			}
 			// Count the votes if if all votes have returned
 			else if (totalVotes.getValue() >= numberOfNodesAtVotingTime) {
@@ -243,10 +240,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that handles rejected messages send by nodes who have found a
 	 * better leader
 	 */
-	Handler<RejectLeaderMsg> handleLeaderRejection = new Handler<RejectLeaderMsg>() {
+	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
-		public void handle(RejectLeaderMsg event) {
-			rejected(event.getSource(), event.getBetterLeader());
+		public void handle(RejectLeaderMessage event) {
+			rejected(event.getVodSource(), event.getBetterLeader());
 		}
 	};
 
@@ -254,21 +251,20 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that handles nodes who have been kicked out of the leader's
 	 * view and ask if the leader if still alive
 	 */
-	Handler<RejectFollowerMsg> handleRejectedFollower = new Handler<RejectFollowerMsg>() {
+	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
 		@Override
-		public void handle(RejectFollowerMsg event) {
+		public void handle(RejectFollowerMessage.Request event) {
 			boolean sourceIsInView = false;
 
 			// Checks if the node is still in the leader's view
 			for (VodAddress addr : lowerNodes) {
-				if (addr.getId() == event.getSource().getId()) {
+				if (addr.getId() == event.getVodSource().getId()) {
 					sourceIsInView = true;
 					break;
 				}
 			}
 
-			RejectFollowerConfirmationMsg msg = new RejectFollowerConfirmationMsg(sourceIsInView,
-					self, event.getSource());
+            RejectFollowerMessage.Response msg = new RejectFollowerMessage.Response(self.getAddress(), event.getVodSource(), UUID.nextUUID(), sourceIsInView);
 			trigger(msg, networkPort);
 		}
 	};
@@ -410,11 +406,11 @@ public class ElectionLeader extends ComponentDefinition {
 		timeout.setTimeoutEvent(new VoteTimeout(timeout));
 		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
-		VotingRequestMsg vote = null;
+		ElectionMessage.Request vote;
 
 		// Broadcasts the vote requests to the nodes in the view
 		for (VodAddress receiver : lowerNodes) {
-			vote = new VotingRequestMsg(electionCounter.getValue(), voteTimeout, self, receiver);
+			vote = new ElectionMessage.Request(self.getAddress(), receiver, self.getId(), receiver.getId(), voteTimeout, electionCounter.getValue());
 			trigger(vote, networkPort);
 		}
 
@@ -427,11 +423,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Broadcasts the leader's current view to it's followers
 	 */
 	private void sendLeaderView() {
-		VotingResultMsg msg = null;
 
 		// Broadcasts the leader's current view to it's followers
 		for (VodAddress receiver : lowerNodes) {
-			msg = new VotingResultMsg(lowerNodes, self, receiver);
+            VotingResultMessage msg = new VotingResultMessage(self.getAddress(), receiver.getNodeAddress(), (VodAddress[])lowerNodes.toArray());
 			trigger(msg, networkPort);
 		}
 	}

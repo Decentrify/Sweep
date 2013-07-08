@@ -121,7 +121,7 @@ public class LeaderStatusPort extends PortType {
 	 * An event used to respond to a leader status request
 	 */
 	public static class LeaderStatusResponse extends Event {
-		private final Address leader;
+		private final VodAddress leader;
 
 		/**
 		 * Default constructor
@@ -129,7 +129,7 @@ public class LeaderStatusPort extends PortType {
 		 * @param leader
 		 *            the address of the leader
 		 */
-		public LeaderStatusResponse(Address leader) {
+		public LeaderStatusResponse(VodAddress leader) {
 			super();
 			this.leader = leader;
 		}
@@ -139,7 +139,7 @@ public class LeaderStatusPort extends PortType {
 		 * 
 		 * @return the address of the leader
 		 */
-		public Address getLeader() {
+		public VodAddress getLeader() {
 			return this.leader;
 		}
 	}

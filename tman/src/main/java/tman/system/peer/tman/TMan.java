@@ -79,6 +79,9 @@ public final class TMan extends ComponentDefinition {
 		subscribe(handleIndexMessage, networkPort);
 		subscribe(handleNodeCrash, leaderStatusPort);
 		subscribe(handeNodeSuggestion, leaderStatusPort);
+        subscribe(startIndexRequestMessageHandler, indexRoutingPort);
+        subscribe(indexRequestMessageHandler, indexRoutingPort);
+        subscribe(indexDisseminationMessageHandler, indexRoutingPort);
 	}
 
 	/**
@@ -254,17 +257,57 @@ public final class TMan extends ComponentDefinition {
 	 * Broadcasts the {@link IndexEvent} to all nodes in its view that is below
 	 * itself in the gradient topology tree
 	 */
-	Handler<IndexEvent> handleIndexRouting = new Handler<IndexEvent>() {
-		@Override
-		public void handle(IndexEvent event) {
-			IndexMessage indexMessage;
+            Handler<IndexEvent> handleIndexRouting = new Handler<IndexEvent>() {
+                @Override
+                public void handle(IndexEvent event) {
 
-			for (VodAddress addr : tmanView.getLowerNodes()) {
-				indexMessage = new IndexMessage(event, self, addr);
-				trigger(indexMessage, networkPort);
-			}
+            if(event.getClass().equals(IndexRoutingPort.StartIndexRequestEvent.class)) {
+                    for (VodAddress addr : tmanView.getLowerNodes()) {
+                        StartIndexRequestMessage message = new StartIndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.StartIndexRequestEvent)event).getMessageID());
+                        trigger(message, networkPort);
+                    }
+                    return;
+            }
+            if(event.getClass().equals(IndexRoutingPort.IndexRequestEvent.class))  {
+                for (VodAddress addr : tmanView.getLowerNodes()) {
+                    IndexRequestMessage message = new IndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.IndexRequestEvent)event).getMessageId(),
+                            ((IndexRoutingPort.IndexRequestEvent)event).getIndex(), ((IndexRoutingPort.IndexRequestEvent)event).getLeaderAddress());
+                    trigger(message, networkPort);
+                }
+                return;
+            }
+            if(event.getClass().equals(IndexRoutingPort.IndexDisseminationEvent.class)) {
+                for (VodAddress addr : tmanView.getLowerNodes()) {
+                    IndexDisseminationMessage message = new IndexDisseminationMessage(self.getAddress(), addr,
+                            ((IndexRoutingPort.IndexRequestEvent)event).getIndex());
+                    trigger(message, networkPort);
+                }
+                return;
+            }
 		}
 	};
+
+    Handler<IndexDisseminationMessage> indexDisseminationMessageHandler = new Handler<IndexDisseminationMessage>() {
+        @Override
+        public void handle(IndexDisseminationMessage indexDisseminationMessage) {
+            trigger(new IndexRoutingPort.IndexDisseminationEvent(indexDisseminationMessage.getIndex()), networkPort);
+        }
+    };
+
+    Handler<IndexRequestMessage> indexRequestMessageHandler = new Handler<IndexRequestMessage>() {
+        @Override
+        public void handle(IndexRequestMessage indexRequestMessage) {
+            trigger(new IndexRoutingPort.IndexRequestEvent(indexRequestMessage.getIndex(),
+                    (UUID)indexRequestMessage.getTimeoutId(), indexRequestMessage.getLeaderAddress()), networkPort);
+        }
+    };
+
+    Handler<StartIndexRequestMessage> startIndexRequestMessageHandler = new Handler<StartIndexRequestMessage>() {
+        @Override
+        public void handle(StartIndexRequestMessage startIndexRequestMessage) {
+            trigger(new IndexRoutingPort.StartIndexRequestEvent((UUID)startIndexRequestMessage.getTimeoutId()), networkPort);
+        }
+    };
 
 	/**
 	 * Forwards the {@link IndexMessage} to whoever that listens to the
