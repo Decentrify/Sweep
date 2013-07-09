@@ -2,43 +2,39 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package se.sics.peersearch.msgs;
+package se.sics.peersearch.messages;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
-import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.peersearch.net.PsMsgFrameDecoder;
+import se.sics.gvod.timer.UUID;
+import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
+import se.sics.peersearch.net.MessageFrameDecoder;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  *
  * @author jdowling
  */
-public class SearchMsg {
-
-    public static class IllegalSearchString extends Exception {
-
-        public IllegalSearchString(String message) {
-            super(message);
-        }
-        
-    }
-    
+public class SearchMessage {
     public static class Request extends DirectMsgNetty {
-        
+        private final UUID requestId;
         private final String query;
 
-        public Request(VodAddress source, VodAddress destination, 
-                TimeoutId timeoutId, String query) throws IllegalSearchString
+        public Request(VodAddress source, VodAddress destination,
+                       TimeoutId timeoutId, UUID requestId, String query) throws IllegalSearchString
         {
             super(source, destination, timeoutId);
+            this.requestId = requestId;
             if (query.length() > 255) {
                 throw new IllegalSearchString("Search string is too long. Max length is 255 chars.");
             }
@@ -47,6 +43,10 @@ public class SearchMsg {
 
         public String getQuery() {
             return query;
+        }
+
+        public UUID getRequestId() {
+            return requestId;
         }
 
         @Override
@@ -58,13 +58,13 @@ public class SearchMsg {
 
         @Override
         public RewriteableMsg copy() {
-             SearchMsg.Request r = null;
+             SearchMessage.Request r = null;
             try {
-                r = new SearchMsg.Request(vodSrc, vodDest, timeoutId, query);
+                r = new SearchMessage.Request(vodSrc, vodDest, timeoutId, requestId, query);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
-                Logger.getLogger(SearchMsg.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(SearchMessage.class.getName()).log(Level.SEVERE, null, ex);
             }
              return r;
         }
@@ -72,40 +72,40 @@ public class SearchMsg {
         @Override
         public ChannelBuffer toByteArray() throws MessageEncodingException {
             ChannelBuffer buffer = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeStringLength256(buffer, query);
             return buffer;
         }
 
         @Override
         public byte getOpcode() {
-            return PsMsgFrameDecoder.SEARCH_REQUEST;
+            return MessageFrameDecoder.SEARCH_REQUEST;
         }
     }
 
     public static class Response extends DirectMsgNetty {
         
         public static final int MAX_RESULTS_STR_LEN = 1400;
-        
-        private final String results;
+
+        private final UUID requestId;
+        private final IndexEntry[] results;
         private final int numResponses;
         private final int responseNumber;
         
         public Response(VodAddress source,
-                VodAddress destination, TimeoutId timeoutId, 
-                int numResponses, int responseNumber,
-                String results) throws IllegalSearchString
+                        VodAddress destination, TimeoutId timeoutId,
+                        UUID requestId, int numResponses, int responseNumber,
+                        IndexEntry[] results) throws IllegalSearchString
         {
             super(source, destination, timeoutId);
-            if (results.length() > MAX_RESULTS_STR_LEN ) {
-                throw new IllegalSearchString(("Size of results string is too large. It was " 
-                        + results.length() + " Max size allowed is: " + MAX_RESULTS_STR_LEN));
-            }
+            this.requestId = requestId;
+
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
             this.results = results;
         }
 
-        public String getResults() {
+        public IndexEntry[] getResults() {
             return results;
         }
 
@@ -116,7 +116,11 @@ public class SearchMsg {
         public int getNumResponses() {
             return numResponses;
         }
-        
+
+        public UUID getRequestId() {
+            return requestId;
+        }
+
         @Override
         public int getSize() {
             return getHeaderSize()
@@ -128,12 +132,12 @@ public class SearchMsg {
         @Override
         public RewriteableMsg copy() {
             try {
-                return new SearchMsg.Response(vodSrc, vodDest, timeoutId,            
-                        numResponses, responseNumber, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId,
+                        requestId, numResponses, responseNumber, results);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
-                Logger.getLogger(SearchMsg.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(SearchMessage.class.getName()).log(Level.SEVERE, null, ex);
             }
             // shouldn't get here.
             return null;
@@ -142,15 +146,16 @@ public class SearchMsg {
         @Override
         public ChannelBuffer toByteArray() throws MessageEncodingException {
             ChannelBuffer buffer = createChannelBufferWithHeader();
+            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
-            UserTypesEncoderFactory.writeStringLength65536(buffer, results);
+            ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, results);
             return buffer;
         }
 
         @Override
         public byte getOpcode() {
-            return PsMsgFrameDecoder.SEARCH_RESPONSE;
+            return MessageFrameDecoder.SEARCH_RESPONSE;
 
         }
     }

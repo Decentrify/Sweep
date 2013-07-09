@@ -27,6 +27,7 @@ import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
+import se.sics.peersearch.types.IndexEntry;
 import search.system.peer.IndexPort;
 import search.system.peer.IndexPort.AddIndexSimulated;
 import search.system.peer.SearchPeer;
@@ -37,8 +38,6 @@ import common.configuration.CyclonConfiguration;
 import common.configuration.ElectionConfiguration;
 import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
 import common.simulation.AddIndexEntry;
 import common.simulation.AddMagnetEntry;
 import common.simulation.ConsistentHashtable;
@@ -145,9 +144,9 @@ public final class SearchSimulator extends ComponentDefinition {
 			Long successor = ringNodes.getNode(event.getId());
 			Component peer = peers.get(successor);
 
-			IndexEntry index = new IndexEntry("", "", Category.Books, "", "");
-			index.setFileName(randomText());
-			index.setLeaderId("");
+            IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+            index.setFileName(randomText());
+            index.setLeaderId("");
 			trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
 		}
 	};

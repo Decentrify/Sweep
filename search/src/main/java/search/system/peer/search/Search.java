@@ -56,6 +56,7 @@ import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
+import se.sics.peersearch.types.IndexEntry;
 import search.system.peer.IndexPort;
 import search.system.peer.IndexPort.AddIndexSimulated;
 import search.system.peer.search.IndexExchangeMessages.IndexUpdateRequest;
@@ -84,8 +85,6 @@ import tman.system.peer.tman.RoutedEventsPort;
 import tman.system.peer.tman.TMan;
 
 import common.configuration.SearchConfiguration;
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
 import common.peer.PeerDescriptor;
 import common.snapshot.Snapshot;
 
@@ -354,10 +353,12 @@ public final class Search extends ComponentDefinition {
 				startSearch(event, new SearchPattern(args[1], 0, 0, null, null, null, null, null));
 			} else if (args[0].compareToIgnoreCase("add") == 0 && args.length == 3) {
 				// TODO UI to add all values
-				IndexEntry index = new IndexEntry("", "", Category.Books, "", "");
-				index.setFileName(args[1]);
-				index.setUrl(args[2]);
-				index.setLeaderId("");
+
+                IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+                index.setFileName(args[1]);
+                index.setUrl(args[2]);
+                index.setLeaderId("");
+
 				addEntryGlobal(index, event);
 			} else {
 				trigger(new WebResponse("Invalid request", event, 1, 1), webPort);
@@ -1011,8 +1012,6 @@ public final class Search extends ComponentDefinition {
 	 * 
 	 * @param entry
 	 *            the {@link IndexEntry} to be added
-	 * @param event
-	 *            the request id used to identify the request
 	 */
 	private void addEntryGlobal(IndexEntry entry, UUID requestId) {
 		trigger(new AddIndexEntry(self, requestId, entry), routedEventsPort);
@@ -1215,8 +1214,6 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Query the local index store for a given query string.
 	 * 
-	 * @param query
-	 *            the query string
 	 * @return a list of matching entries
 	 * @throws IOException
 	 *             if Lucene errors occur
@@ -1341,24 +1338,9 @@ public final class Search extends ComponentDefinition {
 	 */
 	private IndexEntry createIndexEntry(Document d) {
 		IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
-				d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-				Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
 				d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), d.get(IndexEntry.LEADER_ID));
-
-		String value = d.get(IndexEntry.FILE_SIZE);
-		if (value != null) {
-			entry.setFileSize(Long.valueOf(value));
-		}
-
-		value = d.get(IndexEntry.LANGUAGE);
-		if (value != null) {
-			entry.setLanguage(value);
-		}
-
-		value = d.get(IndexEntry.UPLOADED);
-		if (value != null) {
-			entry.setUploaded(new Date(Long.valueOf(value)));
-		}
 
 		return entry;
 	}

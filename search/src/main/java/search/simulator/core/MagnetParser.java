@@ -2,6 +2,7 @@ package search.simulator.core;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Date;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -12,8 +13,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-import common.entities.IndexEntry;
-import common.entities.IndexEntry.Category;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Parser for an xml string describing a magnetic link. Some xml files entries
@@ -22,7 +22,7 @@ import common.entities.IndexEntry.Category;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-	private IndexEntry entry = new IndexEntry("", "", Category.Books, "", "");
+    private IndexEntry entry = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.
