@@ -3,10 +3,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>se.kth.id2210</groupId>
-  <artifactId>id2210-parent</artifactId>
+  <artifactId>mediasearch-parent</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>id2210-parent</name>
+  <name>mediasearch-parent</name>
 
 
 <modules>

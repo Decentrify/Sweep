@@ -7,6 +7,10 @@ import search.simulator.core.SearchExecutionMain;
 import common.configuration.Configuration;
 import common.simulation.scenarios.Scenario;
 import common.simulation.scenarios.Scenario1;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.config.VodConfig;
 
 /**
  * The prototype can be started by executing the main function in this file.
@@ -50,6 +54,10 @@ public class Main {
 	public static void main(String[] args) throws IOException {
 		long seed = System.currentTimeMillis();
 		new Configuration(seed);
+                
+                VodConfig.init(args);
+                CroupierConfiguration c = CroupierConfiguration.build();
+                c.store((int) seed);
 
 		Scenario scenario = new Scenario1();
 		scenario.setSeed(seed);

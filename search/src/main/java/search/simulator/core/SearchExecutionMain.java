@@ -24,12 +24,13 @@ import se.sics.kompics.web.jetty.JettyWebServer;
 import se.sics.kompics.web.jetty.JettyWebServerConfiguration;
 import se.sics.kompics.web.jetty.JettyWebServerInit;
 
-import common.configuration.CyclonConfiguration;
 import common.configuration.ElectionConfiguration;
 import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
 import common.simulation.SimulatorInit;
 import common.simulation.SimulatorPort;
+import se.sics.gvod.config.RendezvousServerConfiguration;
+import se.sics.gvod.config.VodConfig;
 
 public final class SearchExecutionMain extends ComponentDefinition {
 
@@ -44,6 +45,8 @@ public final class SearchExecutionMain extends ComponentDefinition {
 	public SearchExecutionMain() throws IOException {
 		P2pOrchestrator.setSimulationPortType(SimulatorPort.class);
 
+                VodConfig.init(new String[0]);
+                
 		// create
 		Component bootstrapServer = create(BootstrapServer.class);
 		Component p2pOrchestrator = create(P2pOrchestrator.class);
@@ -52,9 +55,8 @@ public final class SearchExecutionMain extends ComponentDefinition {
 
 		final BootstrapConfiguration bootConfiguration = BootstrapConfiguration.load(System
 				.getProperty("bootstrap.configuration"));
-        final CroupierConfiguration croupierConfiguration = null;
-//		final CroupierConfiguration croupierConfiguration = CroupierConfiguration.load(System
-//				.getProperty("cyclon.configuration"));
+        final CroupierConfiguration croupierConfiguration = (CroupierConfiguration)
+                        CroupierConfiguration.load(CroupierConfiguration.class);                
 		final SearchConfiguration searchConfiguration = SearchConfiguration.load(System
 				.getProperty("search.configuration"));
 		final TManConfiguration tmanConfiguration = TManConfiguration.load(System
