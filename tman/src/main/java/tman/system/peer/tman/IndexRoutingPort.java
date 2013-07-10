@@ -6,6 +6,9 @@ import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
+import se.sics.peersearch.messages.IndexDisseminationMessage;
+import se.sics.peersearch.messages.IndexRequestMessage;
+import se.sics.peersearch.messages.StartIndexRequestMessage;
 
 /**
  * This class acts as a port, handling all the messages that are involved in the
@@ -15,6 +18,14 @@ public class IndexRoutingPort extends PortType {
 	{
 		negative(IndexEvent.class);
 		positive(IndexEvent.class);
+        negative(StartIndexRequestMessage.class);
+        positive(StartIndexRequestMessage.class);
+        negative(IndexRequestMessage.class);
+        positive(IndexRequestMessage.class);
+        negative(StartIndexRequestMessage.class);
+        positive(StartIndexRequestMessage.class);
+        positive(IndexDisseminationMessage.class);
+        negative(IndexDisseminationMessage.class);
 	}
 
 	/**

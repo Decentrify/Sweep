@@ -933,4 +933,30 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void IndexResponseMessage() {
+        long index = 1L;
+        UUID id = new UUID(1);
+
+        IndexResponseMessage msg = new IndexResponseMessage(gSrc, gDest, index, id);
+        try {
+            ChannelBuffer buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            IndexResponseMessage response =
+                    IndexResponseMessageFactory.fromBuffer(buffer);
+
+            assert (response.getVodDestination().equals(gDest));
+            assert (response.getVodSource().equals(gSrc));
+            assert (response.getIndex() == index);
+            assert (response.getMessageId().equals(id));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 }

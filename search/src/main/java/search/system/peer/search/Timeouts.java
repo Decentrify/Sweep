@@ -5,7 +5,6 @@ import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
-import search.system.peer.search.LeaderResponse.IndexEntryAdded;
 import tman.system.peer.tman.LeaderRequest.AddIndexEntry;
 
 /**

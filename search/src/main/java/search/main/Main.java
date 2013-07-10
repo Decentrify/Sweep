@@ -57,9 +57,13 @@ public class Main {
                 
                 VodConfig.init(args);
                 CroupierConfiguration c = CroupierConfiguration.build();
-                c.store((int) seed);
+        try {
+            c.store((int) seed);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
 
-		Scenario scenario = new Scenario1();
+        Scenario scenario = new Scenario1();
 		scenario.setSeed(seed);
 		scenario.getScenario().execute(SearchExecutionMain.class);
 	}

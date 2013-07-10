@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
-import se.sics.gvod.croupier.CroupierPort;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodNetwork;
@@ -60,7 +59,6 @@ import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 import search.system.peer.IndexPort;
 import search.system.peer.IndexPort.AddIndexSimulated;
-import search.system.peer.search.LeaderResponse.IndexEntryAdded;
 import search.system.peer.search.Timeouts.AddRequestTimeout;
 import search.system.peer.search.Timeouts.GapDetectionTimeout;
 import search.system.peer.search.Timeouts.GapTimeout;
@@ -103,7 +101,6 @@ public final class Search extends ComponentDefinition {
 	Negative<Web> webPort = negative(Web.class);
 	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
 	Positive<RoutedEventsPort> routedEventsPort = positive(RoutedEventsPort.class);
-	Positive<CroupierPort> partitionCroupierPort = positive(CroupierPort.class);
 	Positive<IndexRoutingPort> indexRoutingPort = positive(IndexRoutingPort.class);
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
@@ -547,12 +544,12 @@ public final class Search extends ComponentDefinition {
 	 * Respond to the web client after receiving an acknowledgment for and
 	 * adding operation.
 	 */
-	Handler<IndexEntryAdded> handleIndexEntryAdded = new Handler<IndexEntryAdded>() {
+	Handler<AddIndexEntryMessage.Response> handleIndexEntryAdded = new Handler<AddIndexEntryMessage.Response>() {
 		@Override
-		public void handle(IndexEntryAdded event) {
-			WebRequest webRequest = openRequests.get(event.getUuid());
+		public void handle(AddIndexEntryMessage.Response event) {
+			WebRequest webRequest = openRequests.get(event.getId());
 
-			CancelTimeout ct = new CancelTimeout(event.getUuid());
+			CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
 			trigger(ct, timerPort);
 
 			if (webRequest != null) {
@@ -570,7 +567,7 @@ public final class Search extends ComponentDefinition {
 				sb.append("</body></html>");
 
 				trigger(new WebResponse(sb.toString(), webRequest, 1, 1), webPort);
-				openRequests.remove(event.getUuid());
+				openRequests.remove(event.getId());
 			}
 		}
 	};

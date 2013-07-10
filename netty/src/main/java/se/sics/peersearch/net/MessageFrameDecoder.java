@@ -50,6 +50,7 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte START_INDEX_REQUEST_MESSAGE   = 0x79;
     public static final byte INDEX_REQUEST_MESSAGE         = 0x7a;
     public static final byte INDEX_DESSIMINATION_MESSAGE   = 0x7b;
+    public static final byte INDEX_RESPONSE_MESSAGE        = 0x7c;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -133,6 +134,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return IndexRequestMessageFactory.fromBuffer(buffer);
             case INDEX_DESSIMINATION_MESSAGE:
                 return IndexDisseminationMessageFactory.fromBuffer(buffer);
+            case INDEX_RESPONSE_MESSAGE:
+                return  IndexResponseMessageFactory.fromBuffer(buffer);
             default:
                 break;
         }

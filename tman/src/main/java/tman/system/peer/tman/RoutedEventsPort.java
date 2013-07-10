@@ -12,5 +12,6 @@ public class RoutedEventsPort extends PortType {
 		negative(AddIndexEntryMessage.Request.class);
 		positive(GapCheck.class);
 		negative(GapCheck.class);
+        positive(AddIndexEntryMessage.Request.class);
 	}
 }

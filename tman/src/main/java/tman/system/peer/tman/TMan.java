@@ -76,7 +76,6 @@ public final class TMan extends ComponentDefinition {
 		subscribe(handleLeaderStatus, leaderStatusPort);
 		subscribe(handleGapCheck, routedEventsPort);
 		subscribe(handleIndexRouting, indexRoutingPort);
-		subscribe(handleIndexMessage, networkPort);
 		subscribe(handleNodeCrash, leaderStatusPort);
 		subscribe(handeNodeSuggestion, leaderStatusPort);
         subscribe(startIndexRequestMessageHandler, indexRoutingPort);

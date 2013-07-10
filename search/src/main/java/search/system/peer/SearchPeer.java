@@ -52,7 +52,6 @@ public final class SearchPeer extends ComponentDefinition {
 
 	private Component croupier, tman, search, bootstrap, electionLeader, electionFollower;
     private Self self;
-	private int bootstrapRequestPeerCount;
 	private boolean bootstrapped;
 	private SearchConfiguration searchConfiguration;
 
@@ -118,10 +117,6 @@ public final class SearchPeer extends ComponentDefinition {
 			trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
 			trigger(new TManInit(self, tmanConfiguration), tman.getControl());
             trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
-//			trigger(new BootstrapClientInit(self, init.getBootstrapConfiguration()),
-//					bootstrap.getControl());
-			BootstrapRequest request = new BootstrapRequest(CROUPIER, bootstrapRequestPeerCount);
-			trigger(request, bootstrap.getPositive(P2pBootstrap.class));
 		}
 	};
 

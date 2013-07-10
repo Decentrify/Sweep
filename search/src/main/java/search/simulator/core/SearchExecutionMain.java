@@ -48,15 +48,13 @@ public final class SearchExecutionMain extends ComponentDefinition {
                 VodConfig.init(new String[0]);
                 
 		// create
-		Component bootstrapServer = create(BootstrapServer.class);
 		Component p2pOrchestrator = create(P2pOrchestrator.class);
 		Component simulator = create(SearchSimulator.class);
 		Component web = create(JettyWebServer.class);
 
 		final BootstrapConfiguration bootConfiguration = BootstrapConfiguration.load(System
 				.getProperty("bootstrap.configuration"));
-        final CroupierConfiguration croupierConfiguration = (CroupierConfiguration)
-                        CroupierConfiguration.load(CroupierConfiguration.class);                
+        final CroupierConfiguration croupierConfiguration = CroupierConfiguration.build();
 		final SearchConfiguration searchConfiguration = SearchConfiguration.load(System
 				.getProperty("search.configuration"));
 		final TManConfiguration tmanConfiguration = TManConfiguration.load(System
@@ -64,15 +62,10 @@ public final class SearchExecutionMain extends ComponentDefinition {
 		final ElectionConfiguration electionConfiguration = ElectionConfiguration.load(System
 				.getProperty("election.configuration"));
 
-		trigger(new BootstrapServerInit(bootConfiguration), bootstrapServer.getControl());
 		trigger(new SimulatorInit(bootConfiguration, croupierConfiguration, tmanConfiguration,
 				searchConfiguration, electionConfiguration), simulator.getControl());
 
 		// connect
-		connect(bootstrapServer.getNegative(Network.class),
-				p2pOrchestrator.getPositive(Network.class), new MessageDestinationFilter(
-						bootConfiguration.getBootstrapServerAddress()));
-		connect(bootstrapServer.getNegative(Timer.class), p2pOrchestrator.getPositive(Timer.class));
 		connect(simulator.getNegative(Network.class), p2pOrchestrator.getPositive(Network.class));
 		connect(simulator.getNegative(Timer.class), p2pOrchestrator.getPositive(Timer.class));
 		connect(simulator.getNegative(SimulatorPort.class),
