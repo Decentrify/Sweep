@@ -50,7 +50,7 @@ public final class SearchPeer extends ComponentDefinition {
 	Positive<Timer> timer = positive(Timer.class);
 	Negative<Web> webPort = negative(Web.class);
 
-	private Component croupier, tman, search, bootstrap, electionLeader, electionFollower;
+	private Component croupier, tman, search, electionLeader, electionFollower;
     private Self self;
 	private boolean bootstrapped;
 	private SearchConfiguration searchConfiguration;
@@ -61,25 +61,22 @@ public final class SearchPeer extends ComponentDefinition {
 		search = create(Search.class);
 		electionLeader = create(ElectionLeader.class);
 		electionFollower = create(ElectionFollower.class);
-		bootstrap = create(BootstrapClient.class);
 
 		connect(network, search.getNegative(VodNetwork.class));
 		connect(network, croupier.getNegative(VodNetwork.class));
-		connect(network, bootstrap.getNegative(VodNetwork.class));
 		connect(network, tman.getNegative(VodNetwork.class));
 		connect(network, electionLeader.getNegative(VodNetwork.class));
 		connect(network, electionFollower.getNegative(VodNetwork.class));
 		connect(timer, search.getNegative(Timer.class));
 		connect(timer, croupier.getNegative(Timer.class));
-		connect(timer, bootstrap.getNegative(Timer.class));
 		connect(timer, tman.getNegative(Timer.class));
 		connect(timer, electionLeader.getNegative(Timer.class));
 		connect(timer, electionFollower.getNegative(Timer.class));
 		connect(webPort, search.getPositive(Web.class));
-		connect(search.getPositive(PeerSamplePort.class),
-				croupier.getNegative(PeerSamplePort.class));
-		connect(tman.getPositive(PeerSamplePort.class),
-                croupier.getNegative(PeerSamplePort.class));
+		connect(croupier.getPositive(PeerSamplePort.class),
+				search.getNegative(PeerSamplePort.class));
+		connect(croupier.getPositive(PeerSamplePort.class),
+                tman.getNegative(PeerSamplePort.class));
 		connect(indexPort, search.getNegative(IndexPort.class));
 		connect(tman.getPositive(RoutedEventsPort.class),
 				search.getNegative(RoutedEventsPort.class));
@@ -99,8 +96,7 @@ public final class SearchPeer extends ComponentDefinition {
 				electionFollower.getPositive(LeaderStatusPort.class));
 
 		subscribe(handleInit, control);
-		subscribe(handleJoinCompleted, croupier.getNegative(CroupierPort.class));
-		subscribe(handleBootstrapResponse, bootstrap.getPositive(P2pBootstrap.class));
+		subscribe(handleJoinCompleted, croupier.getPositive(CroupierPort.class));
 	}
 
 	Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {

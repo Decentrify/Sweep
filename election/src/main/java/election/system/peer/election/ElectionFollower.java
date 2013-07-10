@@ -29,7 +29,7 @@ import common.configuration.ElectionConfiguration;
  * leader. Such functions range from leader election to how to handle the
  * scenario when no more heart beat messages are received
  */
-public class ElectionFollower extends MsgRetryComponent {
+public class ElectionFollower extends ComponentDefinition {
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Negative<BroadcastTManPartnersPort> tmanBroadCast = negative(BroadcastTManPartnersPort.class);
@@ -44,10 +44,6 @@ public class ElectionFollower extends MsgRetryComponent {
 	private UUID heartBeatTimeoscutId, deathVoteTimeout;
 	private SynchronizedCounter aliveCounter, deathMessageCounter;
 
-    @Override
-    public void stop(Stop stop) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
 
     /**
 	 * A customised timeout class used to determine how long a node should wait
@@ -67,12 +63,7 @@ public class ElectionFollower extends MsgRetryComponent {
 	/**
 	 * Default constructor that subscribes certain handlers to ports
 	 */
-	public ElectionFollower() {
-		this(null);
-	}
-
-    public ElectionFollower(RetryComponentDelegator delegator) {
-        super(delegator);
+    public ElectionFollower() {
 
         subscribe(handleInit, control);
         subscribe(handleDeathTimeout, timerPort);
@@ -405,7 +396,6 @@ public class ElectionFollower extends MsgRetryComponent {
                 new ScheduleRetryTimeout(timeOut,
                         0, 0);
         HeartbeatMessage.RequestTimeout request = new HeartbeatMessage.RequestTimeout(st, message);
-        delegator.doRetry(request);
 	}
 
 	/**

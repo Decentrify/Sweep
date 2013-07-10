@@ -4,21 +4,21 @@ import java.io.IOException;
 import java.net.InetAddress;
 
 import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.gvod.network.model.common.NetworkModel;
+import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorInit;
+import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorNat;
+import se.sics.gvod.timer.Timer;
 import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Kompics;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.network.Message;
-import se.sics.kompics.network.Network;
 import se.sics.kompics.network.model.king.KingLatencyMap;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
-import se.sics.kompics.p2p.bootstrap.server.BootstrapServer;
-import se.sics.kompics.p2p.bootstrap.server.BootstrapServerInit;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
-import se.sics.kompics.p2p.orchestrator.P2pOrchestrator;
-import se.sics.kompics.p2p.orchestrator.P2pOrchestratorInit;
-import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.jetty.JettyWebServer;
 import se.sics.kompics.web.jetty.JettyWebServerConfiguration;
@@ -43,12 +43,12 @@ public final class SearchExecutionMain extends ComponentDefinition {
 	}
 
 	public SearchExecutionMain() throws IOException {
-		P2pOrchestrator.setSimulationPortType(SimulatorPort.class);
+        DistributedOrchestratorNat.setSimulationPortType(SimulatorPort.class);
 
                 VodConfig.init(new String[0]);
                 
 		// create
-		Component p2pOrchestrator = create(P2pOrchestrator.class);
+		Component p2pOrchestrator = create(DistributedOrchestratorNat.class);
 		Component simulator = create(SearchSimulator.class);
 		Component web = create(JettyWebServer.class);
 
@@ -66,7 +66,7 @@ public final class SearchExecutionMain extends ComponentDefinition {
 				searchConfiguration, electionConfiguration), simulator.getControl());
 
 		// connect
-		connect(simulator.getNegative(Network.class), p2pOrchestrator.getPositive(Network.class));
+		connect(simulator.getNegative(VodNetwork.class), p2pOrchestrator.getPositive(VodNetwork.class));
 		connect(simulator.getNegative(Timer.class), p2pOrchestrator.getPositive(Timer.class));
 		connect(simulator.getNegative(SimulatorPort.class),
 				p2pOrchestrator.getPositive(SimulatorPort.class));
@@ -82,18 +82,12 @@ public final class SearchExecutionMain extends ComponentDefinition {
 
 		// Must init P2pOrchestrator last of all components, otherwise events
 		// will be dropped
-		trigger(new P2pOrchestratorInit(scenario, new KingLatencyMap()),
+		trigger(new DistributedOrchestratorInit(scenario, new NetworkModel() {
+            @Override
+            public long getLatencyMs(RewriteableMsg rewriteableMsg) {
+                return 0;
+            }
+        }, ip, webPort),
 				p2pOrchestrator.getControl());
-	}
-
-	private final static class MessageDestinationFilter extends ChannelFilter<Message, Address> {
-
-		public MessageDestinationFilter(Address address) {
-			super(Message.class, address, true);
-		}
-
-		public Address getValue(Message event) {
-			return event.getDestination();
-		}
 	}
 }

@@ -14,6 +14,9 @@ import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
@@ -24,10 +27,7 @@ import se.sics.kompics.Positive;
 import se.sics.kompics.Start;
 import se.sics.kompics.Stop;
 import se.sics.kompics.network.Message;
-import se.sics.kompics.network.Network;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
@@ -38,7 +38,6 @@ import search.system.peer.SearchPeer;
 import search.system.peer.SearchPeerInit;
 
 import common.configuration.Configuration;
-import common.configuration.CyclonConfiguration;
 import common.configuration.ElectionConfiguration;
 import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
@@ -51,11 +50,12 @@ import common.simulation.PeerJoin;
 import common.simulation.SimulatorInit;
 import common.simulation.SimulatorPort;
 import common.snapshot.Snapshot;
+import se.sics.gvod.filters.MsgDestFilterAddress;
 
 public final class SearchSimulator extends ComponentDefinition {
 
     Positive<SimulatorPort> simulator = positive(SimulatorPort.class);
-    Positive<Network> network = positive(Network.class);
+    Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     Negative<Web> webIncoming = negative(Web.class);
     private final HashMap<Long, Component> peers;
@@ -227,7 +227,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
-        connect(network, peer.getNegative(Network.class), new MessageDestinationFilter(address));
+        connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class));
         subscribe(handleWebResponse, peer.getPositive(Web.class));
 
@@ -246,7 +246,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         trigger(new Stop(), peer.getControl());
 
-        disconnect(network, peer.getNegative(Network.class));
+        disconnect(network, peer.getNegative(VodNetwork.class));
         disconnect(timer, peer.getNegative(Timer.class));
 
         peers.remove(id);
@@ -254,17 +254,5 @@ public final class SearchSimulator extends ComponentDefinition {
         Snapshot.removePeer(addr);
 
         destroy(peer);
-    }
-
-    private final static class MessageDestinationFilter extends ChannelFilter<Message, Address> {
-
-        public MessageDestinationFilter(Address address) {
-            super(Message.class, address, true);
-        }
-
-        @Override
-        public Address getValue(Message event) {
-            return new Address(event.getDestination().getIp(), event.getDestination().getPort(), event.getDestination().getId());
-        }
     }
 }

@@ -1,8 +1,8 @@
 package common.simulation;
 
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
+import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.gvod.timer.Timeout;
 
 public class GenerateReport extends Timeout {
 
