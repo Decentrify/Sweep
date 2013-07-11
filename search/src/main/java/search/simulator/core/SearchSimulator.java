@@ -228,6 +228,7 @@ public final class SearchSimulator extends ComponentDefinition {
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
+        //connect(network, peer.getNegative(VodNetwork.class));
         connect(timer, peer.getNegative(Timer.class));
         subscribe(handleWebResponse, peer.getPositive(Web.class));
 

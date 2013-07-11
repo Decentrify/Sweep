@@ -1,29 +1,26 @@
 package search.system.peer;
 
-import java.util.LinkedList;
-import java.util.Set;
-
+import common.peer.PeerDescriptor;
+import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.croupier.CroupierPort;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierInit;
 import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.croupier.events.CroupierJoinCompleted;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
+import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.p2p.bootstrap.BootstrapRequest;
-import se.sics.kompics.p2p.bootstrap.BootstrapResponse;
-import se.sics.kompics.p2p.bootstrap.P2pBootstrap;
-import se.sics.kompics.p2p.bootstrap.PeerEntry;
-import se.sics.kompics.p2p.bootstrap.client.BootstrapClient;
 import se.sics.kompics.web.Web;
 import search.system.peer.search.Search;
 import search.system.peer.search.SearchInit;
@@ -42,8 +39,13 @@ import election.system.peer.election.ElectionFollower;
 import election.system.peer.election.ElectionInit;
 import election.system.peer.election.ElectionLeader;
 
+import java.net.InetAddress;
+import java.util.LinkedList;
+import java.util.List;
+
 public final class SearchPeer extends ComponentDefinition {
     public static final String CROUPIER = "CROUPIER";
+    private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
 
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
 	Positive<VodNetwork> network = positive(VodNetwork.class);
@@ -52,7 +54,6 @@ public final class SearchPeer extends ComponentDefinition {
 
 	private Component croupier, tman, search, electionLeader, electionFollower;
     private Self self;
-	private boolean bootstrapped;
 	private SearchConfiguration searchConfiguration;
 
 	public SearchPeer() {
@@ -101,48 +102,38 @@ public final class SearchPeer extends ComponentDefinition {
 
 	Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
 		@Override
-		public void handle(SearchPeerInit init) {
+		public void handle(final SearchPeerInit init) {
 			self = init.getSelf();
-            CroupierConfiguration croupierConfiguration = init.getCyclonConfiguration();
+            CroupierConfiguration croupierConfiguration = init.getCroupierConfiguration();
 			TManConfiguration tmanConfiguration = init.getTManConfiguration();
 			ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
 			searchConfiguration = init.getApplicationConfiguration();
-			//bootstrapRequestPeerCount = croupierConfiguration.getBootstrapRequestPeerCount();
 
 			trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
 			trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
 			trigger(new TManInit(self, tmanConfiguration), tman.getControl());
             trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
-		}
-	};
 
-	Handler<BootstrapResponse> handleBootstrapResponse = new Handler<BootstrapResponse>() {
-		@Override
-		public void handle(BootstrapResponse event) {
-			if (!bootstrapped) {
-				Set<PeerEntry> somePeers = event.getPeers();
-				LinkedList<VodDescriptor> insiders = new LinkedList<VodDescriptor>();
+            final VodDescriptor desc = self.getDescriptor();
+            List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
+            descriptors.add(0, desc);
 
-				if (somePeers == null) {
-					// This should not happen but it does
-					return;
-				}
+            if(self.getId() == 0) return;
 
-//				for (PeerEntry peerEntry : somePeers) {
-//                    insiders.add(peerEntry.getOverlayAddress().getPeerAddress());
-//				}
+            InetAddress ip = ipGenerator.generateIP();
+            Address peerAddress = new Address(ip, VodConfig.getPort(), 0);
+            final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 0));
 
-                trigger(new CroupierJoin(insiders), croupier.getNegative(CroupierPort.class));
-				bootstrapped = true;
-			}
+            LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
+            descs.add(0, descr);
+
+            trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
 		}
 	};
 
 	Handler<CroupierJoinCompleted> handleJoinCompleted = new Handler<CroupierJoinCompleted>() {
 		@Override
 		public void handle(CroupierJoinCompleted event) {
-//			trigger(new BootstrapCompleted(CROUPIER, new PeerAddress(self)),
-//					bootstrap.getPositive(P2pBootstrap.class));
 			trigger(new SearchInit(self, searchConfiguration), search.getControl());
 		}
 	};

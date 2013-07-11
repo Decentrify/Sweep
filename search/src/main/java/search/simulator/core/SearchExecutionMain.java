@@ -10,13 +10,9 @@ import se.sics.gvod.network.model.common.NetworkModel;
 import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorInit;
 import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorNat;
 import se.sics.gvod.timer.Timer;
-import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Kompics;
-import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Message;
-import se.sics.kompics.network.model.king.KingLatencyMap;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 import se.sics.kompics.web.Web;
@@ -29,7 +25,6 @@ import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
 import common.simulation.SimulatorInit;
 import common.simulation.SimulatorPort;
-import se.sics.gvod.config.RendezvousServerConfiguration;
 import se.sics.gvod.config.VodConfig;
 
 public final class SearchExecutionMain extends ComponentDefinition {
@@ -80,7 +75,7 @@ public final class SearchExecutionMain extends ComponentDefinition {
 		trigger(new JettyWebServerInit(webConfiguration), web.getControl());
 		System.out.println("Webserver Started. Address=" + webServerAddr + "/1/search");
 
-		// Must init P2pOrchestrator last of all components, otherwise events
+		// Must init DistributedOrchestrator last of all components, otherwise events
 		// will be dropped
 		trigger(new DistributedOrchestratorInit(scenario, new NetworkModel() {
             @Override

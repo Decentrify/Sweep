@@ -7,8 +7,6 @@ import search.simulator.core.SearchExecutionMain;
 import common.configuration.Configuration;
 import common.simulation.scenarios.Scenario;
 import common.simulation.scenarios.Scenario1;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.VodConfig;
 

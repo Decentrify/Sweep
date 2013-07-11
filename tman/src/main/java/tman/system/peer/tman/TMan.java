@@ -1,12 +1,6 @@
 package tman.system.peer.tman;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
@@ -15,6 +9,8 @@ import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
@@ -68,7 +64,7 @@ public final class TMan extends ComponentDefinition {
 		subscribe(handleInit, control);
 		subscribe(handleRound, timerPort);
 		subscribe(handleRequestTimeout, timerPort);
-		subscribe(handleCyclonSample, croupierSamplePort);
+		subscribe(handleCroupierSample, croupierSamplePort);
 		subscribe(handleTManResponse, networkPort);
 		subscribe(handleTManRequest, networkPort);
 		subscribe(handleAddIndexEntryRequest, routedEventsPort);
@@ -110,17 +106,17 @@ public final class TMan extends ComponentDefinition {
 	Handler<TManSchedule> handleRound = new Handler<TManSchedule>() {
 		@Override
 		public void handle(TManSchedule event) {
-			if (tmanView.isEmpty() == false) {
+			if (!tmanView.isEmpty()) {
 				initiateShuffle(tmanView.selectPeerToShuffleWith());
 			}
 		}
 	};
 
 	/**
-	 * Initiate a exchange with a random node of each Cyclon sample to speed up
+	 * Initiate a exchange with a random node of each Croupier sample to speed up
 	 * convergence and prevent partitioning.
 	 */
-	Handler<CroupierSample> handleCyclonSample = new Handler<CroupierSample>() {
+	Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
 		@Override
 		public void handle(CroupierSample event) {
 			List<VodDescriptor> sample = event.getNodes();
@@ -308,10 +304,6 @@ public final class TMan extends ComponentDefinition {
         }
     };
 
-	/**
-	 * Forwards the {@link IndexMessage} to whoever that listens to the
-	 * indexRoutingPort
-	 */
 	Handler<IndexMessage> handleIndexMessage = new Handler<IndexMessage>() {
 		@Override
 		public void handle(IndexMessage event) {
@@ -341,8 +333,10 @@ public final class TMan extends ComponentDefinition {
 	 *            the address of the node to shuffle with
 	 */
 	private void initiateShuffle(VodAddress exchangePartner) {
-		VodAddress[] exchangeSets = (VodAddress[])tmanView.getExchangeNodes(exchangePartner,
-				tmanConfiguration.getExchangeCount()).toArray();
+		Collection<VodAddress> exchange = tmanView.getExchangeNodes(exchangePartner,
+				tmanConfiguration.getExchangeCount());
+
+        VodAddress[] exchangeSets = exchange.toArray(new VodAddress[exchange.size()]);
 
 		ScheduleTimeout rst = new ScheduleTimeout(tmanConfiguration.getPeriod());
 		rst.setTimeoutEvent(new RequestTimeout(rst));

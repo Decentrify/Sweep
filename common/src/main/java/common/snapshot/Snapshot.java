@@ -209,6 +209,7 @@ public class Snapshot {
 	private static void reportLeaders(StringBuilder builder) {
 		for (VodAddress p : peers.keySet()) {
 			PeerInfo info = peers.get(p);
+            if(info == null) continue;
 			if (info.isLeader()) {
 				builder.append(p.getId());
 				builder.append(" is leader and its TMan view was: ");
@@ -235,6 +236,7 @@ public class Snapshot {
 		long minNumIndexEntries = Integer.MAX_VALUE;
 		for (VodAddress node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
+            if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
 				minNumIndexEntries = p.getNumIndexEntries();
 				minPeer = node;
