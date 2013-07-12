@@ -41,12 +41,12 @@ import election.system.peer.election.ElectionInit;
 import election.system.peer.election.ElectionLeader;
 
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.List;
 
 public final class SearchPeer extends ComponentDefinition {
     public static final String CROUPIER = "CROUPIER";
-    private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
 
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
 	Positive<VodNetwork> network = positive(VodNetwork.class);
@@ -113,7 +113,6 @@ public final class SearchPeer extends ComponentDefinition {
 				electionFollower.getPositive(LeaderStatusPort.class));
 
 		subscribe(handleInit, control);
-		subscribe(handleJoinCompleted, croupier.getPositive(CroupierPort.class));
 	}
 
 	Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
@@ -136,21 +135,20 @@ public final class SearchPeer extends ComponentDefinition {
 
             if(self.getId() == 0) return;
 
-            InetAddress ip = ipGenerator.generateIP();
-            Address peerAddress = new Address(ip, VodConfig.getPort(), 0);
+            InetAddress ip = null;
+            try {
+                ip = InetAddress.getLocalHost();
+            } catch (UnknownHostException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+            Address peerAddress = new Address(ip, 9999, 0);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 0));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
             descs.add(0, descr);
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
-		}
-	};
-
-	Handler<CroupierJoinCompleted> handleJoinCompleted = new Handler<CroupierJoinCompleted>() {
-		@Override
-		public void handle(CroupierJoinCompleted event) {
-			trigger(new SearchInit(self, searchConfiguration), search.getControl());
+            trigger(new SearchInit(self, searchConfiguration), search.getControl());
 		}
 	};
 }

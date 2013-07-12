@@ -389,7 +389,7 @@ public final class Search extends ComponentDefinition {
 			if (bucket != null) {
 				int n = random.nextInt(bucket.size());
 
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((PeerDescriptor)bucket.toArray()[n]).getAddress(),
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor)bucket.toArray()[n]).getVodAddress(),
                         UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
                         .size()]), 0,0), networkPort);
 			}

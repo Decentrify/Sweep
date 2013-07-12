@@ -131,7 +131,7 @@ public class Snapshot {
 	 *            the string representation of the TMan view
 	 */
 	public static void setCurrentView(VodAddress address, String view) {
-		PeerInfo peerInfo = peers.get(address.getPeerAddress());
+		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
 			return;

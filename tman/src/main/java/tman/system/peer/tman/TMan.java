@@ -136,8 +136,10 @@ public final class TMan extends ComponentDefinition {
 		@Override
 		public void handle(GradientShuffleMessage.Request event) {
 			VodAddress exchangePartner = event.getVodSource();
-			VodAddress[] exchangeSets = (VodAddress[])tmanView.getExchangeNodes(exchangePartner,
-					tmanConfiguration.getExchangeCount()).toArray();
+			Collection<VodAddress> sets = tmanView.getExchangeNodes(exchangePartner,
+					tmanConfiguration.getExchangeCount());
+
+            VodAddress[] exchangeSets = sets.toArray(new VodAddress[sets.size()]);
 
             GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeSets);
 			trigger(rResponse, networkPort);
