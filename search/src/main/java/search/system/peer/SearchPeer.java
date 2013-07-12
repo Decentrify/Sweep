@@ -4,8 +4,7 @@ import common.peer.PeerDescriptor;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
-import se.sics.gvod.config.CroupierConfiguration;
-import se.sics.gvod.config.VodConfig;
+import se.sics.gvod.config.*;
 import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.croupier.CroupierPort;
 import se.sics.gvod.croupier.PeerSamplePort;
@@ -13,6 +12,7 @@ import se.sics.gvod.croupier.events.CroupierInit;
 import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.croupier.events.CroupierJoinCompleted;
 import se.sics.gvod.nat.traversal.NatTraverser;
+import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
@@ -42,8 +42,10 @@ import election.system.peer.election.ElectionLeader;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 public final class SearchPeer extends ComponentDefinition {
     public static final String CROUPIER = "CROUPIER";
@@ -65,11 +67,12 @@ public final class SearchPeer extends ComponentDefinition {
 		electionLeader = create(ElectionLeader.class);
 		electionFollower = create(ElectionFollower.class);
 
-		connect(network, search.getNegative(VodNetwork.class));
-		connect(network, croupier.getNegative(VodNetwork.class));
-		connect(network, tman.getNegative(VodNetwork.class));
-		connect(network, electionLeader.getNegative(VodNetwork.class));
-		connect(network, electionFollower.getNegative(VodNetwork.class));
+//		connect(network, search.getNegative(VodNetwork.class));
+//		connect(network, croupier.getNegative(VodNetwork.class));
+//		connect(network, tman.getNegative(VodNetwork.class));
+//		connect(network, electionLeader.getNegative(VodNetwork.class));
+//		connect(network, electionFollower.getNegative(VodNetwork.class));
+        connect(network, natTraversal.getNegative(VodNetwork.class));
 
         connect(natTraversal.getPositive(VodNetwork.class),
                 tman.getNegative(VodNetwork.class));
@@ -128,6 +131,14 @@ public final class SearchPeer extends ComponentDefinition {
 			trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
 			trigger(new TManInit(self, tmanConfiguration), tman.getControl());
             trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
+            trigger(new NatTraverserInit(self, new HashSet<Address>(), croupierConfiguration.getSeed(), NatTraverserConfiguration.build(),
+                    HpClientConfiguration.build(),
+                    RendezvousServerConfiguration.build().
+                            setSessionExpirationTime(30*1000),
+                    StunClientConfiguration.build(),
+                    StunServerConfiguration.build(),
+                    ParentMakerConfiguration.build(), false
+            ), natTraversal.control());
 
             final VodDescriptor desc = self.getDescriptor();
             List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
@@ -146,6 +157,8 @@ public final class SearchPeer extends ComponentDefinition {
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
             descs.add(0, descr);
+
+
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
             trigger(new SearchInit(self, searchConfiguration), search.getControl());

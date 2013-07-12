@@ -149,9 +149,9 @@ public class ElectionLeader extends ComponentDefinition {
 			}
 			Snapshot.setCurrentView(self.getAddress(), builder.toString());
 
-			if (event.isConverged() == true
-					&& iAmLeader == false
-					&& electionInProgress == false
+			if (event.isConverged()
+					&& !iAmLeader
+					&& !electionInProgress
 					&& event.getHigherNodes().size() == 0
 					&& event.getLowerNodes().size() >= electionConfiguration
 							.getMinSizeOfElectionGroup()) {
