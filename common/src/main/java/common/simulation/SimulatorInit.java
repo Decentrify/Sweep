@@ -35,7 +35,7 @@ public final class SimulatorInit extends Init {
 		return this.bootstrapConfiguration;
 	}
 
-	public CroupierConfiguration getCyclonConfiguration() {
+	public CroupierConfiguration getCroupierConfiguration() {
 		return this.croupierConfiguration;
 	}
 

@@ -98,7 +98,7 @@ public class ProductionPs extends ComponentDefinition {
             trigger(new NatTraverserInit(self, publicNodes, VodConfig.getSeed()),
                     natTraverser.getControl());
 
-//            trigger(new SearchPeerInit(self.getAddress(), , null, null, null, null),
+//            trigger(new SearchPeerInit(self, , null, null, null, null),
 //                    searchPeer.getControl());
         }
     };

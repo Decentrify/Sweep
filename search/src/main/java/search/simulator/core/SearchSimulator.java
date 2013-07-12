@@ -18,7 +18,6 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.AsIpGenerator;
-import se.sics.kompics.ChannelFilter;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
@@ -26,8 +25,6 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.kompics.Start;
 import se.sics.kompics.Stop;
-import se.sics.kompics.network.Message;
-import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
@@ -50,7 +47,6 @@ import common.simulation.PeerJoin;
 import common.simulation.SimulatorInit;
 import common.simulation.SimulatorPort;
 import common.snapshot.Snapshot;
-import se.sics.gvod.filters.MsgDestFilterAddress;
 
 public final class SearchSimulator extends ComponentDefinition {
 
@@ -60,7 +56,6 @@ public final class SearchSimulator extends ComponentDefinition {
     Negative<Web> webIncoming = negative(Web.class);
     private final HashMap<Long, Component> peers;
     private final HashMap<Long, Address> peersAddress;
-    private BootstrapConfiguration bootstrapConfiguration;
     private CroupierConfiguration croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private TManConfiguration tManConfiguration;
@@ -93,8 +88,7 @@ public final class SearchSimulator extends ComponentDefinition {
         public void handle(SimulatorInit init) {
             peers.clear();
 
-            bootstrapConfiguration = init.getBootstrapConfiguration();
-            croupierConfiguration = init.getCyclonConfiguration();
+            croupierConfiguration = init.getCroupierConfiguration();
             searchConfiguration = init.getAggregationConfiguration();
             tManConfiguration = init.getTmanConfiguration();
             electionConfiguration = init.getElectionConfiguration();
@@ -227,12 +221,12 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
-        connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
-        //connect(network, peer.getNegative(VodNetwork.class));
+        //connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
+        connect(network, peer.getNegative(VodNetwork.class));
         connect(timer, peer.getNegative(Timer.class));
         subscribe(handleWebResponse, peer.getPositive(Web.class));
 
-        trigger(new SearchPeerInit(self, bootstrapConfiguration, croupierConfiguration,
+        trigger(new SearchPeerInit(self, null, croupierConfiguration,
                 searchConfiguration, tManConfiguration, electionConfiguration), peer.getControl());
 
         trigger(new Start(), peer.getControl());

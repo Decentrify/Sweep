@@ -12,6 +12,7 @@ import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierInit;
 import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.croupier.events.CroupierJoinCompleted;
+import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
@@ -52,11 +53,12 @@ public final class SearchPeer extends ComponentDefinition {
 	Positive<Timer> timer = positive(Timer.class);
 	Negative<Web> webPort = negative(Web.class);
 
-	private Component croupier, tman, search, electionLeader, electionFollower;
+	private Component croupier, tman, search, electionLeader, electionFollower, natTraversal;
     private Self self;
 	private SearchConfiguration searchConfiguration;
 
 	public SearchPeer() {
+        natTraversal = create(NatTraverser.class);
         croupier = create(Croupier.class);
 		tman = create(TMan.class);
 		search = create(Search.class);
@@ -68,11 +70,25 @@ public final class SearchPeer extends ComponentDefinition {
 		connect(network, tman.getNegative(VodNetwork.class));
 		connect(network, electionLeader.getNegative(VodNetwork.class));
 		connect(network, electionFollower.getNegative(VodNetwork.class));
+
+        connect(natTraversal.getPositive(VodNetwork.class),
+                tman.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                croupier.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                search.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                electionLeader.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                electionFollower.getNegative(VodNetwork.class));
+
+        connect(timer, natTraversal.getNegative(Timer.class));
 		connect(timer, search.getNegative(Timer.class));
 		connect(timer, croupier.getNegative(Timer.class));
 		connect(timer, tman.getNegative(Timer.class));
 		connect(timer, electionLeader.getNegative(Timer.class));
 		connect(timer, electionFollower.getNegative(Timer.class));
+
 		connect(webPort, search.getPositive(Web.class));
 		connect(croupier.getPositive(PeerSamplePort.class),
 				search.getNegative(PeerSamplePort.class));
