@@ -218,16 +218,12 @@ public final class SearchSimulator extends ComponentDefinition {
         int overlayId = 1;
         Component peer = create(SearchPeer.class);
         InetAddress ip = null;
-        if(id == 0) {
             try {
                 ip = InetAddress.getLocalHost();
             } catch (UnknownHostException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-        }
-        else
-            ip = ipGenerator.generateIP();
-        Address address = new Address(ip, 8058, (int) id);
+        Address address = new Address(ip, 9999, (int) id);
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
