@@ -137,7 +137,7 @@ public final class SearchPeer extends ComponentDefinition {
                             setSessionExpirationTime(30*1000),
                     StunClientConfiguration.build(),
                     StunServerConfiguration.build(),
-                    ParentMakerConfiguration.build(), false
+                    ParentMakerConfiguration.build(), true
             ), natTraversal.control());
 
             final VodDescriptor desc = self.getDescriptor();
@@ -152,8 +152,8 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-            Address peerAddress = new Address(ip, 9999, 0);
-            final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 0));
+            Address peerAddress = new Address(ip, 9999, 1);
+            final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
             descs.add(0, descr);

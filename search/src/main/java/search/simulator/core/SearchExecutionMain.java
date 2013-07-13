@@ -7,6 +7,7 @@ import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.network.model.common.NetworkModel;
+import se.sics.gvod.network.model.king.KingLatencyMap;
 import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorInit;
 import se.sics.gvod.p2p.orchestrator.distributed.DistributedOrchestratorNat;
 import se.sics.gvod.timer.Timer;
@@ -77,12 +78,7 @@ public final class SearchExecutionMain extends ComponentDefinition {
 
 		// Must init DistributedOrchestrator last of all components, otherwise events
 		// will be dropped
-		trigger(new DistributedOrchestratorInit(scenario, new NetworkModel() {
-            @Override
-            public long getLatencyMs(RewriteableMsg rewriteableMsg) {
-                return 0;
-            }
-        }, ip, webPort),
+		trigger(new DistributedOrchestratorInit(scenario, new KingLatencyMap(croupierConfiguration.getSeed()), ip, webPort),
 				p2pOrchestrator.getControl());
 	}
 }

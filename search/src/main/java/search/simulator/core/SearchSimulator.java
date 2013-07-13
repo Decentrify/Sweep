@@ -2,6 +2,7 @@ package search.simulator.core;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -214,9 +215,18 @@ public final class SearchSimulator extends ComponentDefinition {
     };
 
     private final void createAndStartNewPeer(long id) {
-        int overlayId = 0;
+        int overlayId = 1;
         Component peer = create(SearchPeer.class);
-        InetAddress ip = ipGenerator.generateIP();
+        InetAddress ip = null;
+        if(id == 0) {
+            try {
+                ip = InetAddress.getLocalHost();
+            } catch (UnknownHostException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+        else
+            ip = ipGenerator.generateIP();
         Address address = new Address(ip, 8058, (int) id);
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
