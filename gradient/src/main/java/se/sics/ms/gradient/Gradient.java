@@ -4,6 +4,7 @@ import java.util.*;
 
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodAddress;
@@ -15,9 +16,8 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.configuration.GradientConfiguration;
 import se.sics.peersearch.messages.*;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort.TmanPartners;
+import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderRequest.AddIndexEntry;
 import se.sics.ms.gradient.LeaderRequest.GapCheck;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
@@ -40,20 +40,20 @@ public final class Gradient extends ComponentDefinition {
     Positive<BroadcastGradientPartnersPort> broadcastTmanPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
-    private long period;
+//    private long period;
     private Self self;
-    private GradientConfiguration gradientConfiguration;
+    private GradientConfiguration config;
     private Random random;
-    private GradientView tmanView;
+    private GradientView gradientView;
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
 
     /**
      * Timeout to periodically issue exchanges.
      */
-    public class TManSchedule extends Timeout {
+    public class GradientRound extends Timeout {
 
-        public TManSchedule(SchedulePeriodicTimeout request) {
+        public GradientRound(SchedulePeriodicTimeout request) {
             super(request);
         }
     }
@@ -83,27 +83,28 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientInit init) {
             self = init.getSelf();
-            gradientConfiguration = init.getConfiguration();
-            period = gradientConfiguration.getPeriod();
+            config = init.getConfiguration();
+//            period = gradientConfiguration.getPeriod();
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
-            tmanView = new GradientView(self, gradientConfiguration.getViewSize(),
-                    gradientConfiguration.getConvergenceSimilarity());
+            gradientView = new GradientView(self, config.getViewSize(),
+                    config.getConvergenceTest());
             leader = false;
 
-            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(period, period);
-            rst.setTimeoutEvent(new TManSchedule(rst));
+            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
+                    config.getShufflePeriod(), config.getShufflePeriod());
+            rst.setTimeoutEvent(new GradientRound(rst));
             trigger(rst, timerPort);
         }
     };
     /**
      * Initiate a identifier exchange every round.
      */
-    Handler<TManSchedule> handleRound = new Handler<TManSchedule>() {
+    Handler<GradientRound> handleRound = new Handler<GradientRound>() {
         @Override
-        public void handle(TManSchedule event) {
-            if (!tmanView.isEmpty()) {
-                initiateShuffle(tmanView.selectPeerToShuffleWith());
+        public void handle(GradientRound event) {
+            if (!gradientView.isEmpty()) {
+                initiateShuffle(gradientView.selectPeerToShuffleWith());
             }
         }
     };
@@ -130,15 +131,15 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
             VodAddress exchangePartner = event.getVodSource();
-            Collection<VodAddress> sets = tmanView.getExchangeNodes(exchangePartner,
-                    gradientConfiguration.getExchangeCount());
+            Collection<VodAddress> sets = gradientView.getExchangeNodes(exchangePartner,
+                    config.getShuffleLength());
 
             VodAddress[] exchangeSets = sets.toArray(new VodAddress[sets.size()]);
 
             GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeSets);
             trigger(rResponse, networkPort);
 
-            tmanView.merge(event.getAddresses());
+            gradientView.merge(event.getAddresses());
             broadcastView();
         }
     };
@@ -156,7 +157,7 @@ public final class Gradient extends ComponentDefinition {
                 trigger(ct, timerPort);
             }
 
-            tmanView.merge(event.getAddresses());
+            gradientView.merge(event.getAddresses());
             broadcastView();
         }
     };
@@ -175,7 +176,7 @@ public final class Gradient extends ComponentDefinition {
     Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
         public void handle(NodeCrashEvent event) {
-            tmanView.remove(event.getDeadNode());
+            gradientView.remove(event.getDeadNode());
         }
     };
     /**
@@ -191,7 +192,7 @@ public final class Gradient extends ComponentDefinition {
             if (event.getSuggestion() != null && event.getSuggestion().getId() < self.getId()) {
                 ArrayList<VodAddress> suggestionList = new ArrayList<VodAddress>();
                 suggestionList.add(event.getSuggestion());
-                tmanView.merge(suggestionList.toArray(new VodAddress[suggestionList.size()]));
+                gradientView.merge(suggestionList.toArray(new VodAddress[suggestionList.size()]));
             }
         }
     };
@@ -205,7 +206,7 @@ public final class Gradient extends ComponentDefinition {
             VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 
             if (deadNode != null) {
-                tmanView.remove(deadNode);
+                gradientView.remove(deadNode);
             }
         }
     };
@@ -317,12 +318,12 @@ public final class Gradient extends ComponentDefinition {
      * @param exchangePartner the address of the node to shuffle with
      */
     private void initiateShuffle(VodAddress exchangePartner) {
-        Collection<VodAddress> exchange = tmanView.getExchangeNodes(exchangePartner,
-                gradientConfiguration.getExchangeCount());
+        Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
+                config.getShuffleLength());
 
         VodAddress[] exchangeSets = exchange.toArray(new VodAddress[exchange.size()]);
 
-        ScheduleTimeout rst = new ScheduleTimeout(gradientConfiguration.getPeriod());
+        ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
         rst.setTimeoutEvent(new RequestTimeout(rst));
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
 
@@ -341,7 +342,7 @@ public final class Gradient extends ComponentDefinition {
      */
     private void forwardAddIndexEntryToLeader(VodAddress source,
             AddIndexEntryMessage.Request request) {
-        ArrayList<VodAddress> peers = tmanView.getHigherNodes();
+        ArrayList<VodAddress> peers = gradientView.getHigherNodes();
         if (peers.size() == 0) {
             return;
         }
@@ -350,7 +351,7 @@ public final class Gradient extends ComponentDefinition {
     }
 
     private void forwardGapCheckToLeader(VodAddress vodAddress, GapDetectionMessage.Request request) {
-        ArrayList<VodAddress> peers = tmanView.getHigherNodes();
+        ArrayList<VodAddress> peers = gradientView.getHigherNodes();
         if (peers.size() == 0) {
             return;
         }
@@ -362,8 +363,8 @@ public final class Gradient extends ComponentDefinition {
      * Broadcast the current view to the listening components.
      */
     private void broadcastView() {
-        trigger(new TmanPartners(tmanView.isConverged(), tmanView.getHigherNodes(),
-                tmanView.getLowerNodes()), broadcastTmanPartnersPort);
+        trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
+                gradientView.getLowerNodes()), broadcastTmanPartnersPort);
     }
 
     // If you call this method with a list of entries, it will
@@ -385,7 +386,7 @@ public final class Gradient extends ComponentDefinition {
             // get inverse of values - lowest have highest value.
             double val = j;
             j--;
-            values[i] = Math.exp(val / gradientConfiguration.getTemperature());
+            values[i] = Math.exp(val / config.getTemperature());
             total += values[i];
         }
 

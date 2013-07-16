@@ -16,7 +16,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>se.sics.peersearch</groupId>
+            <groupId>se.sics.ms</groupId>
             <artifactId>netty</artifactId>
             <version>${project.version}</version>
         </dependency>

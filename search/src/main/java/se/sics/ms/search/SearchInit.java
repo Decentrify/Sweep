@@ -1,8 +1,8 @@
 package se.sics.ms.search;
 
 import se.sics.gvod.common.Self;
+import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
-import se.sics.ms.configuration.SearchConfiguration;
 
 
 /**

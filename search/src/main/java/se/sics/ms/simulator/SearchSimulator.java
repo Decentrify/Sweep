@@ -29,10 +29,10 @@ import se.sics.kompics.Stop;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
-import se.sics.ms.configuration.Configuration;
-import se.sics.ms.configuration.ElectionConfiguration;
-import se.sics.ms.configuration.GradientConfiguration;
-import se.sics.ms.configuration.SearchConfiguration;
+import se.sics.gvod.config.Configuration;
+import se.sics.gvod.config.ElectionConfiguration;
+import se.sics.gvod.config.GradientConfiguration;
+import se.sics.gvod.config.SearchConfiguration;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
@@ -87,8 +87,8 @@ public final class SearchSimulator extends ComponentDefinition {
             peers.clear();
 
             croupierConfiguration = init.getCroupierConfiguration();
-            searchConfiguration = init.getAggregationConfiguration();
-            gradientConfiguration = init.getTmanConfiguration();
+            searchConfiguration = init.getSearchConfiguration();
+            gradientConfiguration = init.getGradientConfiguration();
             electionConfiguration = init.getElectionConfiguration();
 
             identifierSpaceSize = croupierConfiguration.getRto();
@@ -229,7 +229,7 @@ public final class SearchSimulator extends ComponentDefinition {
         connect(timer, peer.getNegative(Timer.class));
         subscribe(handleWebResponse, peer.getPositive(Web.class));
 
-        trigger(new SearchPeerInit(self, null, croupierConfiguration,
+        trigger(new SearchPeerInit(self, croupierConfiguration,
                 searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
 
         trigger(new Start(), peer.getControl());

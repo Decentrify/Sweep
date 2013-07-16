@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodNetwork;
@@ -53,7 +54,6 @@ import se.sics.kompics.Positive;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
-import se.sics.ms.configuration.SearchConfiguration;
 import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
@@ -100,7 +100,7 @@ public final class Search extends ComponentDefinition {
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
 	private Self self;
-	private SearchConfiguration searchConfiguration;
+	private SearchConfiguration config;
 	// The last smallest missing index number.
 	private long oldestMissingIndexValue;
 	// Set of existing entries higher than the oldestMissingIndexValue
@@ -133,7 +133,7 @@ public final class Search extends ComponentDefinition {
 	// Apache Lucene used for searching
 	private StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_42);
 	private Directory index;
-	private IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_42, analyzer);
+	private IndexWriterConfig indexWriterConfig = new IndexWriterConfig(Version.LUCENE_42, analyzer);
 
 	// Lucene variables used to store and search in collected answers
 	private LocalSearchRequest searchRequest;
@@ -185,14 +185,14 @@ public final class Search extends ComponentDefinition {
 	Handler<SearchInit> handleInit = new Handler<SearchInit>() {
 		public void handle(SearchInit init) {
 			self = init.getSelf();
-			searchConfiguration = init.getConfiguration();
+			config = init.getConfiguration();
 			routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(
-					searchConfiguration.getNumPartitions());
+					config.getNumPartitions());
 			lastInsertionId = -1;
 			openRequests = new HashMap<UUID, WebRequest>();
 			replicationRequests = new HashMap<UUID, ReplicationCount>();
 			random = new Random(init.getConfiguration().getSeed());
-			partition = self.getId() % searchConfiguration.getNumPartitions();
+			partition = self.getId() % config.getNumPartitions();
 			oldestMissingIndexValue = partition;
 			existingEntries = new TreeSet<Long>();
 			gapTimeouts = new HashMap<Long, UUID>();
@@ -224,8 +224,8 @@ public final class Search extends ComponentDefinition {
 			recentRequests = new HashMap<UUID, Long>();
 			// Garbage collect the data structure
 			SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
-					searchConfiguration.getRecentRequestsGcInterval(),
-					searchConfiguration.getRecentRequestsGcInterval());
+					config.getRecentRequestsGcInterval(),
+					config.getRecentRequestsGcInterval());
 			rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst));
 			trigger(rst, timerPort);
 
@@ -233,7 +233,7 @@ public final class Search extends ComponentDefinition {
 			// Can't open the index before committing a writer once
 			IndexWriter writer;
 			try {
-				writer = new IndexWriter(index, config);
+				writer = new IndexWriter(index, indexWriterConfig);
 				writer.commit();
 				writer.close();
 			} catch (IOException e) {
@@ -290,7 +290,7 @@ public final class Search extends ComponentDefinition {
 						// Search for gaps between the given ids
 						for (int j = 0; j < ids.length; j++) {
 							oldestMissingIndexValue = ids[j]
-									+ searchConfiguration.getNumPartitions();
+									+ config.getNumPartitions();
 							// If a gap was found add higher ids to the existing
 							// entries
 							if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
@@ -359,7 +359,7 @@ public final class Search extends ComponentDefinition {
 
 			// update routing tables
 			for (VodDescriptor p : event.getNodes()) {
-				int samplePartition = p.getVodAddress().getId() % searchConfiguration.getNumPartitions();
+				int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
 				TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
 				if (nodes == null) {
 					nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
@@ -374,7 +374,7 @@ public final class Search extends ComponentDefinition {
 				// Note - this might replace an existing entry
 				nodes.add(p);
 				// keep the freshest descriptors in this partition
-				while (nodes.size() > searchConfiguration.getMaxNumRoutingEntries()) {
+				while (nodes.size() > config.getMaxNumRoutingEntries()) {
 					nodes.pollLast();
 				}
 			}
@@ -434,19 +434,19 @@ public final class Search extends ComponentDefinition {
 				Long lastId = event.getOldestMissingIndexValue();
 				for (Long i : event.getExistingEntries()) {
 					indexEntries.addAll(findIdRange(lastId,
-							i - searchConfiguration.getNumPartitions(),
-							searchConfiguration.getMaxExchangeCount() - indexEntries.size()));
-					lastId = i + searchConfiguration.getNumPartitions();
+							i - config.getNumPartitions(),
+							config.getMaxExchangeCount() - indexEntries.size()));
+					lastId = i + config.getNumPartitions();
 
-					if (indexEntries.size() >= searchConfiguration.getMaxExchangeCount()) {
+					if (indexEntries.size() >= config.getMaxExchangeCount()) {
 						break;
 					}
 				}
 
 				// In case there is some space left search for more
-				if (indexEntries.size() < searchConfiguration.getMaxExchangeCount()) {
+				if (indexEntries.size() < config.getMaxExchangeCount()) {
 					indexEntries.addAll(findIdRange(lastId, Long.MAX_VALUE,
-							searchConfiguration.getMaxExchangeCount() - indexEntries.size()));
+							config.getMaxExchangeCount() - indexEntries.size()));
 				}
 
 				if (indexEntries.isEmpty()) {
@@ -494,14 +494,14 @@ public final class Search extends ComponentDefinition {
 				int i = routingTable.size();
 				do {
 					id = getCurrentInsertionId();
-					entryPartition = (int) (id % searchConfiguration.getNumPartitions());
+					entryPartition = (int) (id % config.getNumPartitions());
 					bucket = routingTable.get(entryPartition);
 					i--;
-				} while ((bucket == null || searchConfiguration.getReplicationMinimum() > bucket
+				} while ((bucket == null || config.getReplicationMinimum() > bucket
 						.size()) && i > 0);
 
 				// There is nothing we can do
-				if (bucket == null || searchConfiguration.getReplicationMinimum() > bucket.size()) {
+				if (bucket == null || config.getReplicationMinimum() > bucket.size()) {
 					return;
 				}
 
@@ -511,9 +511,9 @@ public final class Search extends ComponentDefinition {
 				}
 
 				replicationRequests.put(event.getId(), new ReplicationCount(event.getVodSource(),
-						searchConfiguration.getReplicationMinimum()));
+						config.getReplicationMinimum()));
 
-				i = bucket.size() > searchConfiguration.getReplicationMaximum() ? searchConfiguration
+				i = bucket.size() > config.getReplicationMaximum() ? config
 						.getReplicationMaximum() : bucket.size();
 				for (VodDescriptor peer : bucket) {
 					if (i == 0) {
@@ -524,7 +524,7 @@ public final class Search extends ComponentDefinition {
 				}
 
 				ScheduleTimeout rst = new ScheduleTimeout(
-						searchConfiguration.getReplicationTimeout());
+						config.getReplicationTimeout());
 				rst.setTimeoutEvent(new ReplicationTimeout(rst, event.getId()));
 				trigger(rst, timerPort);
 
@@ -682,7 +682,7 @@ public final class Search extends ComponentDefinition {
 				event.incrementTries();
 				addEntryGlobal(event.getEntry(), (UUID)event.getTimeoutId());
 
-				ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getAddTimeout());
+				ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
 				rst.setTimeoutEvent(event);
 				trigger(rst, timerPort);
 			}
@@ -739,7 +739,7 @@ public final class Search extends ComponentDefinition {
 
 			ArrayList<UUID> removeList = new ArrayList<UUID>();
 			for (UUID uuid : recentRequests.keySet()) {
-				if (referenceTime - recentRequests.get(uuid) > searchConfiguration
+				if (referenceTime - recentRequests.get(uuid) > config
 						.getRecentRequestsGcInterval()) {
 					removeList.add(uuid);
 				}
@@ -782,7 +782,7 @@ public final class Search extends ComponentDefinition {
 			}
 
 			TreeSet<VodDescriptor> bucket = routingTable.get(event.getId()
-					% searchConfiguration.getNumPartitions());
+					% config.getNumPartitions());
 			if (bucket == null) {
 				return;
 			}
@@ -793,7 +793,7 @@ public final class Search extends ComponentDefinition {
                 trigger(new GapDetectionMessage.Request(self.getAddress(), descriptor.getVodAddress(), UUID.nextUUID(), event.getId()), networkPort);
 			}
 
-			ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getGapDetectionTimeout());
+			ScheduleTimeout rst = new ScheduleTimeout(config.getGapDetectionTimeout());
 			rst.setTimeoutEvent(new GapDetectionTimeout(rst, event.getId()));
 			trigger(rst, timerPort);
 		}
@@ -815,7 +815,7 @@ public final class Search extends ComponentDefinition {
 		// Can't open the index before committing a writer once
 		IndexWriter writer;
 		try {
-			writer = new IndexWriter(searchIndex, config);
+			writer = new IndexWriter(searchIndex, indexWriterConfig);
 			writer.commit();
 			writer.close();
 		} catch (IOException e) {
@@ -837,7 +837,7 @@ public final class Search extends ComponentDefinition {
 			i++;
 		}
 
-		ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getSearchTimeout());
+		ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
 		rst.setTimeoutEvent(new SearchTimeout(rst));
 		searchRequest.setTimeoutId((UUID)rst.getTimeoutEvent().getTimeoutId());
 		trigger(rst, timerPort);
@@ -892,8 +892,8 @@ public final class Search extends ComponentDefinition {
 	 */
 	private void addEntryGlobal(IndexEntry entry, WebRequest event) {
 		// Limit the time to wait for responses and answer the web request
-		ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getAddTimeout());
-		rst.setTimeoutEvent(new AddRequestTimeout(rst, searchConfiguration.getRetryCount(), entry));
+		ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+		rst.setTimeoutEvent(new AddRequestTimeout(rst, config.getRetryCount(), entry));
 		trigger(rst, timerPort);
 
 		openRequests.put((UUID)rst.getTimeoutEvent().getTimeoutId(), event);
@@ -938,20 +938,20 @@ public final class Search extends ComponentDefinition {
 			// Search for the next missing index id
 			do {
 				existingEntries.remove(oldestMissingIndexValue);
-				oldestMissingIndexValue += searchConfiguration.getNumPartitions();
+				oldestMissingIndexValue += config.getNumPartitions();
 			} while (existingEntries.contains(oldestMissingIndexValue));
 		} else if (indexEntry.getId() > oldestMissingIndexValue) {
 			existingEntries.add(indexEntry.getId());
 
 			// Suspect all missing entries less than the new as gaps
 			for (long i = oldestMissingIndexValue; i < indexEntry.getId(); i = i
-					+ searchConfiguration.getNumPartitions()) {
+					+ config.getNumPartitions()) {
 				if (gapTimeouts.containsKey(i)) {
 					continue;
 				}
 
 				// This might be a gap so start a timeouts
-				ScheduleTimeout rst = new ScheduleTimeout(searchConfiguration.getGapTimeout());
+				ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
 				rst.setTimeoutEvent(new GapTimeout(rst, i));
 				gapTimeouts.put(indexEntry.getId(), (UUID)rst.getTimeoutEvent().getTimeoutId());
 				trigger(rst, timerPort);
@@ -985,7 +985,7 @@ public final class Search extends ComponentDefinition {
 		}
 
 		TopScoreDocCollector collector = TopScoreDocCollector.create(
-				searchConfiguration.getHitsPerQuery(), true);
+				config.getHitsPerQuery(), true);
 		searcher.search(pattern.getQuery(), collector);
 		ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
@@ -1117,7 +1117,7 @@ public final class Search extends ComponentDefinition {
 			reader = DirectoryReader.open(index);
 			IndexSearcher searcher = new IndexSearcher(reader);
 			TopScoreDocCollector collector = TopScoreDocCollector.create(
-					searchConfiguration.getHitsPerQuery(), true);
+					config.getHitsPerQuery(), true);
 			searcher.search(pattern.getQuery(), collector);
 			ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
@@ -1188,7 +1188,7 @@ public final class Search extends ComponentDefinition {
 	 *             in case the adding operation failed
 	 */
 	private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
-		IndexWriter writer = new IndexWriter(index, config);
+		IndexWriter writer = new IndexWriter(index, indexWriterConfig);
 		addIndexEntry(writer, entry);
 		writer.close();
 	}
@@ -1207,7 +1207,7 @@ public final class Search extends ComponentDefinition {
 			throws IOException {
 		IndexWriter writer = null;
 		try {
-			writer = new IndexWriter(index, config);
+			writer = new IndexWriter(index, indexWriterConfig);
 			for (IndexEntry entry : entries) {
 				addIndexEntry(writer, entry);
 			}

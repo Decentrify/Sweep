@@ -83,7 +83,7 @@ public class ElectionConfiguration
      * Default constructor comes first.
      */
     public ElectionConfiguration() {        
-        this(MsConfig.getSeed(),
+        this(
                 MsConfig.ELECTION_INDEX_TIMEOUT,
                 MsConfig.ELECTION_DEATH_TIMEOUT,
                 MsConfig.ELECTION_REJECTED_TIMEOUT,
@@ -104,12 +104,11 @@ public class ElectionConfiguration
     /**
      * Full argument constructor comes next
      */
-    public ElectionConfiguration(int seed, int indexTimeout, int deathTimeout, int rejectedTimeout, boolean nodeSuggestion, 
+    public ElectionConfiguration(int indexTimeout, int deathTimeout, int rejectedTimeout, boolean nodeSuggestion, 
             int voteRequestTimeout, int heartbeatWaitTimeout, int heartbeatTimeoutDelay, int minSizeOfElectionGroup, 
             double minPercentageOfVotes, int waitForNoOfIndexMessages, 
             int heartbeatTimeoutInterval, int minNumberOfConvergedNodes, double deathVoteMajorityPercentage, 
             double leaderDeathMajorityPercentage) {
-        super(seed);
         this.indexTimeout = indexTimeout;
         this.deathTimeout = deathTimeout;
         this.rejectedTimeout = rejectedTimeout;

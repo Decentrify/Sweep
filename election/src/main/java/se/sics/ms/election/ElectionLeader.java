@@ -3,6 +3,7 @@ package se.sics.ms.election;
 import java.util.ArrayList;
 
 import se.sics.gvod.common.Self;
+import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -12,9 +13,8 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.peersearch.messages.*;
 
-import se.sics.ms.configuration.ElectionConfiguration;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort.TmanPartners;
+import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.IndexRoutingPort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
@@ -31,11 +31,11 @@ import se.sics.ms.snapshot.Snapshot;
 public class ElectionLeader extends ComponentDefinition {
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
-	Negative<BroadcastGradientPartnersPort> tmanBroadcast = negative(BroadcastGradientPartnersPort.class);
+	Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
 	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 	Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
 
-	private ElectionConfiguration electionConfiguration;
+	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
 	private SynchronizedCounter yesVotes, totalVotes, electionCounter, convergedCounter,
 			indexMessageCounter;
@@ -96,7 +96,7 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleIndexResponse, networkPort);
 		subscribe(handleVotingResponse, networkPort);
 		subscribe(handleLeaderRejection, networkPort);
-		subscribe(handleTManBroadcast, tmanBroadcast);
+		subscribe(handleGradientBroadcast, broadcast);
 		subscribe(handleRejectedFollower, networkPort);
 		subscribe(handleLeaderStatusResponse, leaderStatusPort);
 	}
@@ -109,7 +109,7 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(ElectionInit init) {
 			self = init.getSelf();
-			electionConfiguration = init.getElectionConfiguration();
+			config = init.getConfig();
 
 			iAmLeader = false;
 			electionInProgress = false;
@@ -131,9 +131,9 @@ public class ElectionLeader extends ComponentDefinition {
 	 * node fullfills the requirements in order to become a leader, and in that
 	 * case it will call for a leader election
 	 */
-	Handler<TmanPartners> handleTManBroadcast = new Handler<TmanPartners>() {
+	Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
 		@Override
-		public void handle(TmanPartners event) {
+		public void handle(GradientPartners event) {
 			higherNodes = event.getHigherNodes();
 			lowerNodes = event.getLowerNodes();
 
@@ -151,7 +151,7 @@ public class ElectionLeader extends ComponentDefinition {
 					&& !iAmLeader
 					&& !electionInProgress
 					&& event.getHigherNodes().size() == 0
-					&& event.getLowerNodes().size() >= electionConfiguration
+					&& event.getLowerNodes().size() >= config
 							.getMinSizeOfElectionGroup()) {
 
 				// Check if there is already a leader - GOTO
@@ -278,7 +278,7 @@ public class ElectionLeader extends ComponentDefinition {
 //				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
 
 				// When enough messages are received
-				if (indexMessageCounter.getValue() >= electionConfiguration
+				if (indexMessageCounter.getValue() >= config
 						.getWaitForNoOfIndexMessages()) {
 					finishIndexMsgReading();
 				}
@@ -349,11 +349,11 @@ public class ElectionLeader extends ComponentDefinition {
 
 		if (yesVotes.getValue() == totalVotes.getValue()
 				&& higherNodes.size() == 0
-				&& lowerNodes.size() >= electionConfiguration.getMinSizeOfElectionGroup()
-				&& convergedCounter.getValue() >= electionConfiguration
+				&& lowerNodes.size() >= config.getMinSizeOfElectionGroup()
+				&& convergedCounter.getValue() >= config
 						.getMinNumberOfConvergedNodes()
 				&& ((float) yesVotes.getValue() >= Math.ceil((float) lowerNodes.size()
-						* electionConfiguration.getMinPercentageOfVotes()))) {
+						* config.getMinPercentageOfVotes()))) {
 
 			// if you won the election while you were already a leader for some
 			// reason skip the following
@@ -374,15 +374,15 @@ public class ElectionLeader extends ComponentDefinition {
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout tOut = new SchedulePeriodicTimeout(
-						electionConfiguration.getHeartbeatTimeoutDelay(),
-						electionConfiguration.getHeartbeatTimeoutInterval());
+						config.getHeartbeatTimeoutDelay(),
+						config.getHeartbeatTimeoutInterval());
 				tOut.setTimeoutEvent(new ElectionSchedule(tOut));
 				scheduledTimeoscutId = tOut.getTimeoutEvent().getTimeoutId();
 				trigger(tOut, timerPort);
 
 				// Start the timeout for collecting index messages
 				ScheduleTimeout indexTimeOut = new ScheduleTimeout(
-						electionConfiguration.getIndexTimeout());
+						config.getIndexTimeout());
 				indexTimeOut.setTimeoutEvent(new LeaderTimeout(indexTimeOut));
 				indexMsgTimeoutId = indexTimeOut.getTimeoutEvent().getTimeoutId();
 				trigger(indexTimeOut, timerPort);
@@ -396,7 +396,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Broadcasts the vote requests to the nodes in the view
 	 */
 	private void sendVoteRequests() {
-		ScheduleTimeout timeout = new ScheduleTimeout(electionConfiguration.getVoteRequestTimeout());
+		ScheduleTimeout timeout = new ScheduleTimeout(config.getVoteRequestTimeout());
 		timeout.setTimeoutEvent(new VoteTimeout(timeout));
 		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
@@ -460,10 +460,10 @@ public class ElectionLeader extends ComponentDefinition {
 	private void rejected(VodAddress byNode, VodAddress betterNode) {
 		rejected();
 		
-		// From here one could trigger an event that suggest TMan to put this
+		// From here one could trigger an event that suggest Gradient to put this
 		// better node in its view so that it won't call for more unnecessary
 		// elections
-		if (electionConfiguration.getNodeSuggestion() == true) {
+		if (config.isNodeSuggestion() == true) {
 			trigger(new NodeSuggestion(betterNode), leaderStatusPort);
 		}
 	}

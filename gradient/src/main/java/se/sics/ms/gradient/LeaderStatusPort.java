@@ -3,7 +3,6 @@ package se.sics.ms.gradient;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
-import se.sics.kompics.address.Address;
 
 /**
  * This port class is created to handle the acquiring and dissemination of the

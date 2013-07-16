@@ -34,9 +34,6 @@ import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import se.sics.ms.configuration.ElectionConfiguration;
-import se.sics.ms.configuration.GradientConfiguration;
-import se.sics.ms.configuration.SearchConfiguration;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -117,7 +114,7 @@ public final class SearchPeer extends ComponentDefinition {
             CroupierConfiguration croupierConfiguration = init.getCroupierConfiguration();
             GradientConfiguration tmanConfiguration = init.getGradientConfiguration();
             ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
-            searchConfiguration = init.getApplicationConfiguration();
+            searchConfiguration = init.getSearchConfiguration();
 
             trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
             trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());

@@ -63,7 +63,7 @@ public class GradientConfiguration
      * Default constructor comes first.
      */
     public GradientConfiguration() {
-        this(VodConfig.getSeed(),
+        this(
                 VodConfig.GRADIENT_VIEW_SIZE,
                 VodConfig.GRADIENT_SHUFFLE_LENGTH,
                 VodConfig.GRADIENT_SHUFFLE_PERIOD,
@@ -82,7 +82,6 @@ public class GradientConfiguration
      * Full argument constructor comes second.
      */
     public GradientConfiguration(
-            int seed, 
             int viewSize, 
             int shuffleLength,
             int shufflePeriod,
@@ -95,7 +94,6 @@ public class GradientConfiguration
             double convergenceTest,
             int rto
             ) {
-        super(seed);
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
         this.shufflePeriod = shufflePeriod;
@@ -120,6 +118,15 @@ public class GradientConfiguration
     public double getTemperature() {
         return temperature;
     }
+
+    public int getShuffleLength() {
+        return shuffleLength;
+    }
+
+    public int getShufflePeriod() {
+        return shufflePeriod;
+    }
+    
     
     public int getViewSize() {
         return viewSize;
@@ -137,22 +144,8 @@ public class GradientConfiguration
         return numFingers;
     }
 
-    public int getNumProbes() {
+    public int getNumParallelSearches() {
         return numParallelSearches;
-    }
-
-    /**
-     * @return the setsExchangeDelay
-     */
-    public int getSetsExchangeDelay() {
-        return rto;
-    }
-
-    /**
-     * @return the setsExchangePeriod
-     */
-    public int getSetsExchangePeriod() {
-        return shufflePeriod;
     }
 
     /**
@@ -169,22 +162,9 @@ public class GradientConfiguration
         return utilityThreshold;
     }
 
-    /**
-     * @return the numOfProbes
-     */
-    public int getNumParallelSearches() {
-        return numParallelSearches;
-    }
 
-    /**
-     * @return the numberOfBestSimilarPeers
-     */
-    public int getNumBestSimilarPeers() {
-        return shuffleLength;
-    }
-
-    public GradientConfiguration setSimilarSetSize(int similarSetSize) {
-        this.viewSize = similarSetSize;
+    public GradientConfiguration setViewSize(int viewSize) {
+        this.viewSize = viewSize;
         return this;
     }
 
@@ -218,8 +198,8 @@ public class GradientConfiguration
         return this;
     }
 
-    public GradientConfiguration setNumBestSimilarPeers(int numBestSimilarPeers) {
-        this.shuffleLength = numBestSimilarPeers;
+    public GradientConfiguration setShuffleLength(int shuffleLength) {
+        this.shuffleLength = shuffleLength;
         return this;
     }
 

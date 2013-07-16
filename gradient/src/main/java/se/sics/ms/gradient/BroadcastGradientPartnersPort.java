@@ -2,7 +2,6 @@ package se.sics.ms.gradient;
 
 import java.util.ArrayList;
 
-import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
@@ -12,13 +11,13 @@ import se.sics.kompics.PortType;
  */
 public class BroadcastGradientPartnersPort extends PortType {
 	{
-		negative(TmanPartners.class);
+		negative(GradientPartners.class);
 	}
 
 	/**
 	 * An event that contains TMan's view
 	 */
-	public static class TmanPartners extends Event {
+	public static class GradientPartners extends Event {
 		private final boolean isConverged;
 		private final ArrayList<VodAddress> higherNodes, lowerNodes;
 
@@ -34,7 +33,7 @@ public class BroadcastGradientPartnersPort extends PortType {
 		 *            a list of nodes with lower utility values comepared to
 		 *            itself
 		 */
-		public TmanPartners(boolean isConverged, ArrayList<VodAddress> higherNodes,
+		public GradientPartners(boolean isConverged, ArrayList<VodAddress> higherNodes,
 				ArrayList<VodAddress> lowerNodes) {
 			super();
 			this.isConverged = isConverged;

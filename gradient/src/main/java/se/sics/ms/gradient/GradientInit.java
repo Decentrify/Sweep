@@ -1,8 +1,8 @@
 package se.sics.ms.gradient;
 
 import se.sics.gvod.common.Self;
+import se.sics.gvod.config.GradientConfiguration;
 import se.sics.kompics.Init;
-import se.sics.ms.configuration.GradientConfiguration;
 
 /**
  * The init event for TMan.

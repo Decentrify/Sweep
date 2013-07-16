@@ -53,7 +53,6 @@ public class MsConfig extends VodConfig {
         if (singleton != null) {
             return (MsConfig) singleton;
         }
-
         singleton = new MsConfig(args);
         return (MsConfig) singleton;
     }

@@ -6,6 +6,7 @@ package se.sics.gvod.config;
 
 import se.sics.ms.configuration.MsConfig;
 
+
 /**
  *
  * @author jdowling
@@ -55,7 +56,7 @@ public class SearchConfiguration
      * UUIDs of recente requests
      */
     public SearchConfiguration() {
-        this(MsConfig.getSeed(),
+        this(
                 MsConfig.SEARCH_NUM_PARTITIONS,
                 MsConfig.SEARCH_MAX_NUM_ROUTING_ENTRIES,
                 MsConfig.SEARCH_MAX_EXCHANGE_COUNT,
@@ -72,11 +73,11 @@ public class SearchConfiguration
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL);
     }
 
-    public SearchConfiguration(int seed, int numPartitions, int maxNumRoutingEntries, int maxExchangeCount,
+    public SearchConfiguration(
+            int numPartitions, int maxNumRoutingEntries, int maxExchangeCount,
             int queryTimeout, int addTimeout, int replicationTimeout, int replicationMaximum, int replicationMinimum,
             int retryCount, int gapTimeout, int gapDetectionTtl, int gapDetectionTimeout, int hitsPerQuery,
             int recentRequestsGcInterval) {
-        super(seed);
         this.numPartitions = numPartitions;
         this.maxNumRoutingEntries = maxNumRoutingEntries;
         this.maxExchangeCount = maxExchangeCount;
@@ -93,6 +94,9 @@ public class SearchConfiguration
         this.recentRequestsGcInterval = recentRequestsGcInterval;
     }
 
+    public static SearchConfiguration build() {
+        return new SearchConfiguration();
+    }
     public int getNumPartitions() {
         return numPartitions;
     }

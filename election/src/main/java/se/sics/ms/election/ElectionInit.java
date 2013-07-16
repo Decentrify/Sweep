@@ -1,10 +1,8 @@
 package se.sics.ms.election;
 
-import se.sics.ms.configuration.ElectionConfiguration;
-
 import se.sics.gvod.common.Self;
+import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.kompics.Init;
-import se.sics.kompics.address.Address;
 
 /**
  * A class that carries the configuration variables for election as well as it's
@@ -12,21 +10,21 @@ import se.sics.kompics.address.Address;
  */
 public class ElectionInit extends Init {
 	private final Self self;
-	private final ElectionConfiguration electionConfiguration;
+	private final ElectionConfiguration config;
 
 	/**
 	 * Default constructor
 	 * 
 	 * @param self
 	 *            The node's own address
-	 * @param electionConfiguration
+	 * @param config
 	 *            A reference to the configuration file containing the
 	 *            configuration values
 	 */
-	public ElectionInit(Self self, ElectionConfiguration electionConfiguration) {
+	public ElectionInit(Self self, ElectionConfiguration config) {
 		super();
 		this.self = self;
-		this.electionConfiguration = electionConfiguration;
+		this.config = config;
 	}
 
 	/**
@@ -44,7 +42,7 @@ public class ElectionInit extends Init {
 	 * @return a eference to the configuration file containing the configuration
 	 *         values
 	 */
-	public ElectionConfiguration getElectionConfiguration() {
-		return this.electionConfiguration;
+	public ElectionConfiguration getConfig() {
+		return this.config;
 	}
 }

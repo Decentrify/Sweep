@@ -2,11 +2,11 @@ package se.sics.ms.main;
 
 import java.io.IOException;
 
-import se.sics.ms.simulator.SearchExecutionMain;
+import se.sics.ms.simulator.SearchSimulationMain;
 
 import se.sics.gvod.config.CroupierConfiguration;
-import se.sics.gvod.config.VodConfig;
-import se.sics.ms.configuration.Configuration;
+import se.sics.gvod.config.Configuration;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.scenarios.Scenario;
 import se.sics.ms.scenarios.Scenario1;
 
@@ -48,15 +48,17 @@ public class Main {
      * @throws IOException in case the configuration file couldn't be created
      */
     public static void main(String[] args) throws IOException {
-        long seed = System.currentTimeMillis();
-        new Configuration(seed);
-
-        VodConfig.init(args);
-        CroupierConfiguration c = CroupierConfiguration.build();
-        c.store((int) seed);
-
+        if (args.length < 1) {
+            System.err.println("usage: <prog> seed");
+            System.exit(0);
+        }
+        long seed = Integer.parseInt(args[0]);
+        MsConfig.init(args);
+        Configuration config = new Configuration();
+        config.store();
+        
         Scenario scenario = new Scenario1();
         scenario.setSeed(seed);
-        scenario.getScenario().execute(SearchExecutionMain.class);
+        scenario.getScenario().simulate(SearchSimulationMain.class);
     }
 }
