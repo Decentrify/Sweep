@@ -18,8 +18,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>se.sics.net</groupId>
-            <artifactId>distributed-orchestrator</artifactId>
+            <groupId>se.sics.p2p.experiments</groupId>
+            <artifactId>p2p-simulator</artifactId>
             <version>${nattraverser.version}</version>
         </dependency>
         <dependency>
@@ -57,16 +57,26 @@
             <artifactId>lucene-analyzers-common</artifactId>
             <version>4.2.0</version>
         </dependency>
-        <dependency>
+<!--        <dependency>
             <groupId>se.sics.kompics.basic</groupId>
             <artifactId>kompics-component-jetty-web-server</artifactId>
             <version>${kompics.version}</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-gradient</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>kompics-component-p2p-simulator</artifactId>
+                    <groupId>se.sics.kompics.p2p.experiments</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>kompics-component-p2p-orchestrator</artifactId>
+                    <groupId>se.sics.kompics.p2p.experiments</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>se.kth.ms</groupId>
