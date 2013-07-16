@@ -14,8 +14,6 @@ import se.sics.peersearch.messages.*;
 import tman.system.peer.tman.BroadcastTManPartnersPort;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort;
-import tman.system.peer.tman.IndexRoutingPort.IndexDisseminationEvent;
-import tman.system.peer.tman.IndexRoutingPort.StartIndexRequestEvent;
 import tman.system.peer.tman.LeaderStatusPort;
 import tman.system.peer.tman.LeaderStatusPort.LeaderStatus;
 import tman.system.peer.tman.LeaderStatusPort.LeaderStatusRequest;
@@ -277,7 +275,7 @@ public class ElectionLeader extends ComponentDefinition {
 			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
 				// Increase the counter and send the update to search
 				indexMessageCounter.incrementValue();
-				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
+//				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
 
 				// When enough messages are received
 				if (indexMessageCounter.getValue() >= electionConfiguration
@@ -372,7 +370,7 @@ public class ElectionLeader extends ComponentDefinition {
 				iAmLeader = true;
 				allowingIndexMessages = true;
 				indexMessageID = UUID.nextUUID();
-				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
+//				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout tOut = new SchedulePeriodicTimeout(

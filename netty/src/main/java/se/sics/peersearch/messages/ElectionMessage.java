@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -46,8 +46,8 @@ public class ElectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeInt(voteID);
             return buffer;
         }
@@ -89,8 +89,8 @@ public class ElectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeInt(voteId);
             UserTypesEncoderFactory.writeBoolean(buffer, isConvereged);
             UserTypesEncoderFactory.writeBoolean(buffer, vote);

@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -17,7 +17,7 @@ public class HeartbeatMessageFactory {
         private Request() {
         }
 
-        public static HeartbeatMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static HeartbeatMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (HeartbeatMessage.Request)
                     new HeartbeatMessageFactory.Request().decode(buffer, true);
@@ -25,7 +25,7 @@ public class HeartbeatMessageFactory {
 
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             return new HeartbeatMessage.Request(vodSrc, vodDest, timeoutId);
         }
     }
@@ -35,7 +35,7 @@ public class HeartbeatMessageFactory {
         private Response() {
         }
 
-        public static HeartbeatMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static HeartbeatMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (HeartbeatMessage.Response)
                     new HeartbeatMessageFactory.Response().decode(buffer, true);
@@ -43,7 +43,7 @@ public class HeartbeatMessageFactory {
 
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             return new HeartbeatMessage.Response(vodSrc, vodDest, timeoutId);
         }
     }

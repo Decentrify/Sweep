@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -21,14 +21,14 @@ public class AddIndexEntryMessageFactory {
         private Request() {
         }
 
-        public static AddIndexEntryMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static AddIndexEntryMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (AddIndexEntryMessage.Request)
                     new AddIndexEntryMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected AddIndexEntryMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected AddIndexEntryMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
@@ -44,14 +44,14 @@ public class AddIndexEntryMessageFactory {
         private Response() {
         }
 
-        public static AddIndexEntryMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static AddIndexEntryMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (AddIndexEntryMessage.Response)
                     new AddIndexEntryMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);

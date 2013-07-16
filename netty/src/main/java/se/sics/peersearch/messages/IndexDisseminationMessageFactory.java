@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 
@@ -15,14 +15,14 @@ public class IndexDisseminationMessageFactory extends DirectMsgNettyFactory {
     private IndexDisseminationMessageFactory() {
     }
 
-    public static IndexDisseminationMessage fromBuffer(ChannelBuffer buffer)
+    public static IndexDisseminationMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (IndexDisseminationMessage)
                 new IndexDisseminationMessageFactory().decode(buffer, false);
     }
 
     @Override
-    protected IndexDisseminationMessage process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected IndexDisseminationMessage process(ByteBuf buffer) throws MessageDecodingException {
         long index = buffer.readLong();
         return new IndexDisseminationMessage(vodSrc, vodDest, index);
     }

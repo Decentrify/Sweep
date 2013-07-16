@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
@@ -18,14 +18,14 @@ public class IndexResponseMessageFactory extends DirectMsgNettyFactory {
     private IndexResponseMessageFactory() {
     }
 
-    public static IndexResponseMessage fromBuffer(ChannelBuffer buffer)
+    public static IndexResponseMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (IndexResponseMessage)
                 new IndexResponseMessageFactory().decode(buffer, false);
     }
 
     @Override
-    protected IndexResponseMessage process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected IndexResponseMessage process(ByteBuf buffer) throws MessageDecodingException {
         long index = buffer.readLong();
         UUID id = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
         return new IndexResponseMessage(vodSrc, vodDest, index, id);

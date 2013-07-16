@@ -10,7 +10,7 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -61,7 +61,7 @@ public class EncodingDecodingTest {
         System.setProperty("java.net.preferIPv4Stack", "true");
     }
 
-    private void opCodeCorrect(ChannelBuffer buffer, Encodable msg) {
+    private void opCodeCorrect(ByteBuf buffer, Encodable msg) {
         byte type = buffer.readByte();
         assert (type == msg.getOpcode());
     }
@@ -109,7 +109,7 @@ public class EncodingDecodingTest {
         UUID requestId = (UUID)UUID.nextUUID();
         SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             SearchMessage.Request request =
                     SearchMessageFactory.Request.fromBuffer(buffer);
@@ -141,7 +141,7 @@ public class EncodingDecodingTest {
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
             SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, requestId, numResponses, responseNum, new IndexEntry[] {entry});
             try {
-                ChannelBuffer buffer = msg.toByteArray();
+                ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
                 SearchMessage.Response response =
                         SearchMessageFactory.Response.fromBuffer(buffer);
@@ -177,7 +177,7 @@ public class EncodingDecodingTest {
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
         AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             AddIndexEntryMessage.Request request =
                     AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
@@ -219,7 +219,7 @@ public class EncodingDecodingTest {
         IndexEntry entry = new IndexEntry(entryId, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, leaderId);
         AddIndexEntryMessage.Response msg = new AddIndexEntryMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             AddIndexEntryMessage.Response response =
                     AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
@@ -260,7 +260,7 @@ public class EncodingDecodingTest {
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
         ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), (UUID) id, entry, numResponses, responseNum);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ReplicationMessage.Request request =
                     ReplicationMessageFactory.Request.fromBuffer(buffer);
@@ -291,7 +291,7 @@ public class EncodingDecodingTest {
         TimeoutId id = UUID.nextUUID();
         ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID(), (UUID) id);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ReplicationMessage.Response request =
                     ReplicationMessageFactory.Response.fromBuffer(buffer);
@@ -314,7 +314,7 @@ public class EncodingDecodingTest {
         int responseNumber=2;
         IndexExchangeMessage.Request msg = new IndexExchangeMessage.Request(gSrc, gDest, UUID.nextUUID(), oldestMissingIndexValue, existingEntries, numResponses, responseNumber);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             IndexExchangeMessage.Request request =
                     IndexExchangeMessageFactory.Request.fromBuffer(buffer);
@@ -350,7 +350,7 @@ public class EncodingDecodingTest {
         int responseNumber=2;
         IndexExchangeMessage.Response msg = new IndexExchangeMessage.Response(gSrc, gDest, UUID.nextUUID(), items, numResponses, responseNumber);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             IndexExchangeMessage.Response response =
                     IndexExchangeMessageFactory.Response.fromBuffer(buffer);
@@ -373,7 +373,7 @@ public class EncodingDecodingTest {
         long id = 1L;
         GapDetectionMessage.Request msg = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), id);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GapDetectionMessage.Request request =
                     GapDetectionMessageFactory.Request.fromBuffer(buffer);
@@ -403,7 +403,7 @@ public class EncodingDecodingTest {
         int responseNumber=2;
         GapDetectionMessage.Response msg = new GapDetectionMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNumber);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GapDetectionMessage.Response response =
                     GapDetectionMessageFactory.Response.fromBuffer(buffer);
@@ -427,7 +427,7 @@ public class EncodingDecodingTest {
         int counter = 1;
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), counter);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Request request =
                     ElectionMessageFactory.Request.fromBuffer(buffer);
@@ -461,7 +461,7 @@ public class EncodingDecodingTest {
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
         ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, voteId, convereged, vote, vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Response response =
                     ElectionMessageFactory.Response.fromBuffer(buffer);
@@ -496,7 +496,7 @@ public class EncodingDecodingTest {
 
         GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GradientShuffleMessage.Request request =
                     GradientShuffleMessageFactory.Request.fromBuffer(buffer);
@@ -525,7 +525,7 @@ public class EncodingDecodingTest {
 
         GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GradientShuffleMessage.Response response =
                     GradientShuffleMessageFactory.Response.fromBuffer(buffer);
@@ -554,7 +554,7 @@ public class EncodingDecodingTest {
 
         LeaderAnnouncementMessage msg = new LeaderAnnouncementMessage(gSrc, gDest, vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderAnnouncementMessage response =
                     LeaderAnnouncementMessageFactory.fromBuffer(buffer);
@@ -582,7 +582,7 @@ public class EncodingDecodingTest {
 
         LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderSuspectionMessage.Request request =
                     LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
@@ -614,7 +614,7 @@ public class EncodingDecodingTest {
 
         LeaderSuspectionMessage.Response msg = new LeaderSuspectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected, vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderSuspectionMessage.Response response =
                     LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
@@ -639,7 +639,7 @@ public class EncodingDecodingTest {
 
         HeartbeatMessage.Request msg = new HeartbeatMessage.Request(gSrc, gDest, UUID.nextUUID());
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             HeartbeatMessage.Request request =
                     HeartbeatMessageFactory.Request.fromBuffer(buffer);
@@ -661,7 +661,7 @@ public class EncodingDecodingTest {
 
         HeartbeatMessage.Response msg = new HeartbeatMessage.Response(gSrc, gDest, UUID.nextUUID());
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             HeartbeatMessage.Response response =
                     HeartbeatMessageFactory.Response.fromBuffer(buffer);
@@ -693,7 +693,7 @@ public class EncodingDecodingTest {
         AddIndexEntryMessage.Request request = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
         AddIndexEntryRoutedMessage msg = new AddIndexEntryRoutedMessage(gSrc, gDest, request);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             AddIndexEntryRoutedMessage response =
                     AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
@@ -723,7 +723,7 @@ public class EncodingDecodingTest {
         GapDetectionMessage.Request request = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), 1L);
         GapDetectionRoutedMessage msg = new GapDetectionRoutedMessage(gSrc, gDest, request);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GapDetectionRoutedMessage response =
                     GapDetectionRoutedMessageFactory.fromBuffer(buffer);
@@ -754,7 +754,7 @@ public class EncodingDecodingTest {
 
         VotingResultMessage msg = new VotingResultMessage(gSrc, gDest, new VodAddress[]{vodAddress1});
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             VotingResultMessage response =
                     VotingResultMessageFactory.fromBuffer(buffer);
@@ -777,7 +777,7 @@ public class EncodingDecodingTest {
 
         RejectFollowerMessage.Request msg = new RejectFollowerMessage.Request(gSrc, gDest, UUID.nextUUID());
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RejectFollowerMessage.Request request =
                     RejectFollowerMessageFactory.Request.fromBuffer(buffer);
@@ -799,7 +799,7 @@ public class EncodingDecodingTest {
         boolean inView = true;
         RejectFollowerMessage.Response msg = new RejectFollowerMessage.Response(gSrc, gDest, UUID.nextUUID(), inView);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RejectFollowerMessage.Response request =
                     RejectFollowerMessageFactory.Response.fromBuffer(buffer);
@@ -830,7 +830,7 @@ public class EncodingDecodingTest {
 
         RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RejectLeaderMessage response =
                     RejectLeaderMessageFactory.fromBuffer(buffer);
@@ -854,7 +854,7 @@ public class EncodingDecodingTest {
 
         StartIndexRequestMessage msg = new StartIndexRequestMessage(gSrc, gDest, uiid);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             StartIndexRequestMessage response =
                     StartIndexRequestMessageFactory.fromBuffer(buffer);
@@ -889,7 +889,7 @@ public class EncodingDecodingTest {
 
         IndexRequestMessage msg = new IndexRequestMessage(gSrc, gDest, uiid, index, vodAddress1);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             IndexRequestMessage response =
                     IndexRequestMessageFactory.fromBuffer(buffer);
@@ -916,7 +916,7 @@ public class EncodingDecodingTest {
 
         IndexDisseminationMessage msg = new IndexDisseminationMessage(gSrc, gDest, index);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             IndexDisseminationMessage response =
                     IndexDisseminationMessageFactory.fromBuffer(buffer);
@@ -941,7 +941,7 @@ public class EncodingDecodingTest {
 
         IndexResponseMessage msg = new IndexResponseMessage(gSrc, gDest, index, id);
         try {
-            ChannelBuffer buffer = msg.toByteArray();
+            ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             IndexResponseMessage response =
                     IndexResponseMessageFactory.fromBuffer(buffer);

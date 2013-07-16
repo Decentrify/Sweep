@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 
@@ -15,14 +15,14 @@ public class StartIndexRequestMessageFactory extends DirectMsgNettyFactory {
     private StartIndexRequestMessageFactory() {
     }
 
-    public static StartIndexRequestMessage fromBuffer(ChannelBuffer buffer)
+    public static StartIndexRequestMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (StartIndexRequestMessage)
                 new StartIndexRequestMessageFactory().decode(buffer, true);
     }
 
     @Override
-    protected StartIndexRequestMessage process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected StartIndexRequestMessage process(ByteBuf buffer) throws MessageDecodingException {
         return new StartIndexRequestMessage(vodSrc, vodDest,
                 timeoutId);
     }

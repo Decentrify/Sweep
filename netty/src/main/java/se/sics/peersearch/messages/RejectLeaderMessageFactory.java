@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
@@ -17,14 +17,14 @@ public class RejectLeaderMessageFactory extends DirectMsgNettyFactory {
     private RejectLeaderMessageFactory() {
     }
 
-    public static RejectLeaderMessage fromBuffer(ChannelBuffer buffer)
+    public static RejectLeaderMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (RejectLeaderMessage)
                 new RejectLeaderMessageFactory().decode(buffer, false);
     }
 
     @Override
-    protected RejectLeaderMessage process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected RejectLeaderMessage process(ByteBuf buffer) throws MessageDecodingException {
         VodAddress betterNode = UserTypesDecoderFactory.readVodAddress(buffer);
         return new RejectLeaderMessage(vodSrc, vodDest,betterNode);
     }

@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.RelayMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
@@ -19,7 +19,7 @@ public class ElectionMessageFactory {
         private Request() {
         }
 
-        public static ElectionMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static ElectionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (ElectionMessage.Request)
                     new ElectionMessageFactory.Request().decode(buffer, true);
@@ -27,7 +27,7 @@ public class ElectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
             return new ElectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, counter);
         }
@@ -38,7 +38,7 @@ public class ElectionMessageFactory {
         private Response() {
         }
 
-        public static ElectionMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static ElectionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (ElectionMessage.Response)
                     new ElectionMessageFactory.Response().decode(buffer, true);
@@ -46,7 +46,7 @@ public class ElectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);

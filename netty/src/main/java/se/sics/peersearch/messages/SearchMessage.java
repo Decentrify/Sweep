@@ -6,7 +6,7 @@ package se.sics.peersearch.messages;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -65,8 +65,8 @@ public class SearchMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             ApplicationTypesEncoderFactory.writeSearchPattern(buffer, pattern);
             return buffer;
@@ -139,8 +139,8 @@ public class SearchMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);

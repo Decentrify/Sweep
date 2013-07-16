@@ -66,10 +66,6 @@ import search.system.peer.search.Timeouts.RecentRequestsGcTimeout;
 import search.system.peer.search.Timeouts.ReplicationTimeout;
 import search.system.peer.search.Timeouts.SearchTimeout;
 import tman.system.peer.tman.IndexRoutingPort;
-import tman.system.peer.tman.IndexRoutingPort.IndexDisseminationEvent;
-import tman.system.peer.tman.IndexRoutingPort.IndexRequestEvent;
-import tman.system.peer.tman.IndexRoutingPort.IndexResponseMessage;
-import tman.system.peer.tman.IndexRoutingPort.StartIndexRequestEvent;
 import tman.system.peer.tman.LeaderRequest.AddIndexEntry;
 import tman.system.peer.tman.LeaderRequest.GapCheck;
 import tman.system.peer.tman.RoutedEventsPort;
@@ -179,9 +175,9 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleGapTimeout, timerPort);
 		subscribe(handleGapCheck, routedEventsPort);
 		subscribe(handleRecentRequestsGcTimeout, timerPort);
-		subscribe(handleIndexUpdate, indexRoutingPort);
-		subscribe(handleStartIndexRequest, indexRoutingPort);
-		subscribe(handleIndexRequest, indexRoutingPort);
+//		subscribe(handleIndexUpdate, indexRoutingPort);
+//		subscribe(handleStartIndexRequest, indexRoutingPort);
+//		subscribe(handleIndexRequest, indexRoutingPort);
 	}
 
 	/**
@@ -694,44 +690,44 @@ public final class Search extends ComponentDefinition {
 		}
 	};
 
-	/**
-	 * A handler that will update the current least insertion ID in case the one
-	 * in the message is bigger. This handler is called when either it is
-	 * following a leader that broadcasts its last index ID, or when a new
-	 * leader is searching for the highest index ID among other nodes
-	 */
-	Handler<IndexDisseminationEvent> handleIndexUpdate = new Handler<IndexRoutingPort.IndexDisseminationEvent>() {
-		@Override
-		public void handle(IndexDisseminationEvent event) {
-			if (event.getIndex() > lastInsertionId) {
-				lastInsertionId = event.getIndex();
-			}
-		}
-	};
+//	/**
+//	 * A handler that will update the current least insertion ID in case the one
+//	 * in the message is bigger. This handler is called when either it is
+//	 * following a leader that broadcasts its last index ID, or when a new
+//	 * leader is searching for the highest index ID among other nodes
+//	 */
+//	Handler<IndexDisseminationEvent> handleIndexUpdate = new Handler<IndexRoutingPort.IndexDisseminationEvent>() {
+//		@Override
+//		public void handle(IndexDisseminationEvent event) {
+//			if (event.getIndex() > lastInsertionId) {
+//				lastInsertionId = event.getIndex();
+//			}
+//		}
+//	};
 
-	/**
-	 * This handler is called when a new leader should start looking for the
-	 * biggest index ID among its peers
-	 */
-	Handler<StartIndexRequestEvent> handleStartIndexRequest = new Handler<StartIndexRequestEvent>() {
-		@Override
-		public void handle(StartIndexRequestEvent event) {
-			trigger(new IndexRequestEvent(lastInsertionId, event.getMessageID(), self.getAddress()),
-					indexRoutingPort);
-		}
-	};
-
-	/**
-	 * This handler respond to new leaders who are searching for the highest
-	 * index ID by returning their own index ID
-	 */
-	Handler<IndexRequestEvent> handleIndexRequest = new Handler<IndexRequestEvent>() {
-		@Override
-		public void handle(IndexRequestEvent event) {
-			trigger(new IndexResponseMessage(lastInsertionId, event.getMessageId(), self.getAddress(),
-					event.getLeaderAddress()), networkPort);
-		}
-	};
+//	/**
+//	 * This handler is called when a new leader should start looking for the
+//	 * biggest index ID among its peers
+//	 */
+//	Handler<StartIndexRequestEvent> handleStartIndexRequest = new Handler<StartIndexRequestEvent>() {
+//		@Override
+//		public void handle(StartIndexRequestEvent event) {
+//			trigger(new IndexRequestEvent(lastInsertionId, event.getMessageID(), self.getAddress()),
+//					indexRoutingPort);
+//		}
+//	};
+//
+//	/**
+//	 * This handler respond to new leaders who are searching for the highest
+//	 * index ID by returning their own index ID
+//	 */
+//	Handler<IndexRequestEvent> handleIndexRequest = new Handler<IndexRequestEvent>() {
+//		@Override
+//		public void handle(IndexRequestEvent event) {
+//			trigger(new IndexResponseMessage(lastInsertionId, event.getMessageId(), self.getAddress(),
+//					event.getLeaderAddress()), networkPort);
+//		}
+//	};
 
 	/**
 	 * Periodically garbage collect the data structure used to identify
@@ -1053,7 +1049,7 @@ public final class Search extends ComponentDefinition {
 	 */
 	private long getCurrentInsertionId() {
 		lastInsertionId++;
-		trigger(new IndexDisseminationEvent(lastInsertionId), indexRoutingPort);
+//		trigger(new IndexDisseminationEvent(lastInsertionId), indexRoutingPort);
 		return lastInsertionId;
 	}
 

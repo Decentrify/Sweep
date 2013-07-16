@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -50,8 +50,8 @@ public class LeaderSuspectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             UserTypesEncoderFactory.writeVodAddress(buffer, leader);
             return buffer;
         }
@@ -81,8 +81,8 @@ public class LeaderSuspectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             UserTypesEncoderFactory.writeBoolean(buffer, isSuspected);
             UserTypesEncoderFactory.writeVodAddress(buffer, leader);
             return buffer;

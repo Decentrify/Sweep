@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.RelayMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
@@ -19,7 +19,7 @@ public class LeaderSuspectionMessageFactory {
         private Request() {
         }
 
-        public static LeaderSuspectionMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static LeaderSuspectionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspectionMessage.Request)
                     new LeaderSuspectionMessageFactory.Request().decode(buffer, true);
@@ -27,7 +27,7 @@ public class LeaderSuspectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
             return new LeaderSuspectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, leader);
         }
@@ -38,7 +38,7 @@ public class LeaderSuspectionMessageFactory {
         private Response() {
         }
 
-        public static LeaderSuspectionMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static LeaderSuspectionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspectionMessage.Response)
                     new LeaderSuspectionMessageFactory.Response().decode(buffer, true);
@@ -46,7 +46,7 @@ public class LeaderSuspectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean isSuspected = UserTypesDecoderFactory.readBoolean(buffer);
             VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
             return new LeaderSuspectionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status, isSuspected, leader);

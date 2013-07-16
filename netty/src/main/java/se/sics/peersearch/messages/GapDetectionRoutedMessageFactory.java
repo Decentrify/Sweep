@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -15,13 +15,13 @@ public class GapDetectionRoutedMessageFactory extends DirectMsgNettyFactory {
     private GapDetectionRoutedMessageFactory() {
     }
 
-    public static GapDetectionRoutedMessage fromBuffer(ChannelBuffer buffer)
+    public static GapDetectionRoutedMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (GapDetectionRoutedMessage)
                 new GapDetectionRoutedMessageFactory().decode(buffer, false);
     }
     @Override
-    protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
         buffer.readByte();
         GapDetectionMessage.Request request = GapDetectionMessageFactory.Request.fromBuffer(buffer);
         return new GapDetectionRoutedMessage(vodSrc, vodDest, request);

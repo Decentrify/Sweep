@@ -4,9 +4,9 @@
  */
 package se.sics.peersearch.net;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
@@ -69,11 +69,11 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
      */
     @Override
     protected RewriteableMsg decodeMsg(ChannelHandlerContext ctx,
-            Channel channel, ChannelBuffer buffer) throws MessageDecodingException {
+            ByteBuf buffer) throws MessageDecodingException {
         
         // See if msg is part of parent project, if yes then return it.
         // Otherwise decode the msg here.
-        RewriteableMsg msg = super.decodeMsg(ctx, channel, buffer);
+        RewriteableMsg msg = super.decodeMsg(ctx, buffer);
         if (msg != null) {
             return msg;
         }

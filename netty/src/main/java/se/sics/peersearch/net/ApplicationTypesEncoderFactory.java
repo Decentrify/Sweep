@@ -4,7 +4,7 @@
  */
 package se.sics.peersearch.net;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
@@ -19,7 +19,7 @@ import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
  */
 public class ApplicationTypesEncoderFactory {
     
-    public static void writeIndexEntry(ChannelBuffer buffer, IndexEntry indexEntry)
+    public static void writeIndexEntry(ByteBuf buffer, IndexEntry indexEntry)
             throws MessageEncodingException {
         buffer.writeLong(indexEntry.getId());
         writeStringLength256(buffer, indexEntry.getUrl());
@@ -33,7 +33,7 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, indexEntry.getLeaderId());
     }
 
-    public static void writeIndexEntryArray(ChannelBuffer buffer, IndexEntry[] items) throws MessageEncodingException {
+    public static void writeIndexEntryArray(ByteBuf buffer, IndexEntry[] items) throws MessageEncodingException {
         if(items == null){
             writeUnsignedintAsOneByte(buffer, 0);
             return;
@@ -43,7 +43,7 @@ public class ApplicationTypesEncoderFactory {
             writeIndexEntry(buffer, item);
     }
 
-    public static void writeLongArray(ChannelBuffer buffer, Long[] items) throws MessageEncodingException {
+    public static void writeLongArray(ByteBuf buffer, Long[] items) throws MessageEncodingException {
         if (items == null) {
             writeUnsignedintAsOneByte(buffer, 0);
             return;
@@ -53,7 +53,7 @@ public class ApplicationTypesEncoderFactory {
             buffer.writeLong(item);
     }
 
-    public static void writeVodAddressArray(ChannelBuffer buffer, VodAddress[] items) throws MessageEncodingException {
+    public static void writeVodAddressArray(ByteBuf buffer, VodAddress[] items) throws MessageEncodingException {
         if(items == null) {
             writeUnsignedintAsOneByte(buffer, 0);
             return;
@@ -64,7 +64,7 @@ public class ApplicationTypesEncoderFactory {
             writeVodAddress(buffer, item);
     }
 
-    public static void writeSearchPattern(ChannelBuffer buffer, SearchPattern pattern) throws MessageEncodingException {
+    public static void writeSearchPattern(ByteBuf buffer, SearchPattern pattern) throws MessageEncodingException {
         writeStringLength256(buffer, pattern.getFileNamePattern());
         buffer.writeInt(pattern.getMinFileSize());
         buffer.writeInt(pattern.getMaxFileSize());

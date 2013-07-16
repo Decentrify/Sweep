@@ -4,7 +4,7 @@
  */
 package se.sics.peersearch.net;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
@@ -19,7 +19,7 @@ import java.util.Date;
  */
 public class ApplicationTypesDecoderFactory {
 
-    public static IndexEntry readIndexEntry(ChannelBuffer buffer)
+    public static IndexEntry readIndexEntry(ByteBuf buffer)
             throws MessageDecodingException {
         Long id = buffer.readLong();
         String url = UserTypesDecoderFactory.readStringLength256(buffer);
@@ -35,7 +35,7 @@ public class ApplicationTypesDecoderFactory {
         return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, leaderId);
     }
 
-    public static IndexEntry[] readIndexEntryArray(ChannelBuffer buffer) throws MessageDecodingException {
+    public static IndexEntry[] readIndexEntryArray(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         IndexEntry[] items = new IndexEntry[len];
         for (int i = 0; i < len; i++) {
@@ -44,7 +44,7 @@ public class ApplicationTypesDecoderFactory {
         return items;
     }
 
-    public static Long[] readLongArray(ChannelBuffer buffer) {
+    public static Long[] readLongArray(ByteBuf buffer) {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         Long[] items = new Long[len];
         for (int i = 0; i < len; i++) {
@@ -53,7 +53,7 @@ public class ApplicationTypesDecoderFactory {
         return items;
     }
 
-    public static VodAddress[] readVodAddressArray(ChannelBuffer buffer) throws MessageDecodingException {
+    public static VodAddress[] readVodAddressArray(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         VodAddress[] items = new VodAddress[len];
         for (int i = 0; i < len; i++) {
@@ -62,7 +62,7 @@ public class ApplicationTypesDecoderFactory {
         return items;
     }
 
-    public static SearchPattern readSearchPattern(ChannelBuffer buffer) throws MessageDecodingException {
+    public static SearchPattern readSearchPattern(ByteBuf buffer) throws MessageDecodingException {
         String fileNamePattern = UserTypesDecoderFactory.readStringLength256(buffer);
         int minFileSize = buffer.readInt();
         int maxFileSize = buffer.readInt();

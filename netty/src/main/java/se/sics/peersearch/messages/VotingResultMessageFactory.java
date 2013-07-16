@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
@@ -18,14 +18,14 @@ public class VotingResultMessageFactory extends DirectMsgNettyFactory {
     private VotingResultMessageFactory() {
     }
 
-    public static VotingResultMessage fromBuffer(ChannelBuffer buffer)
+    public static VotingResultMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (VotingResultMessage)
                 new VotingResultMessageFactory().decode(buffer, false);
     }
 
     @Override
-    protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+    protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
         VodAddress[] view = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
         return new VotingResultMessage(vodSrc, vodDest, view);
     }
