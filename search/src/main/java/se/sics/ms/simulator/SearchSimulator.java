@@ -44,7 +44,6 @@ import se.sics.ms.simulation.ConsistentHashtable;
 import se.sics.ms.simulation.GenerateReport;
 import se.sics.ms.simulation.PeerFail;
 import se.sics.ms.simulation.PeerJoin;
-import se.sics.ms.simulation.SimulatorPort;
 import se.sics.ms.snapshot.Snapshot;
 
 public final class SearchSimulator extends ComponentDefinition {

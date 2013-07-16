@@ -1,4 +1,4 @@
-package se.sics.ms.simulation;
+package se.sics.ms.simulator;
 
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.kompics.Init;

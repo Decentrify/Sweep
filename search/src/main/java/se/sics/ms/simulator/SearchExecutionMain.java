@@ -20,7 +20,6 @@ import se.sics.gvod.p2p.simulator.P2pSimulator;
 import se.sics.kompics.simulation.SimulatorScheduler;
 import se.sics.ms.configuration.ElectionConfiguration;
 import se.sics.ms.configuration.SearchConfiguration;
-import se.sics.ms.simulation.SimulatorPort;
 
 public final class SearchExecutionMain extends ComponentDefinition {
 
