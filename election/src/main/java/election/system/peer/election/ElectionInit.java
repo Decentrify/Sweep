@@ -2,6 +2,7 @@ package election.system.peer.election;
 
 import common.configuration.ElectionConfiguration;
 
+import se.sics.gvod.common.Self;
 import se.sics.kompics.Init;
 import se.sics.kompics.address.Address;
 
@@ -10,7 +11,7 @@ import se.sics.kompics.address.Address;
  * own address from the boot strapping process to the election components
  */
 public class ElectionInit extends Init {
-	private final Address self;
+	private final Self self;
 	private final ElectionConfiguration electionConfiguration;
 
 	/**
@@ -22,7 +23,7 @@ public class ElectionInit extends Init {
 	 *            A reference to the configuration file containing the
 	 *            configuration values
 	 */
-	public ElectionInit(Address self, ElectionConfiguration electionConfiguration) {
+	public ElectionInit(Self self, ElectionConfiguration electionConfiguration) {
 		super();
 		this.self = self;
 		this.electionConfiguration = electionConfiguration;
@@ -33,7 +34,7 @@ public class ElectionInit extends Init {
 	 * 
 	 * @return the node's address
 	 */
-	public Address getSelf() {
+	public Self getSelf() {
 		return this.self;
 	}
 

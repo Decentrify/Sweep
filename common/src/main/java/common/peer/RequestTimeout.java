@@ -1,7 +1,7 @@
 package common.peer;
 
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
+import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.gvod.timer.Timeout;
 
 public class RequestTimeout extends Timeout {
 

@@ -1,23 +1,27 @@
 package search.system.peer;
 
-import java.util.LinkedList;
-import java.util.Set;
-
+import common.peer.PeerDescriptor;
+import se.sics.gvod.address.Address;
+import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.config.*;
+import se.sics.gvod.croupier.Croupier;
+import se.sics.gvod.croupier.CroupierPort;
+import se.sics.gvod.croupier.PeerSamplePort;
+import se.sics.gvod.croupier.events.CroupierInit;
+import se.sics.gvod.croupier.events.CroupierJoin;
+import se.sics.gvod.croupier.events.CroupierJoinCompleted;
+import se.sics.gvod.nat.traversal.NatTraverser;
+import se.sics.gvod.nat.traversal.events.NatTraverserInit;
+import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.Timer;
+import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.p2p.bootstrap.BootstrapCompleted;
-import se.sics.kompics.p2p.bootstrap.BootstrapRequest;
-import se.sics.kompics.p2p.bootstrap.BootstrapResponse;
-import se.sics.kompics.p2p.bootstrap.P2pBootstrap;
-import se.sics.kompics.p2p.bootstrap.PeerEntry;
-import se.sics.kompics.p2p.bootstrap.client.BootstrapClient;
-import se.sics.kompics.p2p.bootstrap.client.BootstrapClientInit;
-import se.sics.kompics.timer.Timer;
 import se.sics.kompics.web.Web;
 import search.system.peer.search.Search;
 import search.system.peer.search.SearchInit;
@@ -28,61 +32,71 @@ import tman.system.peer.tman.RoutedEventsPort;
 import tman.system.peer.tman.TMan;
 import tman.system.peer.tman.TManInit;
 
-import common.configuration.CyclonConfiguration;
 import common.configuration.ElectionConfiguration;
 import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
-import common.peer.PeerAddress;
 
-import cyclon.Cyclon;
-import cyclon.CyclonInit;
-import cyclon.CyclonJoin;
-import cyclon.CyclonPort;
-import cyclon.CyclonSamplePort;
-import cyclon.JoinCompleted;
 import election.system.peer.election.ElectionFollower;
 import election.system.peer.election.ElectionInit;
 import election.system.peer.election.ElectionLeader;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
 public final class SearchPeer extends ComponentDefinition {
-	public static final String CYCLON = "Cyclon";
+    public static final String CROUPIER = "CROUPIER";
 
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
-	Positive<Network> network = positive(Network.class);
+	Positive<VodNetwork> network = positive(VodNetwork.class);
 	Positive<Timer> timer = positive(Timer.class);
 	Negative<Web> webPort = negative(Web.class);
 
-	private Component cyclon, tman, search, bootstrap, electionLeader, electionFollower;
-	private Address self;
-	private int bootstrapRequestPeerCount;
-	private boolean bootstrapped;
+	private Component croupier, tman, search, electionLeader, electionFollower, natTraversal;
+    private Self self;
 	private SearchConfiguration searchConfiguration;
 
 	public SearchPeer() {
-		cyclon = create(Cyclon.class);
+        natTraversal = create(NatTraverser.class);
+        croupier = create(Croupier.class);
 		tman = create(TMan.class);
 		search = create(Search.class);
 		electionLeader = create(ElectionLeader.class);
 		electionFollower = create(ElectionFollower.class);
-		bootstrap = create(BootstrapClient.class);
 
-		connect(network, search.getNegative(Network.class));
-		connect(network, cyclon.getNegative(Network.class));
-		connect(network, bootstrap.getNegative(Network.class));
-		connect(network, tman.getNegative(Network.class));
-		connect(network, electionLeader.getNegative(Network.class));
-		connect(network, electionFollower.getNegative(Network.class));
+//		connect(network, search.getNegative(VodNetwork.class));
+//		connect(network, croupier.getNegative(VodNetwork.class));
+//		connect(network, tman.getNegative(VodNetwork.class));
+//		connect(network, electionLeader.getNegative(VodNetwork.class));
+//		connect(network, electionFollower.getNegative(VodNetwork.class));
+        connect(network, natTraversal.getNegative(VodNetwork.class));
+
+        connect(natTraversal.getPositive(VodNetwork.class),
+                tman.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                croupier.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                search.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                electionLeader.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class),
+                electionFollower.getNegative(VodNetwork.class));
+
+        connect(timer, natTraversal.getNegative(Timer.class));
 		connect(timer, search.getNegative(Timer.class));
-		connect(timer, cyclon.getNegative(Timer.class));
-		connect(timer, bootstrap.getNegative(Timer.class));
+		connect(timer, croupier.getNegative(Timer.class));
 		connect(timer, tman.getNegative(Timer.class));
 		connect(timer, electionLeader.getNegative(Timer.class));
 		connect(timer, electionFollower.getNegative(Timer.class));
+
 		connect(webPort, search.getPositive(Web.class));
-		connect(cyclon.getPositive(CyclonSamplePort.class),
-				search.getNegative(CyclonSamplePort.class));
-		connect(cyclon.getPositive(CyclonSamplePort.class),
-				tman.getNegative(CyclonSamplePort.class));
+		connect(croupier.getPositive(PeerSamplePort.class),
+				search.getNegative(PeerSamplePort.class));
+		connect(croupier.getPositive(PeerSamplePort.class),
+                tman.getNegative(PeerSamplePort.class));
 		connect(indexPort, search.getNegative(IndexPort.class));
 		connect(tman.getPositive(RoutedEventsPort.class),
 				search.getNegative(RoutedEventsPort.class));
@@ -102,59 +116,52 @@ public final class SearchPeer extends ComponentDefinition {
 				electionFollower.getPositive(LeaderStatusPort.class));
 
 		subscribe(handleInit, control);
-		subscribe(handleJoinCompleted, cyclon.getPositive(CyclonPort.class));
-		subscribe(handleBootstrapResponse, bootstrap.getPositive(P2pBootstrap.class));
 	}
 
 	Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
 		@Override
-		public void handle(SearchPeerInit init) {
-			self = init.getPeerSelf();
-			CyclonConfiguration cyclonConfiguration = init.getCyclonConfiguration();
+		public void handle(final SearchPeerInit init) {
+			self = init.getSelf();
+            CroupierConfiguration croupierConfiguration = init.getCroupierConfiguration();
 			TManConfiguration tmanConfiguration = init.getTManConfiguration();
 			ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
 			searchConfiguration = init.getApplicationConfiguration();
-			bootstrapRequestPeerCount = cyclonConfiguration.getBootstrapRequestPeerCount();
 
 			trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
 			trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
 			trigger(new TManInit(self, tmanConfiguration), tman.getControl());
-			trigger(new CyclonInit(self, cyclonConfiguration), cyclon.getControl());
-			trigger(new BootstrapClientInit(self, init.getBootstrapConfiguration()),
-					bootstrap.getControl());
-			BootstrapRequest request = new BootstrapRequest(CYCLON, bootstrapRequestPeerCount);
-			trigger(request, bootstrap.getPositive(P2pBootstrap.class));
-		}
-	};
+            trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
+            trigger(new NatTraverserInit(self, new HashSet<Address>(), croupierConfiguration.getSeed(), NatTraverserConfiguration.build(),
+                    HpClientConfiguration.build(),
+                    RendezvousServerConfiguration.build().
+                            setSessionExpirationTime(30*1000),
+                    StunClientConfiguration.build(),
+                    StunServerConfiguration.build(),
+                    ParentMakerConfiguration.build(), true
+            ), natTraversal.control());
 
-	Handler<BootstrapResponse> handleBootstrapResponse = new Handler<BootstrapResponse>() {
-		@Override
-		public void handle(BootstrapResponse event) {
-			if (!bootstrapped) {
-				Set<PeerEntry> somePeers = event.getPeers();
-				LinkedList<Address> cyclonInsiders = new LinkedList<Address>();
+            final VodDescriptor desc = self.getDescriptor();
+            List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
+            descriptors.add(0, desc);
 
-				if (somePeers == null) {
-					// This should not happen but it does
-					return;
-				}
+            if(self.getId() == 0) return;
 
-				for (PeerEntry peerEntry : somePeers) {
-					cyclonInsiders.add(peerEntry.getOverlayAddress().getPeerAddress());
-				}
+            InetAddress ip = null;
+            try {
+                ip = InetAddress.getLocalHost();
+            } catch (UnknownHostException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+            Address peerAddress = new Address(ip, 9999, 1);
+            final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
-				trigger(new CyclonJoin(self, cyclonInsiders), cyclon.getPositive(CyclonPort.class));
-				bootstrapped = true;
-			}
-		}
-	};
+            LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
+            descs.add(0, descr);
 
-	Handler<JoinCompleted> handleJoinCompleted = new Handler<JoinCompleted>() {
-		@Override
-		public void handle(JoinCompleted event) {
-			trigger(new BootstrapCompleted(CYCLON, new PeerAddress(self)),
-					bootstrap.getPositive(P2pBootstrap.class));
-			trigger(new SearchInit(self, searchConfiguration), search.getControl());
+
+
+            trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
+            trigger(new SearchInit(self, searchConfiguration), search.getControl());
 		}
 	};
 }

@@ -1,14 +1,16 @@
 package common.peer;
 
 import java.io.Serializable;
+
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.address.Address;
 
 public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable {
 	private static final long serialVersionUID = 1906679375438244117L;
-	private final Address peerAddress;
+	private final VodAddress peerAddress;
 	private int age;
 
-	public PeerDescriptor(Address peerAddress) {
+	public PeerDescriptor(VodAddress peerAddress) {
 		this.peerAddress = peerAddress;
 		this.age = 0;
 	}
@@ -22,7 +24,7 @@ public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable 
 		return age;
 	}
 
-	public Address getAddress() {
+	public VodAddress getAddress() {
 		return peerAddress;
 	}
 

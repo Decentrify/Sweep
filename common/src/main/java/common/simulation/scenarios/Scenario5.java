@@ -23,7 +23,7 @@ public class Scenario5 extends Scenario {
 				}
 			};
 
-			StochasticProcess addMagneticEntries = new StochasticProcess() {
+			StochasticProcess addMagnetEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(500));
 					raise(100, Operations.addMagnetEntry(), uniform(0, 100));
@@ -32,7 +32,7 @@ public class Scenario5 extends Scenario {
 
 			startUp.start();
 			joinNodes.startAfterTerminationOf(2000, startUp);
-			addMagneticEntries.startAfterTerminationOf(5000, joinNodes);
+			addMagnetEntries.startAfterTerminationOf(5000, joinNodes);
 		}
 	};
 

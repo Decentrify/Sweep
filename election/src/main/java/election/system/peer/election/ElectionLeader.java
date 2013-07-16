@@ -1,26 +1,19 @@
 package election.system.peer.election;
 
 import java.util.ArrayList;
-import java.util.UUID;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.address.Address;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.CancelPeriodicTimeout;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.SchedulePeriodicTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
-import se.sics.kompics.timer.Timer;
+import se.sics.peersearch.messages.*;
 import tman.system.peer.tman.BroadcastTManPartnersPort;
 import tman.system.peer.tman.BroadcastTManPartnersPort.TmanPartners;
 import tman.system.peer.tman.IndexRoutingPort;
-import tman.system.peer.tman.IndexRoutingPort.IndexDisseminationEvent;
-import tman.system.peer.tman.IndexRoutingPort.IndexResponseMessage;
-import tman.system.peer.tman.IndexRoutingPort.StartIndexRequestEvent;
 import tman.system.peer.tman.LeaderStatusPort;
 import tman.system.peer.tman.LeaderStatusPort.LeaderStatus;
 import tman.system.peer.tman.LeaderStatusPort.LeaderStatusRequest;
@@ -30,13 +23,6 @@ import tman.system.peer.tman.LeaderStatusPort.NodeSuggestion;
 import common.configuration.ElectionConfiguration;
 import common.snapshot.Snapshot;
 
-import election.system.peer.election.VotingMsg.RejectFollowerConfirmationMsg;
-import election.system.peer.election.VotingMsg.RejectFollowerMsg;
-import election.system.peer.election.VotingMsg.RejectLeaderMsg;
-import election.system.peer.election.VotingMsg.VotingRequestMsg;
-import election.system.peer.election.VotingMsg.VotingResponseMsg;
-import election.system.peer.election.VotingMsg.VotingResultMsg;
-
 /**
  * This component contains functions for how a node will find out if it is the
  * leader. It also contains functions that a leader needs in order to perform
@@ -44,7 +30,7 @@ import election.system.peer.election.VotingMsg.VotingResultMsg;
  */
 public class ElectionLeader extends ComponentDefinition {
 	Positive<Timer> timerPort = positive(Timer.class);
-	Positive<Network> networkPort = positive(Network.class);
+	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Negative<BroadcastTManPartnersPort> tmanBroadcast = negative(BroadcastTManPartnersPort.class);
 	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 	Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
@@ -54,9 +40,9 @@ public class ElectionLeader extends ComponentDefinition {
 	private SynchronizedCounter yesVotes, totalVotes, electionCounter, convergedCounter,
 			indexMessageCounter;
 	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
-	private Address self;
-	private ArrayList<Address> lowerNodes, higherNodes;
-	private UUID scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
+	private Self self;
+	private ArrayList<VodAddress> lowerNodes, higherNodes;
+	private TimeoutId scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
@@ -129,8 +115,8 @@ public class ElectionLeader extends ComponentDefinition {
 			electionInProgress = false;
 			allowingIndexMessages = false;
 
-			lowerNodes = new ArrayList<Address>();
-			higherNodes = new ArrayList<Address>();
+			lowerNodes = new ArrayList<VodAddress>();
+			higherNodes = new ArrayList<VodAddress>();
 
 			yesVotes = new SynchronizedCounter();
 			totalVotes = new SynchronizedCounter();
@@ -153,17 +139,17 @@ public class ElectionLeader extends ComponentDefinition {
 
 			// Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
-			for (Address node : higherNodes) {
+			for (VodAddress node : higherNodes) {
 				builder.append(node.getId() + " ");
 			}
-			for (Address node : lowerNodes) {
+			for (VodAddress node : lowerNodes) {
 				builder.append(node.getId() + " ");
 			}
-			Snapshot.setCurrentView(self, builder.toString());
+			Snapshot.setCurrentView(self.getAddress(), builder.toString());
 
-			if (event.isConverged() == true
-					&& iAmLeader == false
-					&& electionInProgress == false
+			if (event.isConverged()
+					&& !iAmLeader
+					&& !electionInProgress
 					&& event.getHigherNodes().size() == 0
 					&& event.getLowerNodes().size() >= electionConfiguration
 							.getMinSizeOfElectionGroup()) {
@@ -179,25 +165,25 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that counts the number of votes received from the followers. If
 	 * all nodes have responded it will call for vote counting
 	 */
-	Handler<VotingResponseMsg> handleVotingResponse = new Handler<VotingResponseMsg>() {
+	Handler<ElectionMessage.Response> handleVotingResponse = new Handler<ElectionMessage.Response>() {
 		@Override
-		public void handle(VotingResponseMsg event) {
+		public void handle(ElectionMessage.Response event) {
 			// Check if the vote comes from this batch of votes
-			if (electionCounter.getValue() == event.getVoteID()) {
+			if (electionCounter.getValue() == event.getVoteId()) {
 				totalVotes.incrementValue();
-				if (event.getVote() == true) {
+				if (event.isVote() == true) {
 					yesVotes.incrementValue();
 				} else {
 					// Rejected because there is a node above me
 				}
-				if (event.isConverged() == true) {
+				if (event.isConvereged() == true) {
 					convergedCounter.incrementValue();
 				}
 			}
 
 			// Reject if there is a no-vote
 			if (totalVotes.getValue() != yesVotes.getValue()) {
-				rejected(event.getSource(), event.getHighestNode());
+				rejected(event.getVodSource(), event.getHighest());
 			}
 			// Count the votes if if all votes have returned
 			else if (totalVotes.getValue() >= numberOfNodesAtVotingTime) {
@@ -224,11 +210,11 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<ElectionSchedule> handleHeartBeats = new Handler<ElectionSchedule>() {
 		@Override
 		public void handle(ElectionSchedule event) {
-			Address lowestId = self;
+			VodAddress lowestId = self.getAddress();
 
 			// It is assumed that the list doesn't have to be sorted
 			// Looks for the node with the lowest ID
-			for (Address addr : higherNodes) {
+			for (VodAddress addr : higherNodes) {
 				if (addr.getId() < lowestId.getId()) {
 					lowestId = addr;
 				}
@@ -239,7 +225,7 @@ public class ElectionLeader extends ComponentDefinition {
 				sendLeaderView();
 			} else {
 				scheduledTimeoscutId = event.getTimeoutId();
-				rejected(self, lowestId);
+				rejected(self.getAddress(), lowestId);
 			}
 		}
 	};
@@ -248,10 +234,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that handles rejected messages send by nodes who have found a
 	 * better leader
 	 */
-	Handler<RejectLeaderMsg> handleLeaderRejection = new Handler<RejectLeaderMsg>() {
+	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
-		public void handle(RejectLeaderMsg event) {
-			rejected(event.getSource(), event.getBetterLeader());
+		public void handle(RejectLeaderMessage event) {
+			rejected(event.getVodSource(), event.getBetterLeader());
 		}
 	};
 
@@ -259,21 +245,20 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that handles nodes who have been kicked out of the leader's
 	 * view and ask if the leader if still alive
 	 */
-	Handler<RejectFollowerMsg> handleRejectedFollower = new Handler<RejectFollowerMsg>() {
+	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
 		@Override
-		public void handle(RejectFollowerMsg event) {
+		public void handle(RejectFollowerMessage.Request event) {
 			boolean sourceIsInView = false;
 
 			// Checks if the node is still in the leader's view
-			for (Address addr : lowerNodes) {
-				if (addr.getId() == event.getSource().getId()) {
+			for (VodAddress addr : lowerNodes) {
+				if (addr.getId() == event.getVodSource().getId()) {
 					sourceIsInView = true;
 					break;
 				}
 			}
 
-			RejectFollowerConfirmationMsg msg = new RejectFollowerConfirmationMsg(sourceIsInView,
-					self, event.getSource());
+            RejectFollowerMessage.Response msg = new RejectFollowerMessage.Response(self.getAddress(), event.getVodSource(), UUID.nextUUID(), sourceIsInView);
 			trigger(msg, networkPort);
 		}
 	};
@@ -287,10 +272,10 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(IndexResponseMessage event) {
 			// Make sure that only recent messages are checked
-			if (allowingIndexMessages == true && event.getMessageId() == indexMessageID) {
+			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
 				// Increase the counter and send the update to search
 				indexMessageCounter.incrementValue();
-				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
+//				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
 
 				// When enough messages are received
 				if (indexMessageCounter.getValue() >= electionConfiguration
@@ -375,17 +360,17 @@ public class ElectionLeader extends ComponentDefinition {
 			if (iAmLeader == false) {
 				// Create view for Snapshot
 				StringBuilder builder = new StringBuilder();
-				for (Address node : lowerNodes) {
+				for (VodAddress node : lowerNodes) {
 					builder.append(node.getId() + " ");
 				}
-				Snapshot.setElectionView(self, builder.toString());
-				Snapshot.setLeaderStatus(self, true);
+				Snapshot.setElectionView(self.getAddress(), builder.toString());
+				Snapshot.setLeaderStatus(self.getAddress(), true);
 
 				variableCleanUp();
 				iAmLeader = true;
 				allowingIndexMessages = true;
-				indexMessageID = UUID.randomUUID();
-				trigger(new StartIndexRequestEvent(indexMessageID), indexRoutingPort);
+				indexMessageID = UUID.nextUUID();
+//				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout tOut = new SchedulePeriodicTimeout(
@@ -415,11 +400,11 @@ public class ElectionLeader extends ComponentDefinition {
 		timeout.setTimeoutEvent(new VoteTimeout(timeout));
 		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
-		VotingRequestMsg vote = null;
+		ElectionMessage.Request vote;
 
 		// Broadcasts the vote requests to the nodes in the view
-		for (Address receiver : lowerNodes) {
-			vote = new VotingRequestMsg(electionCounter.getValue(), voteTimeout, self, receiver);
+		for (VodAddress receiver : lowerNodes) {
+			vote = new ElectionMessage.Request(self.getAddress(), receiver, self.getId(), receiver.getId(), voteTimeout, electionCounter.getValue());
 			trigger(vote, networkPort);
 		}
 
@@ -432,11 +417,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Broadcasts the leader's current view to it's followers
 	 */
 	private void sendLeaderView() {
-		VotingResultMsg msg = null;
 
 		// Broadcasts the leader's current view to it's followers
-		for (Address receiver : lowerNodes) {
-			msg = new VotingResultMsg(lowerNodes, self, receiver);
+		for (VodAddress receiver : lowerNodes) {
+            VotingResultMessage msg = new VotingResultMessage(self.getAddress(), receiver.getNodeAddress(), (VodAddress[])lowerNodes.toArray());
 			trigger(msg, networkPort);
 		}
 	}
@@ -464,7 +448,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void rejected() {
 		if (iAmLeader == true) {
-			Snapshot.setLeaderStatus(self, false);
+			Snapshot.setLeaderStatus(self.getAddress(), false);
 		}
 
 		iAmLeader = false;
@@ -473,7 +457,7 @@ public class ElectionLeader extends ComponentDefinition {
 		variableCleanUp();
 	}
 
-	private void rejected(Address byNode, Address betterNode) {
+	private void rejected(VodAddress byNode, VodAddress betterNode) {
 		rejected();
 		
 		// From here one could trigger an event that suggest TMan to put this

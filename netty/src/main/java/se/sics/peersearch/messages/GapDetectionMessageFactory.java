@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -20,14 +20,14 @@ public class GapDetectionMessageFactory {
         private Request() {
         }
 
-        public static GapDetectionMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static GapDetectionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GapDetectionMessage.Request)
                     new GapDetectionMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected GapDetectionMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected GapDetectionMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             Long id = buffer.readLong();
             return new GapDetectionMessage.Request(vodSrc, vodDest,
                     timeoutId, id);
@@ -40,14 +40,14 @@ public class GapDetectionMessageFactory {
         private Response() {
         }
 
-        public static GapDetectionMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static GapDetectionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GapDetectionMessage.Response)
                     new GapDetectionMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);

@@ -1,10 +1,12 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
+import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 
 /**
@@ -19,14 +21,14 @@ public class GradientShuffleMessageFactory {
         private Request() {
         }
 
-        public static GradientShuffleMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static GradientShuffleMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GradientShuffleMessage.Request)
                     new GradientShuffleMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected GradientShuffleMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected GradientShuffleMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             VodAddress[] addresses = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
             return new GradientShuffleMessage.Request(vodSrc, vodDest,
                     timeoutId, addresses);
@@ -39,14 +41,14 @@ public class GradientShuffleMessageFactory {
         private Response() {
         }
 
-        public static GradientShuffleMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static GradientShuffleMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GradientShuffleMessage.Response)
                     new GradientShuffleMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             VodAddress[] addresses = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
             return new GradientShuffleMessage.Response(vodSrc, vodDest, timeoutId, addresses);
         }

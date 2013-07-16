@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+    <modelVersion>4.0.0</modelVersion>
 
-  <groupId>se.kth.id2210</groupId>
-  <artifactId>id2210-parent</artifactId>
-  <version>1.0-SNAPSHOT</version>
-  <packaging>pom</packaging>
-  <name>id2210-parent</name>
+    <groupId>se.kth.ms</groupId>
+    <artifactId>mediasearch-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>ms-parent</name>
 
 
-<modules>
- <module>common</module>
- <module>cyclon</module>
- <module>search</module>
- <module>tman</module>
- <module>election</module>
-    <module>netty</module>
-  </modules>
+    <modules>
+        <module>common</module>
+        <module>search</module>
+        <module>gradient</module>
+        <module>election</module>
+        <module>netty</module>
+    </modules>
 
-<properties>
- <java.compiler.version>1.6</java.compiler.version>
+    <properties>
+        <java.compiler.version>1.6</java.compiler.version>
         <nattraverser.version>1.0-SNAPSHOT</nattraverser.version>
         <kompics.version>0.4.4-SNAPSHOT</kompics.version>
-</properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
 
     <build>

@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -21,14 +21,14 @@ public class ReplicationMessageFactory {
         private Request() {
         }
 
-        public static ReplicationMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static ReplicationMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (ReplicationMessage.Request)
                     new ReplicationMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected ReplicationMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected ReplicationMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
@@ -44,14 +44,14 @@ public class ReplicationMessageFactory {
         private Response() {
         }
 
-        public static ReplicationMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static ReplicationMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (ReplicationMessage.Response)
                     new ReplicationMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
             return new ReplicationMessage.Response(vodSrc, vodDest, timeoutId, id);
         }

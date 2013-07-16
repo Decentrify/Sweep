@@ -2,7 +2,7 @@ package se.sics.peersearch.messages;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -11,6 +11,7 @@ import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 
 public class SearchMessageFactory {
 
@@ -19,23 +20,18 @@ public class SearchMessageFactory {
         private Request() {
         }
 
-        public static SearchMessage.Request fromBuffer(ChannelBuffer buffer)
+        public static SearchMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (SearchMessage.Request)
                     new SearchMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected SearchMessage.Request process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected SearchMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
-            String query = UserTypesDecoderFactory.readStringLength256(buffer);
-            try {
-                return new SearchMessage.Request(vodSrc, vodDest,
-                        timeoutId, requestId, query);
-            } catch (IllegalSearchString ex) {
-                Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            return null;
+            SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
+            return new SearchMessage.Request(vodSrc, vodDest,
+                    timeoutId, requestId, pattern);
         }
 
     }
@@ -45,14 +41,14 @@ public class SearchMessageFactory {
         private Response() {
         }
 
-        public static SearchMessage.Response fromBuffer(ChannelBuffer buffer)
+        public static SearchMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (SearchMessage.Response)
                     new SearchMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
-        protected DirectMsg process(ChannelBuffer buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);

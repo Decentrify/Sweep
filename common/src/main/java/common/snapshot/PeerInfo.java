@@ -1,8 +1,9 @@
 package common.snapshot;
 
+import se.sics.gvod.address.Address;
+
 import java.util.ArrayList;
 
-import se.sics.kompics.address.Address;
 
 /**
  * Stores information about a peer for snapshots.

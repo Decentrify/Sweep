@@ -1,5 +1,7 @@
 package search.system.peer;
 
+import se.sics.gvod.common.Self;
+import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.kompics.Init;
 import se.sics.kompics.address.Address;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
@@ -10,35 +12,35 @@ import common.configuration.SearchConfiguration;
 import common.configuration.TManConfiguration;
 
 public final class SearchPeerInit extends Init {
-	private final Address peerSelf;
+    private final Self self;
 	private final BootstrapConfiguration bootstrapConfiguration;
-	private final CyclonConfiguration cyclonConfiguration;
+	private final CroupierConfiguration croupierConfiguration;
 	private final SearchConfiguration applicationConfiguration;
 	private final TManConfiguration tManConfiguration;
 	private final ElectionConfiguration electionConfiguration;
 
-	public SearchPeerInit(Address peerSelf, BootstrapConfiguration bootstrapConfiguration,
-			CyclonConfiguration cyclonConfiguration, SearchConfiguration applicationConfiguration,
+	public SearchPeerInit(Self self, BootstrapConfiguration bootstrapConfiguration,
+                          CroupierConfiguration croupierConfiguration, SearchConfiguration applicationConfiguration,
 			TManConfiguration tManConfiguration, ElectionConfiguration electionConfiguration) {
 		super();
-		this.peerSelf = peerSelf;
+		this.self = self;
 		this.bootstrapConfiguration = bootstrapConfiguration;
-		this.cyclonConfiguration = cyclonConfiguration;
+		this.croupierConfiguration = croupierConfiguration;
 		this.applicationConfiguration = applicationConfiguration;
 		this.tManConfiguration = tManConfiguration;
 		this.electionConfiguration = electionConfiguration;
 	}
 
-	public Address getPeerSelf() {
-		return this.peerSelf;
+	public Self getSelf() {
+		return this.self;
 	}
 
 	public BootstrapConfiguration getBootstrapConfiguration() {
 		return this.bootstrapConfiguration;
 	}
 
-	public CyclonConfiguration getCyclonConfiguration() {
-		return this.cyclonConfiguration;
+	public CroupierConfiguration getCroupierConfiguration() {
+		return this.croupierConfiguration;
 	}
 
 	public SearchConfiguration getApplicationConfiguration() {

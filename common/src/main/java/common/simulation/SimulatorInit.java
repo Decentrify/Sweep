@@ -1,5 +1,6 @@
 package common.simulation;
 
+import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.kompics.Init;
 import se.sics.kompics.p2p.bootstrap.BootstrapConfiguration;
 
@@ -10,17 +11,17 @@ import common.configuration.TManConfiguration;
 
 public final class SimulatorInit extends Init {
 	private final BootstrapConfiguration bootstrapConfiguration;
-	private final CyclonConfiguration cyclonConfiguration;
+	private final CroupierConfiguration croupierConfiguration;
 	private final TManConfiguration tmanConfiguration;
 	private final SearchConfiguration aggregationConfiguration;
 	private final ElectionConfiguration electionConfiguration;
 
 	public SimulatorInit(BootstrapConfiguration bootstrapConfiguration,
-			CyclonConfiguration cyclonConfiguration, TManConfiguration tmanConfiguration,
+                         CroupierConfiguration croupierConfiguration, TManConfiguration tmanConfiguration,
 			SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration) {
 		super();
 		this.bootstrapConfiguration = bootstrapConfiguration;
-		this.cyclonConfiguration = cyclonConfiguration;
+		this.croupierConfiguration = croupierConfiguration;
 		this.tmanConfiguration = tmanConfiguration;
 		this.aggregationConfiguration = aggregationConfiguration;
 		this.electionConfiguration = electionConfiguration;
@@ -34,8 +35,8 @@ public final class SimulatorInit extends Init {
 		return this.bootstrapConfiguration;
 	}
 
-	public CyclonConfiguration getCyclonConfiguration() {
-		return this.cyclonConfiguration;
+	public CroupierConfiguration getCroupierConfiguration() {
+		return this.croupierConfiguration;
 	}
 
 	public TManConfiguration getTmanConfiguration() {

@@ -1,6 +1,6 @@
 package se.sics.peersearch.messages;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -44,8 +44,8 @@ public class GapDetectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeLong(missingEntryId);
             return buffer;
         }
@@ -93,8 +93,8 @@ public class GapDetectionMessage {
         }
 
         @Override
-        public ChannelBuffer toByteArray() throws MessageEncodingException {
-            ChannelBuffer buffer = createChannelBufferWithHeader();
+        public ByteBuf toByteArray() throws MessageEncodingException {
+            ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writeIndexEntry(buffer, missingEntry);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);

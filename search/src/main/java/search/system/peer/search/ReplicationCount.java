@@ -1,5 +1,6 @@
 package search.system.peer.search;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.address.Address;
 
 /**
@@ -7,7 +8,7 @@ import se.sics.kompics.address.Address;
  * adding new entries.
  */
 public class ReplicationCount {
-	private final Address source;
+	private final VodAddress source;
 	private int received;
 	private final int replicationMinimum;
 
@@ -17,7 +18,7 @@ public class ReplicationCount {
 	 * @param replicationMinimum
 	 *            the minimum number of replication required
 	 */
-	public ReplicationCount(Address source, int replicationMinimum) {
+	public ReplicationCount(VodAddress source, int replicationMinimum) {
 		super();
 		this.source = source;
 		this.replicationMinimum = replicationMinimum;
@@ -26,7 +27,7 @@ public class ReplicationCount {
 	/**
 	 * @return the address of the node that issued the add request
 	 */
-	public Address getSource() {
+	public VodAddress getSource() {
 		return source;
 	}
 
