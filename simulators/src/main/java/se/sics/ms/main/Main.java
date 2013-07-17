@@ -48,16 +48,15 @@ public class Main {
      */
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
-            System.err.println("usage: <prog> seed");
+            System.err.println("usage: <prog>");
             System.exit(0);
         }
-        long seed = Integer.parseInt(args[0]);
         MsConfig.init(args);
         Configuration config = new Configuration();
         config.store();
         
         Scenario scenario = new Scenario1();
-        scenario.setSeed(seed);
+        scenario.setSeed(MsConfig.getSeed());
         scenario.getScenario().simulate(SearchSimulationMain.class);
     }
 }
