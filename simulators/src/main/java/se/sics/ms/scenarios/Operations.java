@@ -3,11 +3,6 @@ package se.sics.ms.scenarios;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
 
-import se.sics.ms.simulation.AddIndexEntry;
-import se.sics.ms.simulation.AddMagnetEntry;
-import se.sics.ms.simulation.PeerFail;
-import se.sics.ms.simulation.PeerJoin;
-import se.sics.ms.simulation.Publish;
 
 @SuppressWarnings("serial")
 public class Operations {

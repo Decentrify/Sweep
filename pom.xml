@@ -15,7 +15,8 @@
         <module>gradient</module>
         <module>election</module>
         <module>netty</module>
-    </modules>
+    <module>simulators</module>
+  </modules>
 
     <properties>
         <java.compiler.version>1.6</java.compiler.version>

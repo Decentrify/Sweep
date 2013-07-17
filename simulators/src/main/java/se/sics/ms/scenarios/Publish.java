@@ -1,4 +1,4 @@
-package se.sics.ms.simulation;
+package se.sics.ms.scenarios;
 
 import se.sics.kompics.Event;
 
