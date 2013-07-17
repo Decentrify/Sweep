@@ -40,7 +40,6 @@ public final class Gradient extends ComponentDefinition {
     Positive<BroadcastGradientPartnersPort> broadcastTmanPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
-//    private long period;
     private Self self;
     private GradientConfiguration config;
     private Random random;
@@ -84,7 +83,6 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientInit init) {
             self = init.getSelf();
             config = init.getConfiguration();
-//            period = gradientConfiguration.getPeriod();
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(),

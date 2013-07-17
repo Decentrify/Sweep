@@ -38,9 +38,9 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
-public class ProductionPs extends ComponentDefinition {
+public class SystemMain extends ComponentDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProductionPs.class);
+    private static final Logger logger = LoggerFactory.getLogger(SystemMain.class);
     Component network;
     Component timer;
     Component natTraverser;
@@ -56,7 +56,7 @@ public class ProductionPs extends ComponentDefinition {
         }
     }
 
-    public ProductionPs() {
+    public SystemMain() {
         network = create(NettyNetwork.class);
         timer = create(JavaTimer.class);
         natTraverser = create(NatTraverser.class);
@@ -106,7 +106,7 @@ public class ProductionPs extends ComponentDefinition {
                 InetAddress inet = InetAddress.getByName(publicBootstrapNode);
                 publicNodes.add(new Address(inet, VodConfig.getPort(), 0));
             } catch (UnknownHostException ex) {
-                java.util.logging.Logger.getLogger(ProductionPs.class.getName()).log(Level.SEVERE, null, ex);
+                java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             trigger(new NatTraverserInit(self, publicNodes, VodConfig.getSeed()),
@@ -170,9 +170,9 @@ public class ProductionPs extends ComponentDefinition {
             // initialize it.
             VodConfig.init(args);
         } catch (IOException ex) {
-            java.util.logging.Logger.getLogger(ProductionPs.class.getName()).log(Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        Kompics.createAndStart(ProductionPs.class, numWorkers);
+        Kompics.createAndStart(SystemMain.class, numWorkers);
     }
 }
