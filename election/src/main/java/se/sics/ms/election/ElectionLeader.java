@@ -192,7 +192,7 @@ public class ElectionLeader extends ComponentDefinition {
 		}
 	};
 
-	/**
+	/**at se.sics.ms.election.ElectionLeader.countVotes(ElectionLeader.java:391)
 	 * A handler that will call for a vote call after a certain amount of time
 	 * if not all voters have returned with a vote
 	 */
@@ -225,6 +225,7 @@ public class ElectionLeader extends ComponentDefinition {
 				sendLeaderView();
 			} else {
 				scheduledTimeoutId = event.getTimeoutId();
+                                assert(scheduledTimeoutId != null);
 				rejected(self.getAddress(), lowestId);
 			}
 		}
@@ -378,6 +379,7 @@ public class ElectionLeader extends ComponentDefinition {
 						config.getHeartbeatTimeoutInterval());
 				tOut.setTimeoutEvent(new ElectionSchedule(tOut));
 				scheduledTimeoutId = tOut.getTimeoutEvent().getTimeoutId();
+                                assert(scheduledTimeoutId != null);
 				trigger(tOut, timerPort);
 
 				// Start the timeout for collecting index messages

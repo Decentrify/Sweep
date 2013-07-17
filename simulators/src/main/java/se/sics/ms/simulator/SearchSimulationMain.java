@@ -47,7 +47,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
 
         Component p2pSimulator = create(P2pSimulator.class);
         Component simulator = create(SearchSimulator.class);
-//		Component web = create(JettyWebServer.class);
 
         CroupierConfiguration croupierConfig =
                 (CroupierConfiguration) AbstractConfiguration.load(CroupierConfiguration.class);
@@ -57,21 +56,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
         connect(simulator.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
         connect(simulator.getNegative(SimulatorPort.class),
                 p2pSimulator.getPositive(SimulatorPort.class));
-//		connect(simulator.getPositive(Web.class), web.getNegative(Web.class));
-
-//		InetAddress ip = InetAddress.getLocalHost();
-//		int webPort = 9999;
-//		String webServerAddr = "http://" + ip.getHostAddress() + ":" + webPort;
-//		final JettyWebServerConfiguration webConfiguration = new JettyWebServerConfiguration(ip,
-//				webPort, 30 * 1000, 2, webServerAddr);
-//		trigger(new JettyWebServerInit(webConfiguration), web.getControl());
-//		System.out.println("Webserver Started. Address=" + webServerAddr + "/1/search");
-
-        // Must init DistributedOrchestrator last of all components, otherwise events
-        // will be dropped
-
-//		trigger(new DistributedOrchestratorInit(scenario, new KingLatencyMap(croupierConfiguration.getSeed()), ip, webPort),
-//				p2pSimulator.getControl());
 
         trigger(new SimulatorInit(
                 croupierConfig,

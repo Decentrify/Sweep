@@ -33,8 +33,6 @@ import se.sics.gvod.config.Configuration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.kompics.Kompics;
-import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;

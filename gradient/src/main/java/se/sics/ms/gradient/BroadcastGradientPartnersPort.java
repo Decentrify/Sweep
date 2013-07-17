@@ -15,7 +15,7 @@ public class BroadcastGradientPartnersPort extends PortType {
 	}
 
 	/**
-	 * An event that contains TMan's view
+	 * An event that contains the Gradient's view
 	 */
 	public static class GradientPartners extends Event {
 		private final boolean isConverged;
