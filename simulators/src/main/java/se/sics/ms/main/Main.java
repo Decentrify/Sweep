@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import se.sics.ms.simulator.SearchSimulationMain;
 
-import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.scenarios.Scenario;
