@@ -33,6 +33,8 @@ import se.sics.gvod.config.Configuration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.kompics.Kompics;
+import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
@@ -77,6 +79,7 @@ public final class SearchSimulator extends ComponentDefinition {
         subscribe(handleGenerateReport, timer);
         subscribe(handlePeerJoin, simulator);
         subscribe(handlePeerFail, simulator);
+//        subscribe(handleTerminateExperiment, simulator);
         subscribe(handleAddIndexEntry, simulator);
         subscribe(handleAddMagnetEntry, simulator);
         subscribe(handleWebRequest, webIncoming);
@@ -124,6 +127,16 @@ public final class SearchSimulator extends ComponentDefinition {
             trigger(event, peer.getPositive(Web.class));
         }
     };
+//    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
+//        @Override
+//        public void handle(TerminateExperiment event) {
+//            
+//            // TODO: Print out summary
+//            
+//            Kompics.shutdown();
+//            System.exit(0);
+//        }
+//    };
     Handler<WebResponse> handleWebResponse = new Handler<WebResponse>() {
         @Override
         public void handle(WebResponse event) {

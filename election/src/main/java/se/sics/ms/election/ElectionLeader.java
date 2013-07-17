@@ -42,7 +42,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
 	private Self self;
 	private ArrayList<VodAddress> lowerNodes, higherNodes;
-	private TimeoutId scheduledTimeoscutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
+	private TimeoutId scheduledTimeoutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
@@ -224,7 +224,7 @@ public class ElectionLeader extends ComponentDefinition {
 			if (self.getId() == lowestId.getId() && iAmLeader == true) {
 				sendLeaderView();
 			} else {
-				scheduledTimeoscutId = event.getTimeoutId();
+				scheduledTimeoutId = event.getTimeoutId();
 				rejected(self.getAddress(), lowestId);
 			}
 		}
@@ -377,7 +377,7 @@ public class ElectionLeader extends ComponentDefinition {
 						config.getHeartbeatTimeoutDelay(),
 						config.getHeartbeatTimeoutInterval());
 				tOut.setTimeoutEvent(new ElectionSchedule(tOut));
-				scheduledTimeoscutId = tOut.getTimeoutEvent().getTimeoutId();
+				scheduledTimeoutId = tOut.getTimeoutEvent().getTimeoutId();
 				trigger(tOut, timerPort);
 
 				// Start the timeout for collecting index messages
@@ -436,9 +436,12 @@ public class ElectionLeader extends ComponentDefinition {
 		totalVotes = new SynchronizedCounter();
 		convergedCounter = new SynchronizedCounter();
 
+                
 		CancelTimeout timeout = new CancelTimeout(voteTimeout);
 		trigger(timeout, timerPort);
-		CancelPeriodicTimeout periodicTimeout = new CancelPeriodicTimeout(scheduledTimeoscutId);
+                
+		CancelPeriodicTimeout periodicTimeout = 
+                        new CancelPeriodicTimeout(scheduledTimeoutId);
 		trigger(periodicTimeout, timerPort);
 	}
 
