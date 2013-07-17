@@ -1,5 +1,6 @@
 package se.sics.ms.scenarios;
 
+import se.sics.ms.simulation.Operations;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 /**

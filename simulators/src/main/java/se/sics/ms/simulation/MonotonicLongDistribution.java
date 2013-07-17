@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package se.sics.ms.scenarios;
+package se.sics.ms.simulation;
 
 import se.sics.kompics.p2p.experiment.dsl.distribution.Distribution;
 

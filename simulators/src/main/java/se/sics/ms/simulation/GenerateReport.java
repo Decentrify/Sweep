@@ -1,4 +1,4 @@
-package se.sics.ms.scenarios;
+package se.sics.ms.simulation;
 
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;

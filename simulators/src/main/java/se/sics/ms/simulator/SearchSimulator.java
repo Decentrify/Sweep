@@ -38,12 +38,12 @@ import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.peer.SearchPeer;
 import se.sics.ms.peer.SearchPeerInit;
-import se.sics.ms.scenarios.AddIndexEntry;
-import se.sics.ms.scenarios.AddMagnetEntry;
-import se.sics.ms.scenarios.ConsistentHashtable;
-import se.sics.ms.scenarios.GenerateReport;
-import se.sics.ms.scenarios.PeerFail;
-import se.sics.ms.scenarios.PeerJoin;
+import se.sics.ms.simulation.AddIndexEntry;
+import se.sics.ms.simulation.AddMagnetEntry;
+import se.sics.ms.simulation.ConsistentHashtable;
+import se.sics.ms.simulation.GenerateReport;
+import se.sics.ms.simulation.PeerFail;
+import se.sics.ms.simulation.PeerJoin;
 import se.sics.ms.snapshot.Snapshot;
 
 public final class SearchSimulator extends ComponentDefinition {
