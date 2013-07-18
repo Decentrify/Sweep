@@ -120,8 +120,8 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * Handler for the periodic TMan views that are being sent. It checks if the
-	 * node fullfills the requirements in order to become a leader, and in that
+	 * Handler for the periodic Gradient views that are being sent. It checks if the
+	 * node fulfills the requirements in order to become a leader, and in that
 	 * case it will call for a leader election
 	 */
 	Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
@@ -318,7 +318,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * indexMessages or when the timeout has been triggered
 	 */
 	private void finishIndexMsgReading() {
-		// Set leadership and disallow receival of new messages
+		// Set leadership and disallow receiving of new messages
 		allowingIndexMessages = false;
 		indexMessageCounter = 0;
 		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
