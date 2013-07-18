@@ -367,13 +367,12 @@ public class ElectionLeader extends ComponentDefinition {
 //				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
-				SchedulePeriodicTimeout tOut = new SchedulePeriodicTimeout(
+				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(
 						config.getHeartbeatTimeoutDelay(),
 						config.getHeartbeatTimeoutInterval());
-				tOut.setTimeoutEvent(new ElectionSchedule(tOut));
-				scheduledTimeoutId = tOut.getTimeoutEvent().getTimeoutId();
-                                assert(scheduledTimeoutId != null);
-				trigger(tOut, timerPort);
+				timeout.setTimeoutEvent(new ElectionSchedule(timeout));
+				scheduledTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
+				trigger(timeout, timerPort);
 
 				// Start the timeout for collecting index messages
 				ScheduleTimeout indexTimeOut = new ScheduleTimeout(
@@ -431,13 +430,15 @@ public class ElectionLeader extends ComponentDefinition {
 		totalVotes = 0;
 		convergedCounter = 0;
 
-                
-		CancelTimeout timeout = new CancelTimeout(voteTimeout);
-		trigger(timeout, timerPort);
-                
-		CancelPeriodicTimeout periodicTimeout = 
-                        new CancelPeriodicTimeout(scheduledTimeoutId);
-		trigger(periodicTimeout, timerPort);
+        if (voteTimeout != null) {
+            CancelTimeout timeout = new CancelTimeout(voteTimeout);
+            trigger(timeout, timerPort);
+        }
+
+        if (scheduledTimeoutId != null) {
+            CancelPeriodicTimeout periodicTimeout = new CancelPeriodicTimeout(scheduledTimeoutId);
+            trigger(periodicTimeout, timerPort);
+        }
 	}
 
 	/**
