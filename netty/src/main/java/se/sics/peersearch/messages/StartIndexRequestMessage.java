@@ -16,28 +16,28 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  */
 public class StartIndexRequestMessage extends DirectMsgNetty {
 
-    public StartIndexRequestMessage(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
-        super(source, destination, timeoutId);
-    }
-
-    @Override
-    public int getSize() {
-        return getHeaderSize()+8;
-    }
-
-    @Override
-    public RewriteableMsg copy() {
-        return new StartIndexRequestMessage(vodSrc, vodDest, timeoutId);
-    }
-
-    @Override
-    public ByteBuf toByteArray() throws MessageEncodingException {
-        ByteBuf buffer = createChannelBufferWithHeader();
-        return buffer;
-    }
-
-    @Override
-    public byte getOpcode() {
-        return MessageFrameDecoder.START_INDEX_REQUEST_MESSAGE;
-    }
+//    public StartIndexRequestMessage(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
+//        super(source, destination, timeoutId);
+//    }
+//
+//    @Override
+//    public int getSize() {
+//        return getHeaderSize()+8;
+//    }
+//
+//    @Override
+//    public RewriteableMsg copy() {
+//        return new StartIndexRequestMessage(vodSrc, vodDest, timeoutId);
+//    }
+//
+//    @Override
+//    public ByteBuf toByteArray() throws MessageEncodingException {
+//        ByteBuf buffer = createChannelBufferWithHeader();
+//        return buffer;
+//    }
+//
+//    @Override
+//    public byte getOpcode() {
+//        return MessageFrameDecoder.START_INDEX_REQUEST_MESSAGE;
+//    }
 }

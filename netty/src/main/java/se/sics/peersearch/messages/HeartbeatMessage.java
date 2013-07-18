@@ -17,7 +17,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 1:07 PM
  */
 public class HeartbeatMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
             super(source, destination, timeoutId);
@@ -45,7 +45,7 @@ public class HeartbeatMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
             super(source, destination, timeoutId);

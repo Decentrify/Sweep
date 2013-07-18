@@ -87,8 +87,7 @@ public class EncodingDecodingTest {
                 1,
                 100 * 1000l);
 
-        DirectMsgNettyFactory.setMsgFrameDecoder(MessageFrameDecoder.class);
-
+        DirectMsgNettyFactory.Base.setMsgFrameDecoder(MessageFrameDecoder.class);
     }
 
     @AfterClass
@@ -848,29 +847,29 @@ public class EncodingDecodingTest {
         }
     }
 
-    @Test
-    public void StartIndexRequestMessage() {
-        TimeoutId uiid = UUID.nextUUID();
-
-        StartIndexRequestMessage msg = new StartIndexRequestMessage(gSrc, gDest, uiid);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            StartIndexRequestMessage response =
-                    StartIndexRequestMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getTimeoutId().equals(uiid));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
+//    @Test
+//    public void StartIndexRequestMessage() {
+//        TimeoutId uiid = UUID.nextUUID();
+//
+//        StartIndexRequestMessage msg = new StartIndexRequestMessage(gSrc, gDest, uiid);
+//        try {
+//            ByteBuf buffer = msg.toByteArray();
+//            opCodeCorrect(buffer, msg);
+//            StartIndexRequestMessage response =
+//                    StartIndexRequestMessageFactory.fromBuffer(buffer);
+//
+//            assert (response.getVodDestination().equals(gDest));
+//            assert (response.getVodSource().equals(gSrc));
+//            assert (response.getTimeoutId().equals(uiid));
+//
+//        } catch (MessageDecodingException ex) {
+//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+//            assert (false);
+//        } catch (MessageEncodingException ex) {
+//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+//            assert (false);
+//        }
+//    }
 
     @Test
     public void IndexRequestMessage() {

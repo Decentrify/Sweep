@@ -12,19 +12,19 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
  */
 public class StartIndexRequestMessageFactory extends DirectMsgNettyFactory {
 
-    private StartIndexRequestMessageFactory() {
-    }
-
-    public static StartIndexRequestMessage fromBuffer(ByteBuf buffer)
-            throws MessageDecodingException {
-        return (StartIndexRequestMessage)
-                new StartIndexRequestMessageFactory().decode(buffer, true);
-    }
-
-    @Override
-    protected StartIndexRequestMessage process(ByteBuf buffer) throws MessageDecodingException {
-        return new StartIndexRequestMessage(vodSrc, vodDest,
-                timeoutId);
-    }
+//    private StartIndexRequestMessageFactory() {
+//    }
+//
+//    public static StartIndexRequestMessage fromBuffer(ByteBuf buffer)
+//            throws MessageDecodingException {
+//        return (StartIndexRequestMessage)
+//                new StartIndexRequestMessageFactory().decode(buffer, true);
+//    }
+//
+//    @Override
+//    protected StartIndexRequestMessage process(ByteBuf buffer) throws MessageDecodingException {
+//        return new StartIndexRequestMessage(vodSrc, vodDest,
+//                timeoutId);
+//    }
 
 }

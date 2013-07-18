@@ -22,7 +22,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 6:48 PM
  */
 public class AddIndexEntryMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry entry;
@@ -81,7 +81,7 @@ public class AddIndexEntryMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry entry;

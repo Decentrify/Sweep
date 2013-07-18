@@ -12,7 +12,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/2/13
  * Time: 12:34 PM
  */
-public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory {
+public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory.Oneway {
     public static LeaderAnnouncementMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (LeaderAnnouncementMessage)

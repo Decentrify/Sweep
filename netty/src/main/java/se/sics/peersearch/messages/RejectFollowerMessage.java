@@ -18,7 +18,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 11:15 AM
  */
 public class RejectFollowerMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
             super(source, destination, timeoutId);
@@ -46,7 +46,7 @@ public class RejectFollowerMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         private final boolean isInView;
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean inView) {

@@ -20,7 +20,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 12:23 PM
  */
 public class GradientShuffleMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final VodAddress[] addresses;
@@ -57,7 +57,7 @@ public class GradientShuffleMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final VodAddress[] addresses;

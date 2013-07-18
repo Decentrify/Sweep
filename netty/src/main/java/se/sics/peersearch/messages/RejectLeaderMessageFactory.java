@@ -12,7 +12,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/8/13
  * Time: 12:30 PM
  */
-public class RejectLeaderMessageFactory extends DirectMsgNettyFactory {
+public class RejectLeaderMessageFactory extends DirectMsgNettyFactory.Oneway {
 
     private RejectLeaderMessageFactory() {
     }

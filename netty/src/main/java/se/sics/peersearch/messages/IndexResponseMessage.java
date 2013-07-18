@@ -15,7 +15,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/10/13
  * Time: 1:47 PM
  */
-public class IndexResponseMessage extends DirectMsgNetty{
+public class IndexResponseMessage extends DirectMsgNetty.Response {
     private final long index;
     private final UUID messageId;
 

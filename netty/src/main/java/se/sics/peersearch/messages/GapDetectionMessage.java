@@ -20,7 +20,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 12:11 PM
  */
 public class GapDetectionMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         private final long missingEntryId;
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long missingEntryId) {
@@ -56,7 +56,7 @@ public class GapDetectionMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry missingEntry;

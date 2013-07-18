@@ -12,7 +12,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/8/13
  * Time: 5:26 PM
  */
-public class IndexRequestMessageFactory extends DirectMsgNettyFactory {
+public class IndexRequestMessageFactory extends DirectMsgNettyFactory.Request {
 
     private IndexRequestMessageFactory() {
     }

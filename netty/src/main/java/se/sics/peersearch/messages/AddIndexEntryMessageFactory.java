@@ -16,7 +16,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 7:45 PM
  */
 public class AddIndexEntryMessageFactory {
-    public static class Request extends DirectMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -39,7 +39,7 @@ public class AddIndexEntryMessageFactory {
 
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }

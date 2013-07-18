@@ -21,7 +21,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 9:11 AM
  */
 public class ReplicationMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final UUID id;
@@ -80,7 +80,7 @@ public class ReplicationMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         private final UUID id;
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, UUID id) {

@@ -14,7 +14,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/8/13
  * Time: 10:48 AM
  */
-public class VotingResultMessage extends DirectMsgNetty{
+public class VotingResultMessage extends DirectMsgNetty.Oneway {
     private final VodAddress[] view;
 
     public VotingResultMessage(VodAddress source, VodAddress destination, VodAddress[] view) {

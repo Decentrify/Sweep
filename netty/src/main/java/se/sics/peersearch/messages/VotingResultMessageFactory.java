@@ -13,7 +13,7 @@ import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
  * Date: 7/8/13
  * Time: 10:54 AM
  */
-public class VotingResultMessageFactory extends DirectMsgNettyFactory {
+public class VotingResultMessageFactory extends DirectMsgNettyFactory.Oneway {
 
     private VotingResultMessageFactory() {
     }

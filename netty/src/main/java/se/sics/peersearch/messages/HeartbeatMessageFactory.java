@@ -12,7 +12,7 @@ import se.sics.gvod.net.msgs.DirectMsg;
  * Time: 1:11 PM
  */
 public class HeartbeatMessageFactory {
-    public static class Request extends  DirectMsgNettyFactory{
+    public static class Request extends  DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -30,7 +30,7 @@ public class HeartbeatMessageFactory {
         }
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }
