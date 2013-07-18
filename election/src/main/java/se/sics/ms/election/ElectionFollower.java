@@ -40,7 +40,7 @@ public class ElectionFollower extends ComponentDefinition {
     private ArrayList<VodAddress> leaderView, higherNodes, lowerNodes;
     private boolean leaderIsAlive, isConverged;
     private UUID heartBeatTimeoutId, deathVoteTimeout;
-    private SynchronizedCounter aliveCounter, deathMessageCounter;
+    private int aliveCounter, deathMessageCounter;
 
     /**
      * A customised timeout class used to determine how long a node should wait
@@ -88,9 +88,6 @@ public class ElectionFollower extends ComponentDefinition {
             leaderView = null;
             lowerNodes = null;
             higherNodes = null;
-
-            aliveCounter = new SynchronizedCounter();
-            deathMessageCounter = new SynchronizedCounter();
         }
     };
     /**
@@ -273,12 +270,12 @@ public class ElectionFollower extends ComponentDefinition {
                 return;
             }
 
-            deathMessageCounter.incrementValue();
+            deathMessageCounter++;
             if (event.isSuspected() == true) {
-                aliveCounter.incrementValue();
+                aliveCounter++;
             }
 
-            if (leaderView != null && deathMessageCounter.getValue() == leaderView.size()) {
+            if (leaderView != null && deathMessageCounter == leaderView.size()) {
                 evaluateDeathResponses();
             }
         }
@@ -333,9 +330,9 @@ public class ElectionFollower extends ComponentDefinition {
         // The leader is considered dead
         if (leader != null
                 && leaderView != null
-                && deathMessageCounter.getValue() >= leaderView.size()
+                && deathMessageCounter >= leaderView.size()
                 * config.getDeathVoteMajorityPercentage()
-                && aliveCounter.getValue() < Math.ceil((float) leaderView.size()
+                && aliveCounter < Math.ceil((float) leaderView.size()
                 * config.getLeaderDeathMajorityPercentage())) {
 
             for (VodAddress addr : leaderView) {
@@ -353,8 +350,8 @@ public class ElectionFollower extends ComponentDefinition {
             triggerTimeout(null);
         }
 
-        deathMessageCounter.setValue(0);
-        aliveCounter.setValue(0);
+        deathMessageCounter = 0;
+        aliveCounter = 0;
     }
 
     /**
