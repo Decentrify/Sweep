@@ -44,7 +44,7 @@ public class ElectionFollower extends ComponentDefinition {
 
     /**
      * A customised timeout class used to determine how long a node should wait
-     * for other nodes to reply to leader death messagew
+     * for other nodes to reply to leader death message
      */
     public class DeathTimeout extends Timeout {
 
@@ -61,7 +61,6 @@ public class ElectionFollower extends ComponentDefinition {
      * Default constructor that subscribes certain handlers to ports
      */
     public ElectionFollower() {
-
         subscribe(handleInit, control);
         subscribe(handleDeathTimeout, timerPort);
         subscribe(handleLeaderDeath, networkPort);
