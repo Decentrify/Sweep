@@ -16,7 +16,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 9:15 AM
  */
 public class ReplicationMessageFactory {
-    public static class Request extends DirectMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -39,7 +39,7 @@ public class ReplicationMessageFactory {
 
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }

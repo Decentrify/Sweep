@@ -16,7 +16,7 @@ import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
  * Time: 12:26 PM
  */
 public class GradientShuffleMessageFactory {
-    public static class Request extends DirectMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -36,7 +36,7 @@ public class GradientShuffleMessageFactory {
 
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }

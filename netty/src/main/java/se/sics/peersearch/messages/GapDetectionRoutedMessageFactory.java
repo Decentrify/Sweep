@@ -11,7 +11,7 @@ import se.sics.gvod.net.msgs.DirectMsg;
  * Date: 7/5/13
  * Time: 5:49 PM
  */
-public class GapDetectionRoutedMessageFactory extends DirectMsgNettyFactory {
+public class GapDetectionRoutedMessageFactory extends DirectMsgNettyFactory.Oneway {
     private GapDetectionRoutedMessageFactory() {
     }
 

@@ -13,14 +13,13 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/5/13
  * Time: 12:21 PM
  */
-public class AddIndexEntryRoutedMessage extends DirectMsgNetty {
+public class AddIndexEntryRoutedMessage extends DirectMsgNetty.Oneway {
     private final AddIndexEntryMessage.Request message;
 
     public AddIndexEntryRoutedMessage(VodAddress source, VodAddress destination, AddIndexEntryMessage.Request message) {
         super(source, destination);
         this.message = message;
     }
-
 
     public AddIndexEntryMessage.Request getMessage() {
         return message;

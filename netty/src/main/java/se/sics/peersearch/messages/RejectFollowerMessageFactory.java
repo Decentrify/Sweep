@@ -13,7 +13,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Time: 11:23 AM
  */
 public class RejectFollowerMessageFactory {
-    public static class Request extends DirectMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -32,7 +32,7 @@ public class RejectFollowerMessageFactory {
 
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }

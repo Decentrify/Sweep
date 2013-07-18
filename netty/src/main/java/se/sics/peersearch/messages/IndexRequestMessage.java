@@ -15,7 +15,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/8/13
  * Time: 5:23 PM
  */
-public class IndexRequestMessage extends DirectMsgNetty{
+public class IndexRequestMessage extends DirectMsgNetty.Request {
     private final long index;
     private final VodAddress leaderAddress;
 

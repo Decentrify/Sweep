@@ -10,7 +10,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
  * Date: 7/8/13
  * Time: 5:39 PM
  */
-public class IndexDisseminationMessageFactory extends DirectMsgNettyFactory {
+public class IndexDisseminationMessageFactory extends DirectMsgNettyFactory.Oneway {
 
     private IndexDisseminationMessageFactory() {
     }

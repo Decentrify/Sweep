@@ -13,7 +13,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/5/13
  * Time: 5:48 PM
  */
-public class GapDetectionRoutedMessage extends DirectMsgNetty {
+public class GapDetectionRoutedMessage extends DirectMsgNetty.Oneway {
     private final GapDetectionMessage.Request message;
 
     public GapDetectionRoutedMessage(VodAddress source, VodAddress destination, GapDetectionMessage.Request message) {

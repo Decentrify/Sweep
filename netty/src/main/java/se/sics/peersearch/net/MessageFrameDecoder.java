@@ -62,7 +62,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
      * returned, then return, else test messages in this class.
      *
      * @param ctx
-     * @param channel
      * @param buffer
      * @return
      * @throws MessageDecodingException
@@ -129,7 +128,7 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case REJECT_LEADER_MESSAGE:
                 return RejectLeaderMessageFactory.fromBuffer(buffer);
             case START_INDEX_REQUEST_MESSAGE:
-                return StartIndexRequestMessageFactory.fromBuffer(buffer);
+//                return StartIndexRequestMessageFactory.fromBuffer(buffer);
             case INDEX_REQUEST_MESSAGE:
                 return IndexRequestMessageFactory.fromBuffer(buffer);
             case INDEX_DESSIMINATION_MESSAGE:

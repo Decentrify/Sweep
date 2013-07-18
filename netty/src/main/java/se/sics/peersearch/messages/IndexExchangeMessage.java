@@ -20,7 +20,7 @@ import se.sics.peersearch.types.IndexEntry;
  * Time: 11:56 AM
  */
 public class IndexExchangeMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final long oldestMissingIndexValue;
@@ -78,7 +78,7 @@ public class IndexExchangeMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry[] indexEntries;

@@ -27,7 +27,7 @@ import se.sics.peersearch.types.SearchPattern;
  * @author jdowling
  */
 public class SearchMessage {
-    public static class Request extends DirectMsgNetty {
+    public static class Request extends DirectMsgNetty.Request {
         private final UUID requestId;
         private final SearchPattern pattern;
 
@@ -78,7 +78,7 @@ public class SearchMessage {
         }
     }
 
-    public static class Response extends DirectMsgNetty {
+    public static class Response extends DirectMsgNetty.Response {
         
         public static final int MAX_RESULTS_STR_LEN = 1400;
 

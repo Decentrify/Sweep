@@ -14,12 +14,12 @@ public class IndexRoutingPort extends PortType {
     {
 //        negative(IndexEvent.class);
 //        positive(IndexEvent.class);
-        negative(StartIndexRequestMessage.class);
-        positive(StartIndexRequestMessage.class);
+//        negative(StartIndexRequestMessage.class);
+//        positive(StartIndexRequestMessage.class);
         negative(IndexRequestMessage.class);
         positive(IndexRequestMessage.class);
-        negative(StartIndexRequestMessage.class);
-        positive(StartIndexRequestMessage.class);
+//        negative(StartIndexRequestMessage.class);
+//        positive(StartIndexRequestMessage.class);
         positive(IndexDisseminationMessage.class);
         negative(IndexDisseminationMessage.class);
     }

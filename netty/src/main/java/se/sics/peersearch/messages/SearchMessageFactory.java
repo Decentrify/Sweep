@@ -15,7 +15,7 @@ import se.sics.peersearch.types.SearchPattern;
 
 public class SearchMessageFactory {
 
-    public static class Request extends DirectMsgNettyFactory {
+    public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
@@ -36,7 +36,7 @@ public class SearchMessageFactory {
 
     }
 
-    public static class Response extends DirectMsgNettyFactory {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }

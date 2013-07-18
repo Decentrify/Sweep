@@ -13,7 +13,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/8/13
  * Time: 5:36 PM
  */
-public class IndexDisseminationMessage extends DirectMsgNetty{
+public class IndexDisseminationMessage extends DirectMsgNetty.Oneway {
     private final long index;
 
     public IndexDisseminationMessage(VodAddress source, VodAddress destination, long index) {

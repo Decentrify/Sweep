@@ -13,7 +13,7 @@ import se.sics.gvod.timer.UUID;
  * Date: 7/10/13
  * Time: 1:51 PM
  */
-public class IndexResponseMessageFactory extends DirectMsgNettyFactory {
+public class IndexResponseMessageFactory extends DirectMsgNettyFactory.Response {
 
     private IndexResponseMessageFactory() {
     }

@@ -11,7 +11,7 @@ import se.sics.gvod.net.msgs.DirectMsg;
  * Date: 7/5/13
  * Time: 12:28 PM
  */
-public class AddIndexEntryRoutedMessageFactory extends DirectMsgNettyFactory {
+public class AddIndexEntryRoutedMessageFactory extends DirectMsgNettyFactory.Oneway {
     private AddIndexEntryRoutedMessageFactory() {
     }
 

@@ -14,7 +14,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/8/13
  * Time: 12:26 PM
  */
-public class RejectLeaderMessage extends DirectMsgNetty {
+public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
     private final VodAddress betterLeader;
 
     public RejectLeaderMessage(VodAddress source, VodAddress destination, VodAddress betterLeader) {

@@ -14,7 +14,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/2/13
  * Time: 12:32 PM
  */
-public class LeaderAnnouncementMessage extends DirectMsgNetty {
+public class LeaderAnnouncementMessage extends DirectMsgNetty.Oneway {
     private final VodAddress leader;
 
     /**
