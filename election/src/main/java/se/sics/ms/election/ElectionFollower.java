@@ -379,8 +379,10 @@ public class ElectionFollower extends ComponentDefinition {
      * Cancels the heart beat timeout
      */
     private void cancelTimeout() {
-        CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
-        trigger(ct, timerPort);
+        if (heartBeatTimeoutId != null) {
+            CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
+            trigger(ct, timerPort);
+        }
     }
 
     /**
