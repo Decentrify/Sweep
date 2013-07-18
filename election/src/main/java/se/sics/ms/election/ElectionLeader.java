@@ -1,7 +1,5 @@
 package se.sics.ms.election;
 
-import java.util.ArrayList;
-
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
@@ -11,8 +9,6 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.peersearch.messages.*;
-
 import se.sics.ms.gradient.BroadcastGradientPartnersPort;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.IndexRoutingPort;
@@ -22,6 +18,9 @@ import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
 import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.peersearch.messages.*;
+
+import java.util.ArrayList;
 
 /**
  * This component contains functions for how a node will find out if it is the
@@ -37,7 +36,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
-	private SynchronizedCounter yesVotes, totalVotes, electionCounter, convergedCounter,
+	private int yesVotes, totalVotes, electionCounter, convergedCounter,
 			indexMessageCounter;
 	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
 	private Self self;
@@ -117,12 +116,6 @@ public class ElectionLeader extends ComponentDefinition {
 
 			lowerNodes = new ArrayList<VodAddress>();
 			higherNodes = new ArrayList<VodAddress>();
-
-			yesVotes = new SynchronizedCounter();
-			totalVotes = new SynchronizedCounter();
-			electionCounter = new SynchronizedCounter();
-			convergedCounter = new SynchronizedCounter();
-			indexMessageCounter = new SynchronizedCounter();
 		}
 	};
 
@@ -169,24 +162,24 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(ElectionMessage.Response event) {
 			// Check if the vote comes from this batch of votes
-			if (electionCounter.getValue() == event.getVoteId()) {
-				totalVotes.incrementValue();
+			if (electionCounter == event.getVoteId()) {
+				totalVotes++;
 				if (event.isVote() == true) {
-					yesVotes.incrementValue();
+					yesVotes++;
 				} else {
 					// Rejected because there is a node above me
 				}
 				if (event.isConvereged() == true) {
-					convergedCounter.incrementValue();
+					convergedCounter++;
 				}
 			}
 
 			// Reject if there is a no-vote
-			if (totalVotes.getValue() != yesVotes.getValue()) {
+			if (totalVotes != yesVotes) {
 				rejected(event.getVodSource(), event.getHighest());
 			}
 			// Count the votes if if all votes have returned
-			else if (totalVotes.getValue() >= numberOfNodesAtVotingTime) {
+			else if (totalVotes >= numberOfNodesAtVotingTime) {
 				countVotes();
 			}
 		}
@@ -275,11 +268,11 @@ public class ElectionLeader extends ComponentDefinition {
 			// Make sure that only recent messages are checked
 			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
 				// Increase the counter and send the update to search
-				indexMessageCounter.incrementValue();
+				indexMessageCounter++;
 //				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
 
 				// When enough messages are received
-				if (indexMessageCounter.getValue() >= config
+				if (indexMessageCounter >= config
 						.getWaitForNoOfIndexMessages()) {
 					finishIndexMsgReading();
 				}
@@ -315,7 +308,7 @@ public class ElectionLeader extends ComponentDefinition {
 				// The electionCounter works as an ID for every time an election
 				// is held
 				// That way replies from old elections won't count
-				electionCounter.incrementValue();
+				electionCounter++;
 				sendVoteRequests();
 			}
 		}
@@ -328,7 +321,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private void finishIndexMsgReading() {
 		// Set leadership and disallow receival of new messages
 		allowingIndexMessages = false;
-		indexMessageCounter.setValue(0);
+		indexMessageCounter = 0;
 		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
 		// Cancels the timeout in case it is still going
@@ -348,12 +341,12 @@ public class ElectionLeader extends ComponentDefinition {
 		// they are above a certain ratio of the total number of nodes,
 		// then the leader candidate will be elected leader
 
-		if (yesVotes.getValue() == totalVotes.getValue()
+		if (yesVotes == totalVotes
 				&& higherNodes.size() == 0
 				&& lowerNodes.size() >= config.getMinSizeOfElectionGroup()
-				&& convergedCounter.getValue() >= config
+				&& convergedCounter >= config
 						.getMinNumberOfConvergedNodes()
-				&& ((float) yesVotes.getValue() >= Math.ceil((float) lowerNodes.size()
+				&& ((float) yesVotes >= Math.ceil((float) lowerNodes.size()
 						* config.getMinPercentageOfVotes()))) {
 
 			// if you won the election while you were already a leader for some
@@ -406,7 +399,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 		// Broadcasts the vote requests to the nodes in the view
 		for (VodAddress receiver : lowerNodes) {
-			vote = new ElectionMessage.Request(self.getAddress(), receiver, self.getId(), receiver.getId(), voteTimeout, electionCounter.getValue());
+			vote = new ElectionMessage.Request(self.getAddress(), receiver, self.getId(), receiver.getId(), voteTimeout, electionCounter);
 			trigger(vote, networkPort);
 		}
 
@@ -433,10 +426,10 @@ public class ElectionLeader extends ComponentDefinition {
 	private void variableCleanUp() {
 		electionInProgress = false;
 
-		electionCounter.incrementValue();
-		yesVotes = new SynchronizedCounter();
-		totalVotes = new SynchronizedCounter();
-		convergedCounter = new SynchronizedCounter();
+		electionCounter++;
+		yesVotes = 0;
+		totalVotes = 0;
+		convergedCounter = 0;
 
                 
 		CancelTimeout timeout = new CancelTimeout(voteTimeout);
