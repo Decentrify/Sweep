@@ -208,7 +208,7 @@ public class GradientView {
 
 		@Override
 		public int compare(VodAddress o1, VodAddress o2) {
-			assert (o1.getId() == o2.getId());
+			assert (o1.getId() != o2.getId());
 
 			if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
 				return 1;
@@ -231,7 +231,7 @@ public class GradientView {
 	 * @return the list of the closest nodes to self
 	 */
 	private List<VodAddress> getClosestNodes(int number) {
-		return getClosestNodes(self.getAddress(), number, closerComparator);
+		return getClosestNodes(number, closerComparator);
 	}
 
 	/**
@@ -244,23 +244,21 @@ public class GradientView {
 	 * @return the list of the closest nodes to the given address
 	 */
 	private List<VodAddress> getClosestNodes(VodAddress address, int number) {
-		return getClosestNodes(address, number, new Closer(address));
+		return getClosestNodes(number, new Closer(address));
 	}
 
 	/**
 	 * Get a sorted list of the nodes that are the closest to the given address.
-	 * 
-	 * @param address
-	 *            the address to compare with
+	 *
 	 * @param number
 	 *            the maximum number of nodes to return
 	 * @param c
 	 *            the comparator to use
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<VodAddress> getClosestNodes(VodAddress address, int number, Comparator<VodAddress> c) {
+	private List<VodAddress> getClosestNodes(int number, Comparator<VodAddress> c) {
 		ArrayList<VodAddress> addresses = getAll();
-		Collections.sort(addresses, new Closer(address));
+		Collections.sort(addresses, c);
 		return addresses.subList(0, number < addresses.size() ? number : addresses.size());
 	}
 }
