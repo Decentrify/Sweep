@@ -114,7 +114,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler receiving TMan view broadcasts, and sets its view accordingly
+     * A handler receiving gradient view broadcasts, and sets its view accordingly
      */
     Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
         @Override

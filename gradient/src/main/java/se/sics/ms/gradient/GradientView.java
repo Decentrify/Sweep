@@ -13,7 +13,7 @@ import se.sics.gvod.net.VodAddress;
 
 
 /**
- * Class representing the TMan view. It selects nodes according to the
+ * Class representing the gradient view. It selects nodes according to the
  * preference function for a given node and offers functions to find the optimal
  * exchange partners for a given node.
  */

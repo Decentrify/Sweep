@@ -2,13 +2,12 @@ package se.sics.ms.gradient;
 
 import java.util.Collection;
 
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.Event;
 
 /**
- * Superclass used for TMan components to exchange identifiers with each other.
+ * Superclass used for Gradient components to exchange identifiers with each other.
  */
 public abstract class GradientMessage extends Event {
 	private static final long serialVersionUID = 8493601671018888143L;
@@ -61,7 +60,7 @@ public abstract class GradientMessage extends Event {
 	/**
 	 * A request to exchange addresses.
 	 */
-	public static class TManRequest extends GradientMessage {
+	public static class GradientRequest extends GradientMessage {
 		private static final long serialVersionUID = -8763776600634619932L;
 
 		/**
@@ -74,16 +73,16 @@ public abstract class GradientMessage extends Event {
 		 * @param destination
 		 *            the message destination
 		 */
-		public TManRequest(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
-				VodAddress destination) {
+		public GradientRequest(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
+                               VodAddress destination) {
 			super(requestId, exchangeCollection, source, destination);
 		}
 	}
 
 	/**
-	 * A response to a {@link TManRequest}.
+	 * A response to a {@link se.sics.ms.gradient.GradientMessage.GradientRequest}.
 	 */
-	public static class TManResponse extends GradientMessage {
+	public static class GradientResponse extends GradientMessage {
 		private static final long serialVersionUID = -8094193425301016275L;
 
 		/**
@@ -96,8 +95,8 @@ public abstract class GradientMessage extends Event {
 		 * @param destination
 		 *            the message destination
 		 */
-		public TManResponse(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
-				VodAddress destination) {
+		public GradientResponse(UUID requestId, Collection<VodAddress> exchangeCollection, VodAddress source,
+                                VodAddress destination) {
 			super(requestId, exchangeCollection, source, destination);
 		}
 	}

@@ -105,12 +105,12 @@ public class Snapshot {
 	}
 
 	/**
-	 * Set the TMan view which was used when a node became the leader.s
+	 * Set the Gradient view which was used when a node became the leader.s
 	 * 
 	 * @param address
 	 *            the address of the peer
 	 * @param view
-	 *            the string representation of the TMan view
+	 *            the string representation of the Gradient view
 	 */
 	public static void setElectionView(VodAddress address, String view) {
 		PeerInfo peerInfo = peers.get(address.getPeerAddress());
@@ -123,12 +123,12 @@ public class Snapshot {
 	}
 
 	/**
-	 * Add a string representation of the nodes TMan view to the snapshot.
+	 * Add a string representation of the nodes Gradient view to the snapshot.
 	 * 
 	 * @param address
 	 *            the address of the peer
 	 * @param view
-	 *            the string representation of the TMan view
+	 *            the string representation of the Gradient view
 	 */
 	public static void setCurrentView(VodAddress address, String view) {
 		PeerInfo peerInfo = peers.get(address);
@@ -212,7 +212,7 @@ public class Snapshot {
             if(info == null) continue;
 			if (info.isLeader()) {
 				builder.append(p.getId());
-				builder.append(" is leader and its TMan view was: ");
+				builder.append(" is leader and its Gradient view was: ");
 				builder.append(info.getElectionView());
 				builder.append("\n");
 				builder.append("Its current view is: ");
@@ -334,7 +334,7 @@ public class Snapshot {
 		for (Address node : oldLeaders) {
 			PeerInfo peer = peers.get(node);
 			builder.append(node.getId());
-			builder.append(" was leader with TMan view: ");
+			builder.append(" was leader with Gradient view: ");
 			if (peer != null) {
 				builder.append(peer.getElectionView());
 			} else {

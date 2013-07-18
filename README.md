@@ -1,7 +1,7 @@
 
 id2210 Decentralized Search Project, vt 2013
 ===
-There are 4 main modules, cyclon, tman, search and election, as well as a common module.
+There are 4 main modules, gradient, search and election, as well as a common module.
 You can run experiments on the search module.
 
 Build instructions:
