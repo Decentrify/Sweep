@@ -77,7 +77,7 @@ public class LeaderStatusPort extends PortType {
 	}
 
 	/**
-	 * An event carrying a suggestion for the TMan view
+	 * An event carrying a suggestion for the Gradient view
 	 */
 	public static class NodeSuggestion extends Event {
 		private final VodAddress suggestion;

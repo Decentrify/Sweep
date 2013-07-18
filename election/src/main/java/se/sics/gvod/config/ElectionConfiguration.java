@@ -75,7 +75,7 @@ public class ElectionConfiguration
      *            The amount of time (ms) the new leader will wait for index
      *            messages to return
      * @param nodeSuggestion
-     *            Whether the leader election should suggest nodes to TMan in
+     *            Whether the leader election should suggest nodes to gradient in
      *            case the view only has nodes with lower utility values. True
      *            if node suggestion should be turned on
      */
