@@ -68,23 +68,23 @@ public class PeerInfo {
 	}
 
 	/**
-	 * @return a string representation of the TMan view used to become a leader
+	 * @return a string representation of the gradient view used to become a leader
 	 */
 	public synchronized String getElectionView() {
 		return electionView;
 	}
 
 	/**
-	 * @param tmanView
-	 *            a string representation of the TMan view used to become a
+	 * @param gradientView
+	 *            a string representation of the gradient view used to become a
 	 *            leader
 	 */
-	public synchronized void setElectionView(String tmanView) {
-		this.electionView = tmanView;
+	public synchronized void setElectionView(String gradientView) {
+		this.electionView = gradientView;
 	}
 
 	/**
-	 * @return a string representation of the peers current TMan view
+	 * @return a string representation of the peers current gradient view
 	 */
 	public synchronized String getCurrentView() {
 		return currentView;
@@ -92,7 +92,7 @@ public class PeerInfo {
 
 	/**
 	 * @param currentView
-	 *            a string representation of the peers current TMan view
+	 *            a string representation of the peers current gradient view
 	 */
 	public synchronized void setCurrentView(String currentView) {
 		this.currentView = currentView;

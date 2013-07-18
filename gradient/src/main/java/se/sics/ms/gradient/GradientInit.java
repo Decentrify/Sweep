@@ -5,7 +5,7 @@ import se.sics.gvod.config.GradientConfiguration;
 import se.sics.kompics.Init;
 
 /**
- * The init event for TMan.
+ * The init event for the gradient.
  */
 public final class GradientInit extends Init {
 	private final Self self;

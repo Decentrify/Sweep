@@ -160,7 +160,7 @@ public class IndexRoutingPort extends PortType {
 //    }
 //
 //    /**
-//     * Event sent from TMan to Search whenever a new leader wants to retrieve
+//     * Event sent from Gradient to Search whenever a new leader wants to retrieve
 //     * the highest index id from it's followers
 //     */
 //    public static class StartIndexRequestEvent extends IndexEvent {

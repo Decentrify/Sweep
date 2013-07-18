@@ -11,17 +11,17 @@ public final class SearchPeerInit extends Init {
     private final Self self;
 	private final CroupierConfiguration croupierConfiguration;
 	private final SearchConfiguration applicationConfiguration;
-	private final GradientConfiguration tManConfiguration;
+	private final GradientConfiguration gradientConfiguration;
 	private final ElectionConfiguration electionConfiguration;
 
 	public SearchPeerInit(Self self, 
                           CroupierConfiguration croupierConfiguration, SearchConfiguration applicationConfiguration,
-			GradientConfiguration tManConfiguration, ElectionConfiguration electionConfiguration) {
+			GradientConfiguration gradientConfiguration, ElectionConfiguration electionConfiguration) {
 		super();
 		this.self = self;
 		this.croupierConfiguration = croupierConfiguration;
 		this.applicationConfiguration = applicationConfiguration;
-		this.tManConfiguration = tManConfiguration;
+		this.gradientConfiguration = gradientConfiguration;
 		this.electionConfiguration = electionConfiguration;
 	}
 
@@ -38,7 +38,7 @@ public final class SearchPeerInit extends Init {
 	}
 
 	public GradientConfiguration getGradientConfiguration() {
-		return this.tManConfiguration;
+		return this.gradientConfiguration;
 	}
 	
 	public ElectionConfiguration getElectionConfiguration() {

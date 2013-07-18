@@ -45,27 +45,27 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     Negative<Web> webPort = negative(Web.class);
-    private Component croupier, tman, search, electionLeader, electionFollower, natTraversal;
+    private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
 
     public SearchPeer() {
         natTraversal = create(NatTraverser.class);
         croupier = create(Croupier.class);
-        tman = create(Gradient.class);
+        gradient = create(Gradient.class);
         search = create(Search.class);
         electionLeader = create(ElectionLeader.class);
         electionFollower = create(ElectionFollower.class);
 
 //		connect(network, search.getNegative(VodNetwork.class));
 //		connect(network, croupier.getNegative(VodNetwork.class));
-//		connect(network, tman.getNegative(VodNetwork.class));
+//		connect(network, gradient.getNegative(VodNetwork.class));
 //		connect(network, electionLeader.getNegative(VodNetwork.class));
 //		connect(network, electionFollower.getNegative(VodNetwork.class));
         connect(network, natTraversal.getNegative(VodNetwork.class));
 
         connect(natTraversal.getPositive(VodNetwork.class),
-                tman.getNegative(VodNetwork.class));
+                gradient.getNegative(VodNetwork.class));
         connect(natTraversal.getPositive(VodNetwork.class),
                 croupier.getNegative(VodNetwork.class));
         connect(natTraversal.getPositive(VodNetwork.class),
@@ -78,7 +78,7 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, natTraversal.getNegative(Timer.class));
         connect(timer, search.getNegative(Timer.class));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(timer, tman.getNegative(Timer.class));
+        connect(timer, gradient.getNegative(Timer.class));
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(timer, electionFollower.getNegative(Timer.class));
 
@@ -86,20 +86,20 @@ public final class SearchPeer extends ComponentDefinition {
         connect(croupier.getPositive(PeerSamplePort.class),
                 search.getNegative(PeerSamplePort.class));
         connect(croupier.getPositive(PeerSamplePort.class),
-                tman.getNegative(PeerSamplePort.class));
+                gradient.getNegative(PeerSamplePort.class));
         connect(indexPort, search.getNegative(IndexPort.class));
-        connect(tman.getPositive(RoutedEventsPort.class),
+        connect(gradient.getPositive(RoutedEventsPort.class),
                 search.getNegative(RoutedEventsPort.class));
-        connect(tman.getNegative(BroadcastGradientPartnersPort.class),
+        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
                 electionLeader.getPositive(BroadcastGradientPartnersPort.class));
-        connect(tman.getNegative(BroadcastGradientPartnersPort.class),
+        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
                 electionFollower.getPositive(BroadcastGradientPartnersPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
-                tman.getPositive(LeaderStatusPort.class));
+                gradient.getPositive(LeaderStatusPort.class));
         connect(electionFollower.getNegative(LeaderStatusPort.class),
-                tman.getPositive(LeaderStatusPort.class));
+                gradient.getPositive(LeaderStatusPort.class));
         connect(search.getNegative(IndexRoutingPort.class),
-                tman.getPositive(IndexRoutingPort.class));
+                gradient.getPositive(IndexRoutingPort.class));
         connect(search.getNegative(IndexRoutingPort.class),
                 electionLeader.getPositive(IndexRoutingPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
@@ -112,13 +112,13 @@ public final class SearchPeer extends ComponentDefinition {
         public void handle(final SearchPeerInit init) {
             self = init.getSelf();
             CroupierConfiguration croupierConfiguration = init.getCroupierConfiguration();
-            GradientConfiguration tmanConfiguration = init.getGradientConfiguration();
+            GradientConfiguration gradientConfiguration = init.getGradientConfiguration();
             ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
             searchConfiguration = init.getSearchConfiguration();
 
             trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
             trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
-            trigger(new GradientInit(self, tmanConfiguration), tman.getControl());
+            trigger(new GradientInit(self, gradientConfiguration), gradient.getControl());
             trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
             trigger(new NatTraverserInit(self, new HashSet<Address>(), croupierConfiguration.getSeed(), NatTraverserConfiguration.build(),
                     HpClientConfiguration.build(),

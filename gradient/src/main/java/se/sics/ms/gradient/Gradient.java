@@ -23,13 +23,12 @@ import se.sics.ms.gradient.LeaderRequest.GapCheck;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
-import se.sics.ms.gradient.GradientMessage.TManRequest;
 import se.sics.ms.peer.RequestTimeout;
 
 
 /**
  * Component creating a gradient network from Cyclon samples according to a
- * preference function using the TMan framework.
+ * preference function.
  */
 public final class Gradient extends ComponentDefinition {
 
@@ -37,7 +36,7 @@ public final class Gradient extends ComponentDefinition {
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Negative<RoutedEventsPort> routedEventsPort = negative(RoutedEventsPort.class);
-    Positive<BroadcastGradientPartnersPort> broadcastTmanPartnersPort = positive(BroadcastGradientPartnersPort.class);
+    Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
     private Self self;
@@ -62,8 +61,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleRound, timerPort);
         subscribe(handleRequestTimeout, timerPort);
         subscribe(handleCroupierSample, croupierSamplePort);
-        subscribe(handleTManResponse, networkPort);
-        subscribe(handleTManRequest, networkPort);
+        subscribe(handleGradientResponse, networkPort);
+        subscribe(handleGradientRequest, networkPort);
         subscribe(handleAddIndexEntryRequest, routedEventsPort);
         subscribe(handleRoutedMessage, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
@@ -122,10 +121,10 @@ public final class Gradient extends ComponentDefinition {
         }
     };
     /**
-     * Answer a {@link TManRequest} with the nodes from the view preferred by
+     * Answer a {@link se.sics.ms.gradient.GradientMessage.GradientRequest} with the nodes from the view preferred by
      * the inquirer.
      */
-    Handler<GradientShuffleMessage.Request> handleTManRequest = new Handler<GradientShuffleMessage.Request>() {
+    Handler<GradientShuffleMessage.Request> handleGradientRequest = new Handler<GradientShuffleMessage.Request>() {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
             VodAddress exchangePartner = event.getVodSource();
@@ -144,7 +143,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Merge the entries from the response to the view.
      */
-    Handler<GradientShuffleMessage.Response> handleTManResponse = new Handler<GradientShuffleMessage.Response>() {
+    Handler<GradientShuffleMessage.Response> handleGradientResponse = new Handler<GradientShuffleMessage.Response>() {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
             // cancel shuffle timeout
@@ -169,7 +168,7 @@ public final class Gradient extends ComponentDefinition {
         }
     };
     /**
-     * Updates TMan's view by removing crashed nodes from it, eg. old leaders
+     * Updates gradient's view by removing crashed nodes from it, eg. old leaders
      */
     Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
@@ -246,14 +245,14 @@ public final class Gradient extends ComponentDefinition {
 //        public void handle(IndexEvent event) {
 //
 //            if (event.getClass().equals(IndexRoutingPort.StartIndexRequestEvent.class)) {
-//                for (VodAddress addr : tmanView.getLowerNodes()) {
+//                for (VodAddress addr : gradientView.getLowerNodes()) {
 //                    StartIndexRequestMessage message = new StartIndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.StartIndexRequestEvent) event).getMessageID());
 //                    trigger(message, networkPort);
 //                }
 //                return;
 //            }
 //            if (event.getClass().equals(IndexRoutingPort.IndexRequestEvent.class)) {
-//                for (VodAddress addr : tmanView.getLowerNodes()) {
+//                for (VodAddress addr : gradientView.getLowerNodes()) {
 //                    IndexRequestMessage message = new IndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.IndexRequestEvent) event).getMessageId(),
 //                            ((IndexRoutingPort.IndexRequestEvent) event).getIndex(), ((IndexRoutingPort.IndexRequestEvent) event).getLeaderAddress());
 //                    trigger(message, networkPort);
@@ -261,7 +260,7 @@ public final class Gradient extends ComponentDefinition {
 //                return;
 //            }
 //            if (event.getClass().equals(IndexRoutingPort.IndexDisseminationEvent.class)) {
-//                for (VodAddress addr : tmanView.getLowerNodes()) {
+//                for (VodAddress addr : gradientView.getLowerNodes()) {
 //                    IndexDisseminationMessage message = new IndexDisseminationMessage(self.getAddress(), addr,
 //                            ((IndexRoutingPort.IndexRequestEvent) event).getIndex());
 //                    trigger(message, networkPort);
@@ -362,7 +361,7 @@ public final class Gradient extends ComponentDefinition {
      */
     private void broadcastView() {
         trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
-                gradientView.getLowerNodes()), broadcastTmanPartnersPort);
+                gradientView.getLowerNodes()), broadcastGradientPartnersPort);
     }
 
     // If you call this method with a list of entries, it will
