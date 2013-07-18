@@ -20,7 +20,7 @@ public class MsConfig extends VodConfig {
     public static final int ELECTION_VOTE_REQUEST_TIMEOUT = 20 * 1000;
     public static final int ELECTION_HEARTBEAT_WAIT_TIMEOUT = 10 * 1000;
     public static final int ELECTION_HEARTBEAT_TIMEOUTDELAY = 5 * 1000;
-    ;
+
     public static final int ELECTION_MIN_SIZE_ELECTIONGROUP = 3;
     public static final double ELECTION_MIN_PERCENTAGE_VOTES = .5d;
     public static final int ELECTION_WAIT_FOR_NO_INDEX_MESSAGES = 10 * 1000;

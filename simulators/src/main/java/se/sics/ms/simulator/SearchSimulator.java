@@ -229,7 +229,7 @@ public final class SearchSimulator extends ComponentDefinition {
             try {
                 ip = InetAddress.getLocalHost();
             } catch (UnknownHostException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             }
         Address address = new Address(ip, 9999, (int) id);
 
