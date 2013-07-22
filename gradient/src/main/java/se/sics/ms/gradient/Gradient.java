@@ -61,8 +61,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleRound, timerPort);
         subscribe(handleRequestTimeout, timerPort);
         subscribe(handleCroupierSample, croupierSamplePort);
-        subscribe(handleGradientResponse, networkPort);
-        subscribe(handleGradientRequest, networkPort);
+        subscribe(handleShuffleResponse, networkPort);
+        subscribe(handleShuffleRequest, networkPort);
         subscribe(handleAddIndexEntryRequest, routedEventsPort);
         subscribe(handleRoutedMessage, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
@@ -124,16 +124,26 @@ public final class Gradient extends ComponentDefinition {
      * Answer a {@link se.sics.ms.gradient.GradientMessage.GradientRequest} with the nodes from the view preferred by
      * the inquirer.
      */
-    Handler<GradientShuffleMessage.Request> handleGradientRequest = new Handler<GradientShuffleMessage.Request>() {
+    Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
+            System.out.println(self.getAddress().toString() + " got ShuffleRequest from " + event.getVodSource().toString());
+
             VodAddress exchangePartner = event.getVodSource();
-            Collection<VodAddress> sets = gradientView.getExchangeNodes(exchangePartner,
+            Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
                     config.getShuffleLength());
 
-            VodAddress[] exchangeSets = sets.toArray(new VodAddress[sets.size()]);
+            VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
 
-            GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeSets);
+            StringBuilder builder = new StringBuilder();
+            builder.append(self.getAddress().toString() + " sending ShuffleResponse to " + exchangePartner.toString() + "\n");
+            builder.append("Content: \n");
+            for (VodAddress a : exchangeNodes) {
+                builder.append(a.toString() + "\n");
+            }
+            System.out.println(builder.toString());
+
+            GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeNodes);
             trigger(rResponse, networkPort);
 
             gradientView.merge(event.getAddresses());
@@ -143,9 +153,11 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Merge the entries from the response to the view.
      */
-    Handler<GradientShuffleMessage.Response> handleGradientResponse = new Handler<GradientShuffleMessage.Response>() {
+    Handler<GradientShuffleMessage.Response> handleShuffleResponse = new Handler<GradientShuffleMessage.Response>() {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
+            System.out.println(self.getAddress().toString() + " got ShuffleResponse from " + event.getVodSource().toString());
+
             // cancel shuffle timeout
             UUID shuffleId = (UUID) event.getTimeoutId();
             if (outstandingShuffles.containsKey(shuffleId)) {
@@ -318,7 +330,7 @@ public final class Gradient extends ComponentDefinition {
         Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
                 config.getShuffleLength());
 
-        VodAddress[] exchangeSets = exchange.toArray(new VodAddress[exchange.size()]);
+        VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
         rst.setTimeoutEvent(new RequestTimeout(rst));
@@ -326,7 +338,15 @@ public final class Gradient extends ComponentDefinition {
 
         outstandingShuffles.put(rTimeoutId, exchangePartner);
 
-        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeSets);
+        StringBuilder builder = new StringBuilder();
+        builder.append(self.getAddress().toString() + " sending ShuffleRequest to " + exchangePartner.toString() + "\n");
+        builder.append("Content: \n");
+        for (VodAddress a : exchangeNodes) {
+            builder.append(a.toString() + "\n");
+        }
+        System.out.println(builder.toString());
+
+        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeNodes);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
@@ -405,7 +425,7 @@ public final class Gradient extends ComponentDefinition {
 
         @Override
         public int compare(VodAddress o1, VodAddress o2) {
-            assert (o1.getId() == o2.getId());
+            assert (o1.getOverlayId() == o2.getOverlayId());
 
             if (o1.getId() > o2.getId()) {
                 return 1;

@@ -51,6 +51,12 @@ public class GradientView {
 	 *            the node to be added
 	 */
 	public void add(VodAddress address) {
+        if (address.equals(self.getAddress())) {
+            // TODO user logger
+            System.out.println(self.getAddress().toString() + " tried adding self to GradientView");
+            return;
+        }
+
 		entries.put(address, new VodDescriptor(address));
 
 		if (entries.size() > size) {
@@ -121,8 +127,21 @@ public class GradientView {
 	public Collection<VodAddress> getExchangeNodes(VodAddress address, int number) {
 		List<VodAddress> list = getClosestNodes(address, number);
 		list.add(self.getAddress());
+        list.remove(address);
 		Collections.sort(list, new Closer(address));
-		list.remove(address);
+        try {
+            assert !list.contains(address);
+        } catch (AssertionError e) {
+            StringBuilder builder = new StringBuilder();
+            builder.append(self.getAddress().toString() + " should not include address of the exchange partner " + address.toString());
+            builder.append("\n exchange list content:");
+            for (VodAddress a : list) {
+                builder.append("\n" + a.toString());
+            }
+            AssertionError error = new AssertionError(builder);
+            error.setStackTrace(e.getStackTrace());
+            throw error;
+        }
 		return list.subList(0, number < list.size() ? number : list.size());
 	}
 
@@ -208,9 +227,25 @@ public class GradientView {
 
 		@Override
 		public int compare(VodAddress o1, VodAddress o2) {
-			assert (o1.getId() != o2.getId());
+			try {
+                assert o1.getId() != o2.getId();
+            } catch (AssertionError e) {
+                StringBuilder builder = new StringBuilder();
+                builder.append(self.getAddress().toString() + " duplicated view entries are forbidden\n");
+                builder.append("View content:");
+                for (VodAddress a : getAll()) {
+                    builder.append("\n" + a.toString());
+                }
+                AssertionError error = new AssertionError(builder);
+                error.setStackTrace(e.getStackTrace());
+                throw error;
+            }
 
-			if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
+            if (o1.getId() == base.getId()) {
+                return 1;
+            } else if (o2.getId() == base.getId()) {
+                return -1;
+            } else if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
 				return 1;
 			} else if (o1.getId() < base.getId() && o2.getId() < base.getId()
 					&& o1.getId() > o2.getId()) {

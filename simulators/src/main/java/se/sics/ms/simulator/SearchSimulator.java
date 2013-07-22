@@ -231,7 +231,7 @@ public final class SearchSimulator extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-        Address address = new Address(ip, 9999, (int) id);
+        Address address = new Address(ip, (int) (9999 + id), (int) id);
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
