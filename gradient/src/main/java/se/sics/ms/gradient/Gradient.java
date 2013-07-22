@@ -103,6 +103,8 @@ public final class Gradient extends ComponentDefinition {
             if (!gradientView.isEmpty()) {
                 initiateShuffle(gradientView.selectPeerToShuffleWith());
             }
+
+            System.out.println("View of node " + self.getId() + ": " + gradientView.toString() + " converged? " + gradientView.isConverged());
         }
     };
     /**

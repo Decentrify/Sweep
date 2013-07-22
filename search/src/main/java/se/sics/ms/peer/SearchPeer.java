@@ -142,7 +142,7 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, 1);
+            Address peerAddress = new Address(ip, 9999, 0);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
