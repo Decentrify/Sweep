@@ -14,29 +14,21 @@ import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
-import se.sics.kompics.Component;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
+import se.sics.kompics.*;
 import se.sics.kompics.web.Web;
+import se.sics.ms.election.ElectionFollower;
+import se.sics.ms.election.ElectionInit;
+import se.sics.ms.election.ElectionLeader;
+import se.sics.ms.gradient.*;
 import se.sics.ms.search.Search;
 import se.sics.ms.search.SearchInit;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort;
-import se.sics.ms.gradient.IndexRoutingPort;
-import se.sics.ms.gradient.LeaderStatusPort;
-import se.sics.ms.gradient.RoutedEventsPort;
-import se.sics.ms.gradient.Gradient;
-import se.sics.ms.gradient.GradientInit;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import se.sics.ms.election.ElectionFollower;
-import se.sics.ms.election.ElectionInit;
-import se.sics.ms.election.ElectionLeader;
+import java.util.Random;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -48,6 +40,7 @@ public final class SearchPeer extends ComponentDefinition {
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
+    private Random ran;
 
     public SearchPeer() {
         natTraversal = create(NatTraverser.class);
@@ -115,6 +108,7 @@ public final class SearchPeer extends ComponentDefinition {
             GradientConfiguration gradientConfiguration = init.getGradientConfiguration();
             ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
             searchConfiguration = init.getSearchConfiguration();
+            ran = new Random(init.getSearchConfiguration().getSeed());
 
             trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
             trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
@@ -142,7 +136,7 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, 0);
+            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
