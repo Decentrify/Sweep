@@ -103,13 +103,13 @@ public class GradientView {
 		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 
-        StringBuilder builder = new StringBuilder();
-        builder.append(self.getId() + " merges: ");
+//        StringBuilder builder = new StringBuilder();
+//        builder.append(self.getId() + " merges: ");
 		for (VodAddress address : addresses) {
-            builder.append("\n" + address.toString());
+//            builder.append("\n" + address.toString());
 			add(address);
 		}
-        System.out.println(builder);
+//        System.out.println(builder);
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
