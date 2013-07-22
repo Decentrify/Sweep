@@ -1,50 +1,34 @@
 package se.sics.ms.simulator;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.Random;
-
-import javax.xml.parsers.ParserConfigurationException;
-
 import org.xml.sax.SAXException;
-
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
-import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.config.*;
+import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.AsIpGenerator;
-import se.sics.kompics.Component;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
-import se.sics.kompics.Start;
-import se.sics.kompics.Stop;
+import se.sics.kompics.*;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
-import se.sics.gvod.config.Configuration;
-import se.sics.gvod.config.ElectionConfiguration;
-import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.config.SearchConfiguration;
-import se.sics.peersearch.types.IndexEntry;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.peer.SearchPeer;
 import se.sics.ms.peer.SearchPeerInit;
-import se.sics.ms.simulation.AddIndexEntry;
-import se.sics.ms.simulation.AddMagnetEntry;
-import se.sics.ms.simulation.ConsistentHashtable;
-import se.sics.ms.simulation.GenerateReport;
-import se.sics.ms.simulation.PeerFail;
-import se.sics.ms.simulation.PeerJoin;
+import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.peersearch.types.IndexEntry;
+
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Random;
 
 public final class SearchSimulator extends ComponentDefinition {
 
@@ -231,12 +215,11 @@ public final class SearchSimulator extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-        Address address = new Address(ip, (int) (9999 + id), (int) id);
+        Address address = new Address(ip, 9999, (int) id);
 
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
-        //connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
-        connect(network, peer.getNegative(VodNetwork.class));
+        connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class));
         subscribe(handleWebResponse, peer.getPositive(Web.class));
 

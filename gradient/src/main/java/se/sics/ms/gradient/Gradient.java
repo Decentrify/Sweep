@@ -127,7 +127,7 @@ public final class Gradient extends ComponentDefinition {
     Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
-            System.out.println(self.getAddress().toString() + " got ShuffleRequest from " + event.getVodSource().toString());
+//            System.out.println(self.getAddress().toString() + " got ShuffleRequest from " + event.getVodSource().toString());
 
             VodAddress exchangePartner = event.getVodSource();
             Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
@@ -135,13 +135,13 @@ public final class Gradient extends ComponentDefinition {
 
             VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
 
-            StringBuilder builder = new StringBuilder();
-            builder.append(self.getAddress().toString() + " sending ShuffleResponse to " + exchangePartner.toString() + "\n");
-            builder.append("Content: \n");
-            for (VodAddress a : exchangeNodes) {
-                builder.append(a.toString() + "\n");
-            }
-            System.out.println(builder.toString());
+//            StringBuilder builder = new StringBuilder();
+//            builder.append(self.getAddress().toString() + " sending ShuffleResponse to " + exchangePartner.toString() + "\n");
+//            builder.append("Content: \n");
+//            for (VodAddress a : exchangeNodes) {
+//                builder.append(a.toString() + "\n");
+//            }
+//            System.out.println(builder.toString());
 
             GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeNodes);
             trigger(rResponse, networkPort);
@@ -156,7 +156,7 @@ public final class Gradient extends ComponentDefinition {
     Handler<GradientShuffleMessage.Response> handleShuffleResponse = new Handler<GradientShuffleMessage.Response>() {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
-            System.out.println(self.getAddress().toString() + " got ShuffleResponse from " + event.getVodSource().toString());
+//            System.out.println(self.getAddress().toString() + " got ShuffleResponse from " + event.getVodSource().toString());
 
             // cancel shuffle timeout
             UUID shuffleId = (UUID) event.getTimeoutId();
@@ -338,13 +338,13 @@ public final class Gradient extends ComponentDefinition {
 
         outstandingShuffles.put(rTimeoutId, exchangePartner);
 
-        StringBuilder builder = new StringBuilder();
-        builder.append(self.getAddress().toString() + " sending ShuffleRequest to " + exchangePartner.toString() + "\n");
-        builder.append("Content: \n");
-        for (VodAddress a : exchangeNodes) {
-            builder.append(a.toString() + "\n");
-        }
-        System.out.println(builder.toString());
+//        StringBuilder builder = new StringBuilder();
+//        builder.append(self.getAddress().toString() + " sending ShuffleRequest to " + exchangePartner.toString() + "\n");
+//        builder.append("Content: \n");
+//        for (VodAddress a : exchangeNodes) {
+//            builder.append(a.toString() + "\n");
+//        }
+//        System.out.println(builder.toString());
 
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeNodes);
 

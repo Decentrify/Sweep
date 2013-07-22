@@ -140,15 +140,13 @@ public final class SearchPeer extends ComponentDefinition {
             try {
                 ip = InetAddress.getLocalHost();
             } catch (UnknownHostException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             }
             Address peerAddress = new Address(ip, 9999, 1);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
             descs.add(0, descr);
-
-
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
             trigger(new SearchInit(self, searchConfiguration), search.getControl());
