@@ -7,7 +7,7 @@ import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
 /**
- * This class is a port created for the purpose of broadcasting TMan's view
+ * This class is a port created for the purpose of broadcasting gradient's view
  */
 public class BroadcastGradientPartnersPort extends PortType {
 	{

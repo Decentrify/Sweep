@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -18,11 +19,11 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 12:18 PM
  */
 public class ElectionMessage {
-    public static class Request extends RelayMsgNetty.Request {
+    public static class Request extends DirectMsgNetty.Request {
         private final int voteID;
 
-        public Request(VodAddress source, VodAddress destination, int clientId, int remoteId, TimeoutId timeoutId, int voteID) {
-            super(source, destination, clientId, remoteId, timeoutId);
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID) {
+            super(source, destination, timeoutId);
             this.voteID = voteID;
         }
 
@@ -32,12 +33,12 @@ public class ElectionMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, clientId, remoteId, timeoutId, voteID);
+            return new Request(vodSrc, vodDest, timeoutId, voteID);
         }
 
         @Override
         public int getSize() {
-            return super.getSize();
+            return super.getHeaderSize();
         }
 
         @Override
@@ -53,16 +54,16 @@ public class ElectionMessage {
         }
     }
 
-    public static class Response extends RelayMsgNetty.Response {
+    public static class Response extends DirectMsgNetty.Response {
         private final int voteId;
         private final boolean isConvereged;
         private final boolean vote;
         private final VodAddress highest;
 
-        public Response(VodAddress source, VodAddress destination, int clientId, int remoteId, VodAddress nextDest, TimeoutId timeoutId, RelayMsgNetty.Status status, int voteId, boolean convereged, boolean vote, VodAddress highest) {
-            super(source, destination, clientId, remoteId, nextDest, timeoutId, status);
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteId, boolean converged, boolean vote, VodAddress highest) {
+            super(source, destination, timeoutId);
             this.voteId = voteId;
-            isConvereged = convereged;
+            isConvereged = converged;
             this.vote = vote;
             this.highest = highest;
         }
@@ -85,7 +86,7 @@ public class ElectionMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, clientId, remoteId, nextDest, timeoutId, getStatus(), voteId, isConvereged, vote, highest);
+            return new Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
 
         @Override
@@ -105,7 +106,7 @@ public class ElectionMessage {
 
         @Override
         public int getSize() {
-            return super.getSize();
+            return super.getHeaderSize();
         }
     }
 

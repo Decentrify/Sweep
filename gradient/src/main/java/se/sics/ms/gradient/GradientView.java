@@ -13,7 +13,7 @@ import se.sics.gvod.net.VodAddress;
 
 
 /**
- * Class representing the TMan view. It selects nodes according to the
+ * Class representing the gradient view. It selects nodes according to the
  * preference function for a given node and offers functions to find the optimal
  * exchange partners for a given node.
  */
@@ -51,6 +51,12 @@ public class GradientView {
 	 *            the node to be added
 	 */
 	public void add(VodAddress address) {
+        if (address.equals(self.getAddress())) {
+            // TODO user logger
+            System.out.println(self.getAddress().toString() + " tried adding self to GradientView");
+            return;
+        }
+
 		entries.put(address, new VodDescriptor(address));
 
 		if (entries.size() > size) {
@@ -97,9 +103,13 @@ public class GradientView {
 		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 
+//        StringBuilder builder = new StringBuilder();
+//        builder.append(self.getId() + " merges: ");
 		for (VodAddress address : addresses) {
+//            builder.append("\n" + address.toString());
 			add(address);
 		}
+//        System.out.println(builder);
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
@@ -121,8 +131,21 @@ public class GradientView {
 	public Collection<VodAddress> getExchangeNodes(VodAddress address, int number) {
 		List<VodAddress> list = getClosestNodes(address, number);
 		list.add(self.getAddress());
+        list.remove(address);
 		Collections.sort(list, new Closer(address));
-		list.remove(address);
+        try {
+            assert !list.contains(address);
+        } catch (AssertionError e) {
+            StringBuilder builder = new StringBuilder();
+            builder.append(self.getAddress().toString() + " should not include address of the exchange partner " + address.toString());
+            builder.append("\n exchange list content:");
+            for (VodAddress a : list) {
+                builder.append("\n" + a.toString());
+            }
+            AssertionError error = new AssertionError(builder);
+            error.setStackTrace(e.getStackTrace());
+            throw error;
+        }
 		return list.subList(0, number < list.size() ? number : list.size());
 	}
 
@@ -208,9 +231,25 @@ public class GradientView {
 
 		@Override
 		public int compare(VodAddress o1, VodAddress o2) {
-			assert (o1.getId() == o2.getId());
+			try {
+                assert o1.getId() != o2.getId();
+            } catch (AssertionError e) {
+                StringBuilder builder = new StringBuilder();
+                builder.append(self.getAddress().toString() + " duplicated view entries are forbidden\n");
+                builder.append("View content:");
+                for (VodAddress a : getAll()) {
+                    builder.append("\n" + a.toString());
+                }
+                AssertionError error = new AssertionError(builder);
+                error.setStackTrace(e.getStackTrace());
+                throw error;
+            }
 
-			if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
+            if (o1.getId() == base.getId()) {
+                return 1;
+            } else if (o2.getId() == base.getId()) {
+                return -1;
+            } else if (o1.getId() < base.getId() && o2.getId() > base.getId()) {
 				return 1;
 			} else if (o1.getId() < base.getId() && o2.getId() < base.getId()
 					&& o1.getId() > o2.getId()) {
@@ -231,7 +270,7 @@ public class GradientView {
 	 * @return the list of the closest nodes to self
 	 */
 	private List<VodAddress> getClosestNodes(int number) {
-		return getClosestNodes(self.getAddress(), number, closerComparator);
+		return getClosestNodes(number, closerComparator);
 	}
 
 	/**
@@ -244,23 +283,21 @@ public class GradientView {
 	 * @return the list of the closest nodes to the given address
 	 */
 	private List<VodAddress> getClosestNodes(VodAddress address, int number) {
-		return getClosestNodes(address, number, new Closer(address));
+		return getClosestNodes(number, new Closer(address));
 	}
 
 	/**
 	 * Get a sorted list of the nodes that are the closest to the given address.
-	 * 
-	 * @param address
-	 *            the address to compare with
+	 *
 	 * @param number
 	 *            the maximum number of nodes to return
 	 * @param c
 	 *            the comparator to use
 	 * @return the list of the closest nodes to the given address
 	 */
-	private List<VodAddress> getClosestNodes(VodAddress address, int number, Comparator<VodAddress> c) {
+	private List<VodAddress> getClosestNodes(int number, Comparator<VodAddress> c) {
 		ArrayList<VodAddress> addresses = getAll();
-		Collections.sort(addresses, new Closer(address));
+		Collections.sort(addresses, c);
 		return addresses.subList(0, number < addresses.size() ? number : addresses.size());
 	}
 }

@@ -12,11 +12,11 @@ public final class SimulatorInit extends Init {
 	private final SearchConfiguration searchConfiguration;
 	private final ElectionConfiguration electionConfiguration;
 
-	public SimulatorInit(CroupierConfiguration croupierConfiguration, GradientConfiguration tmanConfiguration,
+	public SimulatorInit(CroupierConfiguration croupierConfiguration, GradientConfiguration gradientConfiguration,
 			SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration) {
 		super();
 		this.croupierConfiguration = croupierConfiguration;
-		this.gradientConfiguration = tmanConfiguration;
+		this.gradientConfiguration = gradientConfiguration;
 		this.searchConfiguration = aggregationConfiguration;
 		this.electionConfiguration = electionConfiguration;
 	}

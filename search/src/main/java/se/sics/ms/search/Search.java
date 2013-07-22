@@ -77,7 +77,7 @@ import se.sics.ms.snapshot.Snapshot;
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
- * or not, although it doesn't know about the leader status. {@link TMan} knows
+ * or not, although it doesn't know about the leader status. {@link Gradient} knows
  * about the leader status and only forwards according messages to this
  * component in case the local node is elected leader.
  * 

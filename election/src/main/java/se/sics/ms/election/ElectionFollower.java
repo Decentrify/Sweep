@@ -40,11 +40,11 @@ public class ElectionFollower extends ComponentDefinition {
     private ArrayList<VodAddress> leaderView, higherNodes, lowerNodes;
     private boolean leaderIsAlive, isConverged;
     private UUID heartBeatTimeoutId, deathVoteTimeout;
-    private SynchronizedCounter aliveCounter, deathMessageCounter;
+    private int aliveCounter, deathMessageCounter;
 
     /**
      * A customised timeout class used to determine how long a node should wait
-     * for other nodes to reply to leader death messagew
+     * for other nodes to reply to leader death message
      */
     public class DeathTimeout extends Timeout {
 
@@ -61,7 +61,6 @@ public class ElectionFollower extends ComponentDefinition {
      * Default constructor that subscribes certain handlers to ports
      */
     public ElectionFollower() {
-
         subscribe(handleInit, control);
         subscribe(handleDeathTimeout, timerPort);
         subscribe(handleLeaderDeath, networkPort);
@@ -88,9 +87,6 @@ public class ElectionFollower extends ComponentDefinition {
             leaderView = null;
             lowerNodes = null;
             higherNodes = null;
-
-            aliveCounter = new SynchronizedCounter();
-            deathMessageCounter = new SynchronizedCounter();
         }
     };
     /**
@@ -99,7 +95,7 @@ public class ElectionFollower extends ComponentDefinition {
      */
     Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
         @Override
-        public synchronized void handle(ElectionMessage.Request event) {
+        public void handle(ElectionMessage.Request event) {
             boolean candidateAccepted = true;
             VodAddress highestNode = findHighestNodeInView();
 
@@ -111,14 +107,13 @@ public class ElectionFollower extends ComponentDefinition {
                 highestNode = event.getVodSource();
             }
 
-            ElectionMessage.Response response = new ElectionMessage.Response(self.getAddress(), event.getVodSource(), self.getId(),
-                    event.getVodSource().getId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, event.getVoteID(), isConverged, candidateAccepted, highestNode);
+            ElectionMessage.Response response = new ElectionMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getVoteID(), isConverged, candidateAccepted, highestNode);
 
             trigger(response, networkPort);
         }
     };
     /**
-     * A handler receiving TMan view broadcasts, and sets its view accordingly
+     * A handler receiving gradient view broadcasts, and sets its view accordingly
      */
     Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
         @Override
@@ -273,12 +268,12 @@ public class ElectionFollower extends ComponentDefinition {
                 return;
             }
 
-            deathMessageCounter.incrementValue();
+            deathMessageCounter++;
             if (event.isSuspected() == true) {
-                aliveCounter.incrementValue();
+                aliveCounter++;
             }
 
-            if (leaderView != null && deathMessageCounter.getValue() == leaderView.size()) {
+            if (leaderView != null && deathMessageCounter == leaderView.size()) {
                 evaluateDeathResponses();
             }
         }
@@ -333,9 +328,9 @@ public class ElectionFollower extends ComponentDefinition {
         // The leader is considered dead
         if (leader != null
                 && leaderView != null
-                && deathMessageCounter.getValue() >= leaderView.size()
+                && deathMessageCounter >= leaderView.size()
                 * config.getDeathVoteMajorityPercentage()
-                && aliveCounter.getValue() < Math.ceil((float) leaderView.size()
+                && aliveCounter < Math.ceil((float) leaderView.size()
                 * config.getLeaderDeathMajorityPercentage())) {
 
             for (VodAddress addr : leaderView) {
@@ -353,8 +348,8 @@ public class ElectionFollower extends ComponentDefinition {
             triggerTimeout(null);
         }
 
-        deathMessageCounter.setValue(0);
-        aliveCounter.setValue(0);
+        deathMessageCounter = 0;
+        aliveCounter = 0;
     }
 
     /**
@@ -383,8 +378,10 @@ public class ElectionFollower extends ComponentDefinition {
      * Cancels the heart beat timeout
      */
     private void cancelTimeout() {
-        CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
-        trigger(ct, timerPort);
+        if (heartBeatTimeoutId != null) {
+            CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
+            trigger(ct, timerPort);
+        }
     }
 
     /**

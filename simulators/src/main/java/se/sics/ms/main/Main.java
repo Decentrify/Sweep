@@ -1,13 +1,12 @@
 package se.sics.ms.main;
 
-import java.io.IOException;
-
-import se.sics.ms.simulator.SearchSimulationMain;
-
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.scenarios.Scenario;
 import se.sics.ms.scenarios.Scenario1;
+import se.sics.ms.simulator.SearchSimulationMain;
+
+import java.io.IOException;
 
 /**
  * The prototype can be started by executing the main function in this file.
@@ -20,7 +19,7 @@ import se.sics.ms.scenarios.Scenario1;
  * folder of the source code and need to be named poor3.xml. The path can be
  * adjusted by editing the AddMagnetEntry handler in
  * search.simulator.core.SearchSimulator. Please be aware that the xml file
- * provided by The Pirate Bay might include invalid characters which lead to a
+ * might include invalid characters which lead to a
  * crashing xml parser. We used the linux command line instructions below to
  * clean up the file. Because of time constraints, scenario 2 was not as well
  * tested as scenario 1 and errors might still occur. Executing the scenarios
@@ -28,11 +27,11 @@ import se.sics.ms.scenarios.Scenario1;
  * if the configuration is set to require 5 nodes to acknowledge a new entry but
  * less than 5 nodes per bucket are available. Please look at the documentation
  * of the configuration files if you change scenarios.
- *
+ * <p/>
  * sed -i ‘s/&/&amp;/g’ INPUT_FILE CHARS=$(python -c 'print
  * u"\u0016\u000e".encode("utf8")') sed 's/['"$CHARS"']//g' < INPUT_FILE >
  * OUTPUT_FILE
- *
+ * <p/>
  * Searching and adding can be manually executed when the system is running
  * using the HTTP GET requests http://127.0.1.1:9999/node_id/search-KEYWORDS and
  * http://127.0.1.1:9999/node_id/add-KEYWORD_STRING-MAGNET_LINK. Keywords can be
@@ -54,7 +53,7 @@ public class Main {
         MsConfig.init(args);
         Configuration config = new Configuration();
         config.store();
-        
+
         Scenario scenario = new Scenario1();
         scenario.setSeed(MsConfig.getSeed());
         scenario.getScenario().simulate(SearchSimulationMain.class);

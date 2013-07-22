@@ -424,15 +424,13 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionRequest() {
         int counter = 1;
-        ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), counter);
+        ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Request request =
                     ElectionMessageFactory.Request.fromBuffer(buffer);
 
-            assert (request.getClientId() == 1);
-            assert (request.getRemoteId() == 2);
             assert (request.getVoteID() == counter);
 
         } catch (MessageDecodingException ex) {
@@ -454,20 +452,17 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, voteId, convereged, vote, vodAddress1);
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, convereged, vote, vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Response response =
                     ElectionMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.getClientId() == 1);
-            assert (response.getRemoteId() == 2);
-            assert (response.getStatus() == RelayMsgNetty.Status.OK);
             assert (response.isConvereged() == convereged);
             assert (response.getVoteId() == voteId);
             assert (response.isVote() == vote);
