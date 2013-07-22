@@ -22,7 +22,7 @@ public class Snapshot {
 	private static long lastId = -1;
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
 	private static int entriesAdded = 0;
-	private static ConcurrentSkipListSet<Address> oldLeaders = new ConcurrentSkipListSet<Address>();
+	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
@@ -91,10 +91,10 @@ public class Snapshot {
 	 *            the leader status
 	 */
 	public static void setLeaderStatus(VodAddress address, boolean leader) {
-		PeerInfo peerInfo = peers.get(address.getPeerAddress());
+		PeerInfo peerInfo = peers.get(address);
 
 		if (leader) {
-			oldLeaders.add(address.getPeerAddress());
+			oldLeaders.add(address);
 		}
 		
 		if (peerInfo == null) {
@@ -113,7 +113,7 @@ public class Snapshot {
 	 *            the string representation of the Gradient view
 	 */
 	public static void setElectionView(VodAddress address, String view) {
-		PeerInfo peerInfo = peers.get(address.getPeerAddress());
+		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
 			return;
@@ -331,7 +331,7 @@ public class Snapshot {
 	 */
 	private static void reportOldLeaders(StringBuilder builder) {
 		builder.append("Nodes that have been leader:\n");
-		for (Address node : oldLeaders) {
+		for (VodAddress node : oldLeaders) {
 			PeerInfo peer = peers.get(node);
 			builder.append(node.getId());
 			builder.append(" was leader with Gradient view: ");

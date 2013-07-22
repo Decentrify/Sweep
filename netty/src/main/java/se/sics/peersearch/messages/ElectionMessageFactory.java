@@ -1,9 +1,11 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.RelayMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 
@@ -14,7 +16,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Time: 12:20 PM
  */
 public class ElectionMessageFactory {
-    public static class Request extends  RelayMsgNettyFactory.Request{
+    public static class Request extends  DirectMsgNettyFactory.Request{
 
         private Request() {
         }
@@ -27,13 +29,13 @@ public class ElectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
-            return new ElectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, counter);
+            return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter);
         }
     }
 
-    public static class Response extends RelayMsgNettyFactory.Response {
+    public static class Response extends DirectMsgNettyFactory.Response {
 
         private Response() {
         }
@@ -46,12 +48,13 @@ public class ElectionMessageFactory {
 
 
         @Override
-        protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
+        protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
+            System.out.println("got one");
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
             VodAddress highest = UserTypesDecoderFactory.readVodAddress(buffer);
-            return new ElectionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status, voteId, isConvereged, vote, highest);
+            return new ElectionMessage.Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
     }
 }

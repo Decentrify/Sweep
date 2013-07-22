@@ -178,21 +178,21 @@ public class ElectionLeader extends ComponentDefinition {
 			if (totalVotes != yesVotes) {
 				rejected(event.getVodSource(), event.getHighest());
 			}
-			// Count the votes if if all votes have returned
+			// Count the votes if all votes have returned
 			else if (totalVotes >= numberOfNodesAtVotingTime) {
-				countVotes();
+				evaluateVotes();
 			}
 		}
 	};
 
-	/**at se.sics.ms.election.ElectionLeader.countVotes(ElectionLeader.java:391)
+	/**at se.sics.ms.election.ElectionLeader.evaluateVotes(ElectionLeader.java:391)
 	 * A handler that will call for a vote call after a certain amount of time
 	 * if not all voters have returned with a vote
 	 */
 	Handler<VoteTimeout> handleVoteTimeout = new Handler<VoteTimeout>() {
 		@Override
 		public void handle(VoteTimeout event) {
-			countVotes();
+			evaluateVotes();
 		}
 	};
 
@@ -301,7 +301,6 @@ public class ElectionLeader extends ComponentDefinition {
 		public void handle(LeaderStatusResponse event) {
 			if (event.getLeader() == null
 					|| (event.getLeader() != null && event.getLeader().getId() > self.getId())) {
-
 				electionInProgress = true;
 				numberOfNodesAtVotingTime = lowerNodes.size();
 
@@ -333,7 +332,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * This class counts the votes. If the node is elected as a leader it will
 	 * start collecting index messages
 	 */
-	private void countVotes() {
+	private void evaluateVotes() {
 		// If all the returned votes are yes votes AND
 		// there are nodes above the leader candidate in the tree AND
 		// there are at least a certain number of nodes in the view AND
@@ -379,7 +378,8 @@ public class ElectionLeader extends ComponentDefinition {
 						config.getIndexTimeout());
 				indexTimeOut.setTimeoutEvent(new LeaderTimeout(indexTimeOut));
 				indexMsgTimeoutId = indexTimeOut.getTimeoutEvent().getTimeoutId();
-				trigger(indexTimeOut, timerPort);
+//				trigger(indexTimeOut, timerPort);
+                trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 			}
 		} else {
 			rejected();
@@ -398,7 +398,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 		// Broadcasts the vote requests to the nodes in the view
 		for (VodAddress receiver : lowerNodes) {
-			vote = new ElectionMessage.Request(self.getAddress(), receiver, self.getId(), receiver.getId(), voteTimeout, electionCounter);
+			vote = new ElectionMessage.Request(self.getAddress(), receiver, voteTimeout, electionCounter);
 			trigger(vote, networkPort);
 		}
 
@@ -414,7 +414,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 		// Broadcasts the leader's current view to it's followers
 		for (VodAddress receiver : lowerNodes) {
-            VotingResultMessage msg = new VotingResultMessage(self.getAddress(), receiver.getNodeAddress(), (VodAddress[])lowerNodes.toArray());
+            VotingResultMessage msg = new VotingResultMessage(self.getAddress(), receiver, lowerNodes.toArray(new VodAddress[lowerNodes.size()]));
 			trigger(msg, networkPort);
 		}
 	}

@@ -95,7 +95,7 @@ public class ElectionFollower extends ComponentDefinition {
      */
     Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
         @Override
-        public synchronized void handle(ElectionMessage.Request event) {
+        public void handle(ElectionMessage.Request event) {
             boolean candidateAccepted = true;
             VodAddress highestNode = findHighestNodeInView();
 
@@ -107,8 +107,7 @@ public class ElectionFollower extends ComponentDefinition {
                 highestNode = event.getVodSource();
             }
 
-            ElectionMessage.Response response = new ElectionMessage.Response(self.getAddress(), event.getVodSource(), self.getId(),
-                    event.getVodSource().getId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, event.getVoteID(), isConverged, candidateAccepted, highestNode);
+            ElectionMessage.Response response = new ElectionMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getVoteID(), isConverged, candidateAccepted, highestNode);
 
             trigger(response, networkPort);
         }
