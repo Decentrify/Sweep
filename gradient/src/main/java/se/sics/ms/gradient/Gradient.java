@@ -245,10 +245,11 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Broadcast the current view to the listening components.
      */
-    // TODO do only if view changed
     private void broadcastView() {
-        trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
-                gradientView.getLowerNodes()), broadcastGradientPartnersPort);
+        if (gradientView.isChanged()) {
+            trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
+                    gradientView.getLowerNodes()), broadcastGradientPartnersPort);
+        }
     }
 
     // If you call this method with a list of entries, it will
