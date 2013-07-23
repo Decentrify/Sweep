@@ -66,7 +66,6 @@ import se.sics.ms.search.Timeouts.GapTimeout;
 import se.sics.ms.search.Timeouts.RecentRequestsGcTimeout;
 import se.sics.ms.search.Timeouts.ReplicationTimeout;
 import se.sics.ms.search.Timeouts.SearchTimeout;
-import se.sics.ms.gradient.IndexRoutingPort;
 import se.sics.ms.gradient.LeaderRequest.AddIndexEntry;
 import se.sics.ms.gradient.LeaderRequest.GapCheck;
 import se.sics.ms.gradient.RoutedEventsPort;
@@ -77,7 +76,7 @@ import se.sics.ms.snapshot.Snapshot;
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
- * or not, although it doesn't know about the leader status. {@link Gradient} knows
+ * or not, although it doesn't know about the leader status. Gradient knows
  * about the leader status and only forwards according messages to this
  * component in case the local node is elected leader.
  * 
@@ -96,7 +95,6 @@ public final class Search extends ComponentDefinition {
 	Negative<Web> webPort = negative(Web.class);
 	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
 	Positive<RoutedEventsPort> routedEventsPort = positive(RoutedEventsPort.class);
-	Positive<IndexRoutingPort> indexRoutingPort = positive(IndexRoutingPort.class);
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
 	private Self self;
@@ -174,9 +172,6 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleGapTimeout, timerPort);
 		subscribe(handleGapCheck, routedEventsPort);
 		subscribe(handleRecentRequestsGcTimeout, timerPort);
-//		subscribe(handleIndexUpdate, indexRoutingPort);
-//		subscribe(handleStartIndexRequest, indexRoutingPort);
-//		subscribe(handleIndexRequest, indexRoutingPort);
 	}
 
 	/**
@@ -397,9 +392,6 @@ public final class Search extends ComponentDefinition {
 	Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
 		@Override
 		public void handle(AddIndexSimulated event) {
-			// logger.info(self.getId() + " - adding index entry: {}-{}",
-			// event.getEntry().getTitle(),
-			// event.getEntry().getMagneticLink());
 			addEntryGlobal(event.getEntry(), (UUID)UUID.nextUUID());
 		}
 	};
@@ -688,45 +680,6 @@ public final class Search extends ComponentDefinition {
 			}
 		}
 	};
-
-//	/**
-//	 * A handler that will update the current least insertion ID in case the one
-//	 * in the message is bigger. This handler is called when either it is
-//	 * following a leader that broadcasts its last index ID, or when a new
-//	 * leader is searching for the highest index ID among other nodes
-//	 */
-//	Handler<IndexDisseminationEvent> handleIndexUpdate = new Handler<IndexRoutingPort.IndexDisseminationEvent>() {
-//		@Override
-//		public void handle(IndexDisseminationEvent event) {
-//			if (event.getIndex() > lastInsertionId) {
-//				lastInsertionId = event.getIndex();
-//			}
-//		}
-//	};
-
-//	/**
-//	 * This handler is called when a new leader should start looking for the
-//	 * biggest index ID among its peers
-//	 */
-//	Handler<StartIndexRequestEvent> handleStartIndexRequest = new Handler<StartIndexRequestEvent>() {
-//		@Override
-//		public void handle(StartIndexRequestEvent event) {
-//			trigger(new IndexRequestEvent(lastInsertionId, event.getMessageID(), self.getAddress()),
-//					indexRoutingPort);
-//		}
-//	};
-//
-//	/**
-//	 * This handler respond to new leaders who are searching for the highest
-//	 * index ID by returning their own index ID
-//	 */
-//	Handler<IndexRequestEvent> handleIndexRequest = new Handler<IndexRequestEvent>() {
-//		@Override
-//		public void handle(IndexRequestEvent event) {
-//			trigger(new IndexResponseMessage(lastInsertionId, event.getMessageId(), self.getAddress(),
-//					event.getLeaderAddress()), networkPort);
-//		}
-//	};
 
 	/**
 	 * Periodically garbage collect the data structure used to identify
