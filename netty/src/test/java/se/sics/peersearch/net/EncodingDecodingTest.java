@@ -69,8 +69,7 @@ public class EncodingDecodingTest {
     
     @BeforeClass
     public static void setUpClass() throws Exception {
-//        InetAddress self = InetAddress.getLocalHost();
-        InetAddress self = InetAddress.getByName("127.0.0.1");
+        InetAddress self = InetAddress.getByName("localhost");
         src = new Address(self, 58027, 123);
         dest = new Address(self, 65535, 123);
         inetSrc = new InetSocketAddress(self, 58027);
@@ -368,60 +367,6 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void GapDetectionRequest() {
-        long id = 1L;
-        GapDetectionMessage.Request msg = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), id);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionMessage.Request request =
-                    GapDetectionMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getMissingEntryId() == id);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void GapDetectionResponse() {
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = null;
-        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        int numResponses=1;
-        int responseNumber=2;
-        GapDetectionMessage.Response msg = new GapDetectionMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNumber);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionMessage.Response response =
-                    GapDetectionMessageFactory.Response.fromBuffer(buffer);
-
-            assert (response.getMissingEntry().equals(entry));
-            assert (response.getNumResponses() == numResponses);
-            assert (response.getResponseNumber() == responseNumber);
-            assert (response.getMissingEntry().getUrl().equals(url));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void ElectionRequest() {
         int counter = 1;
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter);
@@ -445,7 +390,7 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionResponse() {
         int voteId = 1;
-        boolean convereged = true;
+        boolean converged = true;
         boolean vote = true;
 
         InetAddress address1 = null;
@@ -456,14 +401,14 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, convereged, vote, vodAddress1);
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Response response =
                     ElectionMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.isConvereged() == convereged);
+            assert (response.isConvereged() == converged);
             assert (response.getVoteId() == voteId);
             assert (response.isVote() == vote);
             assert (response.getHighest().equals(vodAddress1));
@@ -483,7 +428,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -512,7 +457,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -541,7 +486,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -569,7 +514,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -601,7 +546,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -673,75 +618,12 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void AddIndexEntryRoutedMessage() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        AddIndexEntryMessage.Request request = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
-        AddIndexEntryRoutedMessage msg = new AddIndexEntryRoutedMessage(gSrc, gDest, request);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            AddIndexEntryRoutedMessage response =
-                    AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getMessage().getEntry().equals(entry));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void GapDetectionRoutedMessage() {
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        GapDetectionMessage.Request request = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), 1L);
-        GapDetectionRoutedMessage msg = new GapDetectionRoutedMessage(gSrc, gDest, request);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionRoutedMessage response =
-                    GapDetectionRoutedMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getMessage().getMissingEntryId()==1L);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void VotingResultMessage() {
         InetAddress address1 = null;
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -817,7 +699,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -832,118 +714,6 @@ public class EncodingDecodingTest {
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
             assert (response.getBetterLeader().equals(vodAddress1));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-//    @Test
-//    public void StartIndexRequestMessage() {
-//        TimeoutId uiid = UUID.nextUUID();
-//
-//        StartIndexRequestMessage msg = new StartIndexRequestMessage(gSrc, gDest, uiid);
-//        try {
-//            ByteBuf buffer = msg.toByteArray();
-//            opCodeCorrect(buffer, msg);
-//            StartIndexRequestMessage response =
-//                    StartIndexRequestMessageFactory.fromBuffer(buffer);
-//
-//            assert (response.getVodDestination().equals(gDest));
-//            assert (response.getVodSource().equals(gSrc));
-//            assert (response.getTimeoutId().equals(uiid));
-//
-//        } catch (MessageDecodingException ex) {
-//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-//            assert (false);
-//        } catch (MessageEncodingException ex) {
-//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-//            assert (false);
-//        }
-//    }
-
-    @Test
-    public void IndexRequestMessage() {
-        TimeoutId uiid = UUID.nextUUID();
-        long index = 1L;
-
-        InetAddress address1 = null;
-        try {
-            address1 = InetAddress.getByName("192.168.0.1");
-        } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        }
-        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
-                VodConfig.SYSTEM_OVERLAY_ID, nat);
-
-
-        IndexRequestMessage msg = new IndexRequestMessage(gSrc, gDest, uiid, index, vodAddress1);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            IndexRequestMessage response =
-                    IndexRequestMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getTimeoutId().equals(uiid));
-            assert (response.getIndex() == index);
-            assert (response.getLeaderAddress().equals(vodAddress1));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-
-    @Test
-    public void IndexDisseminationMessage() {
-        long index = 1L;
-
-        IndexDisseminationMessage msg = new IndexDisseminationMessage(gSrc, gDest, index);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            IndexDisseminationMessage response =
-                    IndexDisseminationMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getIndex() == index);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void IndexResponseMessage() {
-        long index = 1L;
-        UUID id = new UUID(1);
-
-        IndexResponseMessage msg = new IndexResponseMessage(gSrc, gDest, index, id);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            IndexResponseMessage response =
-                    IndexResponseMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getIndex() == index);
-            assert (response.getMessageId().equals(id));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

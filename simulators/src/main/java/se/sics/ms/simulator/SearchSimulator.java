@@ -98,15 +98,6 @@ public final class SearchSimulator extends ComponentDefinition {
         }
         return sb.toString();
     }
-    Handler<WebRequest> handleWebRequest = new Handler<WebRequest>() {
-        @Override
-        public void handle(WebRequest event) {
-            // Find closest peer and send web request on to it.
-            long peerId = ringNodes.getNode((long) event.getDestination());
-            Component peer = peers.get(peerId);
-            trigger(event, peer.getPositive(Web.class));
-        }
-    };
 //    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
 //        @Override
 //        public void handle(TerminateExperiment event) {

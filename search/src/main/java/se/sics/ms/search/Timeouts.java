@@ -5,7 +5,6 @@ import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
 import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.types.IndexEntry;
-import se.sics.ms.gradient.LeaderRequest.AddIndexEntry;
 
 /**
  * Class that groups all timeouts used for by the {@link Search} class.
@@ -16,7 +15,7 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for active {@link SearchRequest}s.
+	 * Timeout for active {@link se.sics.peersearch.messages.SearchMessage.Request}s.
 	 */
 	protected static class SearchTimeout extends Timeout {
 
@@ -30,8 +29,8 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for collecting {@link ReplicationConfirmation}s for a specific
-	 * {@link Replicate} request.
+	 * Timeout for collecting {@link se.sics.peersearch.messages.ReplicationMessage.Response}s for a specific
+	 * {@link se.sics.peersearch.messages.ReplicationMessage.Request}.
 	 */
 	protected static class ReplicationTimeout extends Timeout {
 		private final UUID requestId;
@@ -40,7 +39,7 @@ public final class Timeouts {
 		 * @param request
 		 *            the ScheduleTimeout that holds the Timeout
 		 * @param requestId
-		 *            the unique request id of the {@link Replicate} request for
+		 *            the unique request id of the {@link se.sics.peersearch.messages.ReplicationMessage.Request} for
 		 *            which this timeout was scheduled
 		 */
 		public ReplicationTimeout(ScheduleTimeout request, UUID requestId) {
@@ -49,7 +48,7 @@ public final class Timeouts {
 		}
 
 		/**
-		 * @return the unique request id of the {@link Replicate} request for
+		 * @return the unique request id of the {@link se.sics.peersearch.messages.ReplicationMessage.Request} for
 		 *         which this timeout was scheduled
 		 */
 		public UUID getRequestId() {
@@ -58,8 +57,8 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for waiting for an {@link IndexEntryAdded} acknowledgment for an
-	 * {@link AddIndexEntry} request.
+	 * Timeout for waiting for an {@link se.sics.peersearch.messages.AddIndexEntryMessage.Response} acknowledgment for an
+	 * {@link se.sics.peersearch.messages.AddIndexEntryMessage.Response} request.
 	 */
 	protected static class AddRequestTimeout extends Timeout {
 		private final int retryLimit;
@@ -71,7 +70,7 @@ public final class Timeouts {
 		 *            the ScheduleTimeout that holds the Timeout
 		 * @param retryLimit
 		 *            the number of retries for the related
-		 *            {@link AddIndexEntry} request
+		 *            {@link se.sics.peersearch.messages.AddIndexEntryMessage.Request}
 		 * @param entry
 		 *            the {@link IndexEntry} this timeout was scheduled for
 		 */
@@ -117,32 +116,6 @@ public final class Timeouts {
 		 *            the id of the suspected entry
 		 */
 		public GapTimeout(ScheduleTimeout request, long id) {
-			super(request);
-			this.id = id;
-		}
-
-		/**
-		 * @return the id of the suspected entry
-		 */
-		public long getId() {
-			return id;
-		}
-	}
-
-	/**
-	 * Timeout used by the leader after to collect {@link GapDetectionResponse}
-	 * s.
-	 */
-	protected static class GapDetectionTimeout extends Timeout {
-		private final long id;
-
-		/**
-		 * @param request
-		 *            the ScheduleTimeout that holds the Timeout
-		 * @param id
-		 *            the id of the suspected entry
-		 */
-		public GapDetectionTimeout(ScheduleTimeout request, long id) {
 			super(request);
 			this.id = id;
 		}

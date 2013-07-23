@@ -1,45 +1,19 @@
 package se.sics.ms.search;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.logging.Level;
-
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.NumericRangeQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.*;
 import org.apache.lucene.search.SortField.Type;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.SearchConfiguration;
@@ -47,30 +21,28 @@ import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.kompics.web.Web;
-import se.sics.kompics.web.WebRequest;
-import se.sics.kompics.web.WebResponse;
-import se.sics.peersearch.exceptions.IllegalSearchString;
-import se.sics.peersearch.messages.*;
-import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
-import se.sics.ms.search.Timeouts.AddRequestTimeout;
-import se.sics.ms.search.Timeouts.GapDetectionTimeout;
-import se.sics.ms.search.Timeouts.GapTimeout;
-import se.sics.ms.search.Timeouts.RecentRequestsGcTimeout;
-import se.sics.ms.search.Timeouts.ReplicationTimeout;
-import se.sics.ms.search.Timeouts.SearchTimeout;
-import se.sics.ms.gradient.LeaderRequest.AddIndexEntry;
-import se.sics.ms.gradient.LeaderRequest.GapCheck;
-import se.sics.ms.gradient.RoutedEventsPort;
 import se.sics.ms.peer.PeerDescriptor;
+import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.peersearch.exceptions.IllegalSearchString;
+import se.sics.peersearch.messages.AddIndexEntryMessage;
+import se.sics.peersearch.messages.IndexExchangeMessage;
+import se.sics.peersearch.messages.ReplicationMessage;
+import se.sics.peersearch.messages.SearchMessage;
+import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.logging.Level;
 
 
 /**
@@ -93,7 +65,6 @@ public final class Search extends ComponentDefinition {
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
-	Positive<RoutedEventsPort> routedEventsPort = positive(RoutedEventsPort.class);
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
 	private Self self;
@@ -111,17 +82,6 @@ public final class Search extends ComponentDefinition {
 	private int partition;
 	// Structure that maps index ids to UUIDs of open gap timeouts
 	private Map<Long, UUID> gapTimeouts;
-
-	/**
-	 * Enum describing the status of the gap detection process.
-	 */
-	private enum GapStatus {
-		UNDECIDED, TRUE, FALSE
-	}
-
-	// Maps index ids for currently issued gap detections to their status
-	private Map<Long, GapStatus> gapDetections;
-
 	// Set of recent add requests to avoid duplication
 	private Map<UUID, Long> recentRequests;
 
@@ -156,7 +116,6 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleAddIndexSimulated, indexPort);
 		subscribe(handleIndexUpdateRequest, networkPort);
 		subscribe(handleIndexUpdateResponse, networkPort);
-		subscribe(handleAddIndexEntry, routedEventsPort);
 		subscribe(handleIndexEntryAdded, networkPort);
 		subscribe(handleReplicate, networkPort);
 		subscribe(handleReplicationConfirmation, networkPort);
@@ -166,7 +125,6 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleReplicationTimeout, timerPort);
 		subscribe(handleAddRequestTimeout, timerPort);
 		subscribe(handleGapTimeout, timerPort);
-		subscribe(handleGapCheck, routedEventsPort);
 		subscribe(handleRecentRequestsGcTimeout, timerPort);
 	}
 
@@ -186,7 +144,6 @@ public final class Search extends ComponentDefinition {
 			oldestMissingIndexValue = partition;
 			existingEntries = new TreeSet<Long>();
 			gapTimeouts = new HashMap<Long, UUID>();
-			gapDetections = new HashMap<Long, Search.GapStatus>();
 
 			if (PERSISTENT_INDEX) {
 				File file = new File("resources/index_" + self.getId());
@@ -607,7 +564,7 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * No acknowledgment for a issued {@link AddIndexEntry} request was received
+	 * No acknowledgment for a issued {@link AddIndexEntryMessage} request was received
 	 * in time. Try to add the entry again or respons with failure to the web
 	 * client.
 	 */
@@ -629,7 +586,7 @@ public final class Search extends ComponentDefinition {
 
 	/**
 	 * Periodically garbage collect the data structure used to identify
-	 * duplicated {@link AddIndexEntry} requests.
+	 * duplicated {@link AddIndexEntryMessage} requests.
 	 */
 	Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
 		@Override
@@ -651,50 +608,19 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * The entry for a detected gap was not added in time. Ask the leader to
-	 * start the gap detection process.
+	 * The entry for a detected gap was not added in time.
 	 */
 	Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
 		@Override
 		public void handle(GapTimeout event) {
 			try {
 				if (entryExists(event.getId()) == false) {
-					trigger(new GapCheck(self.getAddress(), event.getId()), routedEventsPort);
+                    // TODO implement new gap check
 				}
 			} catch (IOException e) {
 				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
 						e);
 			}
-		}
-	};
-
-	/**
-	 * In the role of the leader, handle a gap suspicion from a client. Start a
-	 * random walk and search for the suspected entry.
-	 */
-	Handler<GapCheck> handleGapCheck = new Handler<GapCheck>() {
-		@Override
-		public void handle(GapCheck event) {
-			// Don't start multiple detections for the same id
-			if (gapDetections.containsKey(event.getId())) {
-				return;
-			}
-
-			TreeSet<VodDescriptor> bucket = routingTable.get(event.getId()
-					% config.getNumPartitions());
-			if (bucket == null) {
-				return;
-			}
-
-			for (VodDescriptor descriptor : bucket) {
-				gapDetections.put(event.getId(), GapStatus.UNDECIDED);
-
-                trigger(new GapDetectionMessage.Request(self.getAddress(), descriptor.getVodAddress(), UUID.nextUUID(), event.getId()), networkPort);
-			}
-
-			ScheduleTimeout rst = new ScheduleTimeout(config.getGapDetectionTimeout());
-			rst.setTimeoutEvent(new GapDetectionTimeout(rst, event.getId()));
-			trigger(rst, timerPort);
 		}
 	};
 
@@ -780,7 +706,8 @@ public final class Search extends ComponentDefinition {
 	 */
 	private void addEntryGlobal(IndexEntry entry, UUID requestId) {
         System.out.println(self.getId() + " starts adding entry " + entry.getFileName());
-		trigger(new AddIndexEntry(self.getAddress(), requestId, entry), routedEventsPort);
+        // TODO implement new adding method here
+//		trigger(new AddIndexEntry(self.getAddress(), requestId, entry), routedEventsPort);
 	}
 
 	/**

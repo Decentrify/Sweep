@@ -51,10 +51,6 @@ public class ElectionFollower extends ComponentDefinition {
         public DeathTimeout(ScheduleTimeout request) {
             super(request);
         }
-
-        public DeathTimeout(SchedulePeriodicTimeout request) {
-            super(request);
-        }
     }
 
     /**

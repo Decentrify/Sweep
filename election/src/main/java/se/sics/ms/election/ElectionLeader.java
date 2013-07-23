@@ -34,21 +34,16 @@ public class ElectionLeader extends ComponentDefinition {
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
-	private int yesVotes, totalVotes, electionCounter, convergedCounter,
-			indexMessageCounter;
-	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
+	private int yesVotes, totalVotes, electionCounter, convergedCounter;
+	private boolean electionInProgress, iAmLeader;
 	private Self self;
 	private ArrayList<VodAddress> lowerNodes, higherNodes;
-	private TimeoutId scheduledTimeoutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
+	private TimeoutId scheduledTimeoutId, voteTimeout;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
 	 */
 	public class ElectionSchedule extends Timeout {
-
-		public ElectionSchedule(ScheduleTimeout request) {
-			super(request);
-		}
 
 		public ElectionSchedule(SchedulePeriodicTimeout request) {
 			super(request);
@@ -58,10 +53,6 @@ public class ElectionLeader extends ComponentDefinition {
 	public class VoteTimeout extends Timeout {
 
 		public VoteTimeout(ScheduleTimeout request) {
-			super(request);
-		}
-
-		public VoteTimeout(SchedulePeriodicTimeout request) {
 			super(request);
 		}
 	}
@@ -74,7 +65,6 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleInit, control);
 		subscribe(handleHeartBeats, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
-		subscribe(handleIndexResponse, networkPort);
 		subscribe(handleVotingResponse, networkPort);
 		subscribe(handleLeaderRejection, networkPort);
 		subscribe(handleGradientBroadcast, broadcast);
@@ -94,7 +84,6 @@ public class ElectionLeader extends ComponentDefinition {
 
 			iAmLeader = false;
 			electionInProgress = false;
-			allowingIndexMessages = false;
 
 			lowerNodes = new ArrayList<VodAddress>();
 			higherNodes = new ArrayList<VodAddress>();
@@ -240,28 +229,6 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that receives messages containing other nodes' highest index
-	 * IDs and forwards them to Search. If a certain number of messages have
-	 * been received it will ignore the rest and announce its leadership
-	 */
-	Handler<IndexResponseMessage> handleIndexResponse = new Handler<IndexResponseMessage>() {
-		@Override
-		public void handle(IndexResponseMessage event) {
-			// Make sure that only recent messages are checked
-			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
-				// Increase the counter and send the update to search
-				indexMessageCounter++;
-
-				// When enough messages are received
-				if (indexMessageCounter >= config
-						.getWaitForNoOfIndexMessages()) {
-					finishIndexMsgReading();
-				}
-			}
-		}
-	};
-
-	/**
 	 * A handler that checks whether the node already has a leader and if that
 	 * leader has a higher utility value. If not, then this node will call for a
 	 * leader election
@@ -282,21 +249,6 @@ public class ElectionLeader extends ComponentDefinition {
 			}
 		}
 	};
-
-	/**
-	 * This method is called when the leader has either read enough
-	 * indexMessages or when the timeout has been triggered
-	 */
-	private void finishIndexMsgReading() {
-		// Set leadership and disallow receiving of new messages
-		allowingIndexMessages = false;
-		indexMessageCounter = 0;
-		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-
-		// Cancels the timeout in case it is still going
-		CancelTimeout ct = new CancelTimeout(indexMsgTimeoutId);
-		trigger(ct, timerPort);
-	}
 
 	/**
 	 * This class counts the votes. If the node is elected as a leader it will
@@ -331,8 +283,6 @@ public class ElectionLeader extends ComponentDefinition {
 
 				variableCleanUp();
 				iAmLeader = true;
-				allowingIndexMessages = true;
-				indexMessageID = UUID.nextUUID();
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(

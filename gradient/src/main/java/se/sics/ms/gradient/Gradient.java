@@ -18,8 +18,6 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.peersearch.messages.*;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
-import se.sics.ms.gradient.LeaderRequest.AddIndexEntry;
-import se.sics.ms.gradient.LeaderRequest.GapCheck;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
@@ -35,7 +33,6 @@ public final class Gradient extends ComponentDefinition {
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
-    Negative<RoutedEventsPort> routedEventsPort = negative(RoutedEventsPort.class);
     Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     private Self self;
@@ -62,10 +59,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleCroupierSample, croupierSamplePort);
         subscribe(handleShuffleResponse, networkPort);
         subscribe(handleShuffleRequest, networkPort);
-        subscribe(handleAddIndexEntryRequest, routedEventsPort);
-        subscribe(handleRoutedMessage, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
-        subscribe(handleGapCheck, routedEventsPort);
         subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handeNodeSuggestion, leaderStatusPort);
     }
@@ -118,7 +112,7 @@ public final class Gradient extends ComponentDefinition {
         }
     };
     /**
-     * Answer a {@link se.sics.ms.gradient.GradientMessage.GradientRequest} with the nodes from the view preferred by
+     * Answer a {@link GradientShuffleMessage.Request} with the nodes from the view preferred by
      * the inquirer.
      */
     Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
@@ -216,53 +210,6 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
-    /**
-     * Forward a {@link AddIndexEntry} event to the leader. Return it back to
-     * Search in case this is the leader.
-     */
-    Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
-        @Override
-        public void handle(AddIndexEntryMessage.Request event) {
-            if (leader) {
-                System.out.println(self.getId() + " will add the entry itself");
-                trigger(event, routedEventsPort);
-            } else {
-                System.out.println(self.getId() + " starts forwarding an add request");
-                forwardAddIndexEntryToLeader(self.getAddress(), event);
-            }
-        }
-    };
-    /**
-     * Forward the
-     * {@link se.sics.peersearch.messages.AddIndexEntryRoutedMessage} to the
-     * leader.
-     */
-    Handler<AddIndexEntryRoutedMessage> handleRoutedMessage = new Handler<AddIndexEntryRoutedMessage>() {
-        @Override
-        public void handle(AddIndexEntryRoutedMessage event) {
-            if (leader) {
-                System.out.println(self.getId() + " got add request as leader");
-                trigger(event.getMessage(), routedEventsPort);
-            } else {
-                System.out.println(self.getId() + " forwards add request");
-                forwardAddIndexEntryToLeader(self.getAddress(), event.getMessage());
-            }
-        }
-    };
-    /**
-     * Forward a {@link GapCheck} event to the leader. Return it back to Search
-     * in case this is the leader.
-     */
-    Handler<GapCheck> handleGapCheck = new Handler<GapCheck>() {
-        @Override
-        public void handle(GapCheck event) {
-            if (leader) {
-                trigger(event, routedEventsPort);
-            } else {
-                forwardGapCheckToLeader(self.getAddress(), new GapDetectionMessage.Request(event.getSource(), event.getSource(), UUID.nextUUID(), event.getId()));
-            }
-        }
-    };
 
     /**
      * Initiate the shuffling process for the given node.
@@ -293,31 +240,6 @@ public final class Gradient extends ComponentDefinition {
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
-    }
-
-    /**
-     * Route a message to the leader. Forwards the message to nodes closer to
-     * the leader with a higher probability so that not always the same route is
-     * chosen. His decreases the probability of always choosing a wrong route.
-     */
-    private void forwardAddIndexEntryToLeader(VodAddress source, AddIndexEntryMessage.Request request) {
-        ArrayList<VodAddress> peers = gradientView.getHigherNodes();
-        if (peers.size() == 0) {
-            System.out.println(self.getId() + " drops request number " + request.getId());
-            return;
-        }
-        System.out.println(self.getId() + " forwards request number " + request.getId());
-        AddIndexEntryRoutedMessage message = new AddIndexEntryRoutedMessage(source, getSoftMaxAddress(peers), request);
-        trigger(message, networkPort);
-    }
-
-    private void forwardGapCheckToLeader(VodAddress vodAddress, GapDetectionMessage.Request request) {
-        ArrayList<VodAddress> peers = gradientView.getHigherNodes();
-        if (peers.size() == 0) {
-            return;
-        }
-        GapDetectionRoutedMessage message = new GapDetectionRoutedMessage(vodAddress, getSoftMaxAddress(peers), request);
-        trigger(message, networkPort);
     }
 
     /**
