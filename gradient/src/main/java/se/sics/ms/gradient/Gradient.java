@@ -303,8 +303,10 @@ public final class Gradient extends ComponentDefinition {
     private void forwardAddIndexEntryToLeader(VodAddress source, AddIndexEntryMessage.Request request) {
         ArrayList<VodAddress> peers = gradientView.getHigherNodes();
         if (peers.size() == 0) {
+            System.out.println(self.getId() + " drops request number " + request.getId());
             return;
         }
+        System.out.println(self.getId() + " forwards request number " + request.getId());
         AddIndexEntryRoutedMessage message = new AddIndexEntryRoutedMessage(source, getSoftMaxAddress(peers), request);
         trigger(message, networkPort);
     }
@@ -321,6 +323,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Broadcast the current view to the listening components.
      */
+    // TODO do only if view changed
     private void broadcastView() {
         trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
                 gradientView.getLowerNodes()), broadcastGradientPartnersPort);

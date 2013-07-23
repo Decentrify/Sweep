@@ -92,7 +92,6 @@ public final class Search extends ComponentDefinition {
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Positive<Timer> timerPort = positive(Timer.class);
-	Negative<Web> webPort = negative(Web.class);
 	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
 	Positive<RoutedEventsPort> routedEventsPort = positive(RoutedEventsPort.class);
 
@@ -105,8 +104,6 @@ public final class Search extends ComponentDefinition {
 	private SortedSet<Long> existingEntries;
 	// The last id used for adding new entries in case this node is the leader
 	private long lastInsertionId;
-	// Open web requests from web clients
-	private Map<UUID, WebRequest> openRequests;
 	// Data structure to keep track of acknowledgments for newly added indexes
 	private Map<UUID, ReplicationCount> replicationRequests;
 	private Random random;
@@ -155,7 +152,6 @@ public final class Search extends ComponentDefinition {
 
 	public Search() {
 		subscribe(handleInit, control);
-		subscribe(handleWebRequest, webPort);
 		subscribe(handleCroupierSample, croupierSamplePort);
 		subscribe(handleAddIndexSimulated, indexPort);
 		subscribe(handleIndexUpdateRequest, networkPort);
@@ -184,7 +180,6 @@ public final class Search extends ComponentDefinition {
 			routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(
 					config.getNumPartitions());
 			lastInsertionId = -1;
-			openRequests = new HashMap<UUID, WebRequest>();
 			replicationRequests = new HashMap<UUID, ReplicationCount>();
 			random = new Random(init.getConfiguration().getSeed());
 			partition = self.getId() % config.getNumPartitions();
@@ -315,31 +310,6 @@ public final class Search extends ComponentDefinition {
 	}
 
 	/**
-	 * Parse the GET request of a web request and decide what to do.
-	 */
-	Handler<WebRequest> handleWebRequest = new Handler<WebRequest>() {
-		public void handle(WebRequest event) {
-			String[] args = event.getTarget().split("-");
-			logger.debug("Handling Webpage Request");
-			if (args[0].compareToIgnoreCase("search") == 0 && args.length == 2) {
-				// TODO UI to query all fields
-				startSearch(event, new SearchPattern(args[1], 0, 0, null, null, null, null, null));
-			} else if (args[0].compareToIgnoreCase("add") == 0 && args.length == 3) {
-				// TODO UI to add all values
-
-                IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
-                index.setFileName(args[1]);
-                index.setUrl(args[2]);
-                index.setLeaderId("");
-
-				addEntryGlobal(index, event);
-			} else {
-				trigger(new WebResponse("Invalid request", event, 1, 1), webPort);
-			}
-		}
-	};
-
-	/**
 	 * Handle samples from Cyclon. Use them to update the routing tables and
 	 * issue an index exchange with another node.
 	 */
@@ -392,7 +362,7 @@ public final class Search extends ComponentDefinition {
 	Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
 		@Override
 		public void handle(AddIndexSimulated event) {
-			addEntryGlobal(event.getEntry(), (UUID)UUID.nextUUID());
+            addEntryGlobal(event.getEntry(), (UUID)UUID.nextUUID());
 		}
 	};
 
@@ -528,34 +498,14 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * Respond to the web client after receiving an acknowledgment for and
-	 * adding operation.
+	 * An index entry has been successfully added.
 	 */
 	Handler<AddIndexEntryMessage.Response> handleIndexEntryAdded = new Handler<AddIndexEntryMessage.Response>() {
 		@Override
 		public void handle(AddIndexEntryMessage.Response event) {
-			WebRequest webRequest = openRequests.get(event.getId());
-
+            // TODO inform user
 			CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
 			trigger(ct, timerPort);
-
-			if (webRequest != null) {
-				StringBuilder sb = new StringBuilder("<!DOCTYPE html PUBLIC \"-//W3C");
-				sb.append("//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR");
-				sb.append("/xhtml1/DTD/xhtml1-transitional.dtd\"><html xmlns=\"http:");
-				sb.append("//www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Conten");
-				sb.append("t-Type\" content=\"text/html; charset=utf-8\" />");
-				sb.append("<title>Adding an Entry</title>");
-				sb.append("<style type=\"text/css\"><!--.style2 {font-family: ");
-				sb.append("Arial, Helvetica, sans-serif; color: #0099FF;}--></style>");
-				sb.append("</head><body><h2 align=\"center\" class=\"style2\">");
-				sb.append("ID2210 Uploaded Entry</h2><br>");
-				sb.append("Index has been added");
-				sb.append("</body></html>");
-
-				trigger(new WebResponse(sb.toString(), webRequest, 1, 1), webPort);
-				openRequests.remove(event.getId());
-			}
 		}
 	};
 
@@ -608,7 +558,7 @@ public final class Search extends ComponentDefinition {
 				java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
 						ex);
 			} catch (IllegalSearchString illegalSearchString) {
-                illegalSearchString.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                illegalSearchString.printStackTrace();
             }
         }
 	};
@@ -665,11 +615,7 @@ public final class Search extends ComponentDefinition {
 		@Override
 		public void handle(AddRequestTimeout event) {
 			if (event.reachedRetryLimit()) {
-				WebRequest webRequest = openRequests.remove(event.getTimeoutId());
-				// Somehow all peers get the timeout scheduled by one
-				if (webRequest != null) {
-					trigger(new WebResponse("Insert failed", webRequest, 1, 1), webPort);
-				}
+				// TODO inform the user
 			} else {
 				event.incrementTries();
 				addEntryGlobal(event.getEntry(), (UUID)event.getTimeoutId());
@@ -755,14 +701,12 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Send a search request for a given search pattern to one node in each
 	 * partition except the local partition.
-	 * 
-	 * @param event
-	 *            the web event of the client that issued the search
+	 *
 	 * @param pattern
 	 *            the search pattern
 	 */
-	private void startSearch(WebRequest event, SearchPattern pattern) {
-		searchRequest = new LocalSearchRequest(event, pattern);
+	private void startSearch(SearchPattern pattern) {
+		searchRequest = new LocalSearchRequest(pattern);
 		searchIndex = new RAMDirectory();
 
 		// Can't open the index before committing a writer once
@@ -806,32 +750,10 @@ public final class Search extends ComponentDefinition {
 	}
 
 	/**
-	 * Create an html document including the search results for the current
-	 * search request and sends a response back to the issuer.
+	 * Present the result to the user.
 	 */
 	private void answerSearchRequest() {
-		StringBuilder sb = new StringBuilder("<!DOCTYPE html PUBLIC \"-//W3C");
-		sb.append("//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR");
-		sb.append("/xhtml1/DTD/xhtml1-transitional.dtd\"><html xmlns=\"http:");
-		sb.append("//www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Conten");
-		sb.append("t-Type\" content=\"text/html; charset=utf-8\" />");
-		sb.append("<title>Kompics P2P Bootstrap Server</title>");
-		sb.append("<style type=\"text/css\"><!--.style2 {font-family: ");
-		sb.append("Arial, Helvetica, sans-serif; color: #0099FF;}--></style>");
-		sb.append("</head><body><h2 align=\"center\" class=\"style2\">");
-		sb.append("ID2210 (Decentralized Search for Piratebay)</h2><br>");
-		sb.append("<table>");
-		try {
-			search(sb, searchRequest.getSearchPattern());
-		} catch (IOException ex) {
-			java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
-			sb.append(ex.getMessage());
-		}
-		sb.append("</table>");
-		sb.append("</body></html>");
-
-		trigger(new WebResponse(sb.toString(), searchRequest.getWebRequest(), 1, 1), webPort);
-		searchRequest = null;
+		// TODO inform the user
 	}
 
 	/**
@@ -840,16 +762,13 @@ public final class Search extends ComponentDefinition {
 	 * 
 	 * @param entry
 	 *            the {@link IndexEntry} to be added
-	 * @param event
-	 *            the web event of the client issuing the request
 	 */
-	private void addEntryGlobal(IndexEntry entry, WebRequest event) {
+	private void addEntryGlobal(IndexEntry entry) {
 		// Limit the time to wait for responses and answer the web request
 		ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
 		rst.setTimeoutEvent(new AddRequestTimeout(rst, config.getRetryCount(), entry));
 		trigger(rst, timerPort);
 
-		openRequests.put((UUID)rst.getTimeoutEvent().getTimeoutId(), event);
 		addEntryGlobal(entry, (UUID)rst.getTimeoutEvent().getTimeoutId());
 	}
 
@@ -860,6 +779,7 @@ public final class Search extends ComponentDefinition {
 	 *            the {@link IndexEntry} to be added
 	 */
 	private void addEntryGlobal(IndexEntry entry, UUID requestId) {
+        System.out.println(self.getId() + " starts adding entry " + entry.getFileName());
 		trigger(new AddIndexEntry(self.getAddress(), requestId, entry), routedEventsPort);
 	}
 

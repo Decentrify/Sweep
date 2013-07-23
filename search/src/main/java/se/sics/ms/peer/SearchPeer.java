@@ -70,7 +70,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(timer, electionFollower.getNegative(Timer.class));
 
-        connect(webPort, search.getPositive(Web.class));
         connect(croupier.getPositive(PeerSamplePort.class),
                 search.getNegative(PeerSamplePort.class));
         connect(croupier.getPositive(PeerSamplePort.class),
