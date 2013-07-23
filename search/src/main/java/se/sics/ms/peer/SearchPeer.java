@@ -50,11 +50,6 @@ public final class SearchPeer extends ComponentDefinition {
         electionLeader = create(ElectionLeader.class);
         electionFollower = create(ElectionFollower.class);
 
-//		connect(network, search.getNegative(VodNetwork.class));
-//		connect(network, croupier.getNegative(VodNetwork.class));
-//		connect(network, gradient.getNegative(VodNetwork.class));
-//		connect(network, electionLeader.getNegative(VodNetwork.class));
-//		connect(network, electionFollower.getNegative(VodNetwork.class));
         connect(network, natTraversal.getNegative(VodNetwork.class));
 
         connect(natTraversal.getPositive(VodNetwork.class),
@@ -91,10 +86,6 @@ public final class SearchPeer extends ComponentDefinition {
                 gradient.getPositive(LeaderStatusPort.class));
         connect(electionFollower.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
-        connect(search.getNegative(IndexRoutingPort.class),
-                gradient.getPositive(IndexRoutingPort.class));
-        connect(search.getNegative(IndexRoutingPort.class),
-                electionLeader.getPositive(IndexRoutingPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 electionFollower.getPositive(LeaderStatusPort.class));
 

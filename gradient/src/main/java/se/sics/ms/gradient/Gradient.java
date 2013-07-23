@@ -27,7 +27,7 @@ import se.sics.ms.peer.RequestTimeout;
 
 
 /**
- * Component creating a gradient network from Cyclon samples according to a
+ * Component creating a gradient network from Croupier samples according to a
  * preference function.
  */
 public final class Gradient extends ComponentDefinition {
@@ -38,7 +38,6 @@ public final class Gradient extends ComponentDefinition {
     Negative<RoutedEventsPort> routedEventsPort = negative(RoutedEventsPort.class);
     Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-    Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
     private Self self;
     private GradientConfiguration config;
     private Random random;
@@ -69,10 +68,6 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleGapCheck, routedEventsPort);
         subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handeNodeSuggestion, leaderStatusPort);
-//        subscribe(handleIndexRouting, indexRoutingPort);
-//        subscribe(handleStartIndexRequestMessageHandler, indexRoutingPort);
-//        subscribe(handleIndexRequestMessageHandler, indexRoutingPort);
-//        subscribe(handleIndexDisseminationMessageHandler, indexRoutingPort);
     }
     /**
      * Initialize the state of the component.
@@ -229,8 +224,10 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(AddIndexEntryMessage.Request event) {
             if (leader) {
+                System.out.println(self.getId() + " will add the entry itself");
                 trigger(event, routedEventsPort);
             } else {
+                System.out.println(self.getId() + " starts forwarding an add request");
                 forwardAddIndexEntryToLeader(self.getAddress(), event);
             }
         }
@@ -244,70 +241,14 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(AddIndexEntryRoutedMessage event) {
             if (leader) {
+                System.out.println(self.getId() + " got add request as leader");
                 trigger(event.getMessage(), routedEventsPort);
             } else {
+                System.out.println(self.getId() + " forwards add request");
                 forwardAddIndexEntryToLeader(self.getAddress(), event.getMessage());
             }
         }
     };
-//    /**
-//     * Broadcasts the {@link IndexEvent} to all nodes in its view that is below
-//     * itself in the gradient topology tree
-//     */
-//    Handler<IndexEvent> handleIndexRouting = new Handler<IndexEvent>() {
-//        @Override
-//        public void handle(IndexEvent event) {
-//
-//            if (event.getClass().equals(IndexRoutingPort.StartIndexRequestEvent.class)) {
-//                for (VodAddress addr : gradientView.getLowerNodes()) {
-//                    StartIndexRequestMessage message = new StartIndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.StartIndexRequestEvent) event).getMessageID());
-//                    trigger(message, networkPort);
-//                }
-//                return;
-//            }
-//            if (event.getClass().equals(IndexRoutingPort.IndexRequestEvent.class)) {
-//                for (VodAddress addr : gradientView.getLowerNodes()) {
-//                    IndexRequestMessage message = new IndexRequestMessage(self.getAddress(), addr, ((IndexRoutingPort.IndexRequestEvent) event).getMessageId(),
-//                            ((IndexRoutingPort.IndexRequestEvent) event).getIndex(), ((IndexRoutingPort.IndexRequestEvent) event).getLeaderAddress());
-//                    trigger(message, networkPort);
-//                }
-//                return;
-//            }
-//            if (event.getClass().equals(IndexRoutingPort.IndexDisseminationEvent.class)) {
-//                for (VodAddress addr : gradientView.getLowerNodes()) {
-//                    IndexDisseminationMessage message = new IndexDisseminationMessage(self.getAddress(), addr,
-//                            ((IndexRoutingPort.IndexRequestEvent) event).getIndex());
-//                    trigger(message, networkPort);
-//                }
-//                return;
-//            }
-//        }
-//    };
-//    Handler<IndexDisseminationMessage> handleIndexDisseminationMessageHandler = new Handler<IndexDisseminationMessage>() {
-//        @Override
-//        public void handle(IndexDisseminationMessage indexDisseminationMessage) {
-//            trigger(new IndexRoutingPort.IndexDisseminationEvent(indexDisseminationMessage.getIndex()), networkPort);
-//        }
-//    };
-//    Handler<IndexRequestMessage> handleIndexRequestMessageHandler = new Handler<IndexRequestMessage>() {
-//        @Override
-//        public void handle(IndexRequestMessage indexRequestMessage) {
-//            trigger(new IndexRoutingPort.IndexRequestEvent(indexRequestMessage.getIndex(),
-//                    (UUID) indexRequestMessage.getTimeoutId(), indexRequestMessage.getLeaderAddress()), networkPort);
-//        }
-//    };
-//    Handler<StartIndexRequestMessage> handleStartIndexRequestMessageHandler = new Handler<StartIndexRequestMessage>() {
-//        @Override
-//        public void handle(StartIndexRequestMessage startIndexRequestMessage) {
-//            trigger(new IndexRoutingPort.StartIndexRequestEvent((UUID) startIndexRequestMessage.getTimeoutId()), networkPort);
-//        }
-//    };
-//    Handler<IndexMessage> handleIndexMessage = new Handler<IndexMessage>() {
-//        @Override
-//        public void handle(IndexMessage event) {
-//            trigger(event.getEvent(), indexRoutingPort);
-//        }
-//    };
     /**
      * Forward a {@link GapCheck} event to the leader. Return it back to Search
      * in case this is the leader.
@@ -359,8 +300,7 @@ public final class Gradient extends ComponentDefinition {
      * the leader with a higher probability so that not always the same route is
      * chosen. His decreases the probability of always choosing a wrong route.
      */
-    private void forwardAddIndexEntryToLeader(VodAddress source,
-            AddIndexEntryMessage.Request request) {
+    private void forwardAddIndexEntryToLeader(VodAddress source, AddIndexEntryMessage.Request request) {
         ArrayList<VodAddress> peers = gradientView.getHigherNodes();
         if (peers.size() == 0) {
             return;
