@@ -35,7 +35,6 @@ public final class SearchSimulator extends ComponentDefinition {
     Positive<SimulatorPort> simulator = positive(SimulatorPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Negative<Web> webIncoming = negative(Web.class);
     private final HashMap<Long, Component> peers;
     private final HashMap<Long, Address> peersAddress;
     private CroupierConfiguration croupierConfiguration;
@@ -64,7 +63,6 @@ public final class SearchSimulator extends ComponentDefinition {
 //        subscribe(handleTerminateExperiment, simulator);
         subscribe(handleAddIndexEntry, simulator);
         subscribe(handleAddMagnetEntry, simulator);
-        subscribe(handleWebRequest, webIncoming);
     }
     Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
         @Override
@@ -119,12 +117,6 @@ public final class SearchSimulator extends ComponentDefinition {
 //            System.exit(0);
 //        }
 //    };
-    Handler<WebResponse> handleWebResponse = new Handler<WebResponse>() {
-        @Override
-        public void handle(WebResponse event) {
-            trigger(event, webIncoming);
-        }
-    };
     Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
         @Override
         public void handle(AddIndexEntry event) {
@@ -221,7 +213,6 @@ public final class SearchSimulator extends ComponentDefinition {
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class));
-        subscribe(handleWebResponse, peer.getPositive(Web.class));
 
         trigger(new SearchPeerInit(self, croupierConfiguration,
                 searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
