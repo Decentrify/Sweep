@@ -121,8 +121,7 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
-    
-    
+
     @Test
     public void searchResponse() {
         try {
@@ -715,6 +714,50 @@ public class EncodingDecodingTest {
             assert (response.getVodSource().equals(gSrc));
             assert (response.getBetterLeader().equals(vodAddress1));
 
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void LeaderLookupRequest() {
+        LeaderLookupMessage.Request msg = new LeaderLookupMessage.Request(gSrc, gDest, UUID.nextUUID());
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderLookupMessage.Request request = LeaderLookupMessageFactory.Request.fromBuffer(buffer);
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void LeaderLookupResponse() {
+        InetAddress address = null;
+        try {
+            address = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
+                VodConfig.SYSTEM_OVERLAY_ID, nat);
+
+        VodAddress[] items = new VodAddress[]{vodAddress};
+        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), items);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getAddresses()[0].equals(vodAddress));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
