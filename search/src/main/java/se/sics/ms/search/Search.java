@@ -461,7 +461,6 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(AddIndexEntryMessage.Response event) {
             // TODO inform user
-            System.out.println(self.getId() + " entry has been successfully added: " + event.getTimeoutId());
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
         }
