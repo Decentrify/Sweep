@@ -120,8 +120,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
-        subscribe(handleReplicate, networkPort);
-        subscribe(handleReplicationConfirmation, networkPort);
+        subscribe(handleReplicationRequest, networkPort);
+        subscribe(handleReplicationResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
@@ -470,28 +470,28 @@ public final class Search extends ComponentDefinition {
     /**
      * When receiving a replicate messsage from the leader, add the entry to the
      * local store and send an acknowledgment.
-     */
-    final Handler<ReplicationMessage.Request> handleReplicate = new Handler<ReplicationMessage.Request>() {
+
+    */
+    final Handler<ReplicationMessage.Request> handleReplicationRequest = new Handler<ReplicationMessage.Request>() {
         @Override
         public void handle(ReplicationMessage.Request event) {
             try {
                 addEntryLocal(event.getIndexEntry());
-
-                trigger(new ReplicationMessage.Response(self.getAddress(), event.getVodDestination(), event.getTimeoutId()), networkPort);
+                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
+                trigger(msg, networkPort);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
-
     /**
      * As the leader, add an {@link ReplicationMessage.Request} to the according
      * request and issue the response if the replication constraints were
      * satisfied.
      */
-    final Handler<ReplicationMessage.Request> handleReplicationConfirmation = new Handler<ReplicationMessage.Request>() {
+    final Handler<ReplicationMessage.Response> handleReplicationResponse = new Handler<ReplicationMessage.Response>() {
         @Override
-        public void handle(ReplicationMessage.Request event) {
+        public void handle(ReplicationMessage.Response event) {
             ReplicationCount replicationCount = replicationRequests.get(event.getTimeoutId());
             if (replicationCount != null && replicationCount.incrementAndCheckReceived()) {
 
