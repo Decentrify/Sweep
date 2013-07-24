@@ -32,7 +32,6 @@ import java.util.Random;
 
 public final class SearchPeer extends ComponentDefinition {
 
-    public static final String CROUPIER = "CROUPIER";
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);

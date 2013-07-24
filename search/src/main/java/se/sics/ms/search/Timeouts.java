@@ -33,26 +33,13 @@ public final class Timeouts {
 	 * {@link se.sics.peersearch.messages.ReplicationMessage.Request}.
 	 */
 	protected static class ReplicationTimeout extends Timeout {
-		private final UUID requestId;
 
 		/**
 		 * @param request
 		 *            the ScheduleTimeout that holds the Timeout
-		 * @param requestId
-		 *            the unique request id of the {@link se.sics.peersearch.messages.ReplicationMessage.Request} for
-		 *            which this timeout was scheduled
 		 */
-		public ReplicationTimeout(ScheduleTimeout request, UUID requestId) {
+		public ReplicationTimeout(ScheduleTimeout request) {
 			super(request);
-			this.requestId = requestId;
-		}
-
-		/**
-		 * @return the unique request id of the {@link se.sics.peersearch.messages.ReplicationMessage.Request} for
-		 *         which this timeout was scheduled
-		 */
-		public UUID getRequestId() {
-			return requestId;
 		}
 	}
 

@@ -36,7 +36,7 @@ public final class SearchSimulator extends ComponentDefinition {
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     private final HashMap<Long, Component> peers;
-    private final HashMap<Long, Address> peersAddress;
+    private final HashMap<Long, VodAddress> peersAddress;
     private CroupierConfiguration croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
@@ -53,7 +53,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
     public SearchSimulator() {
         peers = new HashMap<Long, Component>();
-        peersAddress = new HashMap<Long, Address>();
+        peersAddress = new HashMap<Long, VodAddress>();
         ringNodes = new ConsistentHashtable<Long>();
 
         subscribe(handleInit, control);
@@ -210,7 +210,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
-        peersAddress.put(id, address);
+        peersAddress.put(id, self.getAddress());
 
         Snapshot.addPeer(new VodAddress(address, overlayId));
     }
@@ -224,7 +224,7 @@ public final class SearchSimulator extends ComponentDefinition {
         disconnect(timer, peer.getNegative(Timer.class));
 
         peers.remove(id);
-        Address addr = peersAddress.remove(id);
+        VodAddress addr = peersAddress.remove(id);
         Snapshot.removePeer(addr);
 
         destroy(peer);

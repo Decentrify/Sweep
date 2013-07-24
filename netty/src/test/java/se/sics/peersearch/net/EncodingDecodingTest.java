@@ -162,8 +162,6 @@ public class EncodingDecodingTest {
 
     @Test
     public void AddIndexEntryRequest() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
         String url = "url";
         String fileName = "fileName";
         Long size = 123L;
@@ -172,15 +170,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
+        AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            AddIndexEntryMessage.Request request =
-                    AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
-            assert (request.getNumResponses() == numResponses);
-            assert (request.getResponseNumber() == responseNum);
+            AddIndexEntryMessage.Request request = AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntry().getUrl().equals(url));
             assert (request.getEntry().getFileName().equals(fileName));
             assert (request.getEntry().getFileSize() == size);
@@ -201,39 +195,12 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void AddIndexEntryResponse() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        String leaderId = "leaderId";
-        Long entryId = 1L;
-        IndexEntry entry = new IndexEntry(entryId, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, leaderId);
-        AddIndexEntryMessage.Response msg = new AddIndexEntryMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
+    public void AddIndexEntryResponse() {;
+        AddIndexEntryMessage.Response msg = new AddIndexEntryMessage.Response(gSrc, gDest, UUID.nextUUID());
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            AddIndexEntryMessage.Response response =
-                    AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
-            assert (id.equals(response.getId()));
-            assert (response.getNumResponses() == numResponses);
-            assert (response.getResponseNumber() == responseNum);
-            assert (response.getEntry().getUrl().equals(url));
-            assert (response.getEntry().getFileName().equals(fileName));
-            assert (response.getEntry().getFileSize() == size);
-            assert (response.getEntry().getUploaded().equals(time));
-            assert (response.getEntry().getLanguage().equals(language));
-            assert (response.getEntry().getDescription().equals(description));
-            assert (response.getEntry().getHash().equals(hash));
-            assert (response.getEntry().getLeaderId().equals(leaderId));
-            assert (entryId.equals(response.getEntry().getId()));
-            assert (response.getEntry().getCategory() == IndexEntry.Category.Music);
-
+            AddIndexEntryMessage.Response response = AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -245,7 +212,6 @@ public class EncodingDecodingTest {
 
     @Test
     public void ReplicationRequest() {
-        TimeoutId id = UUID.nextUUID();
         int numResponses = 5, responseNum = 1;
         String url = "url";
         String fileName = "fileName";
@@ -255,13 +221,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), (UUID) id, entry, numResponses, responseNum);
+        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNum);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationMessage.Request request =
-                    ReplicationMessageFactory.Request.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
+            ReplicationMessage.Request request = ReplicationMessageFactory.Request.fromBuffer(buffer);
             assert (request.getNumResponses() == numResponses);
             assert (request.getResponseNumber() == responseNum);
             assert (request.getIndexEntry().getUrl().equals(url));
@@ -285,14 +249,11 @@ public class EncodingDecodingTest {
 
     @Test
     public void ReplicationResponse() {
-        TimeoutId id = UUID.nextUUID();
-        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID(), (UUID) id);
+        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID());
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationMessage.Response request =
-                    ReplicationMessageFactory.Response.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
+            ReplicationMessage.Response request = ReplicationMessageFactory.Response.fromBuffer(buffer);
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

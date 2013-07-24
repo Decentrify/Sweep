@@ -41,7 +41,7 @@ public class LeaderSuspectionMessage {
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.LEADER_SUSPECTION_REQUEST;
+            return MessageFrameDecoder.LEADER_SUSPICION_REQUEST;
         }
 
         @Override
@@ -90,7 +90,7 @@ public class LeaderSuspectionMessage {
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.LEADER_SUSPECTION_RESPONSE;
+            return MessageFrameDecoder.LEADER_SUSPICION_RESPONSE;
         }
 
         @Override

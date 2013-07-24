@@ -8,7 +8,7 @@ import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 @SuppressWarnings("serial")
 public class Operations {
 	// Global counter to create monotonically increasing ids
-	private static long nextId = 0;
+	private static long nextId = 1;
 
 	public static Operation1<AddIndexEntry, Long> addIndexEntry() {
 		return new Operation1<AddIndexEntry, Long>() {

@@ -16,48 +16,27 @@ import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.peersearch.types.IndexEntry;
 
 /**
- * Created with IntelliJ IDEA.
- * User: kazarindn
- * Date: 7/1/13
- * Time: 6:48 PM
+ * @author Steffen Grohsschmiedt
  */
 public class AddIndexEntryMessage {
     public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final IndexEntry entry;
-        private final UUID id;
-        private final int numResponses;
-        private final int responseNumber;
 
         public IndexEntry getEntry() {
             return entry;
         }
 
-        public UUID getId() {
-            return id;
-        }
-
-        public int getNumResponses() {
-            return numResponses;
-        }
-
-        public int getResponseNumber() {
-            return responseNumber;
-        }
-
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry, UUID id, int numResponses, int responseNumber) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry) {
             super(source, destination, timeoutId);
 
             this.entry = entry;
-            this.id = id;
-            this.numResponses = numResponses;
-            this.responseNumber = responseNumber;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new AddIndexEntryMessage.Request(vodSrc, vodDest, timeoutId, entry, id, numResponses, responseNumber);
+            return new AddIndexEntryMessage.Request(vodSrc, vodDest, timeoutId, entry);
         }
 
         @Override
@@ -69,9 +48,6 @@ public class AddIndexEntryMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writeIndexEntry(buffer, entry);
-            UserTypesEncoderFactory.writeTimeoutId(buffer, id);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             return buffer;
         }
 
@@ -84,38 +60,13 @@ public class AddIndexEntryMessage {
     public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final IndexEntry entry;
-        private final TimeoutId id;
-        private final int numResponses;
-        private final int responseNumber;
-
-        public TimeoutId getId() {
-            return id;
-        }
-
-        public IndexEntry getEntry() {
-            return entry;
-        }
-
-        public int getNumResponses() {
-            return numResponses;
-        }
-
-        public int getResponseNumber() {
-            return responseNumber;
-        }
-
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry, TimeoutId id, int numResponses, int responseNumber) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
             super(source, destination, timeoutId);
-            this.entry = entry;
-            this.id = id;
-            this.numResponses = numResponses;
-            this.responseNumber = responseNumber;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, timeoutId, entry, id, numResponses, responseNumber);
+            return new Response(vodSrc, vodDest, timeoutId);
         }
 
         @Override
@@ -126,10 +77,6 @@ public class AddIndexEntryMessage {
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntry(buffer, entry);
-            UserTypesEncoderFactory.writeTimeoutId(buffer, id);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             return buffer;
         }
 

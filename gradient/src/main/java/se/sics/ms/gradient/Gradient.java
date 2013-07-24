@@ -18,8 +18,10 @@ import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.peer.RequestTimeout;
+import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.GradientShuffleMessage;
 import se.sics.peersearch.messages.LeaderLookupMessage;
+import se.sics.peersearch.types.IndexEntry;
 
 import java.util.*;
 
@@ -197,12 +199,18 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+    // TODO This is a very fragile routing implementation and only for testing purposes, it might not even terminate
+    private IndexEntry entryToAdd;
+    private boolean leaderFound;
     final Handler<LeaderRequestPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<LeaderRequestPort.AddIndexEntryRequest>() {
         @Override
         public void handle(LeaderRequestPort.AddIndexEntryRequest event) {
+            leaderFound = false;
+            entryToAdd = event.getEntry();
+            System.out.println(self.getId() + " adds " + entryToAdd);
+
             ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
             System.out.println(self.getId() + "'s higher nodes: " + higherNodes.toString());
-
             for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
                 trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i), event.getTimeoutId()), networkPort);
             }
@@ -225,7 +233,22 @@ public final class Gradient extends ComponentDefinition {
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
-            System.out.println(self.getId() + " got an reposen");
+            if (leaderFound) {
+                return;
+            }
+
+            if (event.isLeader()) {
+                leaderFound = true;
+                trigger(new AddIndexEntryMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), entryToAdd), networkPort);
+                System.out.println(self.getId() + " sent an add request to " + event.getVodSource());
+                entryToAdd = null;
+            } else {
+                VodAddress[] higherNodes = event.getAddresses();
+                Arrays.sort(higherNodes, closeToLeader);
+                for (int i = 0; i < higherNodes.length && i < LeaderLookupMessage.A; i++) {
+                    trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes[i], event.getTimeoutId()), networkPort);
+                }
+            }
         }
     };
 

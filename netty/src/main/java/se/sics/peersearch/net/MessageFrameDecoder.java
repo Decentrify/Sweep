@@ -5,7 +5,6 @@
 package se.sics.peersearch.net;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +33,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte LEADER_SELECTION_RESPONSE     = 0x69;
     public static final byte GRADIENT_SHUFFLE_REQUEST      = 0x6a;
     public static final byte GRADIENT_SHUFFLE_RESPONSE     = 0x6b;
-    public static final byte LEADER_SUSPECTION_REQUEST     = 0x6c;
-    public static final byte LEADER_SUSPECTION_RESPONSE    = 0x6d;
+    public static final byte LEADER_SUSPICION_REQUEST      = 0x6c;
+    public static final byte LEADER_SUSPICION_RESPONSE     = 0x6d;
     public static final byte LEADER_ANNOUNCEMENT           = 0x6e;
     public static final byte HEARTBEAT_REQUEST             = 0x6f;
     public static final byte HEARTBEAT_RESPONSE            = 0x70;
@@ -63,7 +62,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     @Override
     protected RewriteableMsg decodeMsg(ChannelHandlerContext ctx,
             ByteBuf buffer) throws MessageDecodingException {
-        
         // See if msg is part of parent project, if yes then return it.
         // Otherwise decode the msg here.
         RewriteableMsg msg = super.decodeMsg(ctx, buffer);
@@ -95,9 +93,9 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return GradientShuffleMessageFactory.Request.fromBuffer(buffer);
             case GRADIENT_SHUFFLE_RESPONSE:
                 return GradientShuffleMessageFactory.Response.fromBuffer(buffer);
-            case LEADER_SUSPECTION_REQUEST:
+            case LEADER_SUSPICION_REQUEST:
                 return LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
-            case LEADER_SUSPECTION_RESPONSE:
+            case LEADER_SUSPICION_RESPONSE:
                 return LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
             case LEADER_ANNOUNCEMENT:
                 return LeaderAnnouncementMessageFactory.fromBuffer(buffer);

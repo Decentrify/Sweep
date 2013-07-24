@@ -21,22 +21,17 @@ public class AddIndexEntryMessageFactory {
         private Request() {
         }
 
-        public static AddIndexEntryMessage.Request fromBuffer(ByteBuf buffer)
-                throws MessageDecodingException {
-            return (AddIndexEntryMessage.Request)
-                    new AddIndexEntryMessageFactory.Request().decode(buffer, true);
+        public static AddIndexEntryMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            System.out.println("decode1");
+            return (AddIndexEntryMessage.Request) new AddIndexEntryMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
         protected AddIndexEntryMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
+            System.out.println("decode2");
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
-            UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
-            int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            return new AddIndexEntryMessage.Request(vodSrc, vodDest,
-                    timeoutId, entry, id, numResponses, responseNum);
+            return new AddIndexEntryMessage.Request(vodSrc, vodDest, timeoutId, entry);
         }
-
     }
 
     public static class Response extends DirectMsgNettyFactory.Response {
@@ -46,17 +41,12 @@ public class AddIndexEntryMessageFactory {
 
         public static AddIndexEntryMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (AddIndexEntryMessage.Response)
-                    new AddIndexEntryMessageFactory.Response().decode(buffer, true);
+            return (AddIndexEntryMessage.Response) new AddIndexEntryMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
-            UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
-            int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            return new AddIndexEntryMessage.Response(vodSrc, vodDest, timeoutId, entry, id, numResponses, responseNum);
+            return new AddIndexEntryMessage.Response(vodSrc, vodDest, timeoutId);
         }
     }
 }
