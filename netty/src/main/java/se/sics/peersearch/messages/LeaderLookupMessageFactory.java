@@ -41,8 +41,9 @@ public class LeaderLookupMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
+            boolean terminated = buffer.readBoolean();
             VodAddress[] items = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
-            return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, items);
+            return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, terminated, items);
         }
     }
 }

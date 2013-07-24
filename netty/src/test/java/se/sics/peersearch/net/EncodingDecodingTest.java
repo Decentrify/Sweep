@@ -747,16 +747,18 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
+        boolean terminated = false;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
         VodAddress[] items = new VodAddress[]{vodAddress};
-        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), items);
+        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), terminated, items);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
+            assert terminated == response.isLeader();
             assert (response.getAddresses()[0].equals(vodAddress));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

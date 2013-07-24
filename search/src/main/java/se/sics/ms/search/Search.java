@@ -26,6 +26,7 @@ import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Positive;
+import se.sics.ms.gradient.LeaderRequestPort;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.peer.PeerDescriptor;
@@ -62,9 +63,10 @@ public final class Search extends ComponentDefinition {
 	public static final boolean PERSISTENT_INDEX = false;
 
 	Positive<IndexPort> indexPort = positive(IndexPort.class);
-	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
-	Positive<Timer> timerPort = positive(Timer.class);
-	Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
+    Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<Timer> timerPort = positive(Timer.class);
+    Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
+    Positive<LeaderRequestPort> leaderRequestPort = positive(LeaderRequestPort.class);
 
 	private static final Logger logger = LoggerFactory.getLogger(Search.class);
 	private Self self;
@@ -116,7 +118,8 @@ public final class Search extends ComponentDefinition {
 		subscribe(handleAddIndexSimulated, indexPort);
 		subscribe(handleIndexUpdateRequest, networkPort);
 		subscribe(handleIndexUpdateResponse, networkPort);
-		subscribe(handleIndexEntryAdded, networkPort);
+        subscribe(handleAddIndexEntryRequest, networkPort);
+		subscribe(handleAddIndexEntryResponse, networkPort);
 		subscribe(handleReplicate, networkPort);
 		subscribe(handleReplicationConfirmation, networkPort);
 		subscribe(handleSearchRequest, networkPort);
@@ -131,7 +134,7 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Initialize the component.
 	 */
-	Handler<SearchInit> handleInit = new Handler<SearchInit>() {
+    final Handler<SearchInit> handleInit = new Handler<SearchInit>() {
 		public void handle(SearchInit init) {
 			self = init.getSelf();
 			config = init.getConfiguration();
@@ -267,10 +270,10 @@ public final class Search extends ComponentDefinition {
 	}
 
 	/**
-	 * Handle samples from Cyclon. Use them to update the routing tables and
+	 * Handle samples from Croupier. Use them to update the routing tables and
 	 * issue an index exchange with another node.
 	 */
-	Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
+    final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
 		@Override
 		public void handle(CroupierSample event) {
 			// receive a new list of neighbors
@@ -316,17 +319,17 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Add index entries for the simulator.
 	 */
-	Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
+    final Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
 		@Override
 		public void handle(AddIndexSimulated event) {
-            addEntryGlobal(event.getEntry(), (UUID)UUID.nextUUID());
+            addEntryGlobal(event.getEntry());
 		}
 	};
 
 	/**
 	 * Add all entries received from another node to the local index store.
 	 */
-	Handler<IndexExchangeMessage.Response> handleIndexUpdateResponse = new Handler<IndexExchangeMessage.Response>() {
+    final Handler<IndexExchangeMessage.Response> handleIndexUpdateResponse = new Handler<IndexExchangeMessage.Response>() {
 		@Override
 		public void handle(IndexExchangeMessage.Response event) {
 			try {
@@ -343,7 +346,7 @@ public final class Search extends ComponentDefinition {
 	 * Search for entries in the local store that the inquirer might need and
 	 * send them to him.
 	 */
-	Handler<IndexExchangeMessage.Request> handleIndexUpdateRequest = new Handler<IndexExchangeMessage.Request>() {
+    final Handler<IndexExchangeMessage.Request> handleIndexUpdateRequest = new Handler<IndexExchangeMessage.Request>() {
 		@Override
 		public void handle(IndexExchangeMessage.Request event) {
 			try {
@@ -390,7 +393,7 @@ public final class Search extends ComponentDefinition {
 	 * responded to the {@link ReplicationMessage} request or the timeout occurred and
 	 * enough nodes, as specified in the config, responded.
 	 */
-	Handler<AddIndexEntryMessage.Request> handleAddIndexEntry = new Handler<AddIndexEntryMessage.Request>() {
+    final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
 		@Override
 		public void handle(AddIndexEntryMessage.Request event) {
 			if (recentRequests.containsKey(event.getId())) {
@@ -457,7 +460,7 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * An index entry has been successfully added.
 	 */
-	Handler<AddIndexEntryMessage.Response> handleIndexEntryAdded = new Handler<AddIndexEntryMessage.Response>() {
+    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
 		@Override
 		public void handle(AddIndexEntryMessage.Response event) {
             // TODO inform user
@@ -470,7 +473,7 @@ public final class Search extends ComponentDefinition {
 	 * When receiving a replicate messsage from the leader, add the entry to the
 	 * local store and send an acknowledgment.
 	 */
-	Handler<ReplicationMessage.Request> handleReplicate = new Handler<ReplicationMessage.Request>() {
+    final Handler<ReplicationMessage.Request> handleReplicate = new Handler<ReplicationMessage.Request>() {
 		@Override
 		public void handle(ReplicationMessage.Request event) {
 			try {
@@ -488,7 +491,7 @@ public final class Search extends ComponentDefinition {
 	 * request and issue the response if the replication constraints were
 	 * satisfied.
 	 */
-	Handler<ReplicationMessage.Request> handleReplicationConfirmation = new Handler<ReplicationMessage.Request>() {
+    final Handler<ReplicationMessage.Request> handleReplicationConfirmation = new Handler<ReplicationMessage.Request>() {
 		@Override
 		public void handle(ReplicationMessage.Request event) {
 			ReplicationCount replicationCount = replicationRequests.get(event.getId());
@@ -504,7 +507,7 @@ public final class Search extends ComponentDefinition {
 	 * Query the local store with the given query string and send the response
 	 * back to the inquirer.
 	 */
-	Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
+    final Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
 		@Override
 		public void handle(SearchMessage.Request event) {
 			try {
@@ -523,7 +526,7 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * Add the response to the search index store.
 	 */
-	Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
+    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
 		@Override
 		public void handle(SearchMessage.Response event) {
 			if (searchRequest == null
@@ -539,7 +542,7 @@ public final class Search extends ComponentDefinition {
 	 * Answer a search request if the timeout occurred before all answers were
 	 * collected.
 	 */
-	Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
 		@Override
 		public void handle(SearchTimeout event) {
 			answerSearchRequest();
@@ -551,7 +554,7 @@ public final class Search extends ComponentDefinition {
 	 * requests if the constraints could not be satisfied in time. In this case,
 	 * no acknowledgment is sent to the client.
 	 */
-	Handler<ReplicationTimeout> handleReplicationTimeout = new Handler<ReplicationTimeout>() {
+    final Handler<ReplicationTimeout> handleReplicationTimeout = new Handler<ReplicationTimeout>() {
 		@Override
 		public void handle(ReplicationTimeout event) {
 			// TODO We could send a message to the client here that we are
@@ -564,31 +567,29 @@ public final class Search extends ComponentDefinition {
 	};
 
 	/**
-	 * No acknowledgment for a issued {@link AddIndexEntryMessage} request was received
-	 * in time. Try to add the entry again or respons with failure to the web
-	 * client.
+	 * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
+	 * in time. Try to add the entry again or respons with failure to the web client.
 	 */
-	Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
+    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
 		@Override
 		public void handle(AddRequestTimeout event) {
+            // TODO this event is not only triggered at the issuing node!
 			if (event.reachedRetryLimit()) {
 				// TODO inform the user
 			} else {
 				event.incrementTries();
-				addEntryGlobal(event.getEntry(), (UUID)event.getTimeoutId());
-
-				ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-				rst.setTimeoutEvent(event);
-				trigger(rst, timerPort);
+                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+                rst.setTimeoutEvent(event);
+				addEntryGlobal(event.getEntry(), rst);
 			}
 		}
 	};
 
 	/**
 	 * Periodically garbage collect the data structure used to identify
-	 * duplicated {@link AddIndexEntryMessage} requests.
+	 * duplicated {@link AddIndexEntryMessage.Request}.
 	 */
-	Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
+    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
 		@Override
 		public void handle(RecentRequestsGcTimeout event) {
 			long referenceTime = System.currentTimeMillis();
@@ -610,7 +611,7 @@ public final class Search extends ComponentDefinition {
 	/**
 	 * The entry for a detected gap was not added in time.
 	 */
-	Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
+    final Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
 		@Override
 		public void handle(GapTimeout event) {
 			try {
@@ -693,21 +694,20 @@ public final class Search extends ComponentDefinition {
 		// Limit the time to wait for responses and answer the web request
 		ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
 		rst.setTimeoutEvent(new AddRequestTimeout(rst, config.getRetryCount(), entry));
-		trigger(rst, timerPort);
-
-		addEntryGlobal(entry, (UUID)rst.getTimeoutEvent().getTimeoutId());
+		addEntryGlobal(entry, rst);
 	}
 
 	/**
-	 * Add a new {link {@link IndexEntry} to the system.
+	 * Add a new {link {@link IndexEntry} to the system, add the given timeout to the timer.
 	 * 
 	 * @param entry
 	 *            the {@link IndexEntry} to be added
+     * @param timeout timeout for adding the entry
 	 */
-	private void addEntryGlobal(IndexEntry entry, UUID requestId) {
+	private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
         System.out.println(self.getId() + " starts adding entry " + entry.getFileName());
-        // TODO implement new adding method here
-//		trigger(new AddIndexEntry(self.getAddress(), requestId, entry), routedEventsPort);
+        trigger(timeout, timerPort);
+        trigger(new LeaderRequestPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), leaderRequestPort);
 	}
 
 	/**
@@ -848,7 +848,6 @@ public final class Search extends ComponentDefinition {
 	 */
 	private long getCurrentInsertionId() {
 		lastInsertionId++;
-//		trigger(new IndexDisseminationEvent(lastInsertionId), indexRoutingPort);
 		return lastInsertionId;
 	}
 

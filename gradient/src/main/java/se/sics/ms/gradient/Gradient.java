@@ -1,7 +1,5 @@
 package se.sics.ms.gradient;
 
-import java.util.*;
-
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.GradientConfiguration;
@@ -16,12 +14,14 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.peersearch.messages.*;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
-import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
 import se.sics.ms.peer.RequestTimeout;
+import se.sics.peersearch.messages.GradientShuffleMessage;
+import se.sics.peersearch.messages.LeaderLookupMessage;
+
+import java.util.*;
 
 
 /**
@@ -35,6 +35,8 @@ public final class Gradient extends ComponentDefinition {
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
+    Negative<LeaderRequestPort> leaderRequestPort = negative(LeaderRequestPort.class);
+
     private Self self;
     private GradientConfiguration config;
     private Random random;
@@ -59,14 +61,16 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleCroupierSample, croupierSamplePort);
         subscribe(handleShuffleResponse, networkPort);
         subscribe(handleShuffleRequest, networkPort);
+        subscribe(handleLeaderLookupRequest, networkPort);
+        subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleNodeCrash, leaderStatusPort);
-        subscribe(handeNodeSuggestion, leaderStatusPort);
+        subscribe(handleAddIndexEntryRequest, leaderRequestPort);
     }
     /**
      * Initialize the state of the component.
      */
-    Handler<GradientInit> handleInit = new Handler<GradientInit>() {
+    final Handler<GradientInit> handleInit = new Handler<GradientInit>() {
         @Override
         public void handle(GradientInit init) {
             self = init.getSelf();
@@ -86,7 +90,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Initiate a identifier exchange every round.
      */
-    Handler<GradientRound> handleRound = new Handler<GradientRound>() {
+    final Handler<GradientRound> handleRound = new Handler<GradientRound>() {
         @Override
         public void handle(GradientRound event) {
             if (!gradientView.isEmpty()) {
@@ -100,7 +104,7 @@ public final class Gradient extends ComponentDefinition {
      * Initiate a exchange with a random node of each Croupier sample to speed
      * up convergence and prevent partitioning.
      */
-    Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
+    final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
@@ -115,7 +119,7 @@ public final class Gradient extends ComponentDefinition {
      * Answer a {@link GradientShuffleMessage.Request} with the nodes from the view preferred by
      * the inquirer.
      */
-    Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
+    final Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
 //            System.out.println(self.getAddress().toString() + " got ShuffleRequest from " + event.getVodSource().toString());
@@ -144,7 +148,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Merge the entries from the response to the view.
      */
-    Handler<GradientShuffleMessage.Response> handleShuffleResponse = new Handler<GradientShuffleMessage.Response>() {
+    final Handler<GradientShuffleMessage.Response> handleShuffleResponse = new Handler<GradientShuffleMessage.Response>() {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
 //            System.out.println(self.getAddress().toString() + " got ShuffleResponse from " + event.getVodSource().toString());
@@ -164,7 +168,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * This handler listens to updates regarding the leader status
      */
-    Handler<LeaderStatus> handleLeaderStatus = new Handler<LeaderStatus>() {
+    final Handler<LeaderStatus> handleLeaderStatus = new Handler<LeaderStatus>() {
         @Override
         public void handle(LeaderStatus event) {
             leader = event.isLeader();
@@ -173,33 +177,16 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Updates gradient's view by removing crashed nodes from it, eg. old leaders
      */
-    Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
+    final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
         public void handle(NodeCrashEvent event) {
             gradientView.remove(event.getDeadNode());
         }
     };
     /**
-     * A handler that takes a suggestion and adds it to the view. This will
-     * prevent the node from thinking that it is a leader candidate in case it
-     * only has nodes below itself even though it's not at the top of the
-     * overlay topology. Even if the suggested node might not fit in perfectly
-     * it can be dropped later when the node converges
-     */
-    Handler<NodeSuggestion> handeNodeSuggestion = new Handler<NodeSuggestion>() {
-        @Override
-        public void handle(NodeSuggestion event) {
-            if (event.getSuggestion() != null && event.getSuggestion().getId() < self.getId()) {
-                ArrayList<VodAddress> suggestionList = new ArrayList<VodAddress>();
-                suggestionList.add(event.getSuggestion());
-                gradientView.merge(suggestionList.toArray(new VodAddress[suggestionList.size()]));
-            }
-        }
-    };
-    /**
      * Remove a node from the view if it didn't respond to a request.
      */
-    Handler<RequestTimeout> handleRequestTimeout = new Handler<RequestTimeout>() {
+    final Handler<RequestTimeout> handleRequestTimeout = new Handler<RequestTimeout>() {
         @Override
         public void handle(RequestTimeout event) {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
@@ -208,6 +195,37 @@ public final class Gradient extends ComponentDefinition {
             if (deadNode != null) {
                 gradientView.remove(deadNode);
             }
+        }
+    };
+    final Handler<LeaderRequestPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<LeaderRequestPort.AddIndexEntryRequest>() {
+        @Override
+        public void handle(LeaderRequestPort.AddIndexEntryRequest event) {
+            ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
+            System.out.println(self.getId() + "'s higher nodes: " + higherNodes.toString());
+
+            for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
+                trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i), event.getTimeoutId()), networkPort);
+            }
+        }
+    };
+    final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
+        @Override
+        public void handle(LeaderLookupMessage.Request event) {
+            ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
+            int limit = higherNodes.size() > LeaderLookupMessage.K ? LeaderLookupMessage.K : higherNodes.size();
+            VodAddress[] addresses = new VodAddress[limit];
+
+            for (int i = 0; i < limit; i++) {
+                addresses[i] = higherNodes.get(i);
+            }
+
+            trigger(new LeaderLookupMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), leader, addresses), networkPort);
+        }
+    };
+    final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
+        @Override
+        public void handle(LeaderLookupMessage.Response event) {
+            System.out.println(self.getId() + " got an reposen");
         }
     };
 
@@ -261,7 +279,7 @@ public final class Gradient extends ComponentDefinition {
     // Reference:
     // http://webdocs.cs.ualberta.ca/~sutton/book/2/node4.html
     private VodAddress getSoftMaxAddress(List<VodAddress> entries) {
-        Collections.sort(entries, new ClosetIdToLeader());
+        Collections.sort(entries, closeToLeader);
 
         double rnd = random.nextDouble();
         double total = 0.0d;
@@ -289,7 +307,7 @@ public final class Gradient extends ComponentDefinition {
         return entries.get(entries.size() - 1);
     }
 
-    private class ClosetIdToLeader implements Comparator<VodAddress> {
+    private Comparator<VodAddress> closeToLeader = new Comparator<VodAddress>() {
 
         @Override
         public int compare(VodAddress o1, VodAddress o2) {
@@ -302,5 +320,5 @@ public final class Gradient extends ComponentDefinition {
             }
             return 0;
         }
-    }
+    };
 }

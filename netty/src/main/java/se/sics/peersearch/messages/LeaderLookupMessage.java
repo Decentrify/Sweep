@@ -15,6 +15,9 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * @author Steffen Grohsschmiedt
  */
 public class LeaderLookupMessage {
+    public static final int A = 3;
+    public static final int K = 5;
+
     public static class Request extends DirectMsgNetty.Request {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
@@ -46,15 +49,13 @@ public class LeaderLookupMessage {
     public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
+        private final boolean leader;
         private final VodAddress[] addresses;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, VodAddress[] addresses) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, VodAddress[] addresses) {
             super(source, destination, timeoutId);
+            this.leader = leader;
             this.addresses = addresses;
-        }
-
-        public VodAddress[] getAddresses() {
-            return addresses;
         }
 
         @Override
@@ -63,14 +64,23 @@ public class LeaderLookupMessage {
             return getHeaderSize() + MAX_RESULTS_STR_LEN;
         }
 
+        public boolean isLeader() {
+            return leader;
+        }
+
+        public VodAddress[] getAddresses() {
+            return addresses;
+        }
+
         @Override
         public RewriteableMsg copy() {
-            return  new Response(vodSrc, vodDest, timeoutId, addresses);
+            return  new Response(vodSrc, vodDest, timeoutId, leader, addresses);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
+            buffer.writeBoolean(leader);
             ApplicationTypesEncoderFactory.writeVodAddressArray(buffer, addresses);
             return buffer;
         }

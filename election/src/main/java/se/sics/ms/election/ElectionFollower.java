@@ -34,6 +34,7 @@ public class ElectionFollower extends ComponentDefinition {
     Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
     Negative<LeaderStatusPort> leaderStatusPortNeg = negative(LeaderStatusPort.class);
+
     private ElectionConfiguration config;
     private Self self;
     private VodAddress leader;

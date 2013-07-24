@@ -15,9 +15,11 @@ import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
-import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
 import se.sics.ms.snapshot.Snapshot;
-import se.sics.peersearch.messages.*;
+import se.sics.peersearch.messages.ElectionMessage;
+import se.sics.peersearch.messages.RejectFollowerMessage;
+import se.sics.peersearch.messages.RejectLeaderMessage;
+import se.sics.peersearch.messages.VotingResultMessage;
 
 import java.util.ArrayList;
 
@@ -27,6 +29,7 @@ import java.util.ArrayList;
  * leader elections etc.
  */
 public class ElectionLeader extends ComponentDefinition {
+
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
@@ -147,7 +150,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 			// Reject if there is a no-vote
 			if (totalVotes != yesVotes) {
-				rejected(event.getVodSource(), event.getHighest());
+				rejected();
 			}
 			// Count the votes if all votes have returned
 			else if (totalVotes >= numberOfNodesAtVotingTime) {
@@ -190,7 +193,7 @@ public class ElectionLeader extends ComponentDefinition {
 			} else {
 				scheduledTimeoutId = event.getTimeoutId();
                                 assert(scheduledTimeoutId != null);
-				rejected(self.getAddress(), lowestId);
+				rejected();
 			}
 		}
 	};
@@ -202,7 +205,7 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
 		public void handle(RejectLeaderMessage event) {
-			rejected(event.getVodSource(), event.getBetterLeader());
+			rejected();
 		}
 	};
 
@@ -367,16 +370,5 @@ public class ElectionLeader extends ComponentDefinition {
 		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
 		variableCleanUp();
-	}
-
-	private void rejected(VodAddress byNode, VodAddress betterNode) {
-		rejected();
-		
-		// From here one could trigger an event that suggest Gradient to put this
-		// better node in its view so that it won't call for more unnecessary
-		// elections
-		if (config.isNodeSuggestion() == true) {
-			trigger(new NodeSuggestion(betterNode), leaderStatusPort);
-		}
 	}
 }

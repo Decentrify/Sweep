@@ -85,6 +85,7 @@ public final class SearchPeer extends ComponentDefinition {
                 gradient.getPositive(LeaderStatusPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 electionFollower.getPositive(LeaderStatusPort.class));
+        connect(gradient.getPositive(LeaderRequestPort.class), search.getNegative(LeaderRequestPort.class));
 
         subscribe(handleInit, control);
     }
