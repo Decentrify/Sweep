@@ -207,10 +207,8 @@ public final class Gradient extends ComponentDefinition {
         public void handle(LeaderRequestPort.AddIndexEntryRequest event) {
             leaderFound = false;
             entryToAdd = event.getEntry();
-            System.out.println(self.getId() + " adds " + entryToAdd);
 
             ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
-            System.out.println(self.getId() + "'s higher nodes: " + higherNodes.toString());
             for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
                 trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i), event.getTimeoutId()), networkPort);
             }
@@ -240,7 +238,6 @@ public final class Gradient extends ComponentDefinition {
             if (event.isLeader()) {
                 leaderFound = true;
                 trigger(new AddIndexEntryMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), entryToAdd), networkPort);
-                System.out.println(self.getId() + " sent an add request to " + event.getVodSource());
                 entryToAdd = null;
             } else {
                 VodAddress[] higherNodes = event.getAddresses();

@@ -394,7 +394,6 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
         @Override
         public void handle(AddIndexEntryMessage.Request event) {
-            System.out.println(self.getId() + " got a request to add an entry");
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -701,7 +700,6 @@ public final class Search extends ComponentDefinition {
      * @param timeout timeout for adding the entry
      */
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
-        System.out.println(self.getId() + " starts adding entry " + entry.getFileName());
         trigger(timeout, timerPort);
         trigger(new LeaderRequestPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), leaderRequestPort);
     }
