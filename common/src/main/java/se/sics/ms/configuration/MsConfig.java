@@ -15,7 +15,6 @@ public class MsConfig extends VodConfig {
 
     public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;
     public static final int ELECTION_REJECTED_TIMEOUT = 20 * 1000;
-    public static final boolean ELECTION_NODE_SUGGESTION = true;
     public static final int ELECTION_VOTE_REQUEST_TIMEOUT = 20 * 1000;
     public static final int ELECTION_HEARTBEAT_WAIT_TIMEOUT = 10 * 1000;
     public static final int ELECTION_HEARTBEAT_TIMEOUTDELAY = 5 * 1000;

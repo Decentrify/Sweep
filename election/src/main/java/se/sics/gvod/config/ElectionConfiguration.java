@@ -15,7 +15,6 @@ public class ElectionConfiguration
 {
 	int deathTimeout;
 	int rejectedTimeout;
-	boolean nodeSuggestion;
 	int voteRequestTimeout;
 	int heartbeatWaitTimeout;
 	int heartbeatTimeoutDelay;
@@ -33,7 +32,6 @@ public class ElectionConfiguration
         this(
                 MsConfig.ELECTION_DEATH_TIMEOUT,
                 MsConfig.ELECTION_REJECTED_TIMEOUT,
-                MsConfig.ELECTION_NODE_SUGGESTION,
                 MsConfig.ELECTION_VOTE_REQUEST_TIMEOUT,
                 MsConfig.ELECTION_HEARTBEAT_WAIT_TIMEOUT,
                 MsConfig.ELECTION_HEARTBEAT_TIMEOUTDELAY,
@@ -82,18 +80,13 @@ public class ElectionConfiguration
      * @param deathVoteMajorityPercentage
      *            The number of nodes that are needed to deem a leader to be
      *            dead
-     * @param nodeSuggestion
-     *            Whether the leader election should suggest nodes to gradient in
-     *            case the view only has nodes with lower utility values. True
-     *            if node suggestion should be turned on
      */
-    public ElectionConfiguration(int deathTimeout, int rejectedTimeout, boolean nodeSuggestion,
-            int voteRequestTimeout, int heartbeatWaitTimeout, int heartbeatTimeoutDelay, int minSizeOfElectionGroup, 
+    public ElectionConfiguration(int deathTimeout, int rejectedTimeout,
+            int voteRequestTimeout, int heartbeatWaitTimeout, int heartbeatTimeoutDelay, int minSizeOfElectionGroup,
             double minPercentageOfVotes, int heartbeatTimeoutInterval, int minNumberOfConvergedNodes,
             double deathVoteMajorityPercentage, double leaderDeathMajorityPercentage) {
         this.deathTimeout = deathTimeout;
         this.rejectedTimeout = rejectedTimeout;
-        this.nodeSuggestion = nodeSuggestion;
         this.voteRequestTimeout = voteRequestTimeout;
         this.heartbeatWaitTimeout = heartbeatWaitTimeout;
         this.heartbeatTimeoutDelay = heartbeatTimeoutDelay;
@@ -125,15 +118,6 @@ public class ElectionConfiguration
 
     public ElectionConfiguration setRejectedTimeout(int rejectedTimeout) {
         this.rejectedTimeout = rejectedTimeout;
-        return this;
-    }
-
-    public boolean isNodeSuggestion() {
-        return nodeSuggestion;
-    }
-
-    public ElectionConfiguration setNodeSuggestion(boolean nodeSuggestion) {
-        this.nodeSuggestion = nodeSuggestion;
         return this;
     }
 
@@ -217,6 +201,4 @@ public class ElectionConfiguration
         this.leaderDeathMajorityPercentage = leaderDeathMajorityPercentage;
         return this;
     }
-    
-
 }
