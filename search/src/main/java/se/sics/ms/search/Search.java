@@ -116,8 +116,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handleInit, control);
         subscribe(handleCroupierSample, croupierSamplePort);
         subscribe(handleAddIndexSimulated, indexPort);
-        subscribe(handleIndexUpdateRequest, networkPort);
-        subscribe(handleIndexUpdateResponse, networkPort);
+        subscribe(handleIndexExchangeRequest, networkPort);
+        subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleReplicate, networkPort);
@@ -273,47 +273,47 @@ public final class Search extends ComponentDefinition {
      * issue an index exchange with another node.
      */
     final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
-        @Override
-        public void handle(CroupierSample event) {
-            // receive a new list of neighbors
-            List<VodDescriptor> peers = event.getNodes();
-            if (peers.isEmpty()) {
-                return;
-            }
+                @Override
+                public void handle(CroupierSample event) {
+                    // receive a new list of neighbors
+                    List<VodDescriptor> peers = event.getNodes();
+                    if (peers.isEmpty()) {
+                        return;
+                    }
 
-            // update routing tables
-            for (VodDescriptor p : event.getNodes()) {
-                int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
-                TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
-                if (nodes == null) {
-                    nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
-                    routingTable.put(samplePartition, nodes);
+                    // update routing tables
+                    for (VodDescriptor p : event.getNodes()) {
+                        int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
+                        TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
+                        if (nodes == null) {
+                            nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
+                            routingTable.put(samplePartition, nodes);
+                        }
+
+                        // Increment age
+                        for (VodDescriptor peer : nodes) {
+                            peer.incrementAndGetAge();
+                        }
+
+                        // Note - this might replace an existing entry
+                        nodes.add(p);
+                        // keep the freshest descriptors in this partition
+                        while (nodes.size() > config.getMaxNumRoutingEntries()) {
+                            nodes.pollLast();
+                        }
+                    }
+
+                    // Exchange index with one sample from our partition
+                    TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+                    if (bucket != null) {
+                        int n = random.nextInt(bucket.size());
+
+                        trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
+                                UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
+                                .size()]), 0, 0), networkPort);
+                    }
                 }
-
-                // Increment age
-                for (VodDescriptor peer : nodes) {
-                    peer.incrementAndGetAge();
-                }
-
-                // Note - this might replace an existing entry
-                nodes.add(p);
-                // keep the freshest descriptors in this partition
-                while (nodes.size() > config.getMaxNumRoutingEntries()) {
-                    nodes.pollLast();
-                }
-            }
-
-            // Exchange index with one sample from our partition
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            if (bucket != null) {
-                int n = random.nextInt(bucket.size());
-
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
-                        UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
-                        .size()]), 0, 0), networkPort);
-            }
-        }
-    };
+            };
 
     /**
      * Add index entries for the simulator.
@@ -328,7 +328,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Add all entries received from another node to the local index store.
      */
-    final Handler<IndexExchangeMessage.Response> handleIndexUpdateResponse = new Handler<IndexExchangeMessage.Response>() {
+    final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
             try {
@@ -345,7 +345,7 @@ public final class Search extends ComponentDefinition {
      * Search for entries in the local store that the inquirer might need and
      * send them to him.
      */
-    final Handler<IndexExchangeMessage.Request> handleIndexUpdateRequest = new Handler<IndexExchangeMessage.Request>() {
+    final Handler<IndexExchangeMessage.Request> handleIndexExchangeRequest = new Handler<IndexExchangeMessage.Request>() {
         @Override
         public void handle(IndexExchangeMessage.Request event) {
             try {
