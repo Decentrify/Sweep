@@ -118,9 +118,6 @@ public class GradientView {
 		} else {
 			converged = false;
 		}
-
-        if (self.getId() == 1)
-        System.out.println(self.getId() + " view: " + toString() + " changed? " + changed);
 	}
 
 	/**
