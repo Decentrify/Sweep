@@ -28,10 +28,8 @@ public class SearchMessageFactory {
 
         @Override
         protected SearchMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
-            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
-            return new SearchMessage.Request(vodSrc, vodDest,
-                    timeoutId, requestId, pattern);
+            return new SearchMessage.Request(vodSrc, vodDest, timeoutId, pattern);
         }
 
     }
@@ -49,12 +47,11 @@ public class SearchMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            UUID requestId = (UUID)UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, requestId, numResponses, responseNum, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }

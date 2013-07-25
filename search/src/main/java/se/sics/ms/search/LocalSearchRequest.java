@@ -9,7 +9,6 @@ import se.sics.peersearch.types.SearchPattern;
  */
 public class LocalSearchRequest {
     private final SearchPattern pattern;
-    private final UUID searchId;
     private int nodesQueried;
     private int nodesAnswered;
     private UUID timeoutId;
@@ -23,8 +22,6 @@ public class LocalSearchRequest {
     public LocalSearchRequest(SearchPattern pattern) {
         super();
         this.pattern = pattern;
-        // Create a unique id for each request
-        this.searchId = (UUID)UUID.nextUUID();
     }
 
     /**
@@ -32,13 +29,6 @@ public class LocalSearchRequest {
      */
     public SearchPattern getSearchPattern() {
         return pattern;
-    }
-
-    /**
-     * @return the UUID of the search request
-     */
-    public UUID getSearchId() {
-        return searchId;
     }
 
     /**

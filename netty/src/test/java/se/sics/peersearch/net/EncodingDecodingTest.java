@@ -104,14 +104,12 @@ public class EncodingDecodingTest {
     @Test
     public void searchRequest() {
         SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
-        UUID requestId = (UUID)UUID.nextUUID();
-        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), pattern);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             SearchMessage.Request request =
                     SearchMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getRequestId().equals(requestId));
             assert (request.getPattern().equals(pattern));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -136,7 +134,7 @@ public class EncodingDecodingTest {
             String description = "description";
             String hash = "hash";
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, requestId, numResponses, responseNum, new IndexEntry[] {entry});
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, numResponses, responseNum, new IndexEntry[] {entry});
             try {
                 ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
@@ -145,7 +143,6 @@ public class EncodingDecodingTest {
                 assert (id.equals(response.getTimeoutId()));
                 assert (response.getNumResponses() == numResponses);
                 assert (response.getResponseNumber() == responseNum);
-                assert (response.getRequestId().equals(requestId));
                 assert (response.getResults()[0].equals(entry));
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

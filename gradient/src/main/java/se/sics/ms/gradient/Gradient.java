@@ -21,7 +21,9 @@ import se.sics.ms.peer.RequestTimeout;
 import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.GradientShuffleMessage;
 import se.sics.peersearch.messages.LeaderLookupMessage;
+import se.sics.peersearch.messages.SearchMessage;
 import se.sics.peersearch.types.IndexEntry;
+import se.sics.peersearch.types.SearchPattern;
 
 import java.util.*;
 

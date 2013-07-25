@@ -469,7 +469,6 @@ public final class Search extends ComponentDefinition {
     /**
      * When receiving a replicate messsage from the leader, add the entry to the
      * local store and send an acknowledgment.
-
     */
     final Handler<ReplicationMessage.Request> handleReplicationRequest = new Handler<ReplicationMessage.Request>() {
         @Override
@@ -508,12 +507,11 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Request event) {
             try {
-                ArrayList<IndexEntry> result = searchLocal(event.getPattern());
+                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
 
-                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getRequestId(), 0, 0, (IndexEntry[]) result.toArray()), networkPort);
+                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
             } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
-                        ex);
+                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
                 illegalSearchString.printStackTrace();
             }
@@ -526,8 +524,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
-            if (searchRequest == null
-                    || event.getRequestId().equals(searchRequest.getSearchId()) == false) {
+            if (searchRequest == null || event.getTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
 
@@ -652,7 +649,7 @@ public final class Search extends ComponentDefinition {
 
             int n = random.nextInt(bucket.size());
 
-            trigger(new SearchMessage.Request(self.getAddress(), ((PeerDescriptor) bucket.toArray()[n]).getAddress(), searchRequest.getTimeoutId(), searchRequest.getSearchId(), pattern), networkPort);
+            trigger(new SearchMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(), searchRequest.getTimeoutId(), pattern), networkPort);
             searchRequest.incrementNodesQueried();
             i++;
         }
@@ -664,7 +661,7 @@ public final class Search extends ComponentDefinition {
 
         // Add result form local partition
         try {
-            ArrayList<IndexEntry> result = searchLocal(pattern);
+            ArrayList<IndexEntry> result = searchLocal(index, pattern);
             searchRequest.incrementNodesQueried();
             addSearchResponse((IndexEntry[]) result.toArray());
         } catch (IOException e) {
@@ -676,7 +673,12 @@ public final class Search extends ComponentDefinition {
      * Present the result to the user.
      */
     private void answerSearchRequest() {
-        // TODO inform the user
+        try {
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+            // TODO present the result to the user
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -748,50 +750,6 @@ public final class Search extends ComponentDefinition {
                 trigger(rst, timerPort);
             }
         }
-    }
-
-    /**
-     * Query the Lucene index storing search request answers from different
-     * partition with the original search pattern to get the best results of all
-     * partitions.
-     *
-     * @param sb      the string builder used to append the results
-     * @param pattern the original search pattern sent by the client
-     * @return the string builder handed as a parameter which includes the
-     *         results
-     * @throws IOException In case IOExceptions occurred in Lucene
-     */
-    private String search(StringBuilder sb, SearchPattern pattern) throws IOException {
-        IndexSearcher searcher = null;
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(searchIndex);
-            searcher = new IndexSearcher(reader);
-        } catch (IOException ex) {
-            java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
-            System.exit(-1);
-        }
-
-        TopScoreDocCollector collector = TopScoreDocCollector.create(
-                config.getHitsPerQuery(), true);
-        searcher.search(pattern.getQuery(), collector);
-        ScoreDoc[] hits = collector.topDocs().scoreDocs;
-
-        // display results
-        sb.append("Found ").append(hits.length).append(" entries.<ul>");
-        for (int i = 0; i < hits.length; ++i) {
-            int docId = hits[i].doc;
-            Document d = searcher.doc(docId);
-            sb.append("<tr><td>").append(i + 1).append("</td><td>")
-                    .append(d.get(IndexEntry.FILE_NAME)).append(".</td><td>")
-                    .append(d.get(IndexEntry.URL)).append("</td></tr>");
-        }
-        sb.append("</ul>");
-
-        // reader can only be closed when there
-        // is no need to access the documents any more.
-        reader.close();
-        return sb.toString();
     }
 
     /**
@@ -883,18 +841,19 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Query the local index store for a given query string.
+     * Query the given index store with a given search pattern.
      *
+     * @param index the {@link Directory} to search in
+     * @param pattern the {@link SearchPattern} to use
      * @return a list of matching entries
      * @throws IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(SearchPattern pattern) throws IOException {
+    private ArrayList<IndexEntry> searchLocal(Directory index, SearchPattern pattern) throws IOException {
         IndexReader reader = null;
         try {
             reader = DirectoryReader.open(index);
             IndexSearcher searcher = new IndexSearcher(reader);
-            TopScoreDocCollector collector = TopScoreDocCollector.create(
-                    config.getHitsPerQuery(), true);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(config.getHitsPerQuery(), true);
             searcher.search(pattern.getQuery(), collector);
             ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
