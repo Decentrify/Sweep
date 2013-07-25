@@ -17,13 +17,11 @@ import se.sics.kompics.Positive;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
-import se.sics.ms.peer.RequestTimeout;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.GradientShuffleMessage;
 import se.sics.peersearch.messages.LeaderLookupMessage;
-import se.sics.peersearch.messages.SearchMessage;
 import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
 
 import java.util.*;
 
@@ -51,10 +49,17 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Timeout to periodically issue exchanges.
      */
-    public class GradientRound extends Timeout {
+    public class GradientRound extends IndividualTimeout {
 
-        public GradientRound(SchedulePeriodicTimeout request) {
-            super(request);
+        public GradientRound(SchedulePeriodicTimeout request, int id) {
+            super(request, id);
+        }
+    }
+
+    public class ShuffleRequestTimeout extends IndividualTimeout {
+
+        public ShuffleRequestTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
         }
     }
 
@@ -85,9 +90,8 @@ public final class Gradient extends ComponentDefinition {
                     config.getConvergenceTest());
             leader = false;
 
-            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
-                    config.getShufflePeriod(), config.getShufflePeriod());
-            rst.setTimeoutEvent(new GradientRound(rst));
+            SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
+            rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
             trigger(rst, timerPort);
         }
     };
@@ -190,9 +194,9 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Remove a node from the view if it didn't respond to a request.
      */
-    final Handler<RequestTimeout> handleRequestTimeout = new Handler<RequestTimeout>() {
+    final Handler<ShuffleRequestTimeout> handleRequestTimeout = new Handler<ShuffleRequestTimeout>() {
         @Override
-        public void handle(RequestTimeout event) {
+        public void handle(ShuffleRequestTimeout event) {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
             VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 
@@ -263,7 +267,7 @@ public final class Gradient extends ComponentDefinition {
         VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
-        rst.setTimeoutEvent(new RequestTimeout(rst));
+        rst.setTimeoutEvent(new ShuffleRequestTimeout(rst, self.getId()));
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
 
         outstandingShuffles.put(rTimeoutId, exchangePartner);

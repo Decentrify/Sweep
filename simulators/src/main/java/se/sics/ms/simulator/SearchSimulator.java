@@ -6,6 +6,7 @@ import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.config.*;
 import se.sics.gvod.filters.MsgDestFilterAddress;
+import se.sics.gvod.filters.TimeoutFilterOverlayId;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
@@ -21,6 +22,7 @@ import se.sics.ms.peer.SearchPeer;
 import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.types.IndexEntry;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -203,7 +205,7 @@ public final class SearchSimulator extends ComponentDefinition {
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
-        connect(timer, peer.getNegative(Timer.class));
+        connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
         trigger(new SearchPeerInit(self, croupierConfiguration,
                 searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());

@@ -13,6 +13,7 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.*;
 
 import se.sics.ms.gradient.BroadcastGradientPartnersPort;
@@ -47,10 +48,10 @@ public class ElectionFollower extends ComponentDefinition {
      * A customised timeout class used to determine how long a node should wait
      * for other nodes to reply to leader death message
      */
-    public class DeathTimeout extends Timeout {
+    public class DeathTimeout extends IndividualTimeout {
 
-        public DeathTimeout(ScheduleTimeout request) {
-            super(request);
+        public DeathTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
         }
     }
 
@@ -205,7 +206,7 @@ public class ElectionFollower extends ComponentDefinition {
                     trigger(msg, networkPort);
                 }
 
-                timeout.setTimeoutEvent(new DeathTimeout(timeout));
+                timeout.setTimeoutEvent(new DeathTimeout(timeout, self.getId()));
             }
         }
     };

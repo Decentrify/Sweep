@@ -31,7 +31,6 @@ import se.sics.ms.gradient.LeaderRequestPort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
-import se.sics.ms.peer.PeerDescriptor;
 import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.peersearch.exceptions.IllegalSearchString;
@@ -179,7 +178,7 @@ public final class Search extends ComponentDefinition {
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
-            rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst));
+            rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
             // TODO check if still needed
@@ -276,47 +275,47 @@ public final class Search extends ComponentDefinition {
      * issue an index exchange with another node.
      */
     final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
-                @Override
-                public void handle(CroupierSample event) {
-                    // receive a new list of neighbors
-                    List<VodDescriptor> peers = event.getNodes();
-                    if (peers.isEmpty()) {
-                        return;
-                    }
+        @Override
+        public void handle(CroupierSample event) {
+            // receive a new list of neighbors
+            List<VodDescriptor> peers = event.getNodes();
+            if (peers.isEmpty()) {
+                return;
+            }
 
-                    // update routing tables
-                    for (VodDescriptor p : event.getNodes()) {
-                        int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
-                        TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
-                        if (nodes == null) {
-                            nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
-                            routingTable.put(samplePartition, nodes);
-                        }
-
-                        // Increment age
-                        for (VodDescriptor peer : nodes) {
-                            peer.incrementAndGetAge();
-                        }
-
-                        // Note - this might replace an existing entry
-                        nodes.add(p);
-                        // keep the freshest descriptors in this partition
-                        while (nodes.size() > config.getMaxNumRoutingEntries()) {
-                            nodes.pollLast();
-                        }
-                    }
-
-                    // Exchange index with one sample from our partition
-                    TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-                    if (bucket != null) {
-                        int n = random.nextInt(bucket.size());
-
-                        trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
-                                UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
-                                .size()]), 0, 0), networkPort);
-                    }
+            // update routing tables
+            for (VodDescriptor p : event.getNodes()) {
+                int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
+                TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
+                if (nodes == null) {
+                    nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
+                    routingTable.put(samplePartition, nodes);
                 }
-            };
+
+                // Increment age
+                for (VodDescriptor peer : nodes) {
+                    peer.incrementAndGetAge();
+                }
+
+                // Note - this might replace an existing entry
+                nodes.add(p);
+                // keep the freshest descriptors in this partition
+                while (nodes.size() > config.getMaxNumRoutingEntries()) {
+                    nodes.pollLast();
+                }
+            }
+
+            // Exchange index with one sample from our partition
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            if (bucket != null) {
+                int n = random.nextInt(bucket.size());
+
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
+                        UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
+                        .size()]), 0, 0), networkPort);
+            }
+        }
+    };
 
     /**
      * Add index entries for the simulator.
@@ -450,7 +449,7 @@ public final class Search extends ComponentDefinition {
                 }
 
                 ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-                rst.setTimeoutEvent(new ReplicationTimeout(rst));
+                rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
                 rst.getTimeoutEvent().setTimeoutId(event.getTimeoutId());
                 trigger(rst, timerPort);
 
@@ -677,7 +676,7 @@ public final class Search extends ComponentDefinition {
         }
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
-        rst.setTimeoutEvent(new SearchTimeout(rst));
+        rst.setTimeoutEvent(new SearchTimeout(rst, self.getId()));
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
@@ -712,7 +711,7 @@ public final class Search extends ComponentDefinition {
     private void addEntryGlobal(IndexEntry entry) {
         // Limit the time to wait for responses and answer the web request
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddRequestTimeout(rst, config.getRetryCount(), entry));
+        rst.setTimeoutEvent(new AddRequestTimeout(rst, self.getId(), config.getRetryCount(), entry));
         addEntryGlobal(entry, rst);
     }
 
@@ -767,7 +766,7 @@ public final class Search extends ComponentDefinition {
 
                 // This might be a gap so start a timeouts
                 ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
-                rst.setTimeoutEvent(new GapTimeout(rst, i));
+                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
                 gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
                 trigger(rst, timerPort);
             }

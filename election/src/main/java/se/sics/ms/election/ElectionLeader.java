@@ -16,6 +16,7 @@ import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.ElectionMessage;
 import se.sics.peersearch.messages.RejectFollowerMessage;
 import se.sics.peersearch.messages.RejectLeaderMessage;
@@ -46,17 +47,17 @@ public class ElectionLeader extends ComponentDefinition {
 	/**
 	 * A customised timeout class for when to send heart beats etc
 	 */
-	public class ElectionSchedule extends Timeout {
+	public class ElectionSchedule extends IndividualTimeout {
 
-		public ElectionSchedule(SchedulePeriodicTimeout request) {
-			super(request);
+		public ElectionSchedule(SchedulePeriodicTimeout request, int id) {
+			super(request, id);
 		}
 	}
 
-	public class VoteTimeout extends Timeout {
+	public class VoteTimeout extends IndividualTimeout {
 
-		public VoteTimeout(ScheduleTimeout request) {
-			super(request);
+		public VoteTimeout(ScheduleTimeout request, int id) {
+			super(request, id);
 		}
 	}
 
@@ -291,7 +292,7 @@ public class ElectionLeader extends ComponentDefinition {
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(
 						config.getHeartbeatTimeoutDelay(),
 						config.getHeartbeatTimeoutInterval());
-				timeout.setTimeoutEvent(new ElectionSchedule(timeout));
+				timeout.setTimeoutEvent(new ElectionSchedule(timeout, self.getId()));
 				scheduledTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 				trigger(timeout, timerPort);
 
@@ -307,7 +308,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void sendVoteRequests() {
 		ScheduleTimeout timeout = new ScheduleTimeout(config.getVoteRequestTimeout());
-		timeout.setTimeoutEvent(new VoteTimeout(timeout));
+		timeout.setTimeoutEvent(new VoteTimeout(timeout, self.getId()));
 		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
 		ElectionMessage.Request vote;
