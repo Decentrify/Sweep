@@ -578,7 +578,6 @@ public final class Search extends ComponentDefinition {
     final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
         @Override
         public void handle(AddRequestTimeout event) {
-            // TODO this event is not only triggered at the issuing node!
             if (event.reachedRetryLimit()) {
                 // TODO inform the user
             } else {
