@@ -35,7 +35,6 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Negative<Web> webPort = negative(Web.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
