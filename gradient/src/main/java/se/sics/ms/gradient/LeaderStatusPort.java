@@ -12,7 +12,6 @@ public class LeaderStatusPort extends PortType {
 	{
 		negative(LeaderStatus.class);
 		negative(NodeCrashEvent.class);
-		negative(NodeSuggestion.class);
 		negative(LeaderStatusRequest.class);
 		negative(LeaderStatusResponse.class);
 
@@ -73,33 +72,6 @@ public class LeaderStatusPort extends PortType {
 		 */
 		public VodAddress getDeadNode() {
 			return deadNode;
-		}
-	}
-
-	/**
-	 * An event carrying a suggestion for the Gradient view
-	 */
-	public static class NodeSuggestion extends Event {
-		private final VodAddress suggestion;
-
-		/**
-		 * Default constructor
-		 * 
-		 * @param suggestion
-		 *            the suggested address
-		 */
-		public NodeSuggestion(VodAddress suggestion) {
-			super();
-			this.suggestion = suggestion;
-		}
-
-		/**
-		 * Getter for the suggested address
-		 * 
-		 * @return the suggested address
-		 */
-		public VodAddress getSuggestion() {
-			return this.suggestion;
 		}
 	}
 

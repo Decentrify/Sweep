@@ -58,8 +58,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
         // connect
         connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
         connect(simulator.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
-        connect(simulator.getNegative(SimulatorPort.class),
-                p2pSimulator.getPositive(SimulatorPort.class));
+        connect(simulator.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
 
         trigger(new SimulatorInit(
                 croupierConfig,

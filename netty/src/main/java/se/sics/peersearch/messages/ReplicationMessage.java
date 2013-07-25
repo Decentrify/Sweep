@@ -24,21 +24,15 @@ public class ReplicationMessage {
     public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final UUID id;
         private final IndexEntry indexEntry;
         private final int numResponses;
         private final int responseNumber;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, UUID id, IndexEntry indexEntry, int numResponses, int responseNumber) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry indexEntry, int numResponses, int responseNumber) {
             super(source, destination, timeoutId);
-            this.id = id;
             this.indexEntry = indexEntry;
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
-        }
-
-        public UUID getId() {
-            return id;
         }
 
         public IndexEntry getIndexEntry() {
@@ -61,14 +55,13 @@ public class ReplicationMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new ReplicationMessage.Request(vodSrc, vodDest, timeoutId, id, indexEntry, numResponses, responseNumber);
+            return new ReplicationMessage.Request(vodSrc, vodDest, timeoutId, indexEntry, numResponses, responseNumber);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writeIndexEntry(buffer, indexEntry);
-            UserTypesEncoderFactory.writeTimeoutId(buffer, id);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             return buffer;
@@ -81,15 +74,9 @@ public class ReplicationMessage {
     }
 
     public static class Response extends DirectMsgNetty.Response {
-        private final UUID id;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, UUID id) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId) {
             super(source, destination, timeoutId);
-            this.id = id;
-        }
-
-        public UUID getId() {
-            return id;
         }
 
         @Override
@@ -99,13 +86,12 @@ public class ReplicationMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, timeoutId, id);
+            return new Response(vodSrc, vodDest, timeoutId);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            UserTypesEncoderFactory.writeTimeoutId(buffer, id);
             return buffer;
         }
 

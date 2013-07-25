@@ -11,14 +11,16 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
-import se.sics.ms.gradient.IndexRoutingPort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
-import se.sics.ms.gradient.LeaderStatusPort.NodeSuggestion;
 import se.sics.ms.snapshot.Snapshot;
-import se.sics.peersearch.messages.*;
+import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.peersearch.messages.ElectionMessage;
+import se.sics.peersearch.messages.RejectFollowerMessage;
+import se.sics.peersearch.messages.RejectLeaderMessage;
+import se.sics.peersearch.messages.VotingResultMessage;
 
 import java.util.ArrayList;
 
@@ -28,58 +30,34 @@ import java.util.ArrayList;
  * leader elections etc.
  */
 public class ElectionLeader extends ComponentDefinition {
+
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
 	Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
 	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
-	Negative<IndexRoutingPort> indexRoutingPort = negative(IndexRoutingPort.class);
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
-	private int yesVotes, totalVotes, electionCounter, convergedCounter,
-			indexMessageCounter;
-	private boolean electionInProgress, iAmLeader, allowingIndexMessages;
+	private int yesVotes, totalVotes, electionCounter, convergedCounter;
+	private boolean electionInProgress, iAmLeader;
 	private Self self;
 	private ArrayList<VodAddress> lowerNodes, higherNodes;
-	private TimeoutId scheduledTimeoutId, voteTimeout, indexMsgTimeoutId, indexMessageID;
+	private TimeoutId scheduledTimeoutId, voteTimeout;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
 	 */
-	public class ElectionSchedule extends Timeout {
+	public class ElectionSchedule extends IndividualTimeout {
 
-		public ElectionSchedule(ScheduleTimeout request) {
-			super(request);
-		}
-
-		public ElectionSchedule(SchedulePeriodicTimeout request) {
-			super(request);
+		public ElectionSchedule(SchedulePeriodicTimeout request, int id) {
+			super(request, id);
 		}
 	}
 
-	public class VoteTimeout extends Timeout {
+	public class VoteTimeout extends IndividualTimeout {
 
-		public VoteTimeout(ScheduleTimeout request) {
-			super(request);
-		}
-
-		public VoteTimeout(SchedulePeriodicTimeout request) {
-			super(request);
-		}
-	}
-
-	/**
-	 * A customised timeout class used to time how long the leader is going to
-	 * collect index ID values from other nodes
-	 */
-	public class LeaderTimeout extends Timeout {
-
-		public LeaderTimeout(SchedulePeriodicTimeout request) {
-			super(request);
-		}
-
-		public LeaderTimeout(ScheduleTimeout request) {
-			super(request);
+		public VoteTimeout(ScheduleTimeout request, int id) {
+			super(request, id);
 		}
 	}
 
@@ -90,9 +68,7 @@ public class ElectionLeader extends ComponentDefinition {
 	public ElectionLeader() {
 		subscribe(handleInit, control);
 		subscribe(handleHeartBeats, timerPort);
-		subscribe(handleLeaderTimer, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
-		subscribe(handleIndexResponse, networkPort);
 		subscribe(handleVotingResponse, networkPort);
 		subscribe(handleLeaderRejection, networkPort);
 		subscribe(handleGradientBroadcast, broadcast);
@@ -112,7 +88,6 @@ public class ElectionLeader extends ComponentDefinition {
 
 			iAmLeader = false;
 			electionInProgress = false;
-			allowingIndexMessages = false;
 
 			lowerNodes = new ArrayList<VodAddress>();
 			higherNodes = new ArrayList<VodAddress>();
@@ -176,7 +151,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 			// Reject if there is a no-vote
 			if (totalVotes != yesVotes) {
-				rejected(event.getVodSource(), event.getHighest());
+				rejected();
 			}
 			// Count the votes if all votes have returned
 			else if (totalVotes >= numberOfNodesAtVotingTime) {
@@ -219,7 +194,7 @@ public class ElectionLeader extends ComponentDefinition {
 			} else {
 				scheduledTimeoutId = event.getTimeoutId();
                                 assert(scheduledTimeoutId != null);
-				rejected(self.getAddress(), lowestId);
+				rejected();
 			}
 		}
 	};
@@ -231,7 +206,7 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
 		public void handle(RejectLeaderMessage event) {
-			rejected(event.getVodSource(), event.getBetterLeader());
+			rejected();
 		}
 	};
 
@@ -258,40 +233,6 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that receives messages containing other nodes' highest index
-	 * IDs and forwards them to Search. If a certain number of messages have
-	 * been received it will ignore the rest and announce its leadership
-	 */
-	Handler<IndexResponseMessage> handleIndexResponse = new Handler<IndexResponseMessage>() {
-		@Override
-		public void handle(IndexResponseMessage event) {
-			// Make sure that only recent messages are checked
-			if (allowingIndexMessages == true && event.getMessageId().equals(indexMessageID)) {
-				// Increase the counter and send the update to search
-				indexMessageCounter++;
-//				trigger(new IndexDisseminationEvent(event.getIndex()), indexRoutingPort);
-
-				// When enough messages are received
-				if (indexMessageCounter >= config
-						.getWaitForNoOfIndexMessages()) {
-					finishIndexMsgReading();
-				}
-			}
-		}
-	};
-
-	/**
-	 * A handler that announces the node's leadership if not enough index ID
-	 * messages have been received within a certain amount of time
-	 */
-	Handler<LeaderTimeout> handleLeaderTimer = new Handler<LeaderTimeout>() {
-		@Override
-		public void handle(LeaderTimeout event) {
-			finishIndexMsgReading();
-		}
-	};
-
-	/**
 	 * A handler that checks whether the node already has a leader and if that
 	 * leader has a higher utility value. If not, then this node will call for a
 	 * leader election
@@ -312,21 +253,6 @@ public class ElectionLeader extends ComponentDefinition {
 			}
 		}
 	};
-
-	/**
-	 * This method is called when the leader has either read enough
-	 * indexMessages or when the timeout has been triggered
-	 */
-	private void finishIndexMsgReading() {
-		// Set leadership and disallow receiving of new messages
-		allowingIndexMessages = false;
-		indexMessageCounter = 0;
-		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-
-		// Cancels the timeout in case it is still going
-		CancelTimeout ct = new CancelTimeout(indexMsgTimeoutId);
-		trigger(ct, timerPort);
-	}
 
 	/**
 	 * This class counts the votes. If the node is elected as a leader it will
@@ -361,24 +287,15 @@ public class ElectionLeader extends ComponentDefinition {
 
 				variableCleanUp();
 				iAmLeader = true;
-				allowingIndexMessages = true;
-				indexMessageID = UUID.nextUUID();
-//				trigger(new StartIndexRequestEvent((UUID)indexMessageID), indexRoutingPort);
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(
 						config.getHeartbeatTimeoutDelay(),
 						config.getHeartbeatTimeoutInterval());
-				timeout.setTimeoutEvent(new ElectionSchedule(timeout));
+				timeout.setTimeoutEvent(new ElectionSchedule(timeout, self.getId()));
 				scheduledTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 				trigger(timeout, timerPort);
 
-				// Start the timeout for collecting index messages
-				ScheduleTimeout indexTimeOut = new ScheduleTimeout(
-						config.getIndexTimeout());
-				indexTimeOut.setTimeoutEvent(new LeaderTimeout(indexTimeOut));
-				indexMsgTimeoutId = indexTimeOut.getTimeoutEvent().getTimeoutId();
-//				trigger(indexTimeOut, timerPort);
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 			}
 		} else {
@@ -391,7 +308,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void sendVoteRequests() {
 		ScheduleTimeout timeout = new ScheduleTimeout(config.getVoteRequestTimeout());
-		timeout.setTimeoutEvent(new VoteTimeout(timeout));
+		timeout.setTimeoutEvent(new VoteTimeout(timeout, self.getId()));
 		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
 		ElectionMessage.Request vote;
@@ -454,16 +371,5 @@ public class ElectionLeader extends ComponentDefinition {
 		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
 		variableCleanUp();
-	}
-
-	private void rejected(VodAddress byNode, VodAddress betterNode) {
-		rejected();
-		
-		// From here one could trigger an event that suggest Gradient to put this
-		// better node in its view so that it won't call for more unnecessary
-		// elections
-		if (config.isNodeSuggestion() == true) {
-			trigger(new NodeSuggestion(betterNode), leaderStatusPort);
-		}
 	}
 }

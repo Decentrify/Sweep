@@ -69,8 +69,7 @@ public class EncodingDecodingTest {
     
     @BeforeClass
     public static void setUpClass() throws Exception {
-//        InetAddress self = InetAddress.getLocalHost();
-        InetAddress self = InetAddress.getByName("127.0.0.1");
+        InetAddress self = InetAddress.getByName("localhost");
         src = new Address(self, 58027, 123);
         dest = new Address(self, 65535, 123);
         inetSrc = new InetSocketAddress(self, 58027);
@@ -105,14 +104,12 @@ public class EncodingDecodingTest {
     @Test
     public void searchRequest() {
         SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
-        UUID requestId = (UUID)UUID.nextUUID();
-        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), requestId, pattern);
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), pattern);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             SearchMessage.Request request =
                     SearchMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getRequestId().equals(requestId));
             assert (request.getPattern().equals(pattern));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -122,8 +119,7 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
-    
-    
+
     @Test
     public void searchResponse() {
         try {
@@ -138,7 +134,7 @@ public class EncodingDecodingTest {
             String description = "description";
             String hash = "hash";
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, requestId, numResponses, responseNum, new IndexEntry[] {entry});
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, numResponses, responseNum, new IndexEntry[] {entry});
             try {
                 ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
@@ -147,7 +143,6 @@ public class EncodingDecodingTest {
                 assert (id.equals(response.getTimeoutId()));
                 assert (response.getNumResponses() == numResponses);
                 assert (response.getResponseNumber() == responseNum);
-                assert (response.getRequestId().equals(requestId));
                 assert (response.getResults()[0].equals(entry));
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -164,8 +159,6 @@ public class EncodingDecodingTest {
 
     @Test
     public void AddIndexEntryRequest() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
         String url = "url";
         String fileName = "fileName";
         Long size = 123L;
@@ -174,15 +167,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
+        AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            AddIndexEntryMessage.Request request =
-                    AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
-            assert (request.getNumResponses() == numResponses);
-            assert (request.getResponseNumber() == responseNum);
+            AddIndexEntryMessage.Request request = AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntry().getUrl().equals(url));
             assert (request.getEntry().getFileName().equals(fileName));
             assert (request.getEntry().getFileSize() == size);
@@ -203,39 +192,12 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void AddIndexEntryResponse() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        String leaderId = "leaderId";
-        Long entryId = 1L;
-        IndexEntry entry = new IndexEntry(entryId, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, leaderId);
-        AddIndexEntryMessage.Response msg = new AddIndexEntryMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
+    public void AddIndexEntryResponse() {;
+        AddIndexEntryMessage.Response msg = new AddIndexEntryMessage.Response(gSrc, gDest, UUID.nextUUID());
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            AddIndexEntryMessage.Response response =
-                    AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
-            assert (id.equals(response.getId()));
-            assert (response.getNumResponses() == numResponses);
-            assert (response.getResponseNumber() == responseNum);
-            assert (response.getEntry().getUrl().equals(url));
-            assert (response.getEntry().getFileName().equals(fileName));
-            assert (response.getEntry().getFileSize() == size);
-            assert (response.getEntry().getUploaded().equals(time));
-            assert (response.getEntry().getLanguage().equals(language));
-            assert (response.getEntry().getDescription().equals(description));
-            assert (response.getEntry().getHash().equals(hash));
-            assert (response.getEntry().getLeaderId().equals(leaderId));
-            assert (entryId.equals(response.getEntry().getId()));
-            assert (response.getEntry().getCategory() == IndexEntry.Category.Music);
-
+            AddIndexEntryMessage.Response response = AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -247,7 +209,6 @@ public class EncodingDecodingTest {
 
     @Test
     public void ReplicationRequest() {
-        TimeoutId id = UUID.nextUUID();
         int numResponses = 5, responseNum = 1;
         String url = "url";
         String fileName = "fileName";
@@ -257,13 +218,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), (UUID) id, entry, numResponses, responseNum);
+        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNum);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationMessage.Request request =
-                    ReplicationMessageFactory.Request.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
+            ReplicationMessage.Request request = ReplicationMessageFactory.Request.fromBuffer(buffer);
             assert (request.getNumResponses() == numResponses);
             assert (request.getResponseNumber() == responseNum);
             assert (request.getIndexEntry().getUrl().equals(url));
@@ -287,14 +246,11 @@ public class EncodingDecodingTest {
 
     @Test
     public void ReplicationResponse() {
-        TimeoutId id = UUID.nextUUID();
-        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID(), (UUID) id);
+        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID());
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationMessage.Response request =
-                    ReplicationMessageFactory.Response.fromBuffer(buffer);
-            assert (id.equals(request.getId()));
+            ReplicationMessage.Response request = ReplicationMessageFactory.Response.fromBuffer(buffer);
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -368,60 +324,6 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void GapDetectionRequest() {
-        long id = 1L;
-        GapDetectionMessage.Request msg = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), id);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionMessage.Request request =
-                    GapDetectionMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getMissingEntryId() == id);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void GapDetectionResponse() {
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = null;
-        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        int numResponses=1;
-        int responseNumber=2;
-        GapDetectionMessage.Response msg = new GapDetectionMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNumber);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionMessage.Response response =
-                    GapDetectionMessageFactory.Response.fromBuffer(buffer);
-
-            assert (response.getMissingEntry().equals(entry));
-            assert (response.getNumResponses() == numResponses);
-            assert (response.getResponseNumber() == responseNumber);
-            assert (response.getMissingEntry().getUrl().equals(url));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void ElectionRequest() {
         int counter = 1;
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter);
@@ -445,7 +347,7 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionResponse() {
         int voteId = 1;
-        boolean convereged = true;
+        boolean converged = true;
         boolean vote = true;
 
         InetAddress address1 = null;
@@ -456,14 +358,14 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, convereged, vote, vodAddress1);
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ElectionMessage.Response response =
                     ElectionMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.isConvereged() == convereged);
+            assert (response.isConvereged() == converged);
             assert (response.getVoteId() == voteId);
             assert (response.isVote() == vote);
             assert (response.getHighest().equals(vodAddress1));
@@ -483,7 +385,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -512,7 +414,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -541,7 +443,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -569,7 +471,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -601,7 +503,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -673,75 +575,12 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void AddIndexEntryRoutedMessage() {
-        TimeoutId id = UUID.nextUUID();
-        int numResponses = 5, responseNum = 1;
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        AddIndexEntryMessage.Request request = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, (UUID) id, numResponses, responseNum);
-        AddIndexEntryRoutedMessage msg = new AddIndexEntryRoutedMessage(gSrc, gDest, request);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            AddIndexEntryRoutedMessage response =
-                    AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getMessage().getEntry().equals(entry));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void GapDetectionRoutedMessage() {
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        GapDetectionMessage.Request request = new GapDetectionMessage.Request(gSrc, gDest, UUID.nextUUID(), 1L);
-        GapDetectionRoutedMessage msg = new GapDetectionRoutedMessage(gSrc, gDest, request);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            GapDetectionRoutedMessage response =
-                    GapDetectionRoutedMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getMessage().getMissingEntryId()==1L);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void VotingResultMessage() {
         InetAddress address1 = null;
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -817,7 +656,7 @@ public class EncodingDecodingTest {
         try {
             address1 = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
@@ -842,109 +681,43 @@ public class EncodingDecodingTest {
         }
     }
 
-//    @Test
-//    public void StartIndexRequestMessage() {
-//        TimeoutId uiid = UUID.nextUUID();
-//
-//        StartIndexRequestMessage msg = new StartIndexRequestMessage(gSrc, gDest, uiid);
-//        try {
-//            ByteBuf buffer = msg.toByteArray();
-//            opCodeCorrect(buffer, msg);
-//            StartIndexRequestMessage response =
-//                    StartIndexRequestMessageFactory.fromBuffer(buffer);
-//
-//            assert (response.getVodDestination().equals(gDest));
-//            assert (response.getVodSource().equals(gSrc));
-//            assert (response.getTimeoutId().equals(uiid));
-//
-//        } catch (MessageDecodingException ex) {
-//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-//            assert (false);
-//        } catch (MessageEncodingException ex) {
-//            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-//            assert (false);
-//        }
-//    }
+    @Test
+    public void LeaderLookupRequest() {
+        LeaderLookupMessage.Request msg = new LeaderLookupMessage.Request(gSrc, gDest, UUID.nextUUID());
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderLookupMessage.Request request = LeaderLookupMessageFactory.Request.fromBuffer(buffer);
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 
     @Test
-    public void IndexRequestMessage() {
-        TimeoutId uiid = UUID.nextUUID();
-        long index = 1L;
-
-        InetAddress address1 = null;
+    public void LeaderLookupResponse() {
+        InetAddress address = null;
         try {
-            address1 = InetAddress.getByName("192.168.0.1");
+            address = InetAddress.getByName("192.168.0.1");
         } catch (UnknownHostException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
-        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
+        boolean terminated = false;
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-
-        IndexRequestMessage msg = new IndexRequestMessage(gSrc, gDest, uiid, index, vodAddress1);
+        VodAddress[] items = new VodAddress[]{vodAddress};
+        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), terminated, items);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            IndexRequestMessage response =
-                    IndexRequestMessageFactory.fromBuffer(buffer);
+            LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getTimeoutId().equals(uiid));
-            assert (response.getIndex() == index);
-            assert (response.getLeaderAddress().equals(vodAddress1));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-
-    @Test
-    public void IndexDisseminationMessage() {
-        long index = 1L;
-
-        IndexDisseminationMessage msg = new IndexDisseminationMessage(gSrc, gDest, index);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            IndexDisseminationMessage response =
-                    IndexDisseminationMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getIndex() == index);
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void IndexResponseMessage() {
-        long index = 1L;
-        UUID id = new UUID(1);
-
-        IndexResponseMessage msg = new IndexResponseMessage(gSrc, gDest, index, id);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            IndexResponseMessage response =
-                    IndexResponseMessageFactory.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-            assert (response.getIndex() == index);
-            assert (response.getMessageId().equals(id));
-
+            assert terminated == response.isLeader();
+            assert (response.getAddresses()[0].equals(vodAddress));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);

@@ -6,6 +6,7 @@ import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.config.*;
 import se.sics.gvod.filters.MsgDestFilterAddress;
+import se.sics.gvod.filters.TimeoutFilterOverlayId;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
@@ -21,6 +22,7 @@ import se.sics.ms.peer.SearchPeer;
 import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.types.IndexEntry;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -35,9 +37,8 @@ public final class SearchSimulator extends ComponentDefinition {
     Positive<SimulatorPort> simulator = positive(SimulatorPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Negative<Web> webIncoming = negative(Web.class);
     private final HashMap<Long, Component> peers;
-    private final HashMap<Long, Address> peersAddress;
+    private final HashMap<Long, VodAddress> peersAddress;
     private CroupierConfiguration croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
@@ -54,7 +55,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
     public SearchSimulator() {
         peers = new HashMap<Long, Component>();
-        peersAddress = new HashMap<Long, Address>();
+        peersAddress = new HashMap<Long, VodAddress>();
         ringNodes = new ConsistentHashtable<Long>();
 
         subscribe(handleInit, control);
@@ -64,7 +65,6 @@ public final class SearchSimulator extends ComponentDefinition {
 //        subscribe(handleTerminateExperiment, simulator);
         subscribe(handleAddIndexEntry, simulator);
         subscribe(handleAddMagnetEntry, simulator);
-        subscribe(handleWebRequest, webIncoming);
     }
     Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
         @Override
@@ -100,15 +100,6 @@ public final class SearchSimulator extends ComponentDefinition {
         }
         return sb.toString();
     }
-    Handler<WebRequest> handleWebRequest = new Handler<WebRequest>() {
-        @Override
-        public void handle(WebRequest event) {
-            // Find closest peer and send web request on to it.
-            long peerId = ringNodes.getNode((long) event.getDestination());
-            Component peer = peers.get(peerId);
-            trigger(event, peer.getPositive(Web.class));
-        }
-    };
 //    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
 //        @Override
 //        public void handle(TerminateExperiment event) {
@@ -119,12 +110,6 @@ public final class SearchSimulator extends ComponentDefinition {
 //            System.exit(0);
 //        }
 //    };
-    Handler<WebResponse> handleWebResponse = new Handler<WebResponse>() {
-        @Override
-        public void handle(WebResponse event) {
-            trigger(event, webIncoming);
-        }
-    };
     Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
         @Override
         public void handle(AddIndexEntry event) {
@@ -220,15 +205,14 @@ public final class SearchSimulator extends ComponentDefinition {
         Self self = new SelfImpl(new VodAddress(address, overlayId));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
-        connect(timer, peer.getNegative(Timer.class));
-        subscribe(handleWebResponse, peer.getPositive(Web.class));
+        connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
         trigger(new SearchPeerInit(self, croupierConfiguration,
                 searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
-        peersAddress.put(id, address);
+        peersAddress.put(id, self.getAddress());
 
         Snapshot.addPeer(new VodAddress(address, overlayId));
     }
@@ -242,7 +226,7 @@ public final class SearchSimulator extends ComponentDefinition {
         disconnect(timer, peer.getNegative(Timer.class));
 
         peers.remove(id);
-        Address addr = peersAddress.remove(id);
+        VodAddress addr = peersAddress.remove(id);
         Snapshot.removePeer(addr);
 
         destroy(peer);

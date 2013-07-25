@@ -30,11 +30,9 @@ public class ReplicationMessageFactory {
         @Override
         protected ReplicationMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
-            UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            return new ReplicationMessage.Request(vodSrc, vodDest,
-                    timeoutId,id, entry, numResponses, responseNum);
+            return new ReplicationMessage.Request(vodSrc, vodDest, timeoutId, entry, numResponses, responseNum);
         }
 
     }
@@ -52,8 +50,7 @@ public class ReplicationMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            UUID id = (UUID) UserTypesDecoderFactory.readTimeoutId(buffer);
-            return new ReplicationMessage.Response(vodSrc, vodDest, timeoutId, id);
+            return new ReplicationMessage.Response(vodSrc, vodDest, timeoutId);
         }
     }
 }

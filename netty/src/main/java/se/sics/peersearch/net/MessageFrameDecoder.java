@@ -5,7 +5,6 @@
 package se.sics.peersearch.net;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,27 +29,21 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte REPLICATION_RESPONSE          = 0x65;
     public static final byte INDEX_EXCHANGE_REQUEST        = 0x66;
     public static final byte INDEX_EXCHANGE_RESPONSE       = 0x67;
-    public static final byte GAP_DETECTION_REQUEST         = 0x68;
-    public static final byte GAP_DETECTION_RESPONSE        = 0x69;
-    public static final byte LEADER_SELECTION_REQUEST      = 0x6a;
-    public static final byte LEADER_SELECTION_RESPONSE     = 0x6b;
-    public static final byte GRADIENT_SHUFFLE_REQUEST      = 0x6c;
-    public static final byte GRADIENT_SHUFFLE_RESPONSE     = 0x6d;
-    public static final byte LEADER_SUSPECTION_REQUEST     = 0x6e;
-    public static final byte LEADER_SUSPECTION_RESPONSE    = 0x6f;
-    public static final byte LEADER_ANNOUNCEMENT           = 0x70;
-    public static final byte HEARTBEAT_REQUEST             = 0x71;
-    public static final byte HEARTBEAT_RESPONSE            = 0x72;
-    public static final byte ADD_INDEX_ENTRY_ROUTED        = 0x73;
-    public static final byte GAP_DETECTION_ROUTED          = 0x74;
-    public static final byte VOTING_RESULT_MESSAGE         = 0x75;
-    public static final byte REJECT_FOLLOWER_REQUEST       = 0x76;
-    public static final byte REJECT_FOLLOWER_RESPONSE      = 0x77;
-    public static final byte REJECT_LEADER_MESSAGE         = 0x78;
-    public static final byte START_INDEX_REQUEST_MESSAGE   = 0x79;
-    public static final byte INDEX_REQUEST_MESSAGE         = 0x7a;
-    public static final byte INDEX_DESSIMINATION_MESSAGE   = 0x7b;
-    public static final byte INDEX_RESPONSE_MESSAGE        = 0x7c;
+    public static final byte LEADER_SELECTION_REQUEST      = 0x68;
+    public static final byte LEADER_SELECTION_RESPONSE     = 0x69;
+    public static final byte GRADIENT_SHUFFLE_REQUEST      = 0x6a;
+    public static final byte GRADIENT_SHUFFLE_RESPONSE     = 0x6b;
+    public static final byte LEADER_SUSPICION_REQUEST      = 0x6c;
+    public static final byte LEADER_SUSPICION_RESPONSE     = 0x6d;
+    public static final byte LEADER_ANNOUNCEMENT           = 0x6e;
+    public static final byte HEARTBEAT_REQUEST             = 0x6f;
+    public static final byte HEARTBEAT_RESPONSE            = 0x70;
+    public static final byte VOTING_RESULT_MESSAGE         = 0x71;
+    public static final byte REJECT_FOLLOWER_REQUEST       = 0x72;
+    public static final byte REJECT_FOLLOWER_RESPONSE      = 0x73;
+    public static final byte REJECT_LEADER_MESSAGE         = 0x74;
+    public static final byte LEADER_LOOKUP_REQUEST         = 0x75;
+    public static final byte LEADER_LOOKUP_RESPONSE        = 0x76;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -69,7 +62,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     @Override
     protected RewriteableMsg decodeMsg(ChannelHandlerContext ctx,
             ByteBuf buffer) throws MessageDecodingException {
-        
         // See if msg is part of parent project, if yes then return it.
         // Otherwise decode the msg here.
         RewriteableMsg msg = super.decodeMsg(ctx, buffer);
@@ -93,10 +85,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return IndexExchangeMessageFactory.Request.fromBuffer(buffer);
             case INDEX_EXCHANGE_RESPONSE:
                 return IndexExchangeMessageFactory.Response.fromBuffer(buffer);
-            case GAP_DETECTION_REQUEST:
-                return GapDetectionMessageFactory.Request.fromBuffer(buffer);
-            case GAP_DETECTION_RESPONSE:
-                return GapDetectionMessageFactory.Response.fromBuffer(buffer);
             case LEADER_SELECTION_REQUEST:
                 return ElectionMessageFactory.Request.fromBuffer(buffer);
             case LEADER_SELECTION_RESPONSE:
@@ -105,9 +93,9 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return GradientShuffleMessageFactory.Request.fromBuffer(buffer);
             case GRADIENT_SHUFFLE_RESPONSE:
                 return GradientShuffleMessageFactory.Response.fromBuffer(buffer);
-            case LEADER_SUSPECTION_REQUEST:
+            case LEADER_SUSPICION_REQUEST:
                 return LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
-            case LEADER_SUSPECTION_RESPONSE:
+            case LEADER_SUSPICION_RESPONSE:
                 return LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
             case LEADER_ANNOUNCEMENT:
                 return LeaderAnnouncementMessageFactory.fromBuffer(buffer);
@@ -115,10 +103,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return HeartbeatMessageFactory.Request.fromBuffer(buffer);
             case HEARTBEAT_RESPONSE:
                 return HeartbeatMessageFactory.Response.fromBuffer(buffer);
-            case ADD_INDEX_ENTRY_ROUTED:
-                return AddIndexEntryRoutedMessageFactory.fromBuffer(buffer);
-            case GAP_DETECTION_ROUTED:
-                return GapDetectionRoutedMessageFactory.fromBuffer(buffer);
             case VOTING_RESULT_MESSAGE:
                 return VotingResultMessageFactory.fromBuffer(buffer);
             case REJECT_FOLLOWER_REQUEST:
@@ -127,14 +111,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return RejectFollowerMessageFactory.Response.fromBuffer(buffer);
             case REJECT_LEADER_MESSAGE:
                 return RejectLeaderMessageFactory.fromBuffer(buffer);
-            case START_INDEX_REQUEST_MESSAGE:
-//                return StartIndexRequestMessageFactory.fromBuffer(buffer);
-            case INDEX_REQUEST_MESSAGE:
-                return IndexRequestMessageFactory.fromBuffer(buffer);
-            case INDEX_DESSIMINATION_MESSAGE:
-                return IndexDisseminationMessageFactory.fromBuffer(buffer);
-            case INDEX_RESPONSE_MESSAGE:
-                return  IndexResponseMessageFactory.fromBuffer(buffer);
+            case LEADER_LOOKUP_REQUEST:
+                return LeaderLookupMessageFactory.Request.fromBuffer(buffer);
+            case LEADER_LOOKUP_RESPONSE:
+                return LeaderLookupMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }

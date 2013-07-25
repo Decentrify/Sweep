@@ -28,22 +28,14 @@ import se.sics.peersearch.types.SearchPattern;
  */
 public class SearchMessage {
     public static class Request extends DirectMsgNetty.Request {
-        private final UUID requestId;
         private final SearchPattern pattern;
 
-        public Request(VodAddress source, VodAddress destination,
-                       TimeoutId timeoutId, UUID requestId, SearchPattern pattern)
-        {
+        public Request(VodAddress source, VodAddress destination,TimeoutId timeoutId, SearchPattern pattern) {
             super(source, destination, timeoutId);
-            this.requestId = requestId;
             this.pattern = pattern;
 //            if (query.length() > 255) {
 //                throw new IllegalSearchString("Search string is too long. Max length is 255 chars.");
 //            }
-        }
-
-        public UUID getRequestId() {
-            return requestId;
         }
 
         public SearchPattern getPattern() {
@@ -52,22 +44,19 @@ public class SearchMessage {
 
         @Override
         public int getSize() {
-            return getHeaderSize()
-                    + 30 // guess at length of query
-                    ;
+            return getHeaderSize() + 30; // guess at length of query
         }
 
         @Override
         public RewriteableMsg copy() {
-             SearchMessage.Request r = null;
-            r = new Request(vodSrc, vodDest, timeoutId, requestId, pattern);
+            SearchMessage.Request r = null;
+            r = new Request(vodSrc, vodDest, timeoutId, pattern);
             return r;
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             ApplicationTypesEncoderFactory.writeSearchPattern(buffer, pattern);
             return buffer;
         }
@@ -82,18 +71,12 @@ public class SearchMessage {
         
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final UUID requestId;
         private final IndexEntry[] results;
         private final int numResponses;
         private final int responseNumber;
         
-        public Response(VodAddress source,
-                        VodAddress destination, TimeoutId timeoutId,
-                        UUID requestId, int numResponses, int responseNumber,
-                        IndexEntry[] results) throws IllegalSearchString
-        {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int numResponses, int responseNumber, IndexEntry[] results) throws IllegalSearchString {
             super(source, destination, timeoutId);
-            this.requestId = requestId;
 
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
@@ -112,10 +95,6 @@ public class SearchMessage {
             return numResponses;
         }
 
-        public UUID getRequestId() {
-            return requestId;
-        }
-
         @Override
         public int getSize() {
             return getHeaderSize()
@@ -128,7 +107,7 @@ public class SearchMessage {
         public RewriteableMsg copy() {
             try {
                 return new SearchMessage.Response(vodSrc, vodDest, timeoutId,
-                        requestId, numResponses, responseNumber, results);
+                        numResponses, responseNumber, results);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
@@ -141,7 +120,6 @@ public class SearchMessage {
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, results);

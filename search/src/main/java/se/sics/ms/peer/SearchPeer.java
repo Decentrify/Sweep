@@ -32,11 +32,9 @@ import java.util.Random;
 
 public final class SearchPeer extends ComponentDefinition {
 
-    public static final String CROUPIER = "CROUPIER";
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Negative<Web> webPort = negative(Web.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
@@ -50,11 +48,6 @@ public final class SearchPeer extends ComponentDefinition {
         electionLeader = create(ElectionLeader.class);
         electionFollower = create(ElectionFollower.class);
 
-//		connect(network, search.getNegative(VodNetwork.class));
-//		connect(network, croupier.getNegative(VodNetwork.class));
-//		connect(network, gradient.getNegative(VodNetwork.class));
-//		connect(network, electionLeader.getNegative(VodNetwork.class));
-//		connect(network, electionFollower.getNegative(VodNetwork.class));
         connect(network, natTraversal.getNegative(VodNetwork.class));
 
         connect(natTraversal.getPositive(VodNetwork.class),
@@ -75,28 +68,25 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(timer, electionFollower.getNegative(Timer.class));
 
-        connect(webPort, search.getPositive(Web.class));
         connect(croupier.getPositive(PeerSamplePort.class),
                 search.getNegative(PeerSamplePort.class));
         connect(croupier.getPositive(PeerSamplePort.class),
                 gradient.getNegative(PeerSamplePort.class));
         connect(indexPort, search.getNegative(IndexPort.class));
-        connect(gradient.getPositive(RoutedEventsPort.class),
-                search.getNegative(RoutedEventsPort.class));
         connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
                 electionLeader.getPositive(BroadcastGradientPartnersPort.class));
         connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
                 electionFollower.getPositive(BroadcastGradientPartnersPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
+        connect(electionLeader.getNegative(LeaderStatusPort.class),
+                search.getPositive(LeaderStatusPort.class));
         connect(electionFollower.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
-        connect(search.getNegative(IndexRoutingPort.class),
-                gradient.getPositive(IndexRoutingPort.class));
-        connect(search.getNegative(IndexRoutingPort.class),
-                electionLeader.getPositive(IndexRoutingPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 electionFollower.getPositive(LeaderStatusPort.class));
+        connect(gradient.getPositive(LeaderRequestPort.class),
+                search.getNegative(LeaderRequestPort.class));
 
         subscribe(handleInit, control);
     }
@@ -126,7 +116,7 @@ public final class SearchPeer extends ComponentDefinition {
             List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
             descriptors.add(0, desc);
 
-            if (self.getId() == 0) {
+            if (self.getId() == 1) {
                 return;
             }
 
@@ -136,7 +126,7 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
+            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId() - 1) + 1);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();

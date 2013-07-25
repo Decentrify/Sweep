@@ -8,9 +8,7 @@ import se.sics.peersearch.types.SearchPattern;
  * Stores information about a currently executed search request.
  */
 public class LocalSearchRequest {
-    private final WebRequest webRequest;
     private final SearchPattern pattern;
-    private final UUID searchId;
     private int nodesQueried;
     private int nodesAnswered;
     private UUID timeoutId;
@@ -18,24 +16,12 @@ public class LocalSearchRequest {
     /**
      * Craete a new instance for the given request and query.
      *
-     * @param webRequest
-     *            the {@link WebRequest} of the issuing client
      * @param pattern
      *            the pattern of the search
      */
-    public LocalSearchRequest(WebRequest webRequest, SearchPattern pattern) {
+    public LocalSearchRequest(SearchPattern pattern) {
         super();
-        this.webRequest = webRequest;
         this.pattern = pattern;
-        // Create a unique id for each request
-        this.searchId = (UUID)UUID.nextUUID();
-    }
-
-    /**
-     * @return the {@link WebRequest} of the issuing client
-     */
-    public WebRequest getWebRequest() {
-        return webRequest;
     }
 
     /**
@@ -43,13 +29,6 @@ public class LocalSearchRequest {
      */
     public SearchPattern getSearchPattern() {
         return pattern;
-    }
-
-    /**
-     * @return the UUID of the search request
-     */
-    public UUID getSearchId() {
-        return searchId;
     }
 
     /**

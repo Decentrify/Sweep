@@ -44,7 +44,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void removePeer(Address address) {
+	public static void removePeer(VodAddress address) {
 		peers.remove(address);
 	}
 
@@ -54,7 +54,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void incNumIndexEntries(Address address) {
+	public static void incNumIndexEntries(VodAddress address) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -72,7 +72,7 @@ public class Snapshot {
 	 * @param partners
 	 *            the neighbors to be set
 	 */
-	public static void updateNeighbours(Address address, ArrayList<Address> partners) {
+	public static void updateNeighbours(VodAddress address, ArrayList<Address> partners) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {

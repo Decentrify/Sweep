@@ -13,27 +13,39 @@ import se.sics.ms.configuration.MsConfig;
 public class ElectionConfiguration
         extends AbstractConfiguration<se.sics.gvod.config.ElectionConfiguration>
 {
-	int indexTimeout;
 	int deathTimeout;
 	int rejectedTimeout;
-	boolean nodeSuggestion;
 	int voteRequestTimeout;
 	int heartbeatWaitTimeout;
 	int heartbeatTimeoutDelay;
 	int minSizeOfElectionGroup;
 	double minPercentageOfVotes;
-	int waitForNoOfIndexMessages;
 	int heartbeatTimeoutInterval;
 	int minNumberOfConvergedNodes;
 	double deathVoteMajorityPercentage;
 	double leaderDeathMajorityPercentage;
 
-    /** 
-     * Full argument constructor comes second.
+    /**
+     * Default constructor comes first.
      */
+    public ElectionConfiguration() {        
+        this(
+                MsConfig.ELECTION_DEATH_TIMEOUT,
+                MsConfig.ELECTION_REJECTED_TIMEOUT,
+                MsConfig.ELECTION_VOTE_REQUEST_TIMEOUT,
+                MsConfig.ELECTION_HEARTBEAT_WAIT_TIMEOUT,
+                MsConfig.ELECTION_HEARTBEAT_TIMEOUTDELAY,
+                MsConfig.ELECTION_MIN_SIZE_ELECTIONGROUP,
+                MsConfig.ELECTION_MIN_PERCENTAGE_VOTES,
+                MsConfig.ELECTION_HEARTBEAT_TIMEOUT_INTERVAL,
+                MsConfig.ELECTION_MIN_NUMBER_CONVERGED_NODES,
+                MsConfig.ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE,
+                MsConfig.ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE
+                );
+    }
 
     /**
-     * Default constructor for ElectionConfiguration
+     * Full argument constructor comes second.
      *
      * @param minSizeOfElectionGroup
      *            The minimum size of the election group required by the leader
@@ -68,57 +80,18 @@ public class ElectionConfiguration
      * @param deathVoteMajorityPercentage
      *            The number of nodes that are needed to deem a leader to be
      *            dead
-     * @param waitForNoOfIndexMessages
-     *            The new leader will wait for this number of messages before
-     *            announcing his leadership
-     * @param indexTimeout
-     *            The amount of time (ms) the new leader will wait for index
-     *            messages to return
-     * @param nodeSuggestion
-     *            Whether the leader election should suggest nodes to gradient in
-     *            case the view only has nodes with lower utility values. True
-     *            if node suggestion should be turned on
      */
-    /**
-     * Default constructor comes first.
-     */
-    public ElectionConfiguration() {        
-        this(
-                MsConfig.ELECTION_INDEX_TIMEOUT,
-                MsConfig.ELECTION_DEATH_TIMEOUT,
-                MsConfig.ELECTION_REJECTED_TIMEOUT,
-                MsConfig.ELECTION_NODE_SUGGESTION,
-                MsConfig.ELECTION_VOTE_REQUEST_TIMEOUT ,
-                MsConfig.ELECTION_HEARTBEAT_WAIT_TIMEOUT ,
-                MsConfig.ELECTION_HEARTBEAT_TIMEOUTDELAY ,
-                MsConfig.ELECTION_MIN_SIZE_ELECTIONGROUP ,
-                MsConfig.ELECTION_MIN_PERCENTAGE_VOTES ,
-                MsConfig.ELECTION_WAIT_FOR_NO_INDEX_MESSAGES ,
-                MsConfig.ELECTION_HEARTBEAT_TIMEOUT_INTERVAL ,
-                MsConfig.ELECTION_MIN_NUMBER_CONVERGED_NODES ,
-                MsConfig.ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE ,
-                MsConfig.ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE
-                );
-    }
-
-    /**
-     * Full argument constructor comes next
-     */
-    public ElectionConfiguration(int indexTimeout, int deathTimeout, int rejectedTimeout, boolean nodeSuggestion, 
-            int voteRequestTimeout, int heartbeatWaitTimeout, int heartbeatTimeoutDelay, int minSizeOfElectionGroup, 
-            double minPercentageOfVotes, int waitForNoOfIndexMessages, 
-            int heartbeatTimeoutInterval, int minNumberOfConvergedNodes, double deathVoteMajorityPercentage, 
-            double leaderDeathMajorityPercentage) {
-        this.indexTimeout = indexTimeout;
+    public ElectionConfiguration(int deathTimeout, int rejectedTimeout,
+            int voteRequestTimeout, int heartbeatWaitTimeout, int heartbeatTimeoutDelay, int minSizeOfElectionGroup,
+            double minPercentageOfVotes, int heartbeatTimeoutInterval, int minNumberOfConvergedNodes,
+            double deathVoteMajorityPercentage, double leaderDeathMajorityPercentage) {
         this.deathTimeout = deathTimeout;
         this.rejectedTimeout = rejectedTimeout;
-        this.nodeSuggestion = nodeSuggestion;
         this.voteRequestTimeout = voteRequestTimeout;
         this.heartbeatWaitTimeout = heartbeatWaitTimeout;
         this.heartbeatTimeoutDelay = heartbeatTimeoutDelay;
         this.minSizeOfElectionGroup = minSizeOfElectionGroup;
         this.minPercentageOfVotes = minPercentageOfVotes;
-        this.waitForNoOfIndexMessages = waitForNoOfIndexMessages;
         this.heartbeatTimeoutInterval = heartbeatTimeoutInterval;
         this.minNumberOfConvergedNodes = minNumberOfConvergedNodes;
         this.deathVoteMajorityPercentage = deathVoteMajorityPercentage;
@@ -128,15 +101,6 @@ public class ElectionConfiguration
     
     public static ElectionConfiguration build() {
         return new ElectionConfiguration();
-    }
-
-    public int getIndexTimeout() {
-        return indexTimeout;
-    }
-
-    public ElectionConfiguration setIndexTimeout(int indexTimeout) {
-        this.indexTimeout = indexTimeout;
-        return this;
     }
 
     public int getDeathTimeout() {
@@ -154,15 +118,6 @@ public class ElectionConfiguration
 
     public ElectionConfiguration setRejectedTimeout(int rejectedTimeout) {
         this.rejectedTimeout = rejectedTimeout;
-        return this;
-    }
-
-    public boolean isNodeSuggestion() {
-        return nodeSuggestion;
-    }
-
-    public ElectionConfiguration setNodeSuggestion(boolean nodeSuggestion) {
-        this.nodeSuggestion = nodeSuggestion;
         return this;
     }
 
@@ -211,15 +166,6 @@ public class ElectionConfiguration
         return this;
     }
 
-    public int getWaitForNoOfIndexMessages() {
-        return waitForNoOfIndexMessages;
-    }
-
-    public ElectionConfiguration setWaitForNoOfIndexMessages(int waitForNoOfIndexMessages) {
-        this.waitForNoOfIndexMessages = waitForNoOfIndexMessages;
-        return this;
-    }
-
     public int getHeartbeatTimeoutInterval() {
         return heartbeatTimeoutInterval;
     }
@@ -255,6 +201,4 @@ public class ElectionConfiguration
         this.leaderDeathMajorityPercentage = leaderDeathMajorityPercentage;
         return this;
     }
-    
-
 }

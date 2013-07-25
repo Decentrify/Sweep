@@ -1,12 +1,9 @@
 package se.sics.ms.gradient;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.TreeMap;
+import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
@@ -18,11 +15,12 @@ import se.sics.gvod.net.VodAddress;
  * exchange partners for a given node.
  */
 public class GradientView {
+    private static final Logger logger = LoggerFactory.getLogger(GradientView.class);
 	private TreeMap<VodAddress, VodDescriptor> entries;
 	private Self self;
 	private int size;
 	private Comparator<VodAddress> closerComparator;
-	private boolean converged;
+	private boolean converged, changed;
 	private final double convergenceSimilarity;
 
 	/**
@@ -40,6 +38,7 @@ public class GradientView {
 		this.self = self;
 		this.size = size;
 		this.converged = false;
+        this.changed = false;
 		this.convergenceSimilarity = convergenceSimilarity;
 	}
 
@@ -52,12 +51,13 @@ public class GradientView {
 	 */
 	public void add(VodAddress address) {
         if (address.equals(self.getAddress())) {
-            // TODO user logger
-            System.out.println(self.getAddress().toString() + " tried adding self to GradientView");
+            logger.warn("{} tried to add itself to its GradientView", self.getAddress());
             return;
         }
 
+        int oldSize = entries.size();
 		entries.put(address, new VodDescriptor(address));
+        changed = !(oldSize == entries.size());
 
 		if (entries.size() > size) {
 			List<VodAddress> list = getClosestNodes(size);
@@ -103,16 +103,20 @@ public class GradientView {
 		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 
-//        StringBuilder builder = new StringBuilder();
-//        builder.append(self.getId() + " merges: ");
+        boolean changed = false;
 		for (VodAddress address : addresses) {
-//            builder.append("\n" + address.toString());
 			add(address);
+            if (!changed) {
+                changed = isChanged();
+            }
 		}
-//        System.out.println(builder);
+        this.changed = changed;
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
+            if (!converged) {
+                this.changed = true;
+            }
 			converged = true;
 		} else {
 			converged = false;
@@ -198,7 +202,11 @@ public class GradientView {
 		return this.size <= entries.size();
 	}
 
-	@Override
+    public boolean isChanged() {
+        return changed;
+    }
+
+    @Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
 		for (VodAddress node : entries.keySet()) {
