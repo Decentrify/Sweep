@@ -116,7 +116,7 @@ public final class SearchPeer extends ComponentDefinition {
             List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
             descriptors.add(0, desc);
 
-            if (self.getId() == 0) {
+            if (self.getId() == 1) {
                 return;
             }
 
@@ -126,7 +126,7 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()) + 1);
+            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId() - 1) + 1);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
