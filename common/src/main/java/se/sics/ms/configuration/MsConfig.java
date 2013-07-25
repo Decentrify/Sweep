@@ -27,7 +27,7 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
     
-    public static final int SEARCH_NUM_PARTITIONS = 1;
+    public static final int SEARCH_NUM_PARTITIONS = 5;
     public static final int SEARCH_MAX_NUM_ROUTING_ENTRIES = 5;
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;

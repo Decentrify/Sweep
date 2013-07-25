@@ -14,6 +14,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
@@ -117,6 +118,15 @@ public final class Gradient extends ComponentDefinition {
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
 
+            // Remove all samples from other partitions
+            Iterator<VodDescriptor> iterator = sample.iterator();
+            while (iterator.hasNext()) {
+                // TODO Number of partition from proper config file
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId())  {
+                    iterator.remove();
+                }
+            }
+
             if (sample.size() > 0) {
                 int n = random.nextInt(sample.size());
                 initiateShuffle(sample.get(n).getVodAddress());
@@ -171,6 +181,9 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.merge(event.getAddresses());
             broadcastView();
+            if (self.getId() <= 10) {
+                System.out.println(self.getId() + " " + gradientView.toString());
+            }
         }
     };
     /**
