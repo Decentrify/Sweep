@@ -79,11 +79,6 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(ElectionInit init) {
             self = init.getSelf();
             config = init.getConfig();
-
-            leader = null;
-            leaderView = null;
-            lowerNodes = null;
-            higherNodes = null;
         }
     };
     /**

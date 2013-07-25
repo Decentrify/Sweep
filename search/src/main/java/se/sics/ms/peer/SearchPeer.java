@@ -85,7 +85,8 @@ public final class SearchPeer extends ComponentDefinition {
                 gradient.getPositive(LeaderStatusPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 electionFollower.getPositive(LeaderStatusPort.class));
-        connect(gradient.getPositive(LeaderRequestPort.class), search.getNegative(LeaderRequestPort.class));
+        connect(gradient.getPositive(LeaderRequestPort.class),
+                search.getNegative(LeaderRequestPort.class));
 
         subscribe(handleInit, control);
     }
@@ -125,7 +126,7 @@ public final class SearchPeer extends ComponentDefinition {
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
+            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()) + 1);
             final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
