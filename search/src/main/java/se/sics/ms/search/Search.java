@@ -25,8 +25,10 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
+import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.gradient.LeaderRequestPort;
+import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.peer.PeerDescriptor;
@@ -49,9 +51,7 @@ import java.util.logging.Level;
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
- * or not, although it doesn't know about the leader status. Gradient knows
- * about the leader status and only forwards according messages to this
- * component in case the local node is elected leader.
+ * or not.
  * <p/>
  * {@link IndexEntry}s are spread via gossiping using the Cyclon samples stored
  * in the routing tables for the partition of the local node.
@@ -67,10 +67,12 @@ public final class Search extends ComponentDefinition {
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<LeaderRequestPort> leaderRequestPort = positive(LeaderRequestPort.class);
+    Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
     private SearchConfiguration config;
+    private boolean leader;
     // The last smallest missing index number.
     private long oldestMissingIndexValue;
     // Set of existing entries higher than the oldestMissingIndexValue
@@ -129,6 +131,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleGapTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
+        subscribe(handleLeaderStatus, leaderStatusPort);
     }
 
     /**
@@ -394,6 +397,10 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
         @Override
         public void handle(AddIndexEntryMessage.Request event) {
+            if (!leader) {
+                return;
+            }
+
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -482,6 +489,7 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
+
     /**
      * As the leader, add an {@link ReplicationMessage.Request} to the according
      * request and issue the response if the replication constraints were
@@ -490,6 +498,10 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationMessage.Response> handleReplicationResponse = new Handler<ReplicationMessage.Response>() {
         @Override
         public void handle(ReplicationMessage.Response event) {
+            if (!leader) {
+                return;
+            }
+
             ReplicationCount replicationCount = replicationRequests.get(event.getTimeoutId());
             if (replicationCount != null && replicationCount.incrementAndCheckReceived()) {
 
@@ -616,6 +628,16 @@ public final class Search extends ComponentDefinition {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
                         e);
             }
+        }
+    };
+
+    /**
+     * This handler listens to updates regarding the leader status
+     */
+    final Handler<LeaderStatusPort.LeaderStatus> handleLeaderStatus = new Handler<LeaderStatusPort.LeaderStatus>() {
+        @Override
+        public void handle(LeaderStatusPort.LeaderStatus event) {
+            leader = event.isLeader();
         }
     };
 
