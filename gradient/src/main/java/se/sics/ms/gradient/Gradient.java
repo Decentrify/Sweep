@@ -122,7 +122,7 @@ public final class Gradient extends ComponentDefinition {
             Iterator<VodDescriptor> iterator = sample.iterator();
             while (iterator.hasNext()) {
                 // TODO Number of partition from proper config file
-                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId())  {
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId() % MsConfig.SEARCH_NUM_PARTITIONS)  {
                     iterator.remove();
                 }
             }
@@ -181,9 +181,6 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.merge(event.getAddresses());
             broadcastView();
-            if (self.getId() <= 10) {
-                System.out.println(self.getId() + " " + gradientView.toString());
-            }
         }
     };
     /**

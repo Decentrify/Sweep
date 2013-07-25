@@ -140,8 +140,7 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchInit init) {
             self = init.getSelf();
             config = init.getConfiguration();
-            routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(
-                    config.getNumPartitions());
+            routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(config.getNumPartitions());
             lastInsertionId = -1;
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
             random = new Random(init.getConfiguration().getSeed());
