@@ -114,6 +114,9 @@ public class GradientView {
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
+            if (!converged) {
+                this.changed = true;
+            }
 			converged = true;
 		} else {
 			converged = false;
