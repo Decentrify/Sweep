@@ -188,12 +188,12 @@ public class ElectionLeader extends ComponentDefinition {
 				}
 			}
 
-			// IF this node is still the leader then send heart beats
+			// If this node is still the leader then send heart beats
 			if (self.getId() == lowestId.getId() && iAmLeader == true) {
+                // TODO don't send the view all the time but iff it has changed
 				sendLeaderView();
 			} else {
 				scheduledTimeoutId = event.getTimeoutId();
-                                assert(scheduledTimeoutId != null);
 				rejected();
 			}
 		}
@@ -363,13 +363,15 @@ public class ElectionLeader extends ComponentDefinition {
 	 * regular node again
 	 */
 	private void rejected() {
+        if (!electionInProgress && !iAmLeader) {
+            return;
+        }
+
 		if (iAmLeader == true) {
-			Snapshot.setLeaderStatus(self.getAddress(), false);
+            iAmLeader = false;
+            trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+            Snapshot.setLeaderStatus(self.getAddress(), false);
 		}
-
-		iAmLeader = false;
-		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-
 		variableCleanUp();
 	}
 }

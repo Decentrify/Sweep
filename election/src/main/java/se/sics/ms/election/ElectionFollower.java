@@ -315,8 +315,10 @@ public class ElectionFollower extends ComponentDefinition {
      */
     private void evaluateDeathResponses() {
 
-        CancelTimeout timeout = new CancelTimeout(deathVoteTimeout);
-        trigger(timeout, timerPort);
+        if (deathVoteTimeout != null) {
+            CancelTimeout timeout = new CancelTimeout(deathVoteTimeout);
+            trigger(timeout, timerPort);
+        }
 
         // The leader is considered dead
         if (leader != null
@@ -361,9 +363,7 @@ public class ElectionFollower extends ComponentDefinition {
     private void triggerTimeout(int timeOut, RewriteableMsg message) {
         cancelTimeout();
 
-        ScheduleRetryTimeout st =
-                new ScheduleRetryTimeout(timeOut,
-                0, 0);
+        ScheduleRetryTimeout st = new ScheduleRetryTimeout(timeOut, 0, 0);
         HeartbeatMessage.RequestTimeout request = new HeartbeatMessage.RequestTimeout(st, message);
     }
 
