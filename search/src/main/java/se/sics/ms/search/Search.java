@@ -77,7 +77,7 @@ public final class Search extends ComponentDefinition {
     // Set of existing entries higher than the oldestMissingIndexValue
     private SortedSet<Long> existingEntries;
     // The last id used for adding new entries in case this node is the leader
-    private long lastInsertionId;
+    private long nextInsertionId;
     // Data structure to keep track of acknowledgments for newly added indexes
     private Map<TimeoutId, ReplicationCount> replicationRequests;
     private Random random;
@@ -140,11 +140,11 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchInit init) {
             self = init.getSelf();
             config = init.getConfiguration();
+            partition = self.getId() % config.getNumPartitions();
             routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(config.getNumPartitions());
-            lastInsertionId = -1;
+            nextInsertionId = partition;
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
             random = new Random(init.getConfiguration().getSeed());
-            partition = self.getId() % config.getNumPartitions();
             oldestMissingIndexValue = partition;
             existingEntries = new TreeSet<Long>();
             gapTimeouts = new HashMap<Long, UUID>();
@@ -808,8 +808,9 @@ public final class Search extends ComponentDefinition {
      * @return a new id for a new {@link IndexEntry}
      */
     private long getCurrentInsertionId() {
-        lastInsertionId++;
-        return lastInsertionId;
+        long id = nextInsertionId;
+        nextInsertionId++;
+        return id;
     }
 
     /**
