@@ -4,19 +4,10 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
-/**
- * This port class is created to handle the acquiring and dissemination of the
- * leader's current status
- */
 public class LeaderStatusPort extends PortType {
 	{
 		negative(LeaderStatus.class);
 		negative(NodeCrashEvent.class);
-		negative(LeaderStatusRequest.class);
-		negative(LeaderStatusResponse.class);
-
-		positive(LeaderStatusRequest.class);
-		positive(LeaderStatusResponse.class);
 	}
 
 	/**
@@ -72,46 +63,6 @@ public class LeaderStatusPort extends PortType {
 		 */
 		public VodAddress getDeadNode() {
 			return deadNode;
-		}
-	}
-
-	/**
-	 * An event used to request the status of the node
-	 */
-	public static class LeaderStatusRequest extends Event {
-
-		/**
-		 * Default constructor
-		 */
-		public LeaderStatusRequest() {
-			super();
-		}
-	}
-
-	/**
-	 * An event used to respond to a leader status request
-	 */
-	public static class LeaderStatusResponse extends Event {
-		private final VodAddress leader;
-
-		/**
-		 * Default constructor
-		 * 
-		 * @param leader
-		 *            the address of the leader
-		 */
-		public LeaderStatusResponse(VodAddress leader) {
-			super();
-			this.leader = leader;
-		}
-
-		/**
-		 * Getter for the leader's address
-		 * 
-		 * @return the address of the leader
-		 */
-		public VodAddress getLeader() {
-			return this.leader;
 		}
 	}
 }

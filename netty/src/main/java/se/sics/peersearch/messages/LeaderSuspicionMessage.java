@@ -17,7 +17,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/2/13
  * Time: 1:01 PM
  */
-public class LeaderSuspectionMessage {
+public class LeaderSuspicionMessage {
     public static class Request extends RelayMsgNetty.Request {
         private final VodAddress leader;
 

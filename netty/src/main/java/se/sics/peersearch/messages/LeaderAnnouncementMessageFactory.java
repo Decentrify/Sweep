@@ -13,15 +13,15 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Time: 12:34 PM
  */
 public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory.Oneway {
-    public static LeaderAnnouncementMessage fromBuffer(ByteBuf buffer)
+    public static LeaderDeathAnnouncementMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
-        return (LeaderAnnouncementMessage)
+        return (LeaderDeathAnnouncementMessage)
                 new LeaderAnnouncementMessageFactory().decode(buffer, false);
     }
 
     @Override
-    protected LeaderAnnouncementMessage process(ByteBuf buffer) throws MessageDecodingException {
+    protected LeaderDeathAnnouncementMessage process(ByteBuf buffer) throws MessageDecodingException {
         VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
-        return new LeaderAnnouncementMessage(vodSrc, vodDest, leader);
+        return new LeaderDeathAnnouncementMessage(vodSrc, vodDest, leader);
     }
 }

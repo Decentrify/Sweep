@@ -18,15 +18,15 @@ public class VotingResultMessageFactory extends DirectMsgNettyFactory.Oneway {
     private VotingResultMessageFactory() {
     }
 
-    public static VotingResultMessage fromBuffer(ByteBuf buffer)
+    public static LeaderViewMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
-        return (VotingResultMessage)
+        return (LeaderViewMessage)
                 new VotingResultMessageFactory().decode(buffer, false);
     }
 
     @Override
     protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
         VodAddress[] view = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
-        return new VotingResultMessage(vodSrc, vodDest, view);
+        return new LeaderViewMessage(vodSrc, vodDest, view);
     }
 }

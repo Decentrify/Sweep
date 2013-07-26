@@ -19,9 +19,9 @@ public class LeaderSuspectionMessageFactory {
         private Request() {
         }
 
-        public static LeaderSuspectionMessage.Request fromBuffer(ByteBuf buffer)
+        public static LeaderSuspicionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (LeaderSuspectionMessage.Request)
+            return (LeaderSuspicionMessage.Request)
                     new LeaderSuspectionMessageFactory.Request().decode(buffer, true);
         }
 
@@ -29,7 +29,7 @@ public class LeaderSuspectionMessageFactory {
         @Override
         protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
-            return new LeaderSuspectionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, leader);
+            return new LeaderSuspicionMessage.Request(gvodSrc, gvodDest, clientId, remoteId, timeoutId, leader);
         }
     }
 
@@ -38,9 +38,9 @@ public class LeaderSuspectionMessageFactory {
         private Response() {
         }
 
-        public static LeaderSuspectionMessage.Response fromBuffer(ByteBuf buffer)
+        public static LeaderSuspicionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (LeaderSuspectionMessage.Response)
+            return (LeaderSuspicionMessage.Response)
                     new LeaderSuspectionMessageFactory.Response().decode(buffer, true);
         }
 
@@ -49,7 +49,7 @@ public class LeaderSuspectionMessageFactory {
         protected RewriteableMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean isSuspected = UserTypesDecoderFactory.readBoolean(buffer);
             VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
-            return new LeaderSuspectionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status, isSuspected, leader);
+            return new LeaderSuspicionMessage.Response(gvodSrc, gvodDest, clientId, remoteId, nextDest, timeoutId, status, isSuspected, leader);
         }
     }
 }
