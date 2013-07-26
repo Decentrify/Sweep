@@ -3,7 +3,7 @@ package se.sics.ms.main;
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.scenarios.Scenario;
-import se.sics.ms.scenarios.Scenario1;
+import se.sics.ms.scenarios.Scenario2;
 import se.sics.ms.simulator.SearchSimulationMain;
 
 import java.io.IOException;
@@ -54,7 +54,7 @@ public class Main {
         Configuration config = new Configuration();
         config.store();
 
-        Scenario scenario = new Scenario1();
+        Scenario scenario = new Scenario2();
         scenario.setSeed(MsConfig.getSeed());
         scenario.getScenario().simulate(SearchSimulationMain.class);
     }

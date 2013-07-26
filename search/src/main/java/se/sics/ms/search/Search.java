@@ -140,8 +140,8 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchInit init) {
             self = init.getSelf();
             config = init.getConfiguration();
-            partition = self.getId() % config.getNumPartitions();
             routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(config.getNumPartitions());
+            partition = self.getId() % config.getNumPartitions();
             nextInsertionId = partition;
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
             random = new Random(init.getConfiguration().getSeed());
@@ -405,40 +405,15 @@ public final class Search extends ComponentDefinition {
             recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
 
             try {
-                if (routingTable.isEmpty()) {
-                    // There's nothing we can do here
-                    return;
-                }
-
-                // Search the next id and a non-empty bucket an place the entry
-                // there
                 IndexEntry newEntry = event.getEntry();
-                long id;
-                int entryPartition;
-                TreeSet<VodDescriptor> bucket;
-                int i = routingTable.size();
-                do {
-                    id = getCurrentInsertionId();
-                    entryPartition = (int) (id % config.getNumPartitions());
-                    bucket = routingTable.get(entryPartition);
-                    i--;
-                } while ((bucket == null || config.getReplicationMinimum() > bucket
-                        .size()) && i > 0);
-
-                // There is nothing we can do
-                if (bucket == null || config.getReplicationMinimum() > bucket.size()) {
-                    return;
-                }
-
+                long id = getNextInsertionId();
                 newEntry.setId(id);
-                if (entryPartition == partition) {
-                    addEntryLocal(newEntry);
-                }
+                addEntryLocal(newEntry);
 
+                // TODO replace this by 2PC
                 replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
-
-                i = bucket.size() > config.getReplicationMaximum() ? config
-                        .getReplicationMaximum() : bucket.size();
+                TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+                int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
                 for (VodDescriptor peer : bucket) {
                     if (i == 0) {
                         break;
@@ -807,9 +782,9 @@ public final class Search extends ComponentDefinition {
     /**
      * @return a new id for a new {@link IndexEntry}
      */
-    private long getCurrentInsertionId() {
+    private long getNextInsertionId() {
         long id = nextInsertionId;
-        nextInsertionId++;
+        nextInsertionId += config.getNumPartitions();
         return id;
     }
 

@@ -114,21 +114,19 @@ public final class SearchPeer extends ComponentDefinition {
             List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
             descriptors.add(0, desc);
 
-            if (self.getId() == 1) {
-                return;
-            }
-
             InetAddress ip = null;
             try {
                 ip = InetAddress.getLocalHost();
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             }
-            Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId() - 1) + 1);
-            final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
-            descs.add(0, descr);
+            if (self.getId() > 0) {
+                Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
+                final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
+                descs.add(0, descr);
+            }
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
             trigger(new SearchInit(self, searchConfiguration), search.getControl());

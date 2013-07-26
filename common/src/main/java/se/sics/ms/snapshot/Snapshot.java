@@ -158,7 +158,8 @@ public class Snapshot {
 	 */
 	public static synchronized void setLastId(long id) {
 		if (id <= lastId) {
-			idDuplicates.add(id);
+            // TODO doesn't make sense with multiple leaders
+//			idDuplicates.add(id);
 		}
 		lastId = id;
 
@@ -319,7 +320,7 @@ public class Snapshot {
 	 */
 	private static void reportAmountOfGaps(StringBuilder builder) {
 		builder.append("Amount of gaps: ");
-		builder.append(lastId - entriesAdded + 1);
+		builder.append(detectedGaps.size());
 		builder.append("\n");
 	}
 
