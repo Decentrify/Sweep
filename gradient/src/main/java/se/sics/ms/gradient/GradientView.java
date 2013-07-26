@@ -20,6 +20,7 @@ public class GradientView {
 	private Self self;
 	private int size;
 	private Comparator<VodAddress> closerComparator;
+    private int convergedRounds;
 	private boolean converged, changed;
 	private final double convergenceSimilarity;
 
@@ -115,13 +116,19 @@ public class GradientView {
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
+            convergedRounds ++;
+		} else {
+            convergedRounds = 0;
+		}
+        // TODO magic number
+        if (convergedRounds > 20) {
             if (!converged) {
                 this.changed = true;
             }
-			converged = true;
-		} else {
-			converged = false;
-		}
+            converged = true;
+        } else {
+            converged = false;
+        }
 	}
 
 	/**
