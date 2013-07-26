@@ -88,7 +88,7 @@ public final class Gradient extends ComponentDefinition {
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(),
-                    config.getConvergenceTest());
+                    config.getConvergenceTest(), config.getConvergenceTestRounds());
             leader = false;
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());

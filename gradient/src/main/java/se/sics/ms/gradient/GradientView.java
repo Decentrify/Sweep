@@ -20,7 +20,8 @@ public class GradientView {
 	private Self self;
 	private int size;
 	private Comparator<VodAddress> closerComparator;
-    private int convergedRounds;
+    private final int convergenceRounds;
+    private int currentConvergedRounds;
 	private boolean converged, changed;
 	private final double convergenceSimilarity;
 
@@ -33,7 +34,7 @@ public class GradientView {
 	 *            the percentage of nodes allowed to change in order to be
 	 *            converged
 	 */
-	public GradientView(Self self, int size, double convergenceSimilarity) {
+	public GradientView(Self self, int size, double convergenceSimilarity, int convergedRounds) {
 		this.entries = new TreeMap<VodAddress, VodDescriptor>();
 		this.closerComparator = new Closer(self.getAddress());
 		this.self = self;
@@ -41,6 +42,7 @@ public class GradientView {
 		this.converged = false;
         this.changed = false;
 		this.convergenceSimilarity = convergenceSimilarity;
+        this.convergenceRounds = convergedRounds;
 	}
 
 	/**
@@ -116,12 +118,11 @@ public class GradientView {
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
-            convergedRounds ++;
+            currentConvergedRounds++;
 		} else {
-            convergedRounds = 0;
+            currentConvergedRounds = 0;
 		}
-        // TODO magic number
-        if (convergedRounds > 20) {
+        if (currentConvergedRounds > convergenceRounds) {
             if (!converged) {
                 this.changed = true;
             }
