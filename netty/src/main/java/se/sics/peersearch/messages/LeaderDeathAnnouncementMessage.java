@@ -14,7 +14,7 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/2/13
  * Time: 12:32 PM
  */
-public class LeaderAnnouncementMessage extends DirectMsgNetty.Oneway {
+public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
     private final VodAddress leader;
 
     /**
@@ -23,7 +23,7 @@ public class LeaderAnnouncementMessage extends DirectMsgNetty.Oneway {
      * @param destination
      * @param leader VodAddress of the leader
      */
-    public LeaderAnnouncementMessage(VodAddress source, VodAddress destination, VodAddress leader) {
+    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, VodAddress leader) {
         super(source, destination);
         this.leader = leader;
     }
@@ -43,7 +43,7 @@ public class LeaderAnnouncementMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new LeaderAnnouncementMessage(vodSrc, vodDest, leader);
+        return new LeaderDeathAnnouncementMessage(vodSrc, vodDest, leader);
     }
 
     @Override

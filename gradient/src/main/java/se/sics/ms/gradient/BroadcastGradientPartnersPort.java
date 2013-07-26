@@ -28,10 +28,10 @@ public class BroadcastGradientPartnersPort extends PortType {
 		 *            true if the node's view has converged
 		 * @param higherNodes
 		 *            a list of nodes with higher utility values compared to
-		 *            itself
+		 *            itself in ascending order
 		 * @param lowerNodes
-		 *            a list of nodes with lower utility values comepared to
-		 *            itself
+		 *            a list of nodes with lower utility values compared to
+		 *            itself in ascending order
 		 */
 		public GradientPartners(boolean isConverged, ArrayList<VodAddress> higherNodes,
 				ArrayList<VodAddress> lowerNodes) {

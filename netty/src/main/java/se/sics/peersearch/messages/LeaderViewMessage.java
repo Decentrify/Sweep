@@ -14,10 +14,10 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Date: 7/8/13
  * Time: 10:48 AM
  */
-public class VotingResultMessage extends DirectMsgNetty.Oneway {
+public class LeaderViewMessage extends DirectMsgNetty.Oneway {
     private final VodAddress[] view;
 
-    public VotingResultMessage(VodAddress source, VodAddress destination, VodAddress[] view) {
+    public LeaderViewMessage(VodAddress source, VodAddress destination, VodAddress[] view) {
         super(source, destination);
         this.view = view;
     }
@@ -33,7 +33,7 @@ public class VotingResultMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new VotingResultMessage(vodSrc, vodDest, view);
+        return new LeaderViewMessage(vodSrc, vodDest, view);
     }
 
     @Override

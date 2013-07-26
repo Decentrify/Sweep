@@ -54,7 +54,7 @@ public class RejectFollowerMessage {
             isInView = inView;
         }
 
-        public boolean isInView() {
+        public boolean isNodeInView() {
             return isInView;
         }
 
