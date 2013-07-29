@@ -12,7 +12,6 @@ import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.util.ToVodAddr;
-import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.NatNetworkControl;
@@ -35,6 +34,7 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
@@ -104,12 +104,12 @@ public class SystemMain extends ComponentDefinition {
             Set<Address> publicNodes = new HashSet<Address>();
             try {
                 InetAddress inet = InetAddress.getByName(publicBootstrapNode);
-                publicNodes.add(new Address(inet, VodConfig.getPort(), 0));
+                publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
             } catch (UnknownHostException ex) {
                 java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            trigger(new NatTraverserInit(self, publicNodes, VodConfig.getSeed()),
+            trigger(new NatTraverserInit(self, publicNodes, MsConfig.getSeed()),
                     natTraverser.getControl());
 
 //            trigger(new SearchPeerInit(self, , null, null, null, null),
@@ -125,8 +125,8 @@ public class SystemMain extends ComponentDefinition {
             // TODO - how to get my id.
             int myId = 1123;
             InetAddress localIp = event.getIpAddress();
-            myAddr = new Address(localIp, VodConfig.getPort(), myId);
-            NettyInit nInit = new NettyInit(VodConfig.getSeed(), true, MessageFrameDecoder.class);
+            myAddr = new Address(localIp, MsConfig.getPort(), myId);
+            NettyInit nInit = new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class);
             trigger(nInit, network.getControl());
 
             PortBindRequest pb1 = new PortBindRequest(myAddr, Transport.UDP);
@@ -166,9 +166,9 @@ public class SystemMain extends ComponentDefinition {
 
         System.setProperty("java.net.preferIPv4Stack", "true");
         try {
-            // We use VodConfig in the NatTraverser component, so we have to 
+            // We use MsConfig in the NatTraverser component, so we have to 
             // initialize it.
-            VodConfig.init(args);
+            MsConfig.init(args);
         } catch (IOException ex) {
             java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
         }
