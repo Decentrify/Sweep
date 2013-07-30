@@ -44,6 +44,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte REJECT_LEADER_MESSAGE         = 0x74;
     public static final byte LEADER_LOOKUP_REQUEST         = 0x75;
     public static final byte LEADER_LOOKUP_RESPONSE        = 0x76;
+    public static final byte REPAIR_REQUEST                = 0x77;
+    public static final byte REPAIR_RESPONSE               = 0x78;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -115,6 +117,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return LeaderLookupMessageFactory.Request.fromBuffer(buffer);
             case LEADER_LOOKUP_RESPONSE:
                 return LeaderLookupMessageFactory.Response.fromBuffer(buffer);
+            case REPAIR_REQUEST:
+                return RepairMessageFactory.Request.fromBuffer(buffer);
+            case REPAIR_RESPONSE:
+                return RepairMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }
