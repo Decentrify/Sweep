@@ -726,4 +726,57 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void RepairRequest() {
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        Long[] ids = new Long[]{1L};
+        RepairMessage.Request msg = new RepairMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, ids);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            RepairMessage.Request request = RepairMessageFactory.Request.fromBuffer(buffer);
+            assert (ids[0] == request.getMissingIds()[0]);
+            assert (entry.equals(request.getFutureEntry()));
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void RepairResponse() {
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, new IndexEntry[]{entry});
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            RepairMessage.Response request = RepairMessageFactory.Response.fromBuffer(buffer);
+            assert (entry.equals(request.getMissingEntries()[0]));
+            assert (entry.equals(request.getFutureEntry()));
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 }
