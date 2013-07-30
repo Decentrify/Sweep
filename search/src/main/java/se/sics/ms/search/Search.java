@@ -34,10 +34,7 @@ import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.peersearch.exceptions.IllegalSearchString;
-import se.sics.peersearch.messages.AddIndexEntryMessage;
-import se.sics.peersearch.messages.IndexExchangeMessage;
-import se.sics.peersearch.messages.ReplicationMessage;
-import se.sics.peersearch.messages.SearchMessage;
+import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 
@@ -131,6 +128,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handleGapTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
+        subscribe(repairRequestHandler, networkPort);
+        subscribe(repairResponseHandler, networkPort);
     }
 
     /**
@@ -410,7 +409,6 @@ public final class Search extends ComponentDefinition {
                 newEntry.setId(id);
                 addEntryLocal(newEntry);
 
-                // TODO replace this by 2PC
                 replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
                 TreeSet<VodDescriptor> bucket = routingTable.get(partition);
                 int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
@@ -447,16 +445,81 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * When receiving a replicate messsage from the leader, add the entry to the
-     * local store and send an acknowledgment.
+     * When receiving a replicate message from the leader, add the entry to the
+     * local store and send an acknowledgment if all previous entries are stored. If no - ask
+     * for them.
     */
     final Handler<ReplicationMessage.Request> handleReplicationRequest = new Handler<ReplicationMessage.Request>() {
         @Override
         public void handle(ReplicationMessage.Request event) {
             try {
-                addEntryLocal(event.getIndexEntry());
-                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
+                IndexEntry entry = event.getIndexEntry();
+                long maxStoredId = 0;
+                if(!existingEntries.isEmpty())
+                    maxStoredId = Collections.max(existingEntries);
+
+                if(maxStoredId >= entry.getId()) return;
+
+                if(entry.getId() - maxStoredId == 1) {
+                    addEntryLocal(event.getIndexEntry());
+                    ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
+                    trigger(msg, networkPort);
+                    return;
+                }
+
+                ArrayList<Long> missingIds = new ArrayList<Long>();
+                long currentMissingValue = maxStoredId + 1;
+                while(currentMissingValue != entry.getId()) {
+                    missingIds.add(currentMissingValue);
+                    currentMissingValue++;
+                }
+
+                RepairMessage.Request msg = new RepairMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), entry, missingIds.toArray(new Long[missingIds.size()]));
                 trigger(msg, networkPort);
+            } catch (IOException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            }
+        }
+    };
+
+    /**
+     * Handles situations then a peer in the leader group is behind in the updates during add operation
+     * and asks for missing data
+     */
+    Handler<RepairMessage.Request> repairRequestHandler = new Handler<RepairMessage.Request>() {
+        @Override
+        public void handle(RepairMessage.Request request) {
+            IndexEntry[] missingEntries = new IndexEntry[request.getMissingIds().length];
+            try {
+                for(int i=0; i<request.getMissingIds().length; i++) {
+                    IndexEntry entry = findById(request.getMissingIds()[i]);
+                    if(entry != null) missingEntries[i] = entry;
+                }
+            } catch (IOException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            }
+
+            RepairMessage.Response msg = new RepairMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getFutureEntry(), missingEntries);
+            trigger(msg, networkPort);
+        }
+    };
+
+    /**
+     * Handles missing data on the peer from the leader group when adding a new entry, but the peer is behind
+     * with the updates
+     */
+    Handler<RepairMessage.Response> repairResponseHandler = new Handler<RepairMessage.Response>() {
+        @Override
+        public void handle(RepairMessage.Response response) {
+            try {
+                for(IndexEntry entry : response.getMissingEntries())
+                        addEntryLocal(entry);
+
+                addEntryLocal(response.getFutureEntry());
+
+                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), response.getVodSource(), response.getTimeoutId());
+                trigger(msg, networkPort);
+
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
