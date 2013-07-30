@@ -9,8 +9,6 @@ import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
 import se.sics.ms.timeout.IndividualTimeout;
@@ -19,8 +17,6 @@ import se.sics.peersearch.messages.*;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort;
-import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
-import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 
 /**
@@ -34,15 +30,25 @@ public class ElectionFollower extends ComponentDefinition {
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
-    Negative<LeaderStatusPort> leaderStatusPortNeg = negative(LeaderStatusPort.class);
 
     private ElectionConfiguration config;
     private Self self;
     private VodAddress leader;
     private ArrayList<VodAddress> leaderView, higherNodes, lowerNodes;
     private boolean leaderIsAlive, isConverged;
-    private UUID heartBeatTimeoutId, deathVoteTimeout;
+    private TimeoutId heartBeatTimeoutId, deathVoteTimeout;
     private int aliveCounter, deathMessageCounter;
+
+    /**
+     * A customised timeout class used for checking when heart beat messages
+     * should arrive
+     */
+    public class HeartBeatTimeout extends IndividualTimeout {
+
+        public HeartBeatTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
+        }
+    }
 
     /**
      * A customised timeout class used to determine how long a node should wait
@@ -61,15 +67,14 @@ public class ElectionFollower extends ComponentDefinition {
     public ElectionFollower() {
         subscribe(handleInit, control);
         subscribe(handleDeathTimeout, timerPort);
-        subscribe(handleLeaderDeath, networkPort);
+        subscribe(handleLeaderDeathAnnouncement, networkPort);
         subscribe(handleVotingResult, networkPort);
         subscribe(handleVotingRequest, networkPort);
-        subscribe(handleLeaderDeathMsg, networkPort);
-        subscribe(handleHeartBeatTimeOut, timerPort);
+        subscribe(handleLeaderSuspicionRequest, networkPort);
+        subscribe(handleHeartBeatTimeout, timerPort);
         subscribe(handleGradientBroadcast, broadcast);
-        subscribe(handleLeaderDeathResponse, networkPort);
+        subscribe(handleLeaderSuspicionResponse, networkPort);
         subscribe(handleRejectionConfirmation, networkPort);
-        subscribe(handleLeaderStatusRequest, leaderStatusPortNeg);
     }
     /**
      * The initialisation handler. Called when the component is created and
@@ -90,11 +95,15 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(ElectionMessage.Request event) {
             boolean candidateAccepted = true;
-            VodAddress highestNode = findHighestNodeInView();
+            VodAddress highestNode;
+            if (higherNodes.size() != 0) {
+                highestNode = higherNodes.get(0);
+            } else {
+                highestNode = self.getAddress();
+            }
 
             // Don't vote yes unless the source has the lowest ID
-            if (highestNode.getId() < event.getSource().getId()
-                    || (leader != null && leader.getId() < event.getSource().getId())) {
+            if (highestNode.getId() < event.getSource().getId() || (leader != null && leader.getId() < event.getSource().getId())) {
                 candidateAccepted = false;
             } else {
                 highestNode = event.getVodSource();
@@ -121,10 +130,10 @@ public class ElectionFollower extends ComponentDefinition {
      * if that node is still a suitable leader and handles the situation
      * accordingly
      */
-    Handler<VotingResultMessage> handleVotingResult = new Handler<VotingResultMessage>() {
+    Handler<LeaderViewMessage> handleVotingResult = new Handler<LeaderViewMessage>() {
         @Override
-        public void handle(VotingResultMessage event) {
-            VodAddress lowestId = event.getVodSource();
+        public void handle(LeaderViewMessage event) {
+            VodAddress nodeWithBestId = event.getVodSource();
 
             // ----------------------------------------
             // Checking which address has the lowest ID
@@ -132,17 +141,16 @@ public class ElectionFollower extends ComponentDefinition {
 
             if (leader != null) {
                 if (event.getSource().getId() > leader.getId()) {
-                    lowestId = leader;
+                    nodeWithBestId = leader;
                 } else {
-                    lowestId = event.getVodSource();
+                    nodeWithBestId = event.getVodSource();
                 }
 
             } // Only need to check nodes with higher ID than the leader
-            if (higherNodes != null) {
-                for (VodAddress addr : higherNodes) {
-                    if (addr.getId() < lowestId.getId()) {
-                        lowestId = addr;
-                    }
+            if (higherNodes != null && higherNodes.size() != 0) {
+                VodAddress highestNode = higherNodes.get(0);
+                if (highestNode.getId() < nodeWithBestId.getId()) {
+                    nodeWithBestId = highestNode;
                 }
             }
 
@@ -153,28 +161,28 @@ public class ElectionFollower extends ComponentDefinition {
             // There is no current leader, this SHOULD not happen
             if (leader == null) {
                 // The requester has the lowest ID
-                if (event.getSource().getId() == lowestId.getId()) {
+                if (event.getSource().getId() == nodeWithBestId.getId()) {
                     // Accept this node
                     acceptLeader(event.getVodSource(), Arrays.asList(event.getView()));
                 } else {
                     // reject this node
-                    rejectLeader(event.getVodSource(), lowestId);
+                    rejectLeader(event.getVodSource(), nodeWithBestId);
                 }
             } // The current leader has the lowest ID
             else if (event.getSource().getId() == leader.getId()
-                    && leader.getId() == lowestId.getId()) {
+                    && leader.getId() == nodeWithBestId.getId()) {
                 acceptLeader(leader, Arrays.asList(event.getView()));
             } // The current leader does NOT have the lowest ID
-            else if (event.getSource().getId() == lowestId.getId()
-                    && lowestId.getId() < leader.getId()) {
+            else if (event.getSource().getId() == nodeWithBestId.getId()
+                    && nodeWithBestId.getId() < leader.getId()) {
                 rejectLeader(leader, event.getVodSource());
                 acceptLeader(event.getVodSource(), Arrays.asList(event.getView()));
             } // The source is the leader, but it is not suited to lead
             else if (event.getSource().getId() == leader.getId()) {
-                rejectLeader(leader, lowestId);
+                rejectLeader(leader, nodeWithBestId);
             } // Someone with a higher ID is sending heart beats
             else {
-                rejectLeaderCandidate(event.getVodSource(), lowestId);
+                rejectLeaderCandidate(event.getVodSource(), nodeWithBestId);
             }
         }
     };
@@ -187,22 +195,22 @@ public class ElectionFollower extends ComponentDefinition {
      * in case the local version of the leaver's view is completely outdated,
      * because that could result in valid leaders being rejected
      */
-    Handler<HeartbeatMessage.RequestTimeout> handleHeartBeatTimeOut = new Handler<HeartbeatMessage.RequestTimeout>() {
+    Handler<HeartBeatTimeout> handleHeartBeatTimeout = new Handler<HeartBeatTimeout>() {
         @Override
-        public void handle(HeartbeatMessage.RequestTimeout event) {
+        public void handle(HeartBeatTimeout event) {
             if (leaderIsAlive == true) {
                 leaderIsAlive = false;
 
                 RejectFollowerMessage.Request msg = new RejectFollowerMessage.Request(self.getAddress(), leader, UUID.nextUUID());
                 trigger(msg, networkPort);
-                triggerTimeout(config.getRejectedTimeout(), event.getMsg());
+                scheduleHeartbeatTimeout(config.getRejectedTimeout());
             } else if (leader != null) {
                 ScheduleTimeout timeout = new ScheduleTimeout(
                         config.getDeathTimeout());
                 deathVoteTimeout = (UUID) timeout.getTimeoutEvent().getTimeoutId();
 
                 for (VodAddress addr : leaderView) {
-                    LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(self.getAddress(), addr, self.getId(), addr.getId(), deathVoteTimeout, leader);
+                    LeaderSuspicionMessage.Request msg = new LeaderSuspicionMessage.Request(self.getAddress(), addr, self.getId(), addr.getId(), deathVoteTimeout, leader);
                     trigger(msg, networkPort);
                 }
 
@@ -218,14 +226,14 @@ public class ElectionFollower extends ComponentDefinition {
     Handler<RejectFollowerMessage.Response> handleRejectionConfirmation = new Handler<RejectFollowerMessage.Response>() {
         @Override
         public void handle(RejectFollowerMessage.Response event) {
-            if (event.isInView() == true) {
+            if (event.isNodeInView() == true) {
                 leaderIsAlive = true;
             } else {
                 leader = null;
                 leaderView = null;
                 leaderIsAlive = false;
 
-                cancelTimeout();
+                cancelHeartbeatTimeout();
             }
         }
     };
@@ -233,16 +241,16 @@ public class ElectionFollower extends ComponentDefinition {
      * A handler that will respond whether it thinks that the leader is dead or
      * not
      */
-    Handler<LeaderSuspectionMessage.Request> handleLeaderDeathMsg = new Handler<LeaderSuspectionMessage.Request>() {
+    Handler<LeaderSuspicionMessage.Request> handleLeaderSuspicionRequest = new Handler<LeaderSuspicionMessage.Request>() {
         @Override
-        public void handle(LeaderSuspectionMessage.Request event) {
-            LeaderSuspectionMessage.Response msg;
+        public void handle(LeaderSuspicionMessage.Request event) {
+            LeaderSuspicionMessage.Response msg;
 
             // Same leader
             if (leader != null && event.getLeader().getId() == leader.getId()) {
-                msg = new LeaderSuspectionMessage.Response(self.getAddress(), event.getVodSource(), event.getClientId(), event.getRemoteId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, leaderIsAlive, leader);
-            } else { // Different leaders O.o
-                msg = new LeaderSuspectionMessage.Response(self.getAddress(), event.getVodSource(), event.getClientId(), event.getRemoteId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, false, leader);
+                msg = new LeaderSuspicionMessage.Response(self.getAddress(), event.getVodSource(), event.getClientId(), event.getRemoteId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, leaderIsAlive, leader);
+            } else { // Different leader
+                msg = new LeaderSuspicionMessage.Response(self.getAddress(), event.getVodSource(), event.getClientId(), event.getRemoteId(), event.getNextDest(), event.getTimeoutId(), RelayMsgNetty.Status.OK, false, leader);
             }
 
             trigger(msg, networkPort);
@@ -253,9 +261,9 @@ public class ElectionFollower extends ComponentDefinition {
      * number of votes are the same as the number of nodes in the leader's view,
      * then it calls upon a vote count
      */
-    Handler<LeaderSuspectionMessage.Response> handleLeaderDeathResponse = new Handler<LeaderSuspectionMessage.Response>() {
+    Handler<LeaderSuspicionMessage.Response> handleLeaderSuspicionResponse = new Handler<LeaderSuspicionMessage.Response>() {
         @Override
-        public void handle(LeaderSuspectionMessage.Response event) {
+        public void handle(LeaderSuspicionMessage.Response event) {
             if ((leader == null) || (event.getLeader() == null)
                     || (leader != null && leader.getId() != event.getLeader().getId())) {
                 return;
@@ -285,28 +293,18 @@ public class ElectionFollower extends ComponentDefinition {
      * A handler that will set the leader to null in case the other nodes have
      * confirmed the leader to be dead
      */
-    Handler<LeaderAnnouncementMessage> handleLeaderDeath = new Handler<LeaderAnnouncementMessage>() {
+    Handler<LeaderDeathAnnouncementMessage> handleLeaderDeathAnnouncement = new Handler<LeaderDeathAnnouncementMessage>() {
         @Override
-        public void handle(LeaderAnnouncementMessage event) {
+        public void handle(LeaderDeathAnnouncementMessage event) {
             if (leader != null && event.getLeader().getId() == leader.getId()) {
                 // cancel timeout and reset
-                cancelTimeout();
+                cancelHeartbeatTimeout();
                 trigger(new NodeCrashEvent(leader), leaderStatusPort);
-                removeNodeFromView(leader);
 
                 leader = null;
                 leaderView = null;
                 leaderIsAlive = false;
             }
-        }
-    };
-    /**
-     * A handler that returns the status of the current leader
-     */
-    Handler<LeaderStatusRequest> handleLeaderStatusRequest = new Handler<LeaderStatusPort.LeaderStatusRequest>() {
-        @Override
-        public void handle(LeaderStatusRequest event) {
-            trigger(new LeaderStatusResponse(leader), leaderStatusPortNeg);
         }
     };
 
@@ -315,8 +313,10 @@ public class ElectionFollower extends ComponentDefinition {
      */
     private void evaluateDeathResponses() {
 
-        CancelTimeout timeout = new CancelTimeout(deathVoteTimeout);
-        trigger(timeout, timerPort);
+        if (deathVoteTimeout != null) {
+            CancelTimeout timeout = new CancelTimeout(deathVoteTimeout);
+            trigger(timeout, timerPort);
+        }
 
         // The leader is considered dead
         if (leader != null
@@ -327,18 +327,17 @@ public class ElectionFollower extends ComponentDefinition {
                 * config.getLeaderDeathMajorityPercentage())) {
 
             for (VodAddress addr : leaderView) {
-                LeaderAnnouncementMessage msg = new LeaderAnnouncementMessage(self.getAddress(), addr, leader);
+                LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(self.getAddress(), addr, leader);
                 trigger(msg, networkPort);
             }
 
             trigger(new NodeCrashEvent(leader), leaderStatusPort);
-            removeNodeFromView(leader);
             leader = null;
             leaderView = null;
         } else { // The leader MIGHT be alive
             // TODO maybe you got rejected?
             leaderIsAlive = true;
-            triggerTimeout(null);
+            scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
         }
 
         deathMessageCounter = 0;
@@ -346,35 +345,26 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     /**
-     * Starts the next heart beat timeout using
-     * electionConfiguration.getHeartbeatWaitTimeout() as period
-     */
-    private void triggerTimeout(RewriteableMsg message) {
-        triggerTimeout(config.getHeartbeatWaitTimeout(), message);
-    }
-
-    /**
      * Starts the next heart beat timeout using a custom period
      *
-     * @param timeOut custom period in ms
+     * @param delay
+     * custom period in ms
      */
-    private void triggerTimeout(int timeOut, RewriteableMsg message) {
-        cancelTimeout();
+    private void scheduleHeartbeatTimeout(int delay) {
+        cancelHeartbeatTimeout();
 
-        ScheduleRetryTimeout st =
-                new ScheduleRetryTimeout(timeOut,
-                0, 0);
-        HeartbeatMessage.RequestTimeout request = new HeartbeatMessage.RequestTimeout(st, message);
+        ScheduleTimeout timeout = new ScheduleTimeout(delay);
+        timeout.setTimeoutEvent(new HeartBeatTimeout(timeout, self.getId()));
+        heartBeatTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
+        trigger(timeout, timerPort);
     }
 
     /**
      * Cancels the heart beat timeout
      */
-    private void cancelTimeout() {
-        if (heartBeatTimeoutId != null) {
-            CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
-            trigger(ct, timerPort);
-        }
+    private void cancelHeartbeatTimeout() {
+        CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
+        trigger(ct, timerPort);
     }
 
     /**
@@ -389,7 +379,7 @@ public class ElectionFollower extends ComponentDefinition {
         leaderView = new ArrayList<VodAddress>(view);
 
         // Cancel old timeouts and create a new one
-        triggerTimeout(null);
+        scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
     }
 
     /**
@@ -404,7 +394,7 @@ public class ElectionFollower extends ComponentDefinition {
         leaderIsAlive = false;
 
         // Cancel old timeouts
-        cancelTimeout();
+        cancelHeartbeatTimeout();
         RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
         trigger(msg, networkPort);
     }
@@ -418,51 +408,5 @@ public class ElectionFollower extends ComponentDefinition {
     private void rejectLeaderCandidate(VodAddress node, VodAddress betterNode) {
         RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
         trigger(msg, networkPort);
-    }
-
-    /**
-     * Returns the node from this node's view that is farthest up the topology
-     *
-     * @return the highest node's Address
-     */
-    private VodAddress findHighestNodeInView() {
-        VodAddress lowestNode = self.getAddress();
-        lowestNode = findHighestNodeInList(lowerNodes, lowestNode);
-        lowestNode = findHighestNodeInList(higherNodes, lowestNode);
-
-        return lowestNode;
-    }
-
-    // Highest as in farthest up
-    /**
-     * Compares all the nodes in a list and returns the value with the highest
-     * utility value, ie. the node that is farthest up the topology tree
-     *
-     * @param list the list of Addresses that is going to be compared
-     * @param initValue the Address of the initial value
-     * @return the node with the highest utility value
-     */
-    private VodAddress findHighestNodeInList(ArrayList<VodAddress> list, VodAddress initValue) {
-        VodAddress lowestNode = initValue;
-
-        if (list != null) {
-            for (VodAddress addr : list) {
-                if (addr.getId() < lowestNode.getId()) {
-                    lowestNode = addr;
-                }
-            }
-        }
-
-        return lowestNode;
-    }
-
-    /**
-     * Removes a specific node from the view
-     *
-     * @param node the node that is to be removed
-     */
-    private void removeNodeFromView(VodAddress node) {
-        higherNodes.remove(node);
-        lowerNodes.remove(node);
     }
 }

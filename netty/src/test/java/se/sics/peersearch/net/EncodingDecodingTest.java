@@ -448,11 +448,11 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LeaderAnnouncementMessage msg = new LeaderAnnouncementMessage(gSrc, gDest, vodAddress1);
+        LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            LeaderAnnouncementMessage response =
+            LeaderDeathAnnouncementMessage response =
                     LeaderAnnouncementMessageFactory.fromBuffer(buffer);
             assert (response.getLeader().equals(vodAddress1));
 
@@ -476,11 +476,11 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LeaderSuspectionMessage.Request msg = new LeaderSuspectionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), vodAddress1);
+        LeaderSuspicionMessage.Request msg = new LeaderSuspicionMessage.Request(gSrc, gDest, 1, 2, UUID.nextUUID(), vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            LeaderSuspectionMessage.Request request =
+            LeaderSuspicionMessage.Request request =
                     LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
 
             assert (request.getClientId() == 1);
@@ -508,11 +508,11 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LeaderSuspectionMessage.Response msg = new LeaderSuspectionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected, vodAddress1);
+        LeaderSuspicionMessage.Response msg = new LeaderSuspicionMessage.Response(gSrc, gDest, 1, 2, gDest, UUID.nextUUID(), RelayMsgNetty.Status.OK, isSuspected, vodAddress1);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            LeaderSuspectionMessage.Response response =
+            LeaderSuspicionMessage.Response response =
                     LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.getClientId() == 1);
@@ -585,11 +585,11 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        VotingResultMessage msg = new VotingResultMessage(gSrc, gDest, new VodAddress[]{vodAddress1});
+        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, new VodAddress[]{vodAddress1});
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            VotingResultMessage response =
+            LeaderViewMessage response =
                     VotingResultMessageFactory.fromBuffer(buffer);
 
             assert (response.getVodDestination().equals(gDest));
@@ -639,7 +639,7 @@ public class EncodingDecodingTest {
 
             assert (request.getVodDestination().equals(gDest));
             assert (request.getVodSource().equals(gSrc));
-            assert (request.isInView() == inView);
+            assert (request.isNodeInView() == inView);
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

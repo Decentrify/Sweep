@@ -22,7 +22,7 @@ public class Scenario2 extends Scenario {
 				{
 					eventInterArrivalTime(constant(100));
 					raise(99, Operations.peerJoin());
-				}
+                }
 			};
 
 			StochasticProcess massiveJoin = new StochasticProcess() {
@@ -35,7 +35,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(500));
-					raise(200, Operations.addIndexEntry(), uniform(0, 100));
+					raise(200, Operations.addIndexEntry(), uniform(1, 100));
 				}
 			};
 

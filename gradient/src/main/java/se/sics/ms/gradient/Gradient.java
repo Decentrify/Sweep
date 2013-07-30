@@ -14,6 +14,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
@@ -87,7 +88,7 @@ public final class Gradient extends ComponentDefinition {
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(),
-                    config.getConvergenceTest());
+                    config.getConvergenceTest(), config.getConvergenceTestRounds());
             leader = false;
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
@@ -116,6 +117,15 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
+
+            // Remove all samples from other partitions
+            Iterator<VodDescriptor> iterator = sample.iterator();
+            while (iterator.hasNext()) {
+                // TODO Number of partition from proper config file
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId() % MsConfig.SEARCH_NUM_PARTITIONS)  {
+                    iterator.remove();
+                }
+            }
 
             if (sample.size() > 0) {
                 int n = random.nextInt(sample.size());

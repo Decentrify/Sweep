@@ -13,14 +13,12 @@ import se.sics.ms.gradient.BroadcastGradientPartnersPort;
 import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
-import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusRequest;
-import se.sics.ms.gradient.LeaderStatusPort.LeaderStatusResponse;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.ElectionMessage;
+import se.sics.peersearch.messages.LeaderViewMessage;
 import se.sics.peersearch.messages.RejectFollowerMessage;
 import se.sics.peersearch.messages.RejectLeaderMessage;
-import se.sics.peersearch.messages.VotingResultMessage;
 
 import java.util.ArrayList;
 
@@ -42,14 +40,14 @@ public class ElectionLeader extends ComponentDefinition {
 	private boolean electionInProgress, iAmLeader;
 	private Self self;
 	private ArrayList<VodAddress> lowerNodes, higherNodes;
-	private TimeoutId scheduledTimeoutId, voteTimeout;
+	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
 	 */
-	public class ElectionSchedule extends IndividualTimeout {
+	public class HeartbeatSchedule extends IndividualTimeout {
 
-		public ElectionSchedule(SchedulePeriodicTimeout request, int id) {
+		public HeartbeatSchedule(SchedulePeriodicTimeout request, int id) {
 			super(request, id);
 		}
 	}
@@ -73,7 +71,6 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleLeaderRejection, networkPort);
 		subscribe(handleGradientBroadcast, broadcast);
 		subscribe(handleRejectedFollower, networkPort);
-		subscribe(handleLeaderStatusResponse, leaderStatusPort);
 	}
 
 	/**
@@ -122,10 +119,10 @@ public class ElectionLeader extends ComponentDefinition {
 					&& event.getLowerNodes().size() >= config
 							.getMinSizeOfElectionGroup()) {
 
-				// Check if there is already a leader - GOTO
-				// handleLeaderStatusResponse
-				trigger(new LeaderStatusRequest(), leaderStatusPort);
-			}
+				startVote();
+			} else if (iAmLeader && higherNodes.size() != 0) {
+                rejected();
+            }
 		}
 	};
 
@@ -143,18 +140,15 @@ public class ElectionLeader extends ComponentDefinition {
 					yesVotes++;
 				} else {
 					// Rejected because there is a node above me
+                    rejected();
 				}
 				if (event.isConvereged() == true) {
 					convergedCounter++;
 				}
 			}
 
-			// Reject if there is a no-vote
-			if (totalVotes != yesVotes) {
-				rejected();
-			}
 			// Count the votes if all votes have returned
-			else if (totalVotes >= numberOfNodesAtVotingTime) {
+			if (totalVotes >= numberOfNodesAtVotingTime) {
 				evaluateVotes();
 			}
 		}
@@ -175,27 +169,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that will periodically send out heart beats to the node's
 	 * (leader's) followers
 	 */
-	Handler<ElectionSchedule> handleHeartBeats = new Handler<ElectionSchedule>() {
+	Handler<HeartbeatSchedule> handleHeartBeats = new Handler<HeartbeatSchedule>() {
 		@Override
-		public void handle(ElectionSchedule event) {
-			VodAddress lowestId = self.getAddress();
-
-			// It is assumed that the list doesn't have to be sorted
-			// Looks for the node with the lowest ID
-			for (VodAddress addr : higherNodes) {
-				if (addr.getId() < lowestId.getId()) {
-					lowestId = addr;
-				}
-			}
-
-			// IF this node is still the leader then send heart beats
-			if (self.getId() == lowestId.getId() && iAmLeader == true) {
-				sendLeaderView();
-			} else {
-				scheduledTimeoutId = event.getTimeoutId();
-                                assert(scheduledTimeoutId != null);
-				rejected();
-			}
+		public void handle(HeartbeatSchedule event) {
+            sendLeaderView();
 		}
 	};
 
@@ -206,6 +183,7 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
 		public void handle(RejectLeaderMessage event) {
+            // TODO we need to check if the rejection is valid e.g. check the given better node
 			rejected();
 		}
 	};
@@ -217,40 +195,9 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
 		@Override
 		public void handle(RejectFollowerMessage.Request event) {
-			boolean sourceIsInView = false;
-
-			// Checks if the node is still in the leader's view
-			for (VodAddress addr : lowerNodes) {
-				if (addr.getId() == event.getVodSource().getId()) {
-					sourceIsInView = true;
-					break;
-				}
-			}
-
+			boolean sourceIsInView = lowerNodes.contains(event.getVodDestination());
             RejectFollowerMessage.Response msg = new RejectFollowerMessage.Response(self.getAddress(), event.getVodSource(), UUID.nextUUID(), sourceIsInView);
 			trigger(msg, networkPort);
-		}
-	};
-
-	/**
-	 * A handler that checks whether the node already has a leader and if that
-	 * leader has a higher utility value. If not, then this node will call for a
-	 * leader election
-	 */
-	Handler<LeaderStatusResponse> handleLeaderStatusResponse = new Handler<LeaderStatusPort.LeaderStatusResponse>() {
-		@Override
-		public void handle(LeaderStatusResponse event) {
-			if (event.getLeader() == null
-					|| (event.getLeader() != null && event.getLeader().getId() > self.getId())) {
-				electionInProgress = true;
-				numberOfNodesAtVotingTime = lowerNodes.size();
-
-				// The electionCounter works as an ID for every time an election
-				// is held
-				// That way replies from old elections won't count
-				electionCounter++;
-				sendVoteRequests();
-			}
 		}
 	};
 
@@ -285,15 +232,15 @@ public class ElectionLeader extends ComponentDefinition {
 				Snapshot.setElectionView(self.getAddress(), builder.toString());
 				Snapshot.setLeaderStatus(self.getAddress(), true);
 
-				variableCleanUp();
+				variableReset();
 				iAmLeader = true;
 
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(
 						config.getHeartbeatTimeoutDelay(),
 						config.getHeartbeatTimeoutInterval());
-				timeout.setTimeoutEvent(new ElectionSchedule(timeout, self.getId()));
-				scheduledTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
+				timeout.setTimeoutEvent(new HeartbeatSchedule(timeout, self.getId()));
+			    heartbeatTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 				trigger(timeout, timerPort);
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
@@ -306,16 +253,22 @@ public class ElectionLeader extends ComponentDefinition {
 	/**
 	 * Broadcasts the vote requests to the nodes in the view
 	 */
-	private void sendVoteRequests() {
+	private void startVote() {
+        electionInProgress = true;
+        numberOfNodesAtVotingTime = lowerNodes.size();
+        // The electionCounter works as an ID for every time an election is held
+        // That way replies from old elections won't count
+        electionCounter++;
+
 		ScheduleTimeout timeout = new ScheduleTimeout(config.getVoteRequestTimeout());
 		timeout.setTimeoutEvent(new VoteTimeout(timeout, self.getId()));
-		voteTimeout = timeout.getTimeoutEvent().getTimeoutId();
+		voteTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 
 		ElectionMessage.Request vote;
 
 		// Broadcasts the vote requests to the nodes in the view
 		for (VodAddress receiver : lowerNodes) {
-			vote = new ElectionMessage.Request(self.getAddress(), receiver, voteTimeout, electionCounter);
+			vote = new ElectionMessage.Request(self.getAddress(), receiver, voteTimeoutId, electionCounter);
 			trigger(vote, networkPort);
 		}
 
@@ -328,10 +281,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Broadcasts the leader's current view to it's followers
 	 */
 	private void sendLeaderView() {
-
 		// Broadcasts the leader's current view to it's followers
 		for (VodAddress receiver : lowerNodes) {
-            VotingResultMessage msg = new VotingResultMessage(self.getAddress(), receiver, lowerNodes.toArray(new VodAddress[lowerNodes.size()]));
+            // TODO don't send the view every time
+            LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver, lowerNodes.toArray(new VodAddress[lowerNodes.size()]));
 			trigger(msg, networkPort);
 		}
 	}
@@ -339,21 +292,20 @@ public class ElectionLeader extends ComponentDefinition {
 	/**
 	 * Cleans up and resets the member variables
 	 */
-	private void variableCleanUp() {
+	private void variableReset() {
 		electionInProgress = false;
 
-		electionCounter++;
 		yesVotes = 0;
 		totalVotes = 0;
 		convergedCounter = 0;
 
-        if (voteTimeout != null) {
-            CancelTimeout timeout = new CancelTimeout(voteTimeout);
+        if (voteTimeoutId != null) {
+            CancelTimeout timeout = new CancelTimeout(voteTimeoutId);
             trigger(timeout, timerPort);
         }
 
-        if (scheduledTimeoutId != null) {
-            CancelPeriodicTimeout periodicTimeout = new CancelPeriodicTimeout(scheduledTimeoutId);
+        if (heartbeatTimeoutId != null) {
+            CancelPeriodicTimeout periodicTimeout = new CancelPeriodicTimeout(heartbeatTimeoutId);
             trigger(periodicTimeout, timerPort);
         }
 	}
@@ -363,13 +315,15 @@ public class ElectionLeader extends ComponentDefinition {
 	 * regular node again
 	 */
 	private void rejected() {
+        if (!electionInProgress && !iAmLeader) {
+            return;
+        }
+
 		if (iAmLeader == true) {
-			Snapshot.setLeaderStatus(self.getAddress(), false);
+            iAmLeader = false;
+            trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+            Snapshot.setLeaderStatus(self.getAddress(), false);
 		}
-
-		iAmLeader = false;
-		trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-
-		variableCleanUp();
+		variableReset();
 	}
 }

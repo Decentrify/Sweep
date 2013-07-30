@@ -3,7 +3,6 @@ package se.sics.ms.main;
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.scenarios.Scenario;
-import se.sics.ms.scenarios.Scenario1;
 import se.sics.ms.scenarios.Scenario2;
 import se.sics.ms.simulator.SearchSimulationMain;
 

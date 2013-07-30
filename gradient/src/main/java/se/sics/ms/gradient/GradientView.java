@@ -20,6 +20,8 @@ public class GradientView {
 	private Self self;
 	private int size;
 	private Comparator<VodAddress> closerComparator;
+    private final int convergenceRounds;
+    private int currentConvergedRounds;
 	private boolean converged, changed;
 	private final double convergenceSimilarity;
 
@@ -32,7 +34,7 @@ public class GradientView {
 	 *            the percentage of nodes allowed to change in order to be
 	 *            converged
 	 */
-	public GradientView(Self self, int size, double convergenceSimilarity) {
+	public GradientView(Self self, int size, double convergenceSimilarity, int convergedRounds) {
 		this.entries = new TreeMap<VodAddress, VodDescriptor>();
 		this.closerComparator = new Closer(self.getAddress());
 		this.self = self;
@@ -40,6 +42,7 @@ public class GradientView {
 		this.converged = false;
         this.changed = false;
 		this.convergenceSimilarity = convergenceSimilarity;
+        this.convergenceRounds = convergedRounds;
 	}
 
 	/**
@@ -57,7 +60,9 @@ public class GradientView {
 
         int oldSize = entries.size();
 		entries.put(address, new VodDescriptor(address));
-        changed = !(oldSize == entries.size());
+        if (!changed) {
+            changed = !(oldSize == entries.size());
+        }
 
 		if (entries.size() > size) {
 			List<VodAddress> list = getClosestNodes(size);
@@ -73,7 +78,11 @@ public class GradientView {
 	 *            the node to be removed
 	 */
 	public void remove(VodAddress address) {
+        int oldSize = entries.size();
 		entries.remove(address);
+        if (!changed) {
+            changed = !(oldSize == entries.size());
+        }
 	}
 
 	/**
@@ -103,24 +112,24 @@ public class GradientView {
 		Collection<VodAddress> old = new ArrayList<VodAddress>(entries.keySet());
 		int oldSize = old.size();
 
-        boolean changed = false;
 		for (VodAddress address : addresses) {
 			add(address);
-            if (!changed) {
-                changed = isChanged();
-            }
 		}
-        this.changed = changed;
 
 		old.retainAll(entries.keySet());
 		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
+            currentConvergedRounds++;
+		} else {
+            currentConvergedRounds = 0;
+		}
+        if (currentConvergedRounds > convergenceRounds) {
             if (!converged) {
                 this.changed = true;
             }
-			converged = true;
-		} else {
-			converged = false;
-		}
+            converged = true;
+        } else {
+            converged = false;
+        }
 	}
 
 	/**
@@ -154,14 +163,14 @@ public class GradientView {
 	}
 
 	/**
-	 * @return all nodes with a higher preference value than self
+	 * @return all nodes with a higher preference value than self in ascending order
 	 */
 	public ArrayList<VodAddress> getHigherNodes() {
 		return new ArrayList<VodAddress>(entries.headMap(self.getAddress()).keySet());
 	}
 
 	/**
-	 * @return all nodes with a lower preference value than self
+	 * @return all nodes with a lower preference value than self in ascending order
 	 */
 	public ArrayList<VodAddress> getLowerNodes() {
 		return new ArrayList<VodAddress>(entries.tailMap(self.getAddress()).keySet());
@@ -275,7 +284,7 @@ public class GradientView {
 	 * 
 	 * @param number
 	 *            the maximum number of nodes to return
-	 * @return the list of the closest nodes to self
+	 * @return a sorted list of the closest nodes to self
 	 */
 	private List<VodAddress> getClosestNodes(int number) {
 		return getClosestNodes(number, closerComparator);
@@ -288,7 +297,7 @@ public class GradientView {
 	 *            the address to compare with
 	 * @param number
 	 *            the maximum number of nodes to return
-	 * @return the list of the closest nodes to the given address
+	 * @return a sorted list of the closest nodes to the given address
 	 */
 	private List<VodAddress> getClosestNodes(VodAddress address, int number) {
 		return getClosestNodes(number, new Closer(address));
@@ -299,9 +308,9 @@ public class GradientView {
 	 *
 	 * @param number
 	 *            the maximum number of nodes to return
-	 * @param c
+	 * @param c the comparator used for sorting
 	 *            the comparator to use
-	 * @return the list of the closest nodes to the given address
+	 * @return a sorted list of the closest nodes to the given address
 	 */
 	private List<VodAddress> getClosestNodes(int number, Comparator<VodAddress> c) {
 		ArrayList<VodAddress> addresses = getAll();

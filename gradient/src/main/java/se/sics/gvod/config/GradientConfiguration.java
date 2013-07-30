@@ -53,7 +53,9 @@ public class GradientConfiguration
     //Time-To-Live used for Gradient search messages.
     int searchTtl; //5
     // convergence similarity test
-    double convergenceTest; 
+    double convergenceTest;
+    // How many rounds does the convergenceTest need to be valid until the view is stated converged
+    int convergenceTestRounds;
     int rto;
     
 
@@ -74,6 +76,7 @@ public class GradientConfiguration
                 VodConfig.GRADIENT_NUM_PARALLEL_SEARCHES,
                 VodConfig.GRADIENT_SEARCH_TTL,
                 VodConfig.GRADIENT_CONVERGENCE_TEST,
+                VodConfig.GRADIENT_CONVERGENCE_TEST_ROUNDS,
                 VodConfig.GRADIENT_SHUFFLE_TIMEOUT
                 );
     }
@@ -92,6 +95,7 @@ public class GradientConfiguration
             int numParallelSearches,
             int searchTtl,
             double convergenceTest,
+            int convergenceTestRounds,
             int rto
             ) {
         this.viewSize = viewSize;
@@ -104,11 +108,16 @@ public class GradientConfiguration
         this.searchTtl = searchTtl;
         this.numFingers = numFingers;
         this.convergenceTest = convergenceTest;
+        this.convergenceTestRounds = convergenceTestRounds;
         this.rto = rto;
     }
 
     public static GradientConfiguration build() {
         return new GradientConfiguration();
+    }
+
+    public int getConvergenceTestRounds() {
+        return convergenceTestRounds;
     }
 
     public double getConvergenceTest() {
@@ -215,6 +224,11 @@ public class GradientConfiguration
     
     public GradientConfiguration setConvergenceTest(double convergenceTest) {
         this.convergenceTest = convergenceTest;
+        return this;
+    }
+
+    public GradientConfiguration setConvergenceTestRounds(int convergenceTestRounds) {
+        this.convergenceTestRounds = convergenceTestRounds;
         return this;
     }
 }
