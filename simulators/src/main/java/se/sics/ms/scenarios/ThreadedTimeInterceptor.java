@@ -1,20 +1,20 @@
 package se.sics.ms.scenarios;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashSet;
-import java.util.Properties;
-
 import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.NotFoundException;
-import javassist.Translator;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import se.sics.kompics.simulation.TimeInterceptor;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.HashSet;
+
+/**
+ * @author Steffen Grohsschmiedt
+ */
 public class ThreadedTimeInterceptor extends TimeInterceptor {
 
     private static final String s = "se.sics.kompics.simulation.SimulatorSystem";
@@ -25,40 +25,6 @@ public class ThreadedTimeInterceptor extends TimeInterceptor {
 
     public ThreadedTimeInterceptor(File directory) {
         super(directory);
-    }
-
-    public void start(ClassPool pool) throws NotFoundException,
-            CannotCompileException {
-
-        // well known exceptions
-        exceptions.add("se.sics.kompics.p2p.simulator.P2pSimulator");
-        exceptions.add("org.apache.log4j.PropertyConfigurator");
-        exceptions.add("org.apache.log4j.helpers.FileWatchdog");
-        exceptions.add("org.mortbay.thread.QueuedThreadPool");
-        exceptions.add("org.mortbay.io.nio.SelectorManager");
-        exceptions.add("org.mortbay.io.nio.SelectorManager$SelectSet");
-        exceptions
-                .add("org.apache.commons.math.stat.descriptive.SummaryStatistics");
-        exceptions
-                .add("org.apache.commons.math.stat.descriptive.DescriptiveStatistics");
-
-        // try to add user-defined exceptions from properties file
-        InputStream in = ClassLoader
-                .getSystemResourceAsStream("timer.interceptor.properties");
-        Properties p = new Properties();
-        if (in != null) {
-            try {
-                p.load(in);
-                for (String classname : p.stringPropertyNames()) {
-                    String value = p.getProperty(classname);
-                    if (value != null && value.equals("IGNORE")) {
-                        exceptions.add(classname);
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     public void onLoad(ClassPool pool, final String classname)
@@ -106,16 +72,6 @@ public class ThreadedTimeInterceptor extends TimeInterceptor {
                         && method.equals("nanoTime")) {
                     m.replace("{ $_ = " + s + ".nanoTime(); }");
                 }
-                // redirect calls to Thread.sleep()
-//                if (className.equals("java.lang.Thread")
-//                        && method.equals("sleep")) {
-//                    m.replace("{ " + s + ".sleep($$); }");
-//                }
-                // redirect calls to Thread.start()
-//                if (className.equals("java.lang.Thread")
-//                        && method.equals("start")) {
-//                    m.replace("{ " + s + ".start(); }");
-//                }
             }
         });
 
@@ -133,25 +89,4 @@ public class ThreadedTimeInterceptor extends TimeInterceptor {
             }
         }
     }
-
-    // private void makeSerializable(ClassPool pool, CtClass cc)
-    // throws NotFoundException {
-    // boolean alreadySerializable = false;
-    // CtClass parent = cc;
-    //
-    // // abort if class is already Serializable
-    // do {
-    // CtClass[] interfaces = parent.getInterfaces();
-    // for (int i = 0; i < interfaces.length; i++) {
-    // if (interfaces[i].getName().equals("java.io.Serializable")) {
-    // alreadySerializable = true;
-    // }
-    // }
-    // parent = parent.getSuperclass();
-    // } while (parent != null);
-    //
-    // if (!alreadySerializable) {
-    // cc.addInterface(pool.get("java.io.Serializable"));
-    // }
-    // }
 }

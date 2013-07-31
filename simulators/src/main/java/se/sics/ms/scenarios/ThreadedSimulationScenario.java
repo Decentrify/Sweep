@@ -9,8 +9,11 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.TimeZone;
 
+/**
+ * @author Steffen Grohsschmiedt
+ */
 public abstract class ThreadedSimulationScenario extends SimulationScenario {
-    public final void simulate2(Class<? extends ComponentDefinition> main) {
+    public final void simulateThreaded(Class<? extends ComponentDefinition> main) {
         store();
 
         try {
