@@ -1,7 +1,6 @@
 package se.sics.ms.scenarios;
 
 import se.sics.ms.simulation.Operations;
-import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 /**
  * Initializes the system with 100 nodes, add 200 entries to the index and
@@ -9,7 +8,7 @@ import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
  */
 @SuppressWarnings("serial")
 public class Scenario2 extends Scenario {
-	private static SimulationScenario scenario = new SimulationScenario() {
+	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
 		{
 			StochasticProcess startUp = new StochasticProcess() {
 				{
