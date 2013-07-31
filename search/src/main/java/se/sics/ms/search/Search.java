@@ -913,10 +913,9 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
-        // TODO cannot do that because of Thread issues in simulator
-//        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
-//        addIndexEntry(writer, entry);
-//        writer.close();
+        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
+        addIndexEntry(writer, entry);
+        writer.close();
     }
 
     /**

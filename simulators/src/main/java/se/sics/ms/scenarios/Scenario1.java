@@ -1,14 +1,13 @@
 package se.sics.ms.scenarios;
 
 import se.sics.ms.simulation.Operations;
-import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 /**
  * Basic scenario simply initiating the system with 100 nodes.
  */
 @SuppressWarnings("serial")
 public class Scenario1 extends Scenario {
-	private static SimulationScenario scenario = new SimulationScenario() {
+	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
 		{
 			StochasticProcess startUp = new StochasticProcess() {
 				{

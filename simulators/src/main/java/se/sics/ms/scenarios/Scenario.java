@@ -1,14 +1,13 @@
 package se.sics.ms.scenarios;
 
 import java.util.Random;
-import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 
 public class Scenario {
 
 	private static Random random;
-	protected SimulationScenario scenario;
+	protected ThreadedSimulationScenario scenario;
 
-	public Scenario(SimulationScenario scenario) {
+	public Scenario(ThreadedSimulationScenario scenario) {
 		this.scenario = scenario;
 		this.scenario.setSeed(System.currentTimeMillis());
 		random = scenario.getRandom();
@@ -26,7 +25,7 @@ public class Scenario {
 		random = r;
 	}
 
-	public SimulationScenario getScenario() {
+	public ThreadedSimulationScenario getScenario() {
 		return scenario;
 	}
 }

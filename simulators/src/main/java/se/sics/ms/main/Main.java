@@ -56,6 +56,6 @@ public class Main {
 
         Scenario scenario = new Scenario2();
         scenario.setSeed(MsConfig.getSeed());
-        scenario.getScenario().simulate(SearchSimulationMain.class);
+        scenario.getScenario().simulateThreaded(SearchSimulationMain.class);
     }
 }
