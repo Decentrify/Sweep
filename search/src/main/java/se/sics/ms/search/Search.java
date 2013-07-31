@@ -453,34 +453,49 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ReplicationMessage.Request event) {
             try {
-                IndexEntry entry = event.getIndexEntry();
-                long maxStoredId = 0;
-                if(!existingEntries.isEmpty())
-                    maxStoredId = Collections.max(existingEntries);
 
-                if(maxStoredId >= entry.getId()) return;
 
-                if(entry.getId() - maxStoredId == 1) {
-                    addEntryLocal(event.getIndexEntry());
-                    ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
-                    trigger(msg, networkPort);
+                addEntryLocal(event.getIndexEntry());
+                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
+                trigger(msg, networkPort);
+
+                int numOfPartitions = config.getNumPartitions();
+                long maxStoredId = getMaxStoredId(numOfPartitions);
+
+                if(event.getIndexEntry().getId() - maxStoredId == numOfPartitions)
                     return;
-                }
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
-                long currentMissingValue = maxStoredId + 1;
-                while(currentMissingValue != entry.getId()) {
+                long currentMissingValue = maxStoredId < 0 ? partition : maxStoredId + numOfPartitions;
+                while(currentMissingValue < event.getIndexEntry().getId()) {
                     missingIds.add(currentMissingValue);
-                    currentMissingValue++;
+                    currentMissingValue += numOfPartitions;
                 }
 
-                RepairMessage.Request msg = new RepairMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), entry, missingIds.toArray(new Long[missingIds.size()]));
-                trigger(msg, networkPort);
+                if(missingIds.size() > 0) {
+                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getIndexEntry(), missingIds.toArray(new Long[missingIds.size()]));
+                    trigger(repairMessage, networkPort);
+                }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
+
+    /**
+     * Returns max stored id on a peer
+     * @param numOfPartitions
+     * @return max stored id on a peer
+     */
+    private long getMaxStoredId(int numOfPartitions) {
+        long normalizedMissingIndexValue = oldestMissingIndexValue - partition;
+        if(normalizedMissingIndexValue == 0) {
+            //it the first value that is missing, return -1
+            return -1;
+        }
+
+        return oldestMissingIndexValue - numOfPartitions;
+    }
 
     /**
      * Handles situations then a peer in the leader group is behind in the updates during add operation
@@ -492,6 +507,7 @@ public final class Search extends ComponentDefinition {
             IndexEntry[] missingEntries = new IndexEntry[request.getMissingIds().length];
             try {
                 for(int i=0; i<request.getMissingIds().length; i++) {
+                    System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
                     IndexEntry entry = findById(request.getMissingIds()[i]);
                     if(entry != null) missingEntries[i] = entry;
                 }
@@ -513,13 +529,9 @@ public final class Search extends ComponentDefinition {
         public void handle(RepairMessage.Response response) {
             try {
                 for(IndexEntry entry : response.getMissingEntries())
-                        addEntryLocal(entry);
+                    addEntryLocal(entry);
 
                 addEntryLocal(response.getFutureEntry());
-
-                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), response.getVodSource(), response.getTimeoutId());
-                trigger(msg, networkPort);
-
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
