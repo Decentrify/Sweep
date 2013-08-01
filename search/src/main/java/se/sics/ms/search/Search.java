@@ -494,7 +494,12 @@ public final class Search extends ComponentDefinition {
             return -1;
         }
 
-        return oldestMissingIndexValue - numOfPartitions;
+        long currentIndexValue = oldestMissingIndexValue - numOfPartitions;
+
+        if(currentIndexValue > Collections.max(existingEntries))
+            return currentIndexValue;
+
+        return Collections.max(existingEntries);
     }
 
     /**
