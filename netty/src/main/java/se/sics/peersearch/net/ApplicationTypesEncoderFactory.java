@@ -10,6 +10,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
+import sun.misc.BASE64Encoder;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
 
@@ -30,7 +31,10 @@ public class ApplicationTypesEncoderFactory {
         buffer.writeInt(indexEntry.getCategory().ordinal());
         writeStringLength65536(buffer, indexEntry.getDescription());
         writeStringLength256(buffer, indexEntry.getHash());
-        writeStringLength256(buffer, indexEntry.getLeaderId());
+        if(indexEntry.getLeaderId() == null)
+            writeStringLength65536(buffer, new String());
+        else
+            writeStringLength65536(buffer, new BASE64Encoder().encode(indexEntry.getLeaderId().getEncoded()));
     }
 
     public static void writeIndexEntryArray(ByteBuf buffer, IndexEntry[] items) throws MessageEncodingException {

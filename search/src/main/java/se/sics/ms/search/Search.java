@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.DirectoryReader;
@@ -37,9 +38,13 @@ import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
+import sun.misc.BASE64Encoder;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -94,6 +99,9 @@ public final class Search extends ComponentDefinition {
     private LocalSearchRequest searchRequest;
     private Directory searchIndex;
 
+    private PrivateKey privateKey;
+    private PublicKey publicKey;
+
     // When you partition the index you need to find new nodes
     // This is a routing table maintaining a list of pairs in each partition.
     private Map<Integer, TreeSet<VodDescriptor>> routingTable;
@@ -139,6 +147,17 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchInit init) {
             self = init.getSelf();
             config = init.getConfiguration();
+            KeyPairGenerator keyGen;
+            try {
+                keyGen = KeyPairGenerator.getInstance("RSA");
+                keyGen.initialize(2048);
+                final KeyPair key = keyGen.generateKeyPair();
+                privateKey = key.getPrivate();
+                publicKey = key.getPublic();
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+
             routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(config.getNumPartitions());
             partition = self.getId() % config.getNumPartitions();
             nextInsertionId = partition;
@@ -407,6 +426,7 @@ public final class Search extends ComponentDefinition {
                 IndexEntry newEntry = event.getEntry();
                 long id = getNextInsertionId();
                 newEntry.setId(id);
+                newEntry.setLeaderId(publicKey);
                 addEntryLocal(newEntry);
 
                 replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
@@ -966,7 +986,10 @@ public final class Search extends ComponentDefinition {
         doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
         doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
         doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
-        doc.add(new StringField(IndexEntry.LEADER_ID, entry.getLeaderId(), Field.Store.YES));
+        if(entry.getLeaderId() == null)
+            doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
+        else
+            doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
 
         if (entry.getFileSize() != 0) {
             doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
@@ -1031,10 +1054,30 @@ public final class Search extends ComponentDefinition {
      * @return an {@link IndexEntry} representing the given document
      */
     private IndexEntry createIndexEntry(Document d) {
+        String leaderId = d.get(IndexEntry.LEADER_ID);
+
+        if (leaderId == null)
+            return new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
+                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                    IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), null);
+
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
         IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                 d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
                 IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), d.get(IndexEntry.LEADER_ID));
+                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         return entry;
     }
