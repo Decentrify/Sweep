@@ -7,6 +7,7 @@ package se.sics.peersearch.net;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -56,6 +57,7 @@ public class EncodingDecodingTest {
     private static List<VodDescriptor> descriptors = new ArrayList<VodDescriptor>();
     private static byte[] availableChunks = new byte[2031];
     private static byte[][] availablePieces = new byte[52][19];
+    private PublicKey publicKey;
 
     public EncodingDecodingTest() {
         System.setProperty("java.net.preferIPv4Stack", "true");
@@ -95,6 +97,15 @@ public class EncodingDecodingTest {
 
     @Before
     public void setUp() {
+        KeyPairGenerator keyGen;
+        try {
+            keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(2048);
+            final KeyPair key = keyGen.generateKeyPair();
+            publicKey = key.getPublic();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
     }
 
     @After
@@ -763,7 +774,8 @@ public class EncodingDecodingTest {
         String language = "language";
         String description = "description";
         String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+
+        IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, publicKey);
         RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, new IndexEntry[]{entry});
         try {
             ByteBuf buffer = msg.toByteArray();
