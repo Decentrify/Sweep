@@ -15,7 +15,6 @@ import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.timeout.IndividualTimeout;
@@ -36,7 +35,7 @@ public final class Gradient extends ComponentDefinition {
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
-    Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
+    Positive<GradientViewChangePort> broadcastGradientPartnersPort = positive(GradientViewChangePort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<LeaderRequestPort> leaderRequestPort = negative(LeaderRequestPort.class);
 
@@ -301,7 +300,7 @@ public final class Gradient extends ComponentDefinition {
      */
     private void broadcastView() {
         if (gradientView.isChanged()) {
-            trigger(new GradientPartners(gradientView.isConverged(), gradientView.getHigherNodes(),
+            trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), gradientView.getHigherNodes(),
                     gradientView.getLowerNodes()), broadcastGradientPartnersPort);
         }
     }

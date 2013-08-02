@@ -9,15 +9,15 @@ import se.sics.kompics.PortType;
 /**
  * This class is a port created for the purpose of broadcasting gradient's view
  */
-public class BroadcastGradientPartnersPort extends PortType {
+public class GradientViewChangePort extends PortType {
 	{
-		negative(GradientPartners.class);
+		negative(GradientViewChanged.class);
 	}
 
 	/**
 	 * An event that contains the Gradient's view
 	 */
-	public static class GradientPartners extends Event {
+	public static class GradientViewChanged extends Event {
 		private final boolean isConverged;
 		private final ArrayList<VodAddress> higherNodes, lowerNodes;
 
@@ -33,8 +33,8 @@ public class BroadcastGradientPartnersPort extends PortType {
 		 *            a list of nodes with lower utility values compared to
 		 *            itself in ascending order
 		 */
-		public GradientPartners(boolean isConverged, ArrayList<VodAddress> higherNodes,
-				ArrayList<VodAddress> lowerNodes) {
+		public GradientViewChanged(boolean isConverged, ArrayList<VodAddress> higherNodes,
+                                   ArrayList<VodAddress> lowerNodes) {
 			super();
 			this.isConverged = isConverged;
 			this.higherNodes = higherNodes;

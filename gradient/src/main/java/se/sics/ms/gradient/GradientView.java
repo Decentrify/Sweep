@@ -20,29 +20,31 @@ public class GradientView {
 	private Self self;
 	private int size;
 	private Comparator<VodAddress> closerComparator;
-    private final int convergenceRounds;
+    private final int convergenceTestRounds;
     private int currentConvergedRounds;
 	private boolean converged, changed;
-	private final double convergenceSimilarity;
+	private final double convergenceTest;
 
 	/**
 	 * @param self
 	 *            the address of the local node
 	 * @param size
 	 *            the maximum size of this view
-	 * @param convergenceSimilarity
+	 * @param convergenceTest
 	 *            the percentage of nodes allowed to change in order to be
 	 *            converged
+     * @param convergenceTestRounds
+     *            the number of rounds the convergenceTest needs to be satisfied for the view to be converged
 	 */
-	public GradientView(Self self, int size, double convergenceSimilarity, int convergedRounds) {
+	public GradientView(Self self, int size, double convergenceTest, int convergenceTestRounds) {
 		this.entries = new TreeMap<VodAddress, VodDescriptor>();
 		this.closerComparator = new Closer(self.getAddress());
 		this.self = self;
 		this.size = size;
 		this.converged = false;
         this.changed = false;
-		this.convergenceSimilarity = convergenceSimilarity;
-        this.convergenceRounds = convergedRounds;
+		this.convergenceTest = convergenceTest;
+        this.convergenceTestRounds = convergenceTestRounds;
 	}
 
 	/**
@@ -117,12 +119,12 @@ public class GradientView {
 		}
 
 		old.retainAll(entries.keySet());
-		if (oldSize == entries.size() && old.size() > convergenceSimilarity * entries.size()) {
+		if (oldSize == entries.size() && old.size() > convergenceTest * entries.size()) {
             currentConvergedRounds++;
 		} else {
             currentConvergedRounds = 0;
 		}
-        if (currentConvergedRounds > convergenceRounds) {
+        if (currentConvergedRounds > convergenceTestRounds) {
             if (!converged) {
                 this.changed = true;
             }
