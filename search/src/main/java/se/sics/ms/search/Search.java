@@ -42,6 +42,8 @@ import sun.misc.BASE64Encoder;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
@@ -150,7 +152,7 @@ public final class Search extends ComponentDefinition {
             KeyPairGenerator keyGen;
             try {
                 keyGen = KeyPairGenerator.getInstance("RSA");
-                keyGen.initialize(2048);
+                keyGen.initialize(1024);
                 final KeyPair key = keyGen.generateKeyPair();
                 privateKey = key.getPrivate();
                 publicKey = key.getPublic();
@@ -427,6 +429,12 @@ public final class Search extends ComponentDefinition {
                 long id = getNextInsertionId();
                 newEntry.setId(id);
                 newEntry.setLeaderId(publicKey);
+
+                String signature =  generateSignedHash(newEntry);
+                if(signature == null)
+                    return;
+
+                newEntry.setHash(signature);
                 addEntryLocal(newEntry);
 
                 replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
@@ -451,6 +459,57 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
+
+    private String generateSignedHash(IndexEntry newEntry) {
+        if(newEntry.getLeaderId() == null)
+            return null;
+
+        String sha1;
+
+        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+
+        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        dataBuffer.put(urlBytes);
+        dataBuffer.put(fileNameBytes);
+        dataBuffer.put(languageBytes);
+        dataBuffer.put(descriptionBytes);
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
+            System.out.println(sha1);
+
+            Signature instance = Signature.getInstance("SHA1withRSA");
+            instance.initSign(privateKey);
+            instance.update((sha1).getBytes());
+            byte[] signature = instance.sign();
+            return byteArray2Hex(signature);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (SignatureException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+        return null;
+    }
+
+    private static String byteArray2Hex(final byte[] hash) {
+        Formatter formatter = new Formatter();
+        for (byte b : hash) {
+            formatter.format("%02x", b);
+        }
+        return formatter.toString();
+    }
 
     /**
      * An index entry has been successfully added.
@@ -516,7 +575,7 @@ public final class Search extends ComponentDefinition {
 
         long currentIndexValue = oldestMissingIndexValue - numOfPartitions;
 
-        if(currentIndexValue > Collections.max(existingEntries))
+        if(existingEntries.isEmpty() || currentIndexValue > Collections.max(existingEntries))
             return currentIndexValue;
 
         return Collections.max(existingEntries);
@@ -532,7 +591,7 @@ public final class Search extends ComponentDefinition {
             IndexEntry[] missingEntries = new IndexEntry[request.getMissingIds().length];
             try {
                 for(int i=0; i<request.getMissingIds().length; i++) {
-                    System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
+                    //System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
                     IndexEntry entry = findById(request.getMissingIds()[i]);
                     if(entry != null) missingEntries[i] = entry;
                 }

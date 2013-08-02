@@ -193,12 +193,14 @@ public class IndexEntry implements Serializable {
      * @param description
      * @param hash
      */
-    public IndexEntry(String url, String fileName, Category category, String description,
+    public IndexEntry(String url, String fileName, Date uploaded, Category category, String language, String description,
                       String hash) {
         super();
         this.url = url;
         this.fileName = fileName;
+        this.uploaded = uploaded;
         this.category = category;
+        this.language = language;
         this.description = description;
         this.hash = hash;
     }

@@ -29,6 +29,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -116,9 +117,9 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+            IndexEntry index = new IndexEntry("", "", new Date(), IndexEntry.Category.Books, "", "", "");
             index.setFileName(randomText());
-            index.setLeaderId("");
+            index.setLeaderId(null);
             trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
         }
     };
