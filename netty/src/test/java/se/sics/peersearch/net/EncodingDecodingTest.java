@@ -7,6 +7,8 @@ package se.sics.peersearch.net;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -58,6 +60,7 @@ public class EncodingDecodingTest {
     private static byte[] availableChunks = new byte[2031];
     private static byte[][] availablePieces = new byte[52][19];
     private PublicKey publicKey;
+    private PrivateKey privateKey;
 
     public EncodingDecodingTest() {
         System.setProperty("java.net.preferIPv4Stack", "true");
@@ -103,6 +106,7 @@ public class EncodingDecodingTest {
             keyGen.initialize(2048);
             final KeyPair key = keyGen.generateKeyPair();
             publicKey = key.getPublic();
+            privateKey = key.getPrivate();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
