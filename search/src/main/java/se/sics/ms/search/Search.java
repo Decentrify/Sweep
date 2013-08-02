@@ -107,6 +107,8 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
+    private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
+    private HashMap<TimeoutId, IndexEntry> pendingForCommit = new HashMap<TimeoutId, IndexEntry>();
 
     // When you partition the index you need to find new nodes
     // This is a routing table maintaining a list of pairs in each partition.
@@ -145,6 +147,7 @@ public final class Search extends ComponentDefinition {
         subscribe(repairRequestHandler, networkPort);
         subscribe(repairResponseHandler, networkPort);
         subscribe(publicKeyBroadcastHandler, publicKeyPort);
+        subscribe(prepairCommitHandler, networkPort);
     }
 
     /**
@@ -429,50 +432,61 @@ public final class Search extends ComponentDefinition {
             }
             recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
 
-            try {
-                IndexEntry newEntry = event.getEntry();
-                long id = getNextInsertionId();
-                newEntry.setId(id);
-                newEntry.setLeaderId(publicKey);
+            IndexEntry newEntry = event.getEntry();
+            long id = getNextInsertionId();
+            newEntry.setId(id);
+            newEntry.setLeaderId(publicKey);
 
-                String signature =  generateSignedHash(newEntry);
-                if(signature == null)
-                    return;
+            String signature =  generateSignedHash(newEntry, privateKey);
+            if(signature == null)
+                return;
 
-                newEntry.setHash(signature);
+            newEntry.setHash(signature);
 
-                // TODO PREPAIR PHAISE
+            // TODO PREPAIR PHAISE
 
-                addEntryLocal(newEntry);
+            avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
+            replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
 
-                replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
-                TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-                int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
-                for (VodDescriptor peer : bucket) {
-                    if (i == 0) {
-                        break;
-                    }
-                    trigger(new ReplicationMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry, 0, 0), networkPort);
-                    i--;
+
+            //addEntryLocal(newEntry);
+
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
+            for (VodDescriptor peer : bucket) {
+                if (i == 0) {
+                    break;
                 }
-
-                ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-                rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
-                rst.getTimeoutEvent().setTimeoutId(event.getTimeoutId());
-                trigger(rst, timerPort);
-
-                Snapshot.setLastId(id);
-            } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
+                trigger(new PrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry), networkPort);
+                //trigger(new ReplicationMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry, 0, 0), networkPort);
+                i--;
             }
+
+            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+            rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
+            rst.getTimeoutEvent().setTimeoutId(event.getTimeoutId());
+            trigger(rst, timerPort);
+
+            //Snapshot.setLastId(id);
         }
     };
 
-    private String generateSignedHash(IndexEntry newEntry) {
-        if(newEntry.getLeaderId() == null)
-            return null;
+    final Handler<PrepairCommitMessage.Request> prepairCommitHandler = new Handler<PrepairCommitMessage.Request>() {
+        @Override
+        public void handle(PrepairCommitMessage.Request request) {
+            IndexEntry entry = request.getEntry();
+            if(!isSignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+                return;
 
-        String sha1;
+            pendingForCommit.put(request.getTimeoutId(), request.getEntry());
+
+            trigger(new PrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+        }
+    };
+
+    private static boolean isSignatureValid(IndexEntry newEntry) {
+        if(newEntry.getLeaderId() == null)
+            return false;
 
         byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
         byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
@@ -492,14 +506,13 @@ public final class Search extends ComponentDefinition {
 
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
+            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
             System.out.println(sha1);
 
             Signature instance = Signature.getInstance("SHA1withRSA");
-            instance.initSign(privateKey);
-            instance.update((sha1).getBytes());
-            byte[] signature = instance.sign();
-            return byteArray2Hex(signature);
+            instance.initVerify(newEntry.getLeaderId());
+            instance.update(sha1.getBytes());
+            return instance.verify(hexStringToByteArray(newEntry.getHash()));
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         } catch (SignatureException e) {
@@ -508,15 +521,17 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         }
 
-        return null;
+        return false;
     }
 
-    private static String byteArray2Hex(final byte[] hash) {
-        Formatter formatter = new Formatter();
-        for (byte b : hash) {
-            formatter.format("%02x", b);
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
         }
-        return formatter.toString();
+        return data;
     }
 
     /**
@@ -1168,5 +1183,59 @@ public final class Search extends ComponentDefinition {
                 d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         return entry;
+    }
+
+    /**
+     * Generates a SHA-1 hash on IndexEntry and signs it with a private key
+     * @param newEntry
+     * @return signed SHA-1 key
+     */
+    private static String generateSignedHash(IndexEntry newEntry, PrivateKey privateKey) {
+        if(newEntry.getLeaderId() == null)
+            return null;
+
+        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+
+        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        dataBuffer.put(urlBytes);
+        dataBuffer.put(fileNameBytes);
+        dataBuffer.put(languageBytes);
+        dataBuffer.put(descriptionBytes);
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
+            System.out.println(sha1);
+
+            Signature instance = Signature.getInstance("SHA1withRSA");
+            instance.initSign(privateKey);
+            instance.update((sha1).getBytes());
+            byte[] signature = instance.sign();
+            return byteArray2Hex(signature);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (SignatureException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+        return null;
+    }
+
+    private static String byteArray2Hex(final byte[] hash) {
+        Formatter formatter = new Formatter();
+        for (byte b : hash) {
+            formatter.format("%02x", b);
+        }
+        return formatter.toString();
     }
 }
