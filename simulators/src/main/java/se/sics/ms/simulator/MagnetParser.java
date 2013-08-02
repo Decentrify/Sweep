@@ -22,7 +22,7 @@ import se.sics.peersearch.types.IndexEntry;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-    private IndexEntry entry = new IndexEntry("", "", IndexEntry.Category.Books, "", "");
+    private IndexEntry entry = new IndexEntry("", "", new Date(), IndexEntry.Category.Books, "", "", "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.
@@ -92,7 +92,7 @@ public class MagnetParser {
 	 */
 	public IndexEntry parse(String entry) throws SAXException, IOException {
 		saxParser.parse(new InputSource(new StringReader(entry)), handler);
-		this.entry.setLeaderId("");
+		this.entry.setLeaderId(null);
 		return this.entry;
 	}
 }
