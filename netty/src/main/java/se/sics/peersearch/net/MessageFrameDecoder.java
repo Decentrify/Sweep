@@ -46,6 +46,7 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte LEADER_LOOKUP_RESPONSE        = 0x76;
     public static final byte REPAIR_REQUEST                = 0x77;
     public static final byte REPAIR_RESPONSE               = 0x78;
+    public static final byte PUBLIC_KEY_MESSAGE            = 0x79;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -121,6 +122,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return RepairMessageFactory.Request.fromBuffer(buffer);
             case REPAIR_RESPONSE:
                 return RepairMessageFactory.Response.fromBuffer(buffer);
+            case PUBLIC_KEY_MESSAGE:
+                return PublicKeyMessageFactory.fromBuffer(buffer);
             default:
                 break;
         }

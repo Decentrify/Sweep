@@ -49,7 +49,6 @@ public class ElectionMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            System.out.println("got one");
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);

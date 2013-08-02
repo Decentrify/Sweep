@@ -26,6 +26,7 @@ public class SearchConfiguration
     int gapTimeout;
     int hitsPerQuery;
     int recentRequestsGcInterval;
+    int maxLeaderIdHistorySize;
 
     public SearchConfiguration() {
         this(
@@ -40,7 +41,8 @@ public class SearchConfiguration
                 MsConfig.SEARCH_RETRY_COUNT,
                 MsConfig.SEARCH_GAP_TIMEOUT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
-                MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL);
+                MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
+                MsConfig.MAX_LEADER_ID_HISTORY_SIZE);
     }
 
     /**
@@ -67,7 +69,8 @@ public class SearchConfiguration
     public SearchConfiguration(
             int numPartitions, int maxNumRoutingEntries, int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout, int replicationMaximum, int replicationMinimum,
-            int retryCount, int gapTimeout, int hitsPerQuery, int recentRequestsGcInterval) {
+            int retryCount, int gapTimeout, int hitsPerQuery, int recentRequestsGcInterval,
+            int maxLeaderIdHistorySize) {
         this.numPartitions = numPartitions;
         this.maxNumRoutingEntries = maxNumRoutingEntries;
         this.maxExchangeCount = maxExchangeCount;
@@ -80,6 +83,7 @@ public class SearchConfiguration
         this.gapTimeout = gapTimeout;
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
+        this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
     }
 
     public static SearchConfiguration build() {
@@ -131,6 +135,10 @@ public class SearchConfiguration
 
     public int getRecentRequestsGcInterval() {
         return recentRequestsGcInterval;
+    }
+
+    public int getMaxLeaderIdHistorySize() {
+        return maxLeaderIdHistorySize;
     }
 
     public SearchConfiguration setNumPartitions(int numPartitions) {

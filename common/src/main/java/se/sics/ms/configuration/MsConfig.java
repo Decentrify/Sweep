@@ -39,6 +39,7 @@ public class MsConfig extends VodConfig {
     public static final int SEARCH_GAP_TIMEOUT = 10*1000;
     public static final int SEARCH_HITS_PER_QUERY = 25;
     public static final int SEARCH_RECENT_REQUESTS_GCINTERVAL = 100;
+    public static final int MAX_LEADER_ID_HISTORY_SIZE = 5;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);

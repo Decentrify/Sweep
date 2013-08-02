@@ -30,8 +30,10 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.gradient.LeaderRequestPort;
 import se.sics.ms.gradient.LeaderStatusPort;
+import se.sics.ms.gradient.PublicKeyBroadcast;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
+import se.sics.ms.gradient.PublicKeyPort;
 import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.peersearch.exceptions.IllegalSearchString;
@@ -71,6 +73,7 @@ public final class Search extends ComponentDefinition {
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<LeaderRequestPort> leaderRequestPort = positive(LeaderRequestPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
+    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
@@ -103,6 +106,7 @@ public final class Search extends ComponentDefinition {
 
     private PrivateKey privateKey;
     private PublicKey publicKey;
+    private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
 
     // When you partition the index you need to find new nodes
     // This is a routing table maintaining a list of pairs in each partition.
@@ -140,6 +144,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(repairRequestHandler, networkPort);
         subscribe(repairResponseHandler, networkPort);
+        subscribe(publicKeyBroadcastHandler, publicKeyPort);
     }
 
     /**
@@ -769,6 +774,24 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderStatusPort.LeaderStatus event) {
             leader = event.isLeader();
+
+            if(!leader) return;
+
+            trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
+
+        }
+    };
+
+    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
+        @Override
+        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
+            PublicKey key = publicKeyBroadcast.getPublicKey();
+
+            if(!leaderIds.contains(key)) {
+                if(leaderIds.size() == config.getMaxLeaderIdHistorySize())
+                    leaderIds.remove(leaderIds.get(0));
+                leaderIds.add(key);
+            }
         }
     };
 
