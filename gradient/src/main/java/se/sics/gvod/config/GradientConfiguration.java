@@ -20,6 +20,8 @@
  */
 package se.sics.gvod.config;
 
+import se.sics.ms.configuration.MsConfig;
+
 /**
  *
  * @author jim
@@ -57,11 +59,9 @@ public class GradientConfiguration
     // How many rounds does the convergenceTest need to be valid until the view is stated converged
     int convergenceTestRounds;
     int rto;
+    int maxNumRoutingEntries;
     
-
-    
-    
-    /** 
+    /**
      * Default constructor comes first.
      */
     public GradientConfiguration() {
@@ -77,7 +77,8 @@ public class GradientConfiguration
                 VodConfig.GRADIENT_SEARCH_TTL,
                 VodConfig.GRADIENT_CONVERGENCE_TEST,
                 VodConfig.GRADIENT_CONVERGENCE_TEST_ROUNDS,
-                VodConfig.GRADIENT_SHUFFLE_TIMEOUT
+                VodConfig.GRADIENT_SHUFFLE_TIMEOUT,
+                MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES
                 );
     }
 
@@ -96,7 +97,8 @@ public class GradientConfiguration
             int searchTtl,
             double convergenceTest,
             int convergenceTestRounds,
-            int rto
+            int rto,
+            int maxNumRoutingEntries
             ) {
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
@@ -110,6 +112,7 @@ public class GradientConfiguration
         this.convergenceTest = convergenceTest;
         this.convergenceTestRounds = convergenceTestRounds;
         this.rto = rto;
+        this.maxNumRoutingEntries = maxNumRoutingEntries;
     }
 
     public static GradientConfiguration build() {
@@ -171,6 +174,9 @@ public class GradientConfiguration
         return utilityThreshold;
     }
 
+    public int getMaxNumRoutingEntries() {
+        return maxNumRoutingEntries;
+    }
 
     public GradientConfiguration setViewSize(int viewSize) {
         this.viewSize = viewSize;
@@ -229,6 +235,11 @@ public class GradientConfiguration
 
     public GradientConfiguration setConvergenceTestRounds(int convergenceTestRounds) {
         this.convergenceTestRounds = convergenceTestRounds;
+        return this;
+    }
+
+    public GradientConfiguration setMaxNumRoutingEntries(int maxNumRoutingEntries) {
+        this.maxNumRoutingEntries = maxNumRoutingEntries;
         return this;
     }
 }

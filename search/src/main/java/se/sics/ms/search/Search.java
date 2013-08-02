@@ -18,8 +18,6 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.croupier.PeerSamplePort;
-import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
@@ -28,7 +26,8 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.gradient.LeaderRequestPort;
+import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.gradient.GradientRoutingPort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.PublicKeyBroadcast;
 import se.sics.ms.peer.IndexPort;
@@ -36,6 +35,7 @@ import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.gradient.PublicKeyPort;
 import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.exceptions.IllegalSearchString;
 import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
@@ -57,9 +57,6 @@ import java.util.logging.Level;
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
  * or not.
- * <p/>
- * {@link IndexEntry}s are spread via gossiping using the Cyclon samples stored
- * in the routing tables for the partition of the local node.
  */
 public final class Search extends ComponentDefinition {
     /**
@@ -70,8 +67,7 @@ public final class Search extends ComponentDefinition {
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
-    Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
-    Positive<LeaderRequestPort> leaderRequestPort = positive(LeaderRequestPort.class);
+    Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
 
@@ -79,16 +75,15 @@ public final class Search extends ComponentDefinition {
     private Self self;
     private SearchConfiguration config;
     private boolean leader;
-    // The last smallest missing index number.
-    private long oldestMissingIndexValue;
-    // Set of existing entries higher than the oldestMissingIndexValue
+    // The last lowest missing index value
+    private long lowestMissingIndexValue;
+    // Set of existing entries higher than the lowestMissingIndexValue
     private SortedSet<Long> existingEntries;
     // The last id used for adding new entries in case this node is the leader
     private long nextInsertionId;
     // Data structure to keep track of acknowledgments for newly added indexes
     private Map<TimeoutId, ReplicationCount> replicationRequests;
     private Map<TimeoutId, ReplicationCount> commitRequests;
-    private Random random;
     // The number of the local partition
     private int partition;
     // Structure that maps index ids to UUIDs of open gap timeouts
@@ -111,25 +106,16 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
 
-    // When you partition the index you need to find new nodes
-    // This is a routing table maintaining a list of pairs in each partition.
-    private Map<Integer, TreeSet<VodDescriptor>> routingTable;
-    Comparator<VodDescriptor> peerAgeComparator = new Comparator<VodDescriptor>() {
-        @Override
-        public int compare(VodDescriptor t0, VodDescriptor t1) {
-            if (t0.getVodAddress().equals(t1.getVodAddress())) {
-                return 0;
-            } else if (t0.getAge() > t1.getAge()) {
-                return 1;
-            } else {
-                return -1;
-            }
+    public class ExchangeRound extends IndividualTimeout {
+
+        public ExchangeRound(SchedulePeriodicTimeout request, int id) {
+            super(request, id);
         }
-    };
+    }
 
     public Search() {
         subscribe(handleInit, control);
-        subscribe(handleCroupierSample, croupierSamplePort);
+        subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, indexPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
@@ -168,16 +154,15 @@ public final class Search extends ComponentDefinition {
                 privateKey = key.getPrivate();
                 publicKey = key.getPublic();
             } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             }
 
-            routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(config.getNumPartitions());
             partition = self.getId() % config.getNumPartitions();
-            nextInsertionId = partition;
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
+            nextInsertionId = partition;
+            lowestMissingIndexValue = partition;
             commitRequests = new HashMap<TimeoutId, ReplicationCount>();
-            random = new Random(init.getConfiguration().getSeed());
-            oldestMissingIndexValue = partition;
+
             existingEntries = new TreeSet<Long>();
             gapTimeouts = new HashMap<Long, UUID>();
 
@@ -212,7 +197,11 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
-            // TODO check if still needed
+            // TODO move time to own sonfig instead of using the gradient period
+            rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
+            rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
+            trigger(rst, timerPort);
+
             // Can't open the index before committing a writer once
             IndexWriter writer;
             try {
@@ -234,7 +223,7 @@ public final class Search extends ComponentDefinition {
      */
     private void initializeIndexCaches() throws IOException {
         IndexReader reader = null;
-        IndexSearcher searcher = null;
+        IndexSearcher searcher;
         try {
             reader = DirectoryReader.open(index);
             searcher = new IndexSearcher(reader);
@@ -244,10 +233,8 @@ public final class Search extends ComponentDefinition {
             int readLimit = 20000;
             // Would not terminate in case it reaches the limit of long ;)
             for (long i = 0; ; i += readLimit) {
-                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true,
-                        false);
-                TopDocs topDocs = searcher.search(query, readLimit, new Sort(new SortField(
-                        IndexEntry.ID, Type.LONG)));
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true, false);
+                TopDocs topDocs = searcher.search(query, readLimit, new Sort(new SortField(IndexEntry.ID, Type.LONG)));
 
                 if (topDocs.totalHits == 0) {
                     break;
@@ -263,31 +250,26 @@ public final class Search extends ComponentDefinition {
 
                     // Check if there is a gap between the last missing value
                     // and the smallest newly given one
-                    if (ids[0] != partition && oldestMissingIndexValue != ids[0]) {
+                    if (ids[0] != partition && lowestMissingIndexValue != ids[0]) {
                         continuous = false;
-                        for (Long id : ids) {
-                            existingEntries.add(id);
-                        }
+                        Collections.addAll(existingEntries, ids);
                     } else {
                         // Search for gaps between the given ids
                         for (int j = 0; j < ids.length; j++) {
-                            oldestMissingIndexValue = ids[j]
+                            lowestMissingIndexValue = ids[j]
                                     + config.getNumPartitions();
                             // If a gap was found add higher ids to the existing
                             // entries
                             if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
                                 continuous = false;
-                                for (int k = j + 1; k < ids.length; k++) {
-                                    existingEntries.add(ids[k]);
-                                }
+                                existingEntries.addAll(Arrays.asList(ids).subList(j + 1, ids.length));
                                 break;
                             }
                         }
                     }
                 } else {
                     for (int j = 0; j < hits.length; j++) {
-                        existingEntries.add(Long.valueOf(searcher.doc(hits[j].doc).get(
-                                IndexEntry.ID)));
+                        existingEntries.add(Long.valueOf(searcher.doc(hits[j].doc).get(IndexEntry.ID)));
                     }
                 }
             }
@@ -302,59 +284,13 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Handle samples from Croupier. Use them to update the routing tables and
-     * issue an index exchange with another node.
+     * Issue an index exchange with another node.
      */
-    final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
+    final Handler<ExchangeRound> handleRound = new Handler<ExchangeRound>() {
         @Override
-        public void handle(CroupierSample event) {
-            // receive a new list of neighbors
-            List<VodDescriptor> peers = event.getNodes();
-            if (peers.isEmpty()) {
-                return;
-            }
-
-            // update routing tables
-            for (VodDescriptor p : event.getNodes()) {
-                int samplePartition = p.getVodAddress().getId() % config.getNumPartitions();
-                TreeSet<VodDescriptor> nodes = routingTable.get(samplePartition);
-                if (nodes == null) {
-                    nodes = new TreeSet<VodDescriptor>(peerAgeComparator);
-                    routingTable.put(samplePartition, nodes);
-                }
-
-                // Increment age
-                for (VodDescriptor peer : nodes) {
-                    peer.incrementAndGetAge();
-                }
-
-                // Note - this might replace an existing entry
-                nodes.add(p);
-                // keep the freshest descriptors in this partition
-                while (nodes.size() > config.getMaxNumRoutingEntries()) {
-                    nodes.pollLast();
-                }
-            }
-
-            // Exchange index with one sample from our partition
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            if (bucket != null) {
-                int n = random.nextInt(bucket.size());
-
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
-                        UUID.nextUUID(), oldestMissingIndexValue, existingEntries.toArray(new Long[existingEntries
-                        .size()]), 0, 0), networkPort);
-            }
-        }
-    };
-
-    /**
-     * Add index entries for the simulator.
-     */
-    final Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
-        @Override
-        public void handle(AddIndexSimulated event) {
-            addEntryGlobal(event.getEntry());
+        public void handle(ExchangeRound event) {
+            Long[] existing = existingEntries.toArray(new Long[existingEntries.size()]);
+            trigger(new GradientRoutingPort.IndexExchangeRequest(lowestMissingIndexValue, existing), gradientRoutingPort);
         }
     };
 
@@ -415,6 +351,70 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
+     * Add index entries for the simulator.
+     */
+    final Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
+        @Override
+        public void handle(AddIndexSimulated event) {
+            addEntryGlobal(event.getEntry());
+        }
+    };
+
+    /**
+     * Add a new {link {@link IndexEntry} to the system and schedule a timeout
+     * to wait for the acknowledgment.
+     *
+     * @param entry the {@link IndexEntry} to be added
+     */
+    private void addEntryGlobal(IndexEntry entry) {
+        // Limit the time to wait for responses and answer the web request
+        ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+        rst.setTimeoutEvent(new AddRequestTimeout(rst, self.getId(), config.getRetryCount(), entry));
+        addEntryGlobal(entry, rst);
+    }
+
+    /**
+     * An index entry has been successfully added.
+     */
+    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+        @Override
+        public void handle(AddIndexEntryMessage.Response event) {
+            // TODO inform user
+            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+            trigger(ct, timerPort);
+        }
+    };
+
+    /**
+     * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
+     * in time. Try to add the entry again or respons with failure to the web client.
+     */
+    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
+        @Override
+        public void handle(AddRequestTimeout event) {
+            if (event.reachedRetryLimit()) {
+                // TODO inform the user
+            } else {
+                event.incrementTries();
+                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+                rst.setTimeoutEvent(event);
+                addEntryGlobal(event.getEntry(), rst);
+            }
+        }
+    };
+
+    /**
+     * Add a new {link {@link IndexEntry} to the system, add the given timeout to the timer.
+     *
+     * @param entry   the {@link IndexEntry} to be added
+     * @param timeout timeout for adding the entry
+     */
+    private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
+        trigger(timeout, timerPort);
+        trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
+    }
+
+    /**
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
@@ -452,16 +452,7 @@ public final class Search extends ComponentDefinition {
 
 
             //addEntryLocal(newEntry);
-
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
-            for (VodDescriptor peer : bucket) {
-                if (i == 0) {
-                    break;
-                }
-                trigger(new ReplicationPrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry), networkPort);
-                i--;
-            }
+            trigger(new GradientRoutingPort.ReplicationPrepairCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
             rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
@@ -528,10 +519,7 @@ public final class Search extends ComponentDefinition {
             idBuffer.putLong(entryToCommit.getId());
             try {
                 String signature = generateRSASignature(idBuffer.array(), privateKey);
-                TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-                for (VodDescriptor peer : bucket) {
-                    trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId(), signature), networkPort);
-                }
+                trigger(new GradientRoutingPort.ReplicationCommit(commitTimeout, entryToCommit.getId(), signature), gradientRoutingPort);
 
                 ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
                 rst.setTimeoutEvent(new CommitTimeout(rst, self.getId()));
@@ -649,15 +637,32 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    private long getNextInsertionId() {
+        long id = nextInsertionId;
+        nextInsertionId += config.getNumPartitions();
+        return id;
+    }
+
     /**
-     * An index entry has been successfully added.
+     * Periodically garbage collect the data structure used to identify
+     * duplicated {@link AddIndexEntryMessage.Request}.
      */
-    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
         @Override
-        public void handle(AddIndexEntryMessage.Response event) {
-            // TODO inform user
-            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
-            trigger(ct, timerPort);
+        public void handle(RecentRequestsGcTimeout event) {
+            long referenceTime = System.currentTimeMillis();
+
+            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
+            for (TimeoutId id : recentRequests.keySet()) {
+                if (referenceTime - recentRequests.get(id) > config
+                        .getRecentRequestsGcInterval()) {
+                    removeList.add(id);
+                }
+            }
+
+            for (TimeoutId uuid : removeList) {
+                recentRequests.remove(uuid);
+            }
         }
     };
 
@@ -667,13 +672,13 @@ public final class Search extends ComponentDefinition {
      * @return max stored id on a peer
      */
     private long getMaxStoredId(int numOfPartitions) {
-        long normalizedMissingIndexValue = oldestMissingIndexValue - partition;
+        long normalizedMissingIndexValue = lowestMissingIndexValue - partition;
         if(normalizedMissingIndexValue == 0) {
             //it the first value that is missing, return -1
             return -1;
         }
 
-        long currentIndexValue = oldestMissingIndexValue - numOfPartitions;
+        long currentIndexValue = lowestMissingIndexValue - numOfPartitions;
 
         if(existingEntries.isEmpty() || currentIndexValue > Collections.max(existingEntries))
             return currentIndexValue;
@@ -716,108 +721,6 @@ public final class Search extends ComponentDefinition {
                     if(entry != null) addEntryLocal(entry);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
-            }
-        }
-    };
-
-    /**
-     * Query the local store with the given query string and send the response
-     * back to the inquirer.
-     */
-    final Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
-        @Override
-        public void handle(SearchMessage.Request event) {
-            try {
-                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
-
-                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
-            } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (IllegalSearchString illegalSearchString) {
-                illegalSearchString.printStackTrace();
-            }
-        }
-    };
-
-    /**
-     * Add the response to the search index store.
-     */
-    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
-        @Override
-        public void handle(SearchMessage.Response event) {
-            if (searchRequest == null || event.getTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
-                return;
-            }
-
-            addSearchResponse(event.getResults());
-        }
-    };
-
-    /**
-     * Answer a search request if the timeout occurred before all answers were
-     * collected.
-     */
-    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
-        @Override
-        public void handle(SearchTimeout event) {
-            answerSearchRequest();
-        }
-    };
-
-    /**
-     * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
-     * in time. Try to add the entry again or respons with failure to the web client.
-     */
-    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
-        @Override
-        public void handle(AddRequestTimeout event) {
-            if (event.reachedRetryLimit()) {
-                // TODO inform the user
-            } else {
-                event.incrementTries();
-                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-                rst.setTimeoutEvent(event);
-                addEntryGlobal(event.getEntry(), rst);
-            }
-        }
-    };
-
-    /**
-     * Periodically garbage collect the data structure used to identify
-     * duplicated {@link AddIndexEntryMessage.Request}.
-     */
-    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
-        @Override
-        public void handle(RecentRequestsGcTimeout event) {
-            long referenceTime = System.currentTimeMillis();
-
-            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
-            for (TimeoutId id : recentRequests.keySet()) {
-                if (referenceTime - recentRequests.get(id) > config
-                        .getRecentRequestsGcInterval()) {
-                    removeList.add(id);
-                }
-            }
-
-            for (TimeoutId uuid : removeList) {
-                recentRequests.remove(uuid);
-            }
-        }
-    };
-
-    /**
-     * The entry for a detected gap was not added in time.
-     */
-    final Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
-        @Override
-        public void handle(GapTimeout event) {
-            try {
-                if (entryExists(event.getId()) == false) {
-                    // TODO implement new gap check
-                }
-            } catch (IOException e) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
-                        e);
             }
         }
     };
@@ -873,35 +776,31 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();
         }
 
-        int i = 0;
-        for (SortedSet<VodDescriptor> bucket : routingTable.values()) {
-            // Skip local partition
-            if (i == partition) {
-                i++;
-                continue;
-            }
-
-            int n = random.nextInt(bucket.size());
-
-            trigger(new SearchMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(), searchRequest.getTimeoutId(), pattern), networkPort);
-            searchRequest.incrementNodesQueried();
-            i++;
-        }
-
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
         rst.setTimeoutEvent(new SearchTimeout(rst, self.getId()));
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
-        // Add result form local partition
+        trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId()), gradientRoutingPort);
+
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            searchRequest.incrementNodesQueried();
-            addSearchResponse((IndexEntry[]) result.toArray());
+            addSearchResponse((IndexEntry[]) result.toArray(), partition);
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
     }
+
+    /**
+     * Answer a search request if the timeout occurred before all answers were
+     * collected.
+     */
+    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+        @Override
+        public void handle(SearchTimeout event) {
+            answerSearchRequest();
+        }
+    };
 
     /**
      * Present the result to the user.
@@ -916,164 +815,23 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Add a new {link {@link IndexEntry} to the system and schedule a timeout
-     * to wait for the acknowledgment.
-     *
-     * @param entry the {@link IndexEntry} to be added
+     * Query the local store with the given query string and send the response
+     * back to the inquirer.
      */
-    private void addEntryGlobal(IndexEntry entry) {
-        // Limit the time to wait for responses and answer the web request
-        ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddRequestTimeout(rst, self.getId(), config.getRetryCount(), entry));
-        addEntryGlobal(entry, rst);
-    }
+    final Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
+        @Override
+        public void handle(SearchMessage.Request event) {
+            try {
+                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
 
-    /**
-     * Add a new {link {@link IndexEntry} to the system, add the given timeout to the timer.
-     *
-     * @param entry   the {@link IndexEntry} to be added
-     * @param timeout timeout for adding the entry
-     */
-    private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
-        trigger(timeout, timerPort);
-        trigger(new LeaderRequestPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), leaderRequestPort);
-    }
-
-    /**
-     * Add a new {link {@link IndexEntry} to the local Lucene index.
-     *
-     * @param indexEntry the {@link IndexEntry} to be added
-     * @throws IOException if the Lucene index fails to store the entry
-     */
-    private void addEntryLocal(IndexEntry indexEntry) throws IOException {
-        if (indexEntry.getId() < oldestMissingIndexValue
-                || existingEntries.contains(indexEntry.getId())) {
-            return;
-        }
-
-        addIndexEntry(index, indexEntry);
-        Snapshot.incNumIndexEntries(self.getAddress());
-
-        // Cancel gap detection timeouts for the given index
-        TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
-        if (timeoutId != null) {
-            CancelTimeout ct = new CancelTimeout(timeoutId);
-            trigger(ct, timerPort);
-        }
-
-        if (indexEntry.getId() == oldestMissingIndexValue) {
-            // Search for the next missing index id
-            do {
-                existingEntries.remove(oldestMissingIndexValue);
-                oldestMissingIndexValue += config.getNumPartitions();
-            } while (existingEntries.contains(oldestMissingIndexValue));
-        } else if (indexEntry.getId() > oldestMissingIndexValue) {
-            existingEntries.add(indexEntry.getId());
-
-            // Suspect all missing entries less than the new as gaps
-            for (long i = oldestMissingIndexValue; i < indexEntry.getId(); i = i
-                    + config.getNumPartitions()) {
-                if (gapTimeouts.containsKey(i)) {
-                    continue;
-                }
-
-                // This might be a gap so start a timeouts
-                ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
-                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
-                gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
-                trigger(rst, timerPort);
+                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
+            } catch (IOException ex) {
+                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IllegalSearchString illegalSearchString) {
+                illegalSearchString.printStackTrace();
             }
         }
-    }
-
-    /**
-     * Retrieve all indexes with ids in the given range from the local index
-     * store.
-     *
-     * @param min   the inclusive minimum of the range
-     * @param max   the inclusive maximum of the range
-     * @param limit the maximal amount of entries to be returned
-     * @return a list of the entries found
-     * @throws IOException if Lucene errors occur
-     */
-    private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
-
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
-            TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
-                    Type.LONG)));
-            ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document d = searcher.doc(scoreDoc.doc);
-                indexEntries.add(createIndexEntry(d));
-            }
-
-            return indexEntries;
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
-        }
-    }
-
-    /**
-     * @return a new id for a new {@link IndexEntry}
-     */
-    private long getNextInsertionId() {
-        long id = nextInsertionId;
-        nextInsertionId += config.getNumPartitions();
-        return id;
-    }
-
-    /**
-     * Check if an entry with the given id exists in the local index store.
-     *
-     * @param id the id of the entry
-     * @return true if an entry with the given id exists
-     * @throws IOException if Lucene errors occur
-     */
-    private boolean entryExists(long id) throws IOException {
-        IndexEntry indexEntry = findById(id);
-        return indexEntry != null ? true : false;
-    }
-
-    /**
-     * Find an entry for the given id in the local index store.
-     *
-     * @param id the id of the entry
-     * @return the entry if found or null if non-existing
-     * @throws IOException if Lucene errors occur
-     */
-    private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = findIdRange(id, id, 1);
-        if (indexEntries.isEmpty()) {
-            return null;
-        }
-        return indexEntries.get(0);
-    }
-
-    /**
-     * Add all entries from a {@link SearchMessage.Response} to the search index.
-     *
-     * @param entries the entries to be added
-     */
-    private void addSearchResponse(IndexEntry[] entries) {
-        try {
-            addIndexEntries(searchIndex, entries);
-        } catch (IOException e) {
-            java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
-        }
-
-        searchRequest.incrementReceived();
-        if (searchRequest.receivedAll()) {
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
-            trigger(ct, timerPort);
-            answerSearchRequest();
-        }
-    }
+    };
 
     /**
      * Query the given index store with a given search pattern.
@@ -1108,6 +866,85 @@ public final class Search extends ComponentDefinition {
                 }
             }
         }
+    }
+
+    /**
+     * Add the response to the search index store.
+     */
+    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
+        @Override
+        public void handle(SearchMessage.Response event) {
+            if (searchRequest == null || event.getTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
+                return;
+            }
+
+            addSearchResponse(event.getResults(), event.getVodSource().getId() % config.getNumPartitions());
+        }
+    };
+
+    /**
+     * Add all entries from a {@link SearchMessage.Response} to the search index.
+     *
+     * @param entries the entries to be added
+     * @param partition the partition from which the entries originate from
+     */
+    private void addSearchResponse(IndexEntry[] entries, int partition) {
+        if (searchRequest.hasResponded(partition)) {
+            return;
+        }
+
+        try {
+            addIndexEntries(searchIndex, entries);
+        } catch (IOException e) {
+            java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
+        }
+
+        searchRequest.addRespondedPartition(partition);
+        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
+            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+            trigger(ct, timerPort);
+            answerSearchRequest();
+        }
+    }
+
+    /**
+     * Add the given {@link IndexEntry}s to the given Lucene directory
+     *
+     * @param index   the directory to which the given entries should be added
+     * @param entries a collection of index entries to be added
+     * @throws IOException in case the adding operation failed
+     */
+    private void addIndexEntries(Directory index, IndexEntry[] entries)
+            throws IOException {
+        IndexWriter writer = null;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            for (IndexEntry entry : entries) {
+                addIndexEntry(writer, entry);
+            }
+            writer.commit();
+        } finally {
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+    }
+
+    /**
+     * Add the given {@link IndexEntry} to the given Lucene directory
+     *
+     * @param index the directory to which the given {@link IndexEntry} should be
+     *              added
+     * @param entry the {@link IndexEntry} to be added
+     * @throws IOException in case the adding operation failed
+     */
+    private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
+        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
+        addIndexEntry(writer, entry);
+        writer.close();
     }
 
     /**
@@ -1148,41 +985,48 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Add the given {@link IndexEntry} to the given Lucene directory
+     * Add a new {link {@link IndexEntry} to the local Lucene index.
      *
-     * @param index the directory to which the given {@link IndexEntry} should be
-     *              added
-     * @param entry the {@link IndexEntry} to be added
-     * @throws IOException in case the adding operation failed
+     * @param indexEntry the {@link IndexEntry} to be added
+     * @throws IOException if the Lucene index fails to store the entry
      */
-    private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
-        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
-        addIndexEntry(writer, entry);
-        writer.close();
-    }
+    private void addEntryLocal(IndexEntry indexEntry) throws IOException {
+        if (indexEntry.getId() < lowestMissingIndexValue
+                || existingEntries.contains(indexEntry.getId())) {
+            return;
+        }
 
-    /**
-     * Add the given {@link IndexEntry}s to the given Lucene directory
-     *
-     * @param index   the directory to which the given entries should be added
-     * @param entries a collection of index entries to be added
-     * @throws IOException in case the adding operation failed
-     */
-    private void addIndexEntries(Directory index, IndexEntry[] entries)
-            throws IOException {
-        IndexWriter writer = null;
-        try {
-            writer = new IndexWriter(index, indexWriterConfig);
-            for (IndexEntry entry : entries) {
-                addIndexEntry(writer, entry);
-            }
-            writer.commit();
-        } finally {
-            if (writer != null) {
-                try {
-                    writer.close();
-                } catch (IOException e) {
+        addIndexEntry(index, indexEntry);
+        Snapshot.incNumIndexEntries(self.getAddress());
+
+        // Cancel gap detection timeouts for the given index
+        TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
+        if (timeoutId != null) {
+            CancelTimeout ct = new CancelTimeout(timeoutId);
+            trigger(ct, timerPort);
+        }
+
+        if (indexEntry.getId() == lowestMissingIndexValue) {
+            // Search for the next missing index id
+            do {
+                existingEntries.remove(lowestMissingIndexValue);
+                lowestMissingIndexValue += config.getNumPartitions();
+            } while (existingEntries.contains(lowestMissingIndexValue));
+        } else if (indexEntry.getId() > lowestMissingIndexValue) {
+            existingEntries.add(indexEntry.getId());
+
+            // Suspect all missing entries less than the new as gaps
+            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i = i
+                    + config.getNumPartitions()) {
+                if (gapTimeouts.containsKey(i)) {
+                    continue;
                 }
+
+                // This might be a gap so start a timeouts
+                ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
+                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
+                gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
+                trigger(rst, timerPort);
             }
         }
     }
@@ -1220,6 +1064,66 @@ public final class Search extends ComponentDefinition {
                 d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         return entry;
+    }
+
+    /*
+ * Check if an entry with the given id exists in the local index store.
+ *
+ * @param id the id of the entry
+ * @return true if an entry with the given id exists
+ * @throws IOException if Lucene errors occur
+ */
+    private boolean entryExists(long id) throws IOException {
+        IndexEntry indexEntry = findById(id);
+        return indexEntry != null ? true : false;
+    }
+
+    /**
+     * Find an entry for the given id in the local index store.
+     *
+     * @param id the id of the entry
+     * @return the entry if found or null if non-existing
+     * @throws IOException if Lucene errors occur
+     */
+    private IndexEntry findById(long id) throws IOException {
+        List<IndexEntry> indexEntries = findIdRange(id, id, 1);
+        if (indexEntries.isEmpty()) {
+            return null;
+        }
+        return indexEntries.get(0);
+    }
+
+    /**
+     * Retrieve all indexes with ids in the given range from the local index
+     * store.
+     *
+     * @param min   the inclusive minimum of the range
+     * @param max   the inclusive maximum of the range
+     * @param limit the maximal amount of entries to be returned
+     * @return a list of the entries found
+     * @throws IOException if Lucene errors occur
+     */
+    private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
+            TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG)));
+            ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document d = searcher.doc(scoreDoc.doc);
+                indexEntries.add(createIndexEntry(d));
+            }
+
+            return indexEntries;
+        } finally {
+            if (reader != null) {
+                reader.close();
+            }
+        }
     }
 
     /**
@@ -1331,4 +1235,21 @@ public final class Search extends ComponentDefinition {
         }
         return data;
     }
+
+    /**
+     * The entry for a detected gap was not added in time.
+     */
+    final Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
+        @Override
+        public void handle(GapTimeout event) {
+            try {
+                if (entryExists(event.getId()) == false) {
+                    // TODO implement new gap check
+                }
+            } catch (IOException e) {
+                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
+                        e);
+            }
+        }
+    };
 }

@@ -167,14 +167,14 @@ public class GradientView {
 	/**
 	 * @return all nodes with a higher preference value than self in ascending order
 	 */
-	public ArrayList<VodAddress> getHigherNodes() {
+	public ArrayList<VodAddress> getHigherUtilityNodes() {
 		return new ArrayList<VodAddress>(entries.headMap(self.getAddress()).keySet());
 	}
 
 	/**
 	 * @return all nodes with a lower preference value than self in ascending order
 	 */
-	public ArrayList<VodAddress> getLowerNodes() {
+	public ArrayList<VodAddress> getLowerUtilityNodes() {
 		return new ArrayList<VodAddress>(entries.tailMap(self.getAddress()).keySet());
 	}
 

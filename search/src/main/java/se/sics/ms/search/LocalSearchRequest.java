@@ -4,17 +4,19 @@ import se.sics.gvod.timer.UUID;
 import se.sics.kompics.web.WebRequest;
 import se.sics.peersearch.types.SearchPattern;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Stores information about a currently executed search request.
  */
 public class LocalSearchRequest {
     private final SearchPattern pattern;
-    private int nodesQueried;
-    private int nodesAnswered;
+    private Set<Integer> respondedPartitions = new HashSet<Integer>();
     private UUID timeoutId;
 
     /**
-     * Craete a new instance for the given request and query.
+     * Create a new instance for the given request and query.
      *
      * @param pattern
      *            the pattern of the search
@@ -31,55 +33,16 @@ public class LocalSearchRequest {
         return pattern;
     }
 
-    /**
-     * @return the amount of nodes queried
-     */
-    public int getNodesQueried() {
-        return nodesQueried;
+    public void addRespondedPartition(int partition) {
+        respondedPartitions.add(partition);
     }
 
-    /**
-     * @param sent
-     *            the amount of nodes queried
-     */
-    public void setNodesQueried(int sent) {
-        this.nodesQueried = sent;
+    public boolean hasResponded(int partition) {
+        return respondedPartitions.contains(partition);
     }
 
-    /**
-     * Increment the amount of nodes queried.
-     */
-    public void incrementNodesQueried() {
-        this.nodesQueried++;
-    }
-
-    /**
-     * @return the amount of answers received
-     */
-    public int getNodesAnswered() {
-        return nodesAnswered;
-    }
-
-    /**
-     * @param received
-     *            the amount of answers received
-     */
-    public void setNodesAnswered(int received) {
-        this.nodesAnswered = received;
-    }
-
-    /**
-     * Increment the amount of answers received.
-     */
-    public void incrementReceived() {
-        this.nodesAnswered++;
-    }
-
-    /**
-     * @return true if the amount of answers matches the amount of requests sent
-     */
-    public boolean receivedAll() {
-        return nodesQueried <= nodesAnswered;
+    public int getNumberOfRespondedPartitions() {
+        return respondedPartitions.size();
     }
 
     /**

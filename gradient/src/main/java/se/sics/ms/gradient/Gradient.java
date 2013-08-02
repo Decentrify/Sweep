@@ -18,10 +18,7 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.messages.AddIndexEntryMessage;
-import se.sics.peersearch.messages.GradientShuffleMessage;
-import se.sics.peersearch.messages.LeaderLookupMessage;
-import se.sics.peersearch.messages.PublicKeyMessage;
+import se.sics.peersearch.messages.*;
 import se.sics.peersearch.types.IndexEntry;
 
 import java.security.PublicKey;
@@ -37,10 +34,10 @@ public final class Gradient extends ComponentDefinition {
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
-    Positive<GradientViewChangePort> broadcastGradientPartnersPort = positive(GradientViewChangePort.class);
+    Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-    Negative<LeaderRequestPort> leaderRequestPort = negative(LeaderRequestPort.class);
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
+    Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
 
     private Self self;
     private GradientConfiguration config;
@@ -48,6 +45,23 @@ public final class Gradient extends ComponentDefinition {
     private GradientView gradientView;
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
+    private int partition;
+
+    // When you partition the index you need to find new nodes
+    // This is a routing table maintaining a list of pairs in each partition.
+    private Map<Integer, TreeSet<VodDescriptor>> routingTable;
+    Comparator<VodDescriptor> peerAgeComparator = new Comparator<VodDescriptor>() {
+        @Override
+        public int compare(VodDescriptor t0, VodDescriptor t1) {
+            if (t0.getVodAddress().equals(t1.getVodAddress())) {
+                return 0;
+            } else if (t0.getAge() > t1.getAge()) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+    };
 
     /**
      * Timeout to periodically issue exchanges.
@@ -69,7 +83,7 @@ public final class Gradient extends ComponentDefinition {
     public Gradient() {
         subscribe(handleInit, control);
         subscribe(handleRound, timerPort);
-        subscribe(handleRequestTimeout, timerPort);
+        subscribe(handleShuffleRequestTimeout, timerPort);
         subscribe(handleCroupierSample, croupierSamplePort);
         subscribe(handleShuffleResponse, networkPort);
         subscribe(handleShuffleRequest, networkPort);
@@ -77,10 +91,14 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleNodeCrash, leaderStatusPort);
-        subscribe(handleAddIndexEntryRequest, leaderRequestPort);
         subscribe(publicKeyBroadcastHandler, publicKeyPort);
         subscribe(publicKeyMessageHandler, networkPort);
+        subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
+        subscribe(handleIndexExchangeRequest, gradientRoutingPort);
+        subscribe(handleReplicationRequest, gradientRoutingPort);
+        subscribe(handleSearchRequest, gradientRoutingPort);
     }
+
     /**
      * Initialize the state of the component.
      */
@@ -91,9 +109,12 @@ public final class Gradient extends ComponentDefinition {
             config = init.getConfiguration();
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
-            gradientView = new GradientView(self, config.getViewSize(),
-                    config.getConvergenceTest(), config.getConvergenceTestRounds());
+            gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
+            // TODO do not access constants
+            routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(MsConfig.SEARCH_NUM_PARTITIONS);
             leader = false;
+            // TODO do not access constants
+            partition = self.getId() % MsConfig.SEARCH_NUM_PARTITIONS;
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
@@ -110,34 +131,30 @@ public final class Gradient extends ComponentDefinition {
             if (!gradientView.isEmpty()) {
                 initiateShuffle(gradientView.selectPeerToShuffleWith());
             }
-
-//            System.out.println("View of node " + self.getId() + ": " + gradientView.toString() + " converged? " + gradientView.isConverged());
         }
     };
+
     /**
-     * Initiate a exchange with a random node of each Croupier sample to speed
-     * up convergence and prevent partitioning.
+     * Initiate the shuffling process for the given node.
+     *
+     * @param exchangePartner the address of the node to shuffle with
      */
-    final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
-        @Override
-        public void handle(CroupierSample event) {
-            List<VodDescriptor> sample = event.getNodes();
+    private void initiateShuffle(VodAddress exchangePartner) {
+        Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner, config.getShuffleLength());
 
-            // Remove all samples from other partitions
-            Iterator<VodDescriptor> iterator = sample.iterator();
-            while (iterator.hasNext()) {
-                // TODO Number of partition from proper config file
-                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId() % MsConfig.SEARCH_NUM_PARTITIONS)  {
-                    iterator.remove();
-                }
-            }
+        VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
 
-            if (sample.size() > 0) {
-                int n = random.nextInt(sample.size());
-                initiateShuffle(sample.get(n).getVodAddress());
-            }
-        }
-    };
+        ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
+        rst.setTimeoutEvent(new ShuffleRequestTimeout(rst, self.getId()));
+        UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
+        outstandingShuffles.put(rTimeoutId, exchangePartner);
+
+        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeNodes);
+
+        trigger(rst, timerPort);
+        trigger(rRequest, networkPort);
+    }
+
     /**
      * Answer a {@link GradientShuffleMessage.Request} with the nodes from the view preferred by
      * the inquirer.
@@ -145,38 +162,23 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientShuffleMessage.Request> handleShuffleRequest = new Handler<GradientShuffleMessage.Request>() {
         @Override
         public void handle(GradientShuffleMessage.Request event) {
-//            System.out.println(self.getAddress().toString() + " got ShuffleRequest from " + event.getVodSource().toString());
-
             VodAddress exchangePartner = event.getVodSource();
-            Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
-                    config.getShuffleLength());
-
+            Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner, config.getShuffleLength());
             VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
-
-//            StringBuilder builder = new StringBuilder();
-//            builder.append(self.getAddress().toString() + " sending ShuffleResponse to " + exchangePartner.toString() + "\n");
-//            builder.append("Content: \n");
-//            for (VodAddress a : exchangeNodes) {
-//                builder.append(a.toString() + "\n");
-//            }
-//            System.out.println(builder.toString());
-
             GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), exchangePartner, event.getTimeoutId(), exchangeNodes);
             trigger(rResponse, networkPort);
 
             gradientView.merge(event.getAddresses());
-            broadcastView();
+            sendGradientViewChange();
         }
     };
+
     /**
      * Merge the entries from the response to the view.
      */
     final Handler<GradientShuffleMessage.Response> handleShuffleResponse = new Handler<GradientShuffleMessage.Response>() {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
-//            System.out.println(self.getAddress().toString() + " got ShuffleResponse from " + event.getVodSource().toString());
-
-            // cancel shuffle timeout
             UUID shuffleId = (UUID) event.getTimeoutId();
             if (outstandingShuffles.containsKey(shuffleId)) {
                 outstandingShuffles.remove(shuffleId);
@@ -185,31 +187,14 @@ public final class Gradient extends ComponentDefinition {
             }
 
             gradientView.merge(event.getAddresses());
-            broadcastView();
+            sendGradientViewChange();
         }
     };
-    /**
-     * This handler listens to updates regarding the leader status
-     */
-    final Handler<LeaderStatus> handleLeaderStatus = new Handler<LeaderStatus>() {
-        @Override
-        public void handle(LeaderStatus event) {
-            leader = event.isLeader();
-        }
-    };
-    /**
-     * Updates gradient's view by removing crashed nodes from it, eg. old leaders
-     */
-    final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
-        @Override
-        public void handle(NodeCrashEvent event) {
-            gradientView.remove(event.getDeadNode());
-        }
-    };
+
     /**
      * Remove a node from the view if it didn't respond to a request.
      */
-    final Handler<ShuffleRequestTimeout> handleRequestTimeout = new Handler<ShuffleRequestTimeout>() {
+    final Handler<ShuffleRequestTimeout> handleShuffleRequestTimeout = new Handler<ShuffleRequestTimeout>() {
         @Override
         public void handle(ShuffleRequestTimeout event) {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
@@ -220,25 +205,100 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
-    // TODO This is a very fragile routing implementation and only for testing purposes, it might not even terminate
+
+    /**
+     * Initiate a exchange with a random node of each Croupier sample to speed
+     * up convergence and prevent partitioning.
+     */
+    final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
+        @Override
+        public void handle(CroupierSample event) {
+            List<VodDescriptor> sample = event.getNodes();
+
+            incrementRoutingTableAge();
+            addRoutingTableEntries(sample);
+
+            // Remove all samples from other partitions
+            Iterator<VodDescriptor> iterator = sample.iterator();
+            while (iterator.hasNext()) {
+                // TODO do not access constants
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId() % MsConfig.SEARCH_NUM_PARTITIONS)  {
+                    iterator.remove();
+                }
+            }
+
+            // Shuffle with one sample from our partition
+            if (sample.size() > 0) {
+                int n = random.nextInt(sample.size());
+                initiateShuffle(sample.get(n).getVodAddress());
+            }
+        }
+    };
+
+    private void incrementRoutingTableAge() {
+        for (TreeSet<VodDescriptor> bucket : routingTable.values()) {
+            for (VodDescriptor descriptor : bucket) {
+                descriptor.incrementAndGetAge();
+            }
+        }
+    }
+
+    private void addRoutingTableEntries(Collection<VodDescriptor> nodes) {
+        for (VodDescriptor p : nodes) {
+            // TODO do not access constants
+            int samplePartition = p.getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS;
+            TreeSet<VodDescriptor> bucket = routingTable.get(samplePartition);
+            if (bucket == null) {
+                bucket = new TreeSet<VodDescriptor>(peerAgeComparator);
+                routingTable.put(samplePartition, bucket);
+            }
+
+            bucket.add(p);
+            // keep the freshest descriptors in this partition
+            while (bucket.size() > config.getMaxNumRoutingEntries()) {
+                bucket.pollLast();
+            }
+        }
+    }
+    /**
+     * This handler listens to updates regarding the leader status
+     */
+    final Handler<LeaderStatus> handleLeaderStatus = new Handler<LeaderStatus>() {
+        @Override
+        public void handle(LeaderStatus event) {
+            leader = event.isLeader();
+        }
+    };
+
+    /**
+     * Updates gradient's view by removing crashed nodes from it, eg. old leaders
+     */
+    final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
+        @Override
+        public void handle(NodeCrashEvent event) {
+            gradientView.remove(event.getDeadNode());
+        }
+    };
+
     private IndexEntry entryToAdd;
     private boolean leaderFound;
-    final Handler<LeaderRequestPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<LeaderRequestPort.AddIndexEntryRequest>() {
+    final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
-        public void handle(LeaderRequestPort.AddIndexEntryRequest event) {
+        public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
             leaderFound = false;
             entryToAdd = event.getEntry();
 
-            ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
+            ArrayList<VodAddress> higherNodes = gradientView.getHigherUtilityNodes();
             for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
                 trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i), event.getTimeoutId()), networkPort);
             }
         }
     };
+
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
         @Override
         public void handle(LeaderLookupMessage.Request event) {
-            ArrayList<VodAddress> higherNodes = gradientView.getHigherNodes();
+            ArrayList<VodAddress> higherNodes = gradientView.getHigherUtilityNodes();
             int limit = higherNodes.size() > LeaderLookupMessage.K ? LeaderLookupMessage.K : higherNodes.size();
             VodAddress[] addresses = new VodAddress[limit];
 
@@ -249,6 +309,7 @@ public final class Gradient extends ComponentDefinition {
             trigger(new LeaderLookupMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), leader, addresses), networkPort);
         }
     };
+
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
@@ -293,49 +354,76 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new PublicKeyBroadcast(key), publicKeyPort);
 
-            for(VodAddress item : gradientView.getLowerNodes())
+            for(VodAddress item : gradientView.getLowerUtilityNodes())
                 trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getNodeAddress(), key), networkPort);
         }
     };
 
-    /**
-     * Initiate the shuffling process for the given node.
-     *
-     * @param exchangePartner the address of the node to shuffle with
-     */
-    private void initiateShuffle(VodAddress exchangePartner) {
-        Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner,
-                config.getShuffleLength());
+    final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.IndexExchangeRequest event) {
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            if (bucket != null) {
+                int n = random.nextInt(bucket.size());
 
-        VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
+                        UUID.nextUUID(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), 0, 0), networkPort);
+            }
+        }
+    };
 
-        ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
-        rst.setTimeoutEvent(new ShuffleRequestTimeout(rst, self.getId()));
-        UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
+    final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationRequest = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            // TODO do not access constants
+            int i = bucket.size() > MsConfig.SEARCH_REPLICATION_MAXIMUM ? MsConfig.SEARCH_REPLICATION_MAXIMUM : bucket.size();
+            for (VodDescriptor peer : bucket) {
+                if (i == 0) {
+                    break;
+                }
+                trigger(new ReplicationPrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
+                i--;
+            }
+        }
+    };
 
-        outstandingShuffles.put(rTimeoutId, exchangePartner);
+    final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
+        @Override
+        public void handle(GradientRoutingPort.ReplicationCommit event) {
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            for (VodDescriptor peer : bucket) {
+                trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
+            }
+        }
+    };
 
-//        StringBuilder builder = new StringBuilder();
-//        builder.append(self.getAddress().toString() + " sending ShuffleRequest to " + exchangePartner.toString() + "\n");
-//        builder.append("Content: \n");
-//        for (VodAddress a : exchangeNodes) {
-//            builder.append(a.toString() + "\n");
-//        }
-//        System.out.println(builder.toString());
+    final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.SearchRequest event) {
+            int i = 0;
+            for (SortedSet<VodDescriptor> bucket : routingTable.values()) {
+                // Skip local partition
+                if (i == partition) {
+                    i++;
+                    continue;
+                }
 
-        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeNodes);
+                int n = random.nextInt(bucket.size());
 
-        trigger(rst, timerPort);
-        trigger(rRequest, networkPort);
-    }
+                trigger(new SearchMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(), event.getTimeoutId(), event.getPattern()), networkPort);
+                i++;
+            }
+        }
+    };
 
     /**
      * Broadcast the current view to the listening components.
      */
-    private void broadcastView() {
+    void sendGradientViewChange() {
         if (gradientView.isChanged()) {
-            trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), gradientView.getHigherNodes(),
-                    gradientView.getLowerNodes()), broadcastGradientPartnersPort);
+            trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), gradientView.getHigherUtilityNodes(),
+                    gradientView.getLowerUtilityNodes()), gradientViewChangePort);
         }
     }
 
