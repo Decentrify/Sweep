@@ -808,4 +808,95 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void PrepairCommitRequest() {
+        String url = "url";
+        String fileName = "fileName";
+        Long size = 123L;
+        Date time = new Date();
+        String language = "language";
+        String description = "description";
+        String hash = "hash";
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        PrepairCommitMessage.Request msg = new PrepairCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            PrepairCommitMessage.Request request = PrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getEntry().getUrl().equals(url));
+            assert (request.getEntry().getFileName().equals(fileName));
+            assert (request.getEntry().getFileSize() == size);
+            assert (request.getEntry().getUploaded().equals(time));
+            assert (request.getEntry().getLanguage().equals(language));
+            assert (request.getEntry().getDescription().equals(description));
+            assert (request.getEntry().getHash().equals(hash));
+            assert (request.getEntry().getCategory() == IndexEntry.Category.Music);
+            assert (request.getEntry().getId().equals(Long.MIN_VALUE));
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void PrepairCommitResponse() {
+        Long size = 123L;
+        PrepairCommitMessage.Response msg = new PrepairCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            PrepairCommitMessage.Response response = PrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            assert (response.getEntryId() == size);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void CommitRequest() {
+        Long size = 123L;
+        CommitMessage.Request msg = new CommitMessage.Request(gSrc, gDest, UUID.nextUUID(), size);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            CommitMessage.Request request = CommitMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getEntryId() == size);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void CommitResponse() {
+        Long size = 123L;
+        CommitMessage.Response msg = new CommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            CommitMessage.Response response = CommitMessageFactory.Response.fromBuffer(buffer);
+            assert (response.getEntryId() == size);
+
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 }

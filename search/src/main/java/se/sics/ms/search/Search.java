@@ -440,6 +440,9 @@ public final class Search extends ComponentDefinition {
                     return;
 
                 newEntry.setHash(signature);
+
+                // TODO PREPAIR PHAISE
+
                 addEntryLocal(newEntry);
 
                 replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
@@ -782,6 +785,9 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    /**
+     * Stores leader public key if not repeated
+     */
     final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
         @Override
         public void handle(PublicKeyBroadcast publicKeyBroadcast) {

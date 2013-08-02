@@ -47,6 +47,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte REPAIR_REQUEST                = 0x77;
     public static final byte REPAIR_RESPONSE               = 0x78;
     public static final byte PUBLIC_KEY_MESSAGE            = 0x79;
+    public static final byte PREPAIR_COMMIT_REQUEST        = 0x7a;
+    public static final byte PREPAIR_COMMIT_RESPONSE       = 0x7b;
+    public static final byte COMMIT_REQUEST                = 0x7c;
+    public static final byte COMMIT_RESPONSE               = 0x7d;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -124,6 +128,14 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return RepairMessageFactory.Response.fromBuffer(buffer);
             case PUBLIC_KEY_MESSAGE:
                 return PublicKeyMessageFactory.fromBuffer(buffer);
+            case PREPAIR_COMMIT_REQUEST:
+                return PrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            case PREPAIR_COMMIT_RESPONSE:
+                return PrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            case COMMIT_REQUEST:
+                return CommitMessageFactory.Request.fromBuffer(buffer);
+            case COMMIT_RESPONSE:
+                return CommitMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }
