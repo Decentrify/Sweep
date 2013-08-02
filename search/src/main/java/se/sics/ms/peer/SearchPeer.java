@@ -14,8 +14,10 @@ import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
-import se.sics.kompics.*;
-import se.sics.kompics.web.Web;
+import se.sics.kompics.Component;
+import se.sics.kompics.ComponentDefinition;
+import se.sics.kompics.Handler;
+import se.sics.kompics.Positive;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -73,12 +75,12 @@ public final class SearchPeer extends ComponentDefinition {
         connect(croupier.getPositive(PeerSamplePort.class),
                 gradient.getNegative(PeerSamplePort.class));
         connect(indexPort, search.getNegative(IndexPort.class));
-        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
-                electionLeader.getPositive(BroadcastGradientPartnersPort.class));
         connect(gradient.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
-        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
-                electionFollower.getPositive(BroadcastGradientPartnersPort.class));
+        connect(gradient.getNegative(GradientViewChangePort.class),
+                electionLeader.getPositive(GradientViewChangePort.class));
+        connect(gradient.getNegative(GradientViewChangePort.class),
+                electionFollower.getPositive(GradientViewChangePort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),

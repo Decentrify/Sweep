@@ -11,11 +11,10 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
+import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.*;
 
-import se.sics.ms.gradient.BroadcastGradientPartnersPort;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 
@@ -28,7 +27,7 @@ public class ElectionFollower extends ComponentDefinition {
 
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
-    Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
+    Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 
     private ElectionConfiguration config;
@@ -72,7 +71,7 @@ public class ElectionFollower extends ComponentDefinition {
         subscribe(handleVotingRequest, networkPort);
         subscribe(handleLeaderSuspicionRequest, networkPort);
         subscribe(handleHeartBeatTimeout, timerPort);
-        subscribe(handleGradientBroadcast, broadcast);
+        subscribe(handleGradientBroadcast, gradientViewChangePort);
         subscribe(handleLeaderSuspicionResponse, networkPort);
         subscribe(handleRejectionConfirmation, networkPort);
     }
@@ -117,9 +116,9 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * A handler receiving gradient view broadcasts, and sets its view accordingly
      */
-    Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
+    Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
         @Override
-        public void handle(GradientPartners event) {
+        public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
             lowerNodes = event.getLowerNodes();
             higherNodes = event.getHigherNodes();

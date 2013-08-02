@@ -9,8 +9,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort;
-import se.sics.ms.gradient.BroadcastGradientPartnersPort.GradientPartners;
+import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.snapshot.Snapshot;
@@ -31,7 +30,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
-	Negative<BroadcastGradientPartnersPort> broadcast = negative(BroadcastGradientPartnersPort.class);
+	Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
 	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 
 	private ElectionConfiguration config;
@@ -69,7 +68,7 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleVoteTimeout, timerPort);
 		subscribe(handleVotingResponse, networkPort);
 		subscribe(handleLeaderRejection, networkPort);
-		subscribe(handleGradientBroadcast, broadcast);
+		subscribe(handleGradientBroadcast, gradientViewChangePort);
 		subscribe(handleRejectedFollower, networkPort);
 	}
 
@@ -96,9 +95,9 @@ public class ElectionLeader extends ComponentDefinition {
 	 * node fulfills the requirements in order to become a leader, and in that
 	 * case it will call for a leader election
 	 */
-	Handler<GradientPartners> handleGradientBroadcast = new Handler<GradientPartners>() {
+	Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
 		@Override
-		public void handle(GradientPartners event) {
+		public void handle(GradientViewChangePort.GradientViewChanged event) {
 			higherNodes = event.getHigherNodes();
 			lowerNodes = event.getLowerNodes();
 
