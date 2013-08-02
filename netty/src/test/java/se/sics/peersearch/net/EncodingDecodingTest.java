@@ -791,4 +791,21 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void PublicKeyMessage() {
+        PublicKeyMessage msg = new PublicKeyMessage(gSrc, gDest, publicKey);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            PublicKeyMessage request = PublicKeyMessageFactory.fromBuffer(buffer);
+            assert (request.getPublicKey().equals(publicKey));
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 }

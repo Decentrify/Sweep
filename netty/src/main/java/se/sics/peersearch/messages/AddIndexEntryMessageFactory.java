@@ -22,13 +22,11 @@ public class AddIndexEntryMessageFactory {
         }
 
         public static AddIndexEntryMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            System.out.println("decode1");
             return (AddIndexEntryMessage.Request) new AddIndexEntryMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
         protected AddIndexEntryMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
-            System.out.println("decode2");
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             return new AddIndexEntryMessage.Request(vodSrc, vodDest, timeoutId, entry);
         }
