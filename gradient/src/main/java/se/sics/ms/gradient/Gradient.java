@@ -135,17 +135,17 @@ public final class Gradient extends ComponentDefinition {
      *
      * @param exchangePartner the address of the node to shuffle with
      */
-    private void initiateShuffle(VodAddress exchangePartner) {
-        Collection<VodAddress> exchange = gradientView.getExchangeNodes(exchangePartner, config.getShuffleLength());
+    private void initiateShuffle(VodDescriptor exchangePartner) {
+        Collection<VodDescriptor> exchange = gradientView.getExchangeNodes(exchangePartner, config.getShuffleLength());
 
-        VodAddress[] exchangeNodes = exchange.toArray(new VodAddress[exchange.size()]);
+        VodDescriptor[] exchangeNodes = exchange.toArray(new VodDescriptor[exchange.size()]);
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
         rst.setTimeoutEvent(new ShuffleRequestTimeout(rst, self.getId()));
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
-        outstandingShuffles.put(rTimeoutId, exchangePartner);
+        outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
-        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner, rTimeoutId, exchangeNodes);
+        GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
@@ -226,7 +226,7 @@ public final class Gradient extends ComponentDefinition {
             // Shuffle with one sample from our partition
             if (sample.size() > 0) {
                 int n = random.nextInt(sample.size());
-                initiateShuffle(sample.get(n).getVodAddress());
+                initiateShuffle(sample.get(n));
             }
         }
     };
@@ -284,7 +284,7 @@ public final class Gradient extends ComponentDefinition {
             leaderFound = false;
             entryToAdd = event.getEntry();
 
-            ArrayList<VodAddress> higherNodes = gradientView.getHigherUtilityNodes();
+            SortedSet<VodDescriptor> higherNodes = gradientView.getHigherUtilityNodes();
             for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
                 trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i), event.getTimeoutId()), networkPort);
             }
@@ -294,7 +294,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
         @Override
         public void handle(LeaderLookupMessage.Request event) {
-            ArrayList<VodAddress> higherNodes = gradientView.getHigherUtilityNodes();
+            SortedSet<VodDescriptor> higherNodes = gradientView.getHigherUtilityNodes();
             int limit = higherNodes.size() > LeaderLookupMessage.K ? LeaderLookupMessage.K : higherNodes.size();
             VodAddress[] addresses = new VodAddress[limit];
 
