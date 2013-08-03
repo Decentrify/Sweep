@@ -1,6 +1,7 @@
 package se.sics.ms.search;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Data structure used by the leader to keep track of replication responses when
@@ -10,18 +11,20 @@ public class ReplicationCount {
 	private final VodAddress source;
 	private int received;
 	private final int replicationMinimum;
+    private final IndexEntry entry;
 
 	/**
-	 * @param source
-	 *            the address of the node that issued the add request
-	 * @param replicationMinimum
-	 *            the minimum number of replication required
-	 */
-	public ReplicationCount(VodAddress source, int replicationMinimum) {
+     * @param source
+     *            the address of the node that issued the add request
+     * @param replicationMinimum
+     * @param entry
+     */
+	public ReplicationCount(VodAddress source, int replicationMinimum, IndexEntry entry) {
 		super();
 		this.source = source;
 		this.replicationMinimum = replicationMinimum;
-	}
+        this.entry = entry;
+    }
 
 	/**
 	 * @return the address of the node that issued the add request
@@ -55,4 +58,8 @@ public class ReplicationCount {
 		received++;
 		return received >= replicationMinimum;
 	}
+
+    public IndexEntry getEntry() {
+        return entry;
+    }
 }
