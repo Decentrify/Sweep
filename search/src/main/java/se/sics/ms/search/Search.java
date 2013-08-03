@@ -87,6 +87,7 @@ public final class Search extends ComponentDefinition {
     private long nextInsertionId;
     // Data structure to keep track of acknowledgments for newly added indexes
     private Map<TimeoutId, ReplicationCount> replicationRequests;
+    private Map<TimeoutId, ReplicationCount> commitRequests;
     private Random random;
     // The number of the local partition
     private int partition;
@@ -148,6 +149,11 @@ public final class Search extends ComponentDefinition {
         subscribe(repairResponseHandler, networkPort);
         subscribe(publicKeyBroadcastHandler, publicKeyPort);
         subscribe(prepairCommitHandler, networkPort);
+        subscribe(awaitingForCommitTimeoutHandler, timerPort);
+        subscribe(prepairCoomitResponseHandler, networkPort);
+        subscribe(commitTimeoutHandler, timerPort);
+        subscribe(commitRequestHandler, networkPort);
+        subscribe(commitResponseHandler, networkPort);
     }
 
     /**
@@ -172,6 +178,7 @@ public final class Search extends ComponentDefinition {
             partition = self.getId() % config.getNumPartitions();
             nextInsertionId = partition;
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
+            commitRequests = new HashMap<TimeoutId, ReplicationCount>();
             random = new Random(init.getConfiguration().getSeed());
             oldestMissingIndexValue = partition;
             existingEntries = new TreeSet<Long>();
@@ -446,7 +453,7 @@ public final class Search extends ComponentDefinition {
             // TODO PREPAIR PHAISE
 
             avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
-            replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum()));
+            replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
 
 
             //addEntryLocal(newEntry);
@@ -478,9 +485,114 @@ public final class Search extends ComponentDefinition {
             if(!isSignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
-            pendingForCommit.put(request.getTimeoutId(), request.getEntry());
+            TimeoutId timeout = UUID.nextUUID();
+
+            pendingForCommit.put(timeout, request.getEntry());
 
             trigger(new PrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+
+            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId()));
+            rst.getTimeoutEvent().setTimeoutId(timeout);
+            trigger(rst, timerPort);
+        }
+    };
+
+    final Handler<AwaitingForCommitTimeout> awaitingForCommitTimeoutHandler = new Handler<AwaitingForCommitTimeout>() {
+        @Override
+        public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
+            if(pendingForCommit.containsKey(awaitingForCommitTimeout.getTimeoutId()))
+                pendingForCommit.remove(awaitingForCommitTimeout.getTimeoutId());
+
+        }
+    };
+
+    final Handler<PrepairCommitMessage.Response> prepairCoomitResponseHandler = new Handler<PrepairCommitMessage.Response>() {
+        @Override
+        public void handle(PrepairCommitMessage.Response response) {
+            TimeoutId timeout = response.getTimeoutId();
+
+            CancelTimeout ct = new CancelTimeout(timeout);
+            trigger(ct, timerPort);
+
+            ReplicationCount replicationCount = replicationRequests.get(timeout);
+            if(replicationCount != null  && !replicationCount.incrementAndCheckReceived())
+                return;
+
+            IndexEntry entryToCommit = replicationCount.getEntry();
+            TimeoutId commitTimeout = UUID.nextUUID();
+            commitRequests.put(commitTimeout, replicationCount);
+            replicationRequests.remove(timeout);
+
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
+            for (VodDescriptor peer : bucket) {
+                if (i == 0) {
+                    break;
+                }
+                trigger(new CommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId()), networkPort);
+                i--;
+            }
+
+            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+            rst.setTimeoutEvent(new CommitTimeout(rst, self.getId()));
+            rst.getTimeoutEvent().setTimeoutId(commitTimeout);
+            trigger(rst, timerPort);
+        }
+    };
+
+    final Handler<CommitMessage.Request> commitRequestHandler = new Handler<CommitMessage.Request>() {
+        @Override
+        public void handle(CommitMessage.Request request) {
+            long id = request.getEntryId();
+
+            IndexEntry toCommit = null;
+            for (IndexEntry entry : pendingForCommit.values()) {
+                if(entry.getId() == id) {
+                    toCommit = entry;
+                    break;
+                }
+            }
+
+            if(toCommit == null)
+                return;
+
+            try {
+                addEntryLocal(toCommit);
+                trigger(new CommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
+                pendingForCommit.remove(toCommit);
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+    };
+
+    final Handler<CommitMessage.Response> commitResponseHandler = new Handler<CommitMessage.Response>() {
+        @Override
+        public void handle(CommitMessage.Response response) {
+            TimeoutId commitId = response.getTimeoutId();
+
+            CancelTimeout ct = new CancelTimeout(commitId);
+            trigger(ct, timerPort);
+
+            if(!commitRequests.containsKey(commitId))
+                return;
+
+            ReplicationCount replicationCount = commitRequests.get(commitId);
+            try {
+                addEntryLocal(replicationCount.getEntry());
+                commitRequests.remove(commitId);
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+    };
+
+    final Handler<CommitTimeout> commitTimeoutHandler = new Handler<CommitTimeout>() {
+        @Override
+        public void handle(CommitTimeout commitTimeout) {
+            if(commitRequests.containsKey(commitTimeout.getTimeoutId()))
+                commitRequests.remove(commitTimeout.getTimeoutId());
         }
     };
 
