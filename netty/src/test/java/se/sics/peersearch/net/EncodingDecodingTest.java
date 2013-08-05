@@ -803,13 +803,14 @@ public class EncodingDecodingTest {
     @Test
     public void CommitRequest() {
         Long size = 123L;
-        ReplicationCommitMessage.Request msg = new ReplicationCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), size);
+        String signature = "abc";
+        ReplicationCommitMessage.Request msg = new ReplicationCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), size, signature);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             ReplicationCommitMessage.Request request = ReplicationCommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntryId() == size);
-
+            assert (request.getSignature().equals(signature));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);

@@ -5,6 +5,7 @@ import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.peersearch.net.MessageFrameDecoder;
 
@@ -17,14 +18,20 @@ import se.sics.peersearch.net.MessageFrameDecoder;
 public class ReplicationCommitMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final long entryId;
+        private final String signature;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long entryId) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long entryId, String signature) {
             super(source, destination, timeoutId);
             this.entryId = entryId;
+            this.signature = signature;
         }
 
         public long getEntryId() {
             return entryId;
+        }
+
+        public String getSignature() {
+            return signature;
         }
 
         @Override
@@ -34,13 +41,14 @@ public class ReplicationCommitMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, entryId);
+            return new Request(vodSrc, vodDest, timeoutId, entryId, signature);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeLong(entryId);
+            UserTypesEncoderFactory.writeStringLength65536(buffer, signature);
             return buffer;
         }
 
