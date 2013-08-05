@@ -95,11 +95,11 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case GRADIENT_SHUFFLE_RESPONSE:
                 return GradientShuffleMessageFactory.Response.fromBuffer(buffer);
             case LEADER_SUSPICION_REQUEST:
-                return LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
+                return LeaderSuspicionMessageFactory.Request.fromBuffer(buffer);
             case LEADER_SUSPICION_RESPONSE:
-                return LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
+                return LeaderSuspicionMessageFactory.Response.fromBuffer(buffer);
             case LEADER_ANNOUNCEMENT:
-                return LeaderAnnouncementMessageFactory.fromBuffer(buffer);
+                return LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
             case HEARTBEAT_REQUEST:
                 return HeartbeatMessageFactory.Request.fromBuffer(buffer);
             case HEARTBEAT_RESPONSE:
@@ -123,13 +123,13 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case PUBLIC_KEY_MESSAGE:
                 return PublicKeyMessageFactory.fromBuffer(buffer);
             case PREPAIR_COMMIT_REQUEST:
-                return PrepairCommitMessageFactory.Request.fromBuffer(buffer);
+                return ReplicationPrepairCommitMessageFactory.Request.fromBuffer(buffer);
             case PREPAIR_COMMIT_RESPONSE:
-                return PrepairCommitMessageFactory.Response.fromBuffer(buffer);
+                return ReplicationPrepairCommitMessageFactory.Response.fromBuffer(buffer);
             case COMMIT_REQUEST:
-                return CommitMessageFactory.Request.fromBuffer(buffer);
+                return ReplicationCommitMessageFactory.Request.fromBuffer(buffer);
             case COMMIT_RESPONSE:
-                return CommitMessageFactory.Response.fromBuffer(buffer);
+                return ReplicationCommitMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }

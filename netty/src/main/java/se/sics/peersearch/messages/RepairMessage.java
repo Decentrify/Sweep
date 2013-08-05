@@ -22,6 +22,10 @@ public class RepairMessage {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Long[] missingIds) {
             super(source, destination, timeoutId);
+
+            if(missingIds == null)
+                throw new NullPointerException("missingIds can't be null");
+
             this.missingIds = missingIds;
         }
 

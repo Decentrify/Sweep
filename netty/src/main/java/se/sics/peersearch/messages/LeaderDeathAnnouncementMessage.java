@@ -25,6 +25,10 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
      */
     public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, VodAddress leader) {
         super(source, destination);
+
+        if(leader == null)
+            throw new NullPointerException("leader can't be null");
+
         this.leader = leader;
     }
 

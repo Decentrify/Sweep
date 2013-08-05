@@ -12,11 +12,11 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/2/13
  * Time: 12:34 PM
  */
-public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory.Oneway {
+public class LeaderDeathAnnouncementMessageFactory extends DirectMsgNettyFactory.Oneway {
     public static LeaderDeathAnnouncementMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (LeaderDeathAnnouncementMessage)
-                new LeaderAnnouncementMessageFactory().decode(buffer, false);
+                new LeaderDeathAnnouncementMessageFactory().decode(buffer, false);
     }
 
     @Override

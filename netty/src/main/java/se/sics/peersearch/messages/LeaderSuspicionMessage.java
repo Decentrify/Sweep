@@ -32,6 +32,10 @@ public class LeaderSuspicionMessage {
          */
         public Request(VodAddress source, VodAddress destination, int clientId, int remoteId, TimeoutId timeoutId, VodAddress leader) {
             super(source, destination, clientId, remoteId, timeoutId);
+
+            if(leader == null)
+                throw new NullPointerException("leader can't be null");
+
             this.leader = leader;
         }
 

@@ -30,6 +30,10 @@ public class IndexExchangeMessage {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long oldestMissingIndexValue, Long[] existingEntries, int numResponses, int responseNumber) {
             super(source, destination, timeoutId);
+
+            if(existingEntries == null)
+                throw new NullPointerException("existingEntries can't be null");
+
             this.oldestMissingIndexValue = oldestMissingIndexValue;
             this.existingEntries = existingEntries;
             this.numResponses = numResponses;
@@ -87,6 +91,10 @@ public class IndexExchangeMessage {
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry[] indexEntries, int numResponses, int responseNumber) {
             super(source, destination, timeoutId);
+
+            if(indexEntries == null)
+                throw new NullPointerException("indexEntries can't be null");
+
             this.indexEntries = indexEntries;
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
