@@ -734,4 +734,17 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void CategoryAndPartitionIdEncoding() {
+        InetAddress address = null;
+        try {
+            address = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodAddress.encodePartitionAndCategoryIdAsInt(5,8), nat);
+        assert vodAddress.getPartitionId() == 5;
+        assert vodAddress.getCategoryId() == 8;
+    }
 }
