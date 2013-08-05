@@ -479,7 +479,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ReplicationPrepairCommitMessage.Request request) {
             IndexEntry entry = request.getEntry();
-            if(!isSignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+            if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
             TimeoutId timeout = UUID.nextUUID();
@@ -526,15 +526,26 @@ public final class Search extends ComponentDefinition {
             commitRequests.put(commitTimeout, replicationCount);
             replicationRequests.remove(timeout);
 
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            for (VodDescriptor peer : bucket) {
-                trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId()), networkPort);
-            }
+            ByteBuffer idBuffer = ByteBuffer.allocate(8);
+            idBuffer.putLong(entryToCommit.getId());
+            try {
+                String signature = generateRSASignature(idBuffer.array(), privateKey);
+                TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+                for (VodDescriptor peer : bucket) {
+                    trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId(), signature), networkPort);
+                }
 
-            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new CommitTimeout(rst, self.getId()));
-            rst.getTimeoutEvent().setTimeoutId(commitTimeout);
-            trigger(rst, timerPort);
+                ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+                rst.setTimeoutEvent(new CommitTimeout(rst, self.getId()));
+                rst.getTimeoutEvent().setTimeoutId(commitTimeout);
+                trigger(rst, timerPort);
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (SignatureException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
         }
     };
 
@@ -545,6 +556,22 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ReplicationCommitMessage.Request request) {
             long id = request.getEntryId();
+
+            if(leaderIds.isEmpty())
+                return;
+
+            ByteBuffer idBuffer = ByteBuffer.allocate(8);
+            idBuffer.putLong(id);
+            try {
+                if(!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size()-1), request.getSignature()))
+                    return;
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (SignatureException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
 
             IndexEntry toCommit = null;
             for (IndexEntry entry : pendingForCommit.keySet()) {
@@ -1223,14 +1250,7 @@ public final class Search extends ComponentDefinition {
         dataBuffer.put(descriptionBytes);
 
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
-
-            Signature instance = Signature.getInstance("SHA1withRSA");
-            instance.initSign(privateKey);
-            instance.update((sha1).getBytes());
-            byte[] signature = instance.sign();
-            return byteArray2Hex(signature);
+            return generateRSASignature(dataBuffer.array(), privateKey);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         } catch (SignatureException e) {
@@ -1242,6 +1262,17 @@ public final class Search extends ComponentDefinition {
         return null;
     }
 
+    private static String generateRSASignature(byte[] data, PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        String sha1 = byteArray2Hex(digest.digest(data));
+
+        Signature instance = Signature.getInstance("SHA1withRSA");
+        instance.initSign(privateKey);
+        instance.update(sha1.getBytes());
+        byte[] signature = instance.sign();
+        return byteArray2Hex(signature);
+    }
+
     private static String byteArray2Hex(final byte[] hash) {
         Formatter formatter = new Formatter();
         for (byte b : hash) {
@@ -1250,7 +1281,7 @@ public final class Search extends ComponentDefinition {
         return formatter.toString();
     }
 
-    private static boolean isSignatureValid(IndexEntry newEntry) {
+    private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
         if(newEntry.getLeaderId() == null)
             return false;
 
@@ -1271,13 +1302,7 @@ public final class Search extends ComponentDefinition {
         dataBuffer.put(descriptionBytes);
 
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
-
-            Signature instance = Signature.getInstance("SHA1withRSA");
-            instance.initVerify(newEntry.getLeaderId());
-            instance.update(sha1.getBytes());
-            return instance.verify(hexStringToByteArray(newEntry.getHash()));
+            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
         } catch (SignatureException e) {
@@ -1287,6 +1312,16 @@ public final class Search extends ComponentDefinition {
         }
 
         return false;
+    }
+
+    private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        String sha1 = byteArray2Hex(digest.digest(data));
+
+        Signature instance = Signature.getInstance("SHA1withRSA");
+        instance.initVerify(key);
+        instance.update(sha1.getBytes());
+        return instance.verify(hexStringToByteArray(signature));
     }
 
     public static byte[] hexStringToByteArray(String s) {

@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
+import se.sics.gvod.net.util.UserTypesDecoderFactory;
 
 /**
  * Created with IntelliJ IDEA.
@@ -24,7 +25,8 @@ public class ReplicationCommitMessageFactory {
         @Override
         protected ReplicationCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             long entryId = buffer.readLong();
-            return new ReplicationCommitMessage.Request(vodSrc, vodDest, timeoutId, entryId);
+            String signature = UserTypesDecoderFactory.readStringLength65536(buffer);
+            return new ReplicationCommitMessage.Request(vodSrc, vodDest, timeoutId, entryId, signature);
         }
     }
 
