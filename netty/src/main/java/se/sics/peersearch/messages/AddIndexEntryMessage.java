@@ -31,6 +31,9 @@ public class AddIndexEntryMessage {
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry) {
             super(source, destination, timeoutId);
 
+            if(entry == null)
+                throw new NullPointerException("entry can't be null");
+
             this.entry = entry;
         }
 

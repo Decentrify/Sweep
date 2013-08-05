@@ -13,14 +13,14 @@ import se.sics.peersearch.types.IndexEntry;
  * Date: 8/2/13
  * Time: 5:30 PM
  */
-public class PrepairCommitMessageFactory {
+public class ReplicationPrepairCommitMessageFactory {
     public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
 
         public static ReplicationPrepairCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ReplicationPrepairCommitMessage.Request) new PrepairCommitMessageFactory.Request().decode(buffer, true);
+            return (ReplicationPrepairCommitMessage.Request) new ReplicationPrepairCommitMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
@@ -37,7 +37,7 @@ public class PrepairCommitMessageFactory {
 
         public static ReplicationPrepairCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (ReplicationPrepairCommitMessage.Response) new PrepairCommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationPrepairCommitMessage.Response) new ReplicationPrepairCommitMessageFactory.Response().decode(buffer, true);
         }
 
         @Override

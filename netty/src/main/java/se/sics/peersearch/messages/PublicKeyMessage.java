@@ -23,6 +23,10 @@ public class PublicKeyMessage extends DirectMsgNetty.Oneway {
 
     public PublicKeyMessage(VodAddress source, VodAddress destination, PublicKey publicKey) {
         super(source, destination);
+
+        if(publicKey == null)
+            throw new NullPointerException("public key can't be null");
+
         this.publicKey = publicKey;
     }
 

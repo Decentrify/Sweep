@@ -32,6 +32,10 @@ public class SearchMessage {
 
         public Request(VodAddress source, VodAddress destination,TimeoutId timeoutId, SearchPattern pattern) {
             super(source, destination, timeoutId);
+
+            if(pattern == null)
+                throw new NullPointerException("pattern can't be null");
+
             this.pattern = pattern;
 //            if (query.length() > 255) {
 //                throw new IllegalSearchString("Search string is too long. Max length is 255 chars.");
@@ -77,6 +81,9 @@ public class SearchMessage {
         
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int numResponses, int responseNumber, IndexEntry[] results) throws IllegalSearchString {
             super(source, destination, timeoutId);
+
+            if(results == null)
+                throw new NullPointerException("results can't be null");
 
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;

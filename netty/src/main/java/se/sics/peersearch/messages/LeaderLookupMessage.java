@@ -54,6 +54,10 @@ public class LeaderLookupMessage {
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, VodAddress[] addresses) {
             super(source, destination, timeoutId);
+
+            if(addresses == null)
+                throw new NullPointerException("addresses can't be null");
+
             this.leader = leader;
             this.addresses = addresses;
         }

@@ -412,7 +412,7 @@ public class EncodingDecodingTest {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderDeathAnnouncementMessage response =
-                    LeaderAnnouncementMessageFactory.fromBuffer(buffer);
+                    LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
             assert (response.getLeader().equals(vodAddress1));
 
         } catch (MessageDecodingException ex) {
@@ -440,7 +440,7 @@ public class EncodingDecodingTest {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderSuspicionMessage.Request request =
-                    LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
+                    LeaderSuspicionMessageFactory.Request.fromBuffer(buffer);
 
             assert (request.getClientId() == 1);
             assert (request.getRemoteId() == 2);
@@ -472,7 +472,7 @@ public class EncodingDecodingTest {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderSuspicionMessage.Response response =
-                    LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
+                    LeaderSuspicionMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.getClientId() == 1);
             assert (response.getRemoteId() == 2);
@@ -761,7 +761,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationPrepairCommitMessage.Request request = PrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            ReplicationPrepairCommitMessage.Request request = ReplicationPrepairCommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntry().getUrl().equals(url));
             assert (request.getEntry().getFileName().equals(fileName));
             assert (request.getEntry().getFileSize() == size);
@@ -788,7 +788,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationPrepairCommitMessage.Response response = PrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            ReplicationPrepairCommitMessage.Response response = ReplicationPrepairCommitMessageFactory.Response.fromBuffer(buffer);
             assert (response.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {
@@ -807,7 +807,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationCommitMessage.Request request = CommitMessageFactory.Request.fromBuffer(buffer);
+            ReplicationCommitMessage.Request request = ReplicationCommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {
@@ -826,7 +826,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationCommitMessage.Response response = CommitMessageFactory.Response.fromBuffer(buffer);
+            ReplicationCommitMessage.Response response = ReplicationCommitMessageFactory.Response.fromBuffer(buffer);
             assert (response.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {

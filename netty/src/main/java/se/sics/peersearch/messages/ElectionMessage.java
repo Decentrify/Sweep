@@ -24,6 +24,7 @@ public class ElectionMessage {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID) {
             super(source, destination, timeoutId);
+
             this.voteID = voteID;
         }
 

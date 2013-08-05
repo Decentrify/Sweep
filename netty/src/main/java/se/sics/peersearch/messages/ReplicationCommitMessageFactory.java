@@ -11,14 +11,14 @@ import se.sics.gvod.net.msgs.DirectMsg;
  * Date: 8/2/13
  * Time: 5:41 PM
  */
-public class CommitMessageFactory {
+public class ReplicationCommitMessageFactory {
     public static class Request extends DirectMsgNettyFactory.Request {
 
         private Request() {
         }
 
         public static ReplicationCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ReplicationCommitMessage.Request) new CommitMessageFactory.Request().decode(buffer, true);
+            return (ReplicationCommitMessage.Request) new ReplicationCommitMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
@@ -35,7 +35,7 @@ public class CommitMessageFactory {
 
         public static ReplicationCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (ReplicationCommitMessage.Response) new CommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationCommitMessage.Response) new ReplicationCommitMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
