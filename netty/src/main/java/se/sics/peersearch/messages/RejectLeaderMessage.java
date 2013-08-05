@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -15,14 +16,14 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 12:26 PM
  */
 public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
-    private final VodAddress betterLeader;
+    private final VodDescriptor betterLeader;
 
-    public RejectLeaderMessage(VodAddress source, VodAddress destination, VodAddress betterLeader) {
+    public RejectLeaderMessage(VodAddress source, VodAddress destination, VodDescriptor betterLeader) {
         super(source, destination);
         this.betterLeader = betterLeader;
     }
 
-    public VodAddress getBetterLeader() {
+    public VodDescriptor getBetterLeader() {
         return betterLeader;
     }
 
@@ -39,7 +40,7 @@ public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodAddress(buffer, betterLeader);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, betterLeader);
         return buffer;
     }
 

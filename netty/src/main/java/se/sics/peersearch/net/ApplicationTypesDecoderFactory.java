@@ -5,13 +5,19 @@
 package se.sics.peersearch.net;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import static se.sics.gvod.net.util.UserTypesDecoderFactory.readGVodNodeDescriptor;
 
 /**
  *
@@ -73,5 +79,14 @@ public class ApplicationTypesDecoderFactory {
         String descriptionPattern = UserTypesDecoderFactory.readStringLength65536(buffer);
 
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
+    }
+
+    public static Set<VodDescriptor> readVodDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        Set<VodDescriptor> addrs = new HashSet<VodDescriptor>();
+        for (int i = 0; i < len; i++) {
+            addrs.add(readGVodNodeDescriptor(buffer));
+        }
+        return addrs;
     }
 }

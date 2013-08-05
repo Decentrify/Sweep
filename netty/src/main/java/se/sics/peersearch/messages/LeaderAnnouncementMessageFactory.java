@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.VodAddress;
@@ -21,7 +22,7 @@ public class LeaderAnnouncementMessageFactory extends DirectMsgNettyFactory.Onew
 
     @Override
     protected LeaderDeathAnnouncementMessage process(ByteBuf buffer) throws MessageDecodingException {
-        VodAddress leader = UserTypesDecoderFactory.readVodAddress(buffer);
+        VodDescriptor leader = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
         return new LeaderDeathAnnouncementMessage(vodSrc, vodDest, leader);
     }
 }

@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.RelayMsgNettyFactory;
@@ -21,17 +22,15 @@ public class ElectionMessageFactory {
         private Request() {
         }
 
-        public static ElectionMessage.Request fromBuffer(ByteBuf buffer)
-                throws MessageDecodingException {
-            return (ElectionMessage.Request)
-                    new ElectionMessageFactory.Request().decode(buffer, true);
+        public static ElectionMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (ElectionMessage.Request) new ElectionMessageFactory.Request().decode(buffer, true);
         }
-
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
-            return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter);
+            VodDescriptor vodDescriptor = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+            return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter, vodDescriptor);
         }
     }
 
@@ -40,10 +39,8 @@ public class ElectionMessageFactory {
         private Response() {
         }
 
-        public static ElectionMessage.Response fromBuffer(ByteBuf buffer)
-                throws MessageDecodingException {
-            return (ElectionMessage.Response)
-                    new ElectionMessageFactory.Response().decode(buffer, true);
+        public static ElectionMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (ElectionMessage.Response) new ElectionMessageFactory.Response().decode(buffer, true);
         }
 
 
@@ -53,7 +50,7 @@ public class ElectionMessageFactory {
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
-            VodAddress highest = UserTypesDecoderFactory.readVodAddress(buffer);
+            VodDescriptor highest = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
             return new ElectionMessage.Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
     }

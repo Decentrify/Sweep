@@ -1,9 +1,9 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
@@ -21,19 +21,25 @@ import se.sics.peersearch.net.MessageFrameDecoder;
 public class ElectionMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final int voteID;
+        private final VodDescriptor leaderCandicateDescriptor;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID, VodDescriptor leaderCandidateDescriptor) {
             super(source, destination, timeoutId);
             this.voteID = voteID;
+            this.leaderCandicateDescriptor = leaderCandidateDescriptor;
         }
 
         public int getVoteID() {
             return voteID;
         }
 
+        public VodDescriptor getLeaderCandidateDescriptor() {
+            return leaderCandicateDescriptor;
+        }
+
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, voteID);
+            return new Request(vodSrc, vodDest, timeoutId, voteID, leaderCandicateDescriptor);
         }
 
         @Override
@@ -50,6 +56,7 @@ public class ElectionMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeInt(voteID);
+            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, leaderCandicateDescriptor);
             return buffer;
         }
     }
@@ -58,14 +65,14 @@ public class ElectionMessage {
         private final int voteId;
         private final boolean isConvereged;
         private final boolean vote;
-        private final VodAddress highest;
+        private final VodDescriptor highestUtilityNode;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteId, boolean converged, boolean vote, VodAddress highest) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteId, boolean converged, boolean vote, VodDescriptor highestUtilityNode) {
             super(source, destination, timeoutId);
             this.voteId = voteId;
             isConvereged = converged;
             this.vote = vote;
-            this.highest = highest;
+            this.highestUtilityNode = highestUtilityNode;
         }
 
         public int getVoteId() {
@@ -80,13 +87,13 @@ public class ElectionMessage {
             return vote;
         }
 
-        public VodAddress getHighest() {
-            return highest;
+        public VodDescriptor getHighestUtilityNode() {
+            return highestUtilityNode;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
+            return new Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highestUtilityNode);
         }
 
         @Override
@@ -95,7 +102,7 @@ public class ElectionMessage {
             buffer.writeInt(voteId);
             UserTypesEncoderFactory.writeBoolean(buffer, isConvereged);
             UserTypesEncoderFactory.writeBoolean(buffer, vote);
-            UserTypesEncoderFactory.writeVodAddress(buffer, highest);
+            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, highestUtilityNode);
             return buffer;
         }
 

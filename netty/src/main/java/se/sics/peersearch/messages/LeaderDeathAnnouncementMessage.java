@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -15,15 +16,15 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 12:32 PM
  */
 public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
-    private final VodAddress leader;
+    private final VodDescriptor leader;
 
     /**
      * Creates a new LeaderAnnouncementMsg
      * @param source
      * @param destination
-     * @param leader VodAddress of the leader
+     * @param leader VodDescriptor of the leader
      */
-    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, VodAddress leader) {
+    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, VodDescriptor leader) {
         super(source, destination);
         this.leader = leader;
     }
@@ -32,7 +33,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
      * Returns the leader
      * @return leader's VodAddress
      */
-    public VodAddress getLeader() {
+    public VodDescriptor getLeader() {
         return leader;
     }
 
@@ -49,7 +50,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodAddress(buffer, leader);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, leader);
         return buffer;
     }
 

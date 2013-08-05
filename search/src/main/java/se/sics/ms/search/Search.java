@@ -164,7 +164,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
-            // TODO move time to own sonfig instead of using the gradient period
+            // TODO move time to own config instead of using the gradient period
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
             rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);

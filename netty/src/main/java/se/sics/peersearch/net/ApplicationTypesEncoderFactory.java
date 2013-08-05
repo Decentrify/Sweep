@@ -5,11 +5,16 @@
 package se.sics.peersearch.net;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
+
+import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
 
@@ -73,5 +78,16 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, pattern.getLanguage());
         buffer.writeInt(pattern.getCategory().ordinal());
         writeStringLength65536(buffer, pattern.getDescriptionPattern());
+    }
+
+    public static void writeVodDescriptorSet(ByteBuf buffer, Set<VodDescriptor> nodeDescriptors) throws MessageEncodingException {
+        if (nodeDescriptors == null) {
+            UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, 0);
+            return;
+        }
+        writeUnsignedintAsTwoBytes(buffer, nodeDescriptors.size());
+        for (VodDescriptor node : nodeDescriptors) {
+            writeVodNodeDescriptor(buffer, node);
+        }
     }
 }

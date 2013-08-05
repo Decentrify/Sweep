@@ -1,8 +1,8 @@
 package se.sics.ms.election;
 
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.ComponentDefinition;
@@ -19,7 +19,7 @@ import se.sics.peersearch.messages.LeaderViewMessage;
 import se.sics.peersearch.messages.RejectFollowerMessage;
 import se.sics.peersearch.messages.RejectLeaderMessage;
 
-import java.util.ArrayList;
+import java.util.SortedSet;
 
 /**
  * This component contains functions for how a node will find out if it is the
@@ -35,10 +35,10 @@ public class ElectionLeader extends ComponentDefinition {
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
-	private int yesVotes, totalVotes, electionCounter, convergedCounter;
+	private int yesVotes, totalVotes, electionCounter, convergedNodesCounter;
 	private boolean electionInProgress, iAmLeader;
 	private Self self;
-	private ArrayList<VodAddress> lowerNodes, higherNodes;
+	private SortedSet<VodDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
 
 	/**
@@ -64,7 +64,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	public ElectionLeader() {
 		subscribe(handleInit, control);
-		subscribe(handleHeartBeats, timerPort);
+		subscribe(handleHeartbeats, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
 		subscribe(handleVotingResponse, networkPort);
 		subscribe(handleLeaderRejection, networkPort);
@@ -84,9 +84,6 @@ public class ElectionLeader extends ComponentDefinition {
 
 			iAmLeader = false;
 			electionInProgress = false;
-
-			lowerNodes = new ArrayList<VodAddress>();
-			higherNodes = new ArrayList<VodAddress>();
 		}
 	};
 
@@ -98,28 +95,27 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
 		@Override
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
-			higherNodes = event.getHigherNodes();
-			lowerNodes = event.getLowerNodes();
+			higherUtilityNodes = event.getHigherUtilityNodes(self.getDescriptor());
+			lowerUtilityNodes = event.getLowerUtilityNodes(self.getDescriptor());
 
 			// Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
-			for (VodAddress node : higherNodes) {
-				builder.append(node.getId() + " ");
+			for (VodDescriptor node : higherUtilityNodes) {
+				builder.append(node.getVodAddress().getId() + " ");
 			}
-			for (VodAddress node : lowerNodes) {
-				builder.append(node.getId() + " ");
+			for (VodDescriptor node : lowerUtilityNodes) {
+				builder.append(node.getVodAddress().getId() + " ");
 			}
 			Snapshot.setCurrentView(self.getAddress(), builder.toString());
 
 			if (event.isConverged()
 					&& !iAmLeader
 					&& !electionInProgress
-					&& event.getHigherNodes().size() == 0
-					&& event.getLowerNodes().size() >= config
-							.getMinSizeOfElectionGroup()) {
+					&& higherUtilityNodes.size() == 0
+					&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()) {
 
 				startVote();
-			} else if (iAmLeader && higherNodes.size() != 0) {
+			} else if (iAmLeader && higherUtilityNodes.size() != 0) {
                 rejected();
             }
 		}
@@ -137,12 +133,9 @@ public class ElectionLeader extends ComponentDefinition {
 				totalVotes++;
 				if (event.isVote() == true) {
 					yesVotes++;
-				} else {
-					// Rejected because there is a node above me
-                    rejected();
 				}
 				if (event.isConvereged() == true) {
-					convergedCounter++;
+					convergedNodesCounter++;
 				}
 			}
 
@@ -168,7 +161,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * A handler that will periodically send out heart beats to the node's
 	 * (leader's) followers
 	 */
-	Handler<HeartbeatSchedule> handleHeartBeats = new Handler<HeartbeatSchedule>() {
+	Handler<HeartbeatSchedule> handleHeartbeats = new Handler<HeartbeatSchedule>() {
 		@Override
 		public void handle(HeartbeatSchedule event) {
             sendLeaderView();
@@ -194,7 +187,15 @@ public class ElectionLeader extends ComponentDefinition {
 	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
 		@Override
 		public void handle(RejectFollowerMessage.Request event) {
-			boolean sourceIsInView = lowerNodes.contains(event.getVodDestination());
+			boolean sourceIsInView = false;
+
+            for (VodDescriptor vodDescriptor : lowerUtilityNodes) {
+                if (vodDescriptor.getVodAddress().equals(event.getVodSource())) {
+                    sourceIsInView = true;
+                    break;
+                }
+            }
+
             RejectFollowerMessage.Response msg = new RejectFollowerMessage.Response(self.getAddress(), event.getVodSource(), UUID.nextUUID(), sourceIsInView);
 			trigger(msg, networkPort);
 		}
@@ -213,20 +214,18 @@ public class ElectionLeader extends ComponentDefinition {
 		// then the leader candidate will be elected leader
 
 		if (yesVotes == totalVotes
-				&& higherNodes.size() == 0
-				&& lowerNodes.size() >= config.getMinSizeOfElectionGroup()
-				&& convergedCounter >= config
-						.getMinNumberOfConvergedNodes()
-				&& ((float) yesVotes >= Math.ceil((float) lowerNodes.size()
-						* config.getMinPercentageOfVotes()))) {
+				&& higherUtilityNodes.size() == 0
+				&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()
+				&& convergedNodesCounter >= config.getMinNumberOfConvergedNodes()
+				&& ((float) yesVotes >= Math.ceil((float) lowerUtilityNodes.size() * config.getMinPercentageOfVotes()))) {
 
 			// if you won the election while you were already a leader for some
 			// reason skip the following
 			if (iAmLeader == false) {
 				// Create view for Snapshot
 				StringBuilder builder = new StringBuilder();
-				for (VodAddress node : lowerNodes) {
-					builder.append(node.getId() + " ");
+				for (VodDescriptor node : lowerUtilityNodes) {
+					builder.append(node.getVodAddress().getId() + " ");
 				}
 				Snapshot.setElectionView(self.getAddress(), builder.toString());
 				Snapshot.setLeaderStatus(self.getAddress(), true);
@@ -235,9 +234,7 @@ public class ElectionLeader extends ComponentDefinition {
 				iAmLeader = true;
 
 				// Start heart beat timeout
-				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(
-						config.getHeartbeatTimeoutDelay(),
-						config.getHeartbeatTimeoutInterval());
+				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(config.getHeartbeatTimeoutDelay(), config.getHeartbeatTimeoutInterval());
 				timeout.setTimeoutEvent(new HeartbeatSchedule(timeout, self.getId()));
 			    heartbeatTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 				trigger(timeout, timerPort);
@@ -254,7 +251,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void startVote() {
         electionInProgress = true;
-        numberOfNodesAtVotingTime = lowerNodes.size();
+        numberOfNodesAtVotingTime = lowerUtilityNodes.size();
         // The electionCounter works as an ID for every time an election is held
         // That way replies from old elections won't count
         electionCounter++;
@@ -266,8 +263,8 @@ public class ElectionLeader extends ComponentDefinition {
 		ElectionMessage.Request vote;
 
 		// Broadcasts the vote requests to the nodes in the view
-		for (VodAddress receiver : lowerNodes) {
-			vote = new ElectionMessage.Request(self.getAddress(), receiver, voteTimeoutId, electionCounter);
+		for (VodDescriptor receiver : lowerUtilityNodes) {
+			vote = new ElectionMessage.Request(self.getAddress(), receiver.getVodAddress(), voteTimeoutId, electionCounter, self.getDescriptor());
 			trigger(vote, networkPort);
 		}
 
@@ -281,9 +278,9 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void sendLeaderView() {
 		// Broadcasts the leader's current view to it's followers
-		for (VodAddress receiver : lowerNodes) {
+		for (VodDescriptor receiver : lowerUtilityNodes) {
             // TODO don't send the view every time
-            LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver, lowerNodes.toArray(new VodAddress[lowerNodes.size()]));
+            LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver.getVodAddress(), self.getDescriptor(), lowerUtilityNodes);
 			trigger(msg, networkPort);
 		}
 	}
@@ -296,7 +293,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 		yesVotes = 0;
 		totalVotes = 0;
-		convergedCounter = 0;
+		convergedNodesCounter = 0;
 
         if (voteTimeoutId != null) {
             CancelTimeout timeout = new CancelTimeout(voteTimeoutId);
@@ -314,15 +311,9 @@ public class ElectionLeader extends ComponentDefinition {
 	 * regular node again
 	 */
 	private void rejected() {
-        if (!electionInProgress && !iAmLeader) {
-            return;
-        }
-
-		if (iAmLeader == true) {
-            iAmLeader = false;
-            trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-            Snapshot.setLeaderStatus(self.getAddress(), false);
-		}
+        iAmLeader = false;
+        trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+        Snapshot.setLeaderStatus(self.getAddress(), false);
 		variableReset();
 	}
 }

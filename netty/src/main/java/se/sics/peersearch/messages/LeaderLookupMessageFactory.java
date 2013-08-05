@@ -1,6 +1,7 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
@@ -8,6 +9,8 @@ import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.net.ApplicationTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
+
+import java.util.List;
 
 /**
  *
@@ -42,7 +45,7 @@ public class LeaderLookupMessageFactory {
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean terminated = buffer.readBoolean();
-            VodAddress[] items = ApplicationTypesDecoderFactory.readVodAddressArray(buffer);
+            List<VodDescriptor> items = UserTypesDecoderFactory.readListGVodNodeDescriptors(buffer);
             return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, terminated, items);
         }
     }
