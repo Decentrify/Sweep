@@ -370,7 +370,7 @@ public class ElectionFollower extends ComponentDefinition {
         leader = node;
         leaderView = view;
 
-        // Cancel old timeouts and create a new one
+        cancelHeartbeatTimeout();
         scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
     }
 
