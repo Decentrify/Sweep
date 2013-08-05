@@ -8,11 +8,11 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
-import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.gvod.timer.UUID;
 import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
+
+import java.util.Set;
 
 /**
  * Created with IntelliJ IDEA.
@@ -24,19 +24,15 @@ public class GradientShuffleMessage {
     public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final VodDescriptor[] addresses;
+        private final Set<VodDescriptor> vodDescriptors;
 
-        public VodDescriptor[] getAddresses() {
-            return addresses;
+        public Set<VodDescriptor> getVodDescriptors() {
+            return vodDescriptors;
         }
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, VodDescriptor[] addresses) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<VodDescriptor> vodDescriptors) {
             super(source, destination, timeoutId);
-
-            if(addresses == null)
-                throw new NullPointerException("addresses can't be null");
-
-            this.addresses = addresses;
+            this.vodDescriptors = vodDescriptors;
         }
 
         @Override
@@ -46,13 +42,13 @@ public class GradientShuffleMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, addresses);
+            return new Request(vodSrc, vodDest, timeoutId, vodDescriptors);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeVodAddressArray(buffer, addresses);
+            ApplicationTypesEncoderFactory.writeVodDescriptorSet(buffer, vodDescriptors);
             return buffer;
         }
 
@@ -65,19 +61,15 @@ public class GradientShuffleMessage {
     public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final VodDescriptor[] addresses;
+        private final Set<VodDescriptor> vodDescriptors;
 
-        public VodDescriptor[] getAddresses() {
-            return addresses;
+        public Set<VodDescriptor> getVodDescriptors() {
+            return vodDescriptors;
         }
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, VodDescriptor[] addresses) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<VodDescriptor> vodDescriptors) {
             super(source, destination, timeoutId);
-
-            if(addresses == null)
-                throw new NullPointerException("addresses can't be null");
-
-            this.addresses = addresses;
+            this.vodDescriptors = vodDescriptors;
         }
 
         @Override
@@ -87,13 +79,13 @@ public class GradientShuffleMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, timeoutId, addresses);
+            return new Response(vodSrc, vodDest, timeoutId, vodDescriptors);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeVodAddressArray(buffer, addresses);
+            ApplicationTypesEncoderFactory.writeVodDescriptorSet(buffer, vodDescriptors);
             return buffer;
         }
 

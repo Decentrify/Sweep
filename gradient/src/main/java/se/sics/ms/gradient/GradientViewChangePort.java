@@ -1,7 +1,9 @@
 package se.sics.ms.gradient;
 
 import java.util.ArrayList;
+import java.util.SortedSet;
 
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
@@ -19,26 +21,20 @@ public class GradientViewChangePort extends PortType {
 	 */
 	public static class GradientViewChanged extends Event {
 		private final boolean isConverged;
-		private final ArrayList<VodAddress> higherNodes, lowerNodes;
+		private final SortedSet<VodDescriptor> gradientView;
 
 		/**
 		 * Default constructor
 		 * 
 		 * @param isConverged
 		 *            true if the node's view has converged
-		 * @param higherNodes
-		 *            a list of nodes with higher utility values compared to
-		 *            itself in ascending order
-		 * @param lowerNodes
-		 *            a list of nodes with lower utility values compared to
-		 *            itself in ascending order
+		 * @param gradientView
+		 *            the current view of the gradient
 		 */
-		public GradientViewChanged(boolean isConverged, ArrayList<VodAddress> higherNodes,
-                                   ArrayList<VodAddress> lowerNodes) {
+		public GradientViewChanged(boolean isConverged, SortedSet<VodDescriptor> gradientView) {
 			super();
 			this.isConverged = isConverged;
-			this.higherNodes = higherNodes;
-			this.lowerNodes = lowerNodes;
+			this.gradientView = gradientView;
 		}
 
 		/**
@@ -50,22 +46,31 @@ public class GradientViewChangePort extends PortType {
 			return this.isConverged;
 		}
 
-		/**
-		 * Getter for the list of nodes with higher utility values than itself
-		 * 
-		 * @return the list of nodes
-		 */
-		public ArrayList<VodAddress> getHigherNodes() {
-			return this.higherNodes;
-		}
+        /**
+         * The set is backed by the view of this event so changes to one of them affects the other
+         *
+         * @return all nodes in the view
+         */
+        public SortedSet<VodDescriptor> getGradientView() {
+            return gradientView;
+        }
 
-		/**
-		 * Getter for the list of nodes with lower utility values than itself
-		 * 
-		 * @return the list of nodes
-		 */
-		public ArrayList<VodAddress> getLowerNodes() {
-			return this.lowerNodes;
-		}
+        /**
+         * The set is backed by the view of this event so changes to one of them affects the other.
+         *
+         * @return all nodes with a higher preference value than the given descriptor in ascending order
+         */
+        public SortedSet<VodDescriptor> getHigherUtilityNodes(VodDescriptor vodDescriptor) {
+            return gradientView.tailSet(vodDescriptor);
+        }
+
+        /**
+         * The set is backed by the view of this event so changes to one of them affects the other
+         *
+         * @return all nodes with a lower preference value than the given descriptor in ascending order
+         */
+        public SortedSet<VodDescriptor> getLowerUtilityNodes(VodDescriptor vodDescriptor) {
+            return gradientView.headSet(vodDescriptor);
+        }
 	}
 }

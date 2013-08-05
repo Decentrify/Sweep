@@ -285,14 +285,15 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionRequest() {
         int counter = 1;
-        ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter);
+        VodDescriptor self = new VodDescriptor(gSrc);
+        ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter, self);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ElectionMessage.Request request =
-                    ElectionMessageFactory.Request.fromBuffer(buffer);
+            ElectionMessage.Request request = ElectionMessageFactory.Request.fromBuffer(buffer);
 
             assert (request.getVoteID() == counter);
+            assert (request.getLeaderCandidateDescriptor().equals(self));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -315,19 +316,18 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
-                VodConfig.SYSTEM_OVERLAY_ID, nat);
-        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, vodAddress1);
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, vodDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ElectionMessage.Response response =
-                    ElectionMessageFactory.Response.fromBuffer(buffer);
+            ElectionMessage.Response response = ElectionMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.isConvereged() == converged);
             assert (response.getVoteId() == voteId);
             assert (response.isVote() == vote);
-            assert (response.getHighest().equals(vodAddress1));
+            assert (response.getHighestUtilityNode().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -348,15 +348,16 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
+        set.add(vodDescriptor);
 
-        GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
+        GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), set);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            GradientShuffleMessage.Request request =
-                    GradientShuffleMessageFactory.Request.fromBuffer(buffer);
-            for(int i=0; i<request.getAddresses().length; i++)
-                assert (request.getAddresses()[i].equals(vodAddress1));
+            GradientShuffleMessage.Request request = GradientShuffleMessageFactory.Request.fromBuffer(buffer);
+            assert (request.getVodDescriptors().iterator().next().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -377,15 +378,17 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
+        set.add(vodDescriptor);
 
-        GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), new VodAddress[]{vodAddress1});
+        GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), set);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GradientShuffleMessage.Response response =
                     GradientShuffleMessageFactory.Response.fromBuffer(buffer);
-            for(int i=0; i<response.getAddresses().length; i++)
-                assert (response.getAddresses()[i].equals(vodAddress1));
+            assert (response.getVodDescriptors().iterator().next().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -404,16 +407,15 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
-                VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
 
-        LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, vodAddress1);
+        LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, vodDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            LeaderDeathAnnouncementMessage response =
-                    LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
-            assert (response.getLeader().equals(vodAddress1));
+            LeaderDeathAnnouncementMessage response = LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
+            assert (response.getLeader().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -541,19 +543,22 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
-                VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor leaderVodDescriptor = new VodDescriptor(gSrc);
+        VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
+        set.add(vodDescriptor);
 
-        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, new VodAddress[]{vodAddress1});
+        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderVodDescriptor, set);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            LeaderViewMessage response =
-                    VotingResultMessageFactory.fromBuffer(buffer);
+            LeaderViewMessage response = VotingResultMessageFactory.fromBuffer(buffer);
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
-            assert (response.getView()[0].equals(vodAddress1));
+            assert (response.getLeaderVodDescriptor().equals(leaderVodDescriptor));
+            assert (response.getVodDescriptors().iterator().next().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -619,8 +624,9 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
 
-        RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, vodAddress1);
+        RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, vodDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -629,7 +635,7 @@ public class EncodingDecodingTest {
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
-            assert (response.getBetterLeader().equals(vodAddress1));
+            assert (response.getBetterLeader().equals(vodDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -667,8 +673,10 @@ public class EncodingDecodingTest {
         boolean terminated = false;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress);
 
-        VodAddress[] items = new VodAddress[]{vodAddress};
+        List<VodDescriptor> items = new ArrayList<VodDescriptor>();
+        items.add(vodDescriptor);
         LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), terminated, items);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -676,7 +684,7 @@ public class EncodingDecodingTest {
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
             assert terminated == response.isLeader();
-            assert (response.getAddresses()[0].equals(vodAddress));
+            assert (response.getVodDescriptors().get(0).equals(vodDescriptor));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);

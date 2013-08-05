@@ -1,26 +1,24 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package se.sics.peersearch.net;
 
 import io.netty.buffer.ByteBuf;
 import org.apache.commons.codec.binary.Base64;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
-import sun.misc.BASE64Decoder;
 
-import java.io.IOException;
 import java.security.KeyFactory;
-import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import static se.sics.gvod.net.util.UserTypesDecoderFactory.readGVodNodeDescriptor;
 
 /**
  *
@@ -51,9 +49,9 @@ public class ApplicationTypesDecoderFactory {
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         } catch (InvalidKeySpecException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
 
         return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
@@ -97,5 +95,14 @@ public class ApplicationTypesDecoderFactory {
         String descriptionPattern = UserTypesDecoderFactory.readStringLength65536(buffer);
 
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
+    }
+
+    public static Set<VodDescriptor> readVodDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        Set<VodDescriptor> addrs = new HashSet<VodDescriptor>();
+        for (int i = 0; i < len; i++) {
+            addrs.add(readGVodNodeDescriptor(buffer));
+        }
+        return addrs;
     }
 }

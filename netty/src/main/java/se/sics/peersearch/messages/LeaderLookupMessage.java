@@ -1,22 +1,25 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
+import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
+
+import java.util.List;
 
 /**
  * @author Steffen Grohsschmiedt
  */
 public class LeaderLookupMessage {
-    public static final int A = 3;
-    public static final int K = 5;
+    public static final int A = 4;
+    public static final int K = 4;
 
     public static class Request extends DirectMsgNetty.Request {
 
@@ -50,16 +53,12 @@ public class LeaderLookupMessage {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final boolean leader;
-        private final VodAddress[] addresses;
+        private final List<VodDescriptor> vodDescriptors;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, VodAddress[] addresses) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, List<VodDescriptor> vodDescriptors) {
             super(source, destination, timeoutId);
-
-            if(addresses == null)
-                throw new NullPointerException("addresses can't be null");
-
             this.leader = leader;
-            this.addresses = addresses;
+            this.vodDescriptors = vodDescriptors;
         }
 
         @Override
@@ -72,20 +71,20 @@ public class LeaderLookupMessage {
             return leader;
         }
 
-        public VodAddress[] getAddresses() {
-            return addresses;
+        public List<VodDescriptor> getVodDescriptors() {
+            return vodDescriptors;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return  new Response(vodSrc, vodDest, timeoutId, leader, addresses);
+            return  new Response(vodSrc, vodDest, timeoutId, leader, vodDescriptors);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeBoolean(leader);
-            ApplicationTypesEncoderFactory.writeVodAddressArray(buffer, addresses);
+            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, vodDescriptors);
             return buffer;
         }
 

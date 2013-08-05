@@ -1,12 +1,17 @@
 package se.sics.peersearch.messages;
 
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
+
+import java.util.Set;
+import java.util.SortedSet;
 
 /**
  * Created with IntelliJ IDEA.
@@ -15,19 +20,21 @@ import se.sics.peersearch.net.MessageFrameDecoder;
  * Time: 10:48 AM
  */
 public class LeaderViewMessage extends DirectMsgNetty.Oneway {
-    private final VodAddress[] view;
+    private final VodDescriptor leaderVodDescriptor;
+    private final Set<VodDescriptor> vodDescriptors;
 
-    public LeaderViewMessage(VodAddress source, VodAddress destination, VodAddress[] view) {
+    public LeaderViewMessage(VodAddress source, VodAddress destination, VodDescriptor leaderVodDescriptor, Set<VodDescriptor> vodDescriptors) {
         super(source, destination);
-
-        if(view == null)
-            throw new NullPointerException("view can't be null");
-
-        this.view = view;
+        this.vodDescriptors = vodDescriptors;
+        this.leaderVodDescriptor = leaderVodDescriptor;
     }
 
-    public VodAddress[] getView() {
-        return view;
+    public VodDescriptor getLeaderVodDescriptor() {
+        return leaderVodDescriptor;
+    }
+
+    public Set<VodDescriptor> getVodDescriptors() {
+        return vodDescriptors;
     }
 
     @Override
@@ -37,13 +44,14 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new LeaderViewMessage(vodSrc, vodDest, view);
+        return new LeaderViewMessage(vodSrc, vodDest, leaderVodDescriptor, vodDescriptors);
     }
 
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        ApplicationTypesEncoderFactory.writeVodAddressArray(buffer, view);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, leaderVodDescriptor);
+        ApplicationTypesEncoderFactory.writeVodDescriptorSet(buffer, vodDescriptors);
         return buffer;
     }
 

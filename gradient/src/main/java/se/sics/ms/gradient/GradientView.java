@@ -16,15 +16,16 @@ import se.sics.gvod.net.VodAddress;
  */
 public class GradientView {
     private static final Logger logger = LoggerFactory.getLogger(GradientView.class);
-	private TreeSet<VodDescriptor> entries;
     private TreeMap<VodAddress, VodDescriptor> mapping;
+	private TreeSet<VodDescriptor> entries;
 	private Self self;
 	private int size;
-	private final Comparator<VodDescriptor> utilityComparator;
+	private final Comparator<VodDescriptor> preferenceComparator;
     private final int convergenceTestRounds;
     private int currentConvergedRounds;
 	private boolean converged, changed;
 	private final double convergenceTest;
+    private final UtilityComparator utilityComparator = new UtilityComparator();
 
 	/**
 	 * @param self
@@ -38,7 +39,7 @@ public class GradientView {
      *            the number of rounds the convergenceTest needs to be satisfied for the view to be converged
 	 */
 	public GradientView(Self self, int size, double convergenceTest, int convergenceTestRounds) {
-        this.utilityComparator = new UtilityComparator(self.getDescriptor());
+        this.preferenceComparator = new PreferenceComparator(self.getDescriptor());
         this.mapping = new TreeMap<VodAddress, VodDescriptor>();
 		this.entries = new TreeSet<VodDescriptor>(utilityComparator);
 		this.self = self;
@@ -57,23 +58,34 @@ public class GradientView {
 	 *            the vodDescriptor to be added
 	 */
 	protected void add(VodDescriptor vodDescriptor) {
-        if (vodDescriptor.equals(self.getDescriptor())) {
+        if (vodDescriptor.getVodAddress().equals(self.getAddress())) {
             logger.warn("{} tried to add itself to its GradientView", self.getAddress());
             return;
         }
 
         int oldSize = entries.size();
-		entries.add(vodDescriptor);
+
+        if (mapping.containsKey(vodDescriptor.getVodAddress())) {
+            VodDescriptor currentVodDescriptor = mapping.get(vodDescriptor.getVodAddress());
+            if (currentVodDescriptor.equals(vodDescriptor)) {
+                return;
+            } else {
+                entries.remove(currentVodDescriptor);
+                changed = true;
+            }
+        }
+
         mapping.put(vodDescriptor.getVodAddress(), vodDescriptor);
+        entries.add(vodDescriptor);
 
         if (!changed) {
             changed = !(oldSize == entries.size());
         }
 
 		if (entries.size() > size) {
-			SortedSet<VodDescriptor> set = getClosestNodes(size);
+			SortedSet<VodDescriptor> set = getClosestNodes(size + 1);
             VodDescriptor leastPreferred = set.first();
-			remove(leastPreferred);
+			remove(leastPreferred.getVodAddress());
 		}
 	}
 
@@ -83,9 +95,15 @@ public class GradientView {
 	 * @param address
 	 *            the node to be removed
 	 */
-	protected void remove(VodDescriptor address) {
+	protected void remove(VodAddress address) {
         int oldSize = entries.size();
-		entries.remove(address);
+        VodDescriptor toRemove = mapping.remove(address);
+
+        if (toRemove == null) {
+            return;
+        }
+
+		entries.remove(toRemove);
         if (!changed) {
             changed = !(oldSize == entries.size());
         }
@@ -111,15 +129,15 @@ public class GradientView {
 	 * Merge a collection of nodes in the view and drop the least preferred
 	 * nodes if the size limit is reached.
 	 * 
-	 * @param addresses
+	 * @param vodDescriptors
 	 *            the nodes to be merged
 	 */
-	protected void merge(VodDescriptor[] addresses) {
+	protected void merge(Collection<VodDescriptor> vodDescriptors) {
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
-		for (VodDescriptor address : addresses) {
-			add(address);
+		for (VodDescriptor vodDescriptor : vodDescriptors) {
+			add(vodDescriptor);
 		}
 
 		oldEntries.retainAll(entries);
@@ -139,24 +157,25 @@ public class GradientView {
 	}
 
 	/**
-	 * Return the number most preferred nodes for the given address.
+	 * Return the number most preferred nodes for the given vodDescriptor.
 	 * 
-	 * @param address
-	 *            the address to compare with
+	 * @param vodDescriptor
+	 *            the vodDescriptor to compare with
 	 * @param number
 	 *            the maximum number of entries to return
 	 * @return a collection of the most preferred nodes
 	 */
-	protected SortedSet<VodDescriptor> getExchangeNodes(VodDescriptor address, int number) {
-		SortedSet<VodDescriptor> set = getClosestNodes(address, number);
-		set.add(self.getDescriptor());
-        set.remove(address);
+	protected SortedSet<VodDescriptor> getExchangeDescriptors(VodDescriptor vodDescriptor, int number) {
+		SortedSet<VodDescriptor> set = getClosestNodes(vodDescriptor, number);
+
+        set.add(self.getDescriptor());
+        set.remove(vodDescriptor);
 
         try {
-            assert !set.contains(address);
+            assert !set.contains(vodDescriptor);
         } catch (AssertionError e) {
             StringBuilder builder = new StringBuilder();
-            builder.append(self.getAddress().toString() + " should not include address of the exchange partner " + address.toString());
+            builder.append(self.getAddress().toString() + " should not include vodDescriptor of the exchange partner " + vodDescriptor.toString());
             builder.append("\n exchange set content:");
             for (VodDescriptor a : set) {
                 builder.append("\n" + a.toString());
@@ -177,14 +196,14 @@ public class GradientView {
 	 * @return all nodes with a higher preference value than self in ascending order
 	 */
 	protected SortedSet<VodDescriptor> getHigherUtilityNodes() {
-		return entries.headSet(self.getDescriptor());
+		return entries.tailSet(self.getDescriptor());
 	}
 
 	/**
 	 * @return all nodes with a lower preference value than self in ascending order
 	 */
 	protected SortedSet<VodDescriptor> getLowerUtilityNodes() {
-		return entries.tailSet(self.getDescriptor());
+		return entries.headSet(self.getDescriptor());
 	}
 
 	/**
@@ -249,42 +268,28 @@ public class GradientView {
 	 * closer to the base are the best once. Closer nodes are preferred to nodes
 	 * further away.
 	 */
-	private class UtilityComparator implements Comparator<VodDescriptor> {
+	private class PreferenceComparator implements Comparator<VodDescriptor> {
 		private VodDescriptor base;
 
-		public UtilityComparator(VodDescriptor base) {
+		public PreferenceComparator(VodDescriptor base) {
 			super();
 			this.base = base;
 		}
 
 		@Override
 		public int compare(VodDescriptor o1, VodDescriptor o2) {
-            int baseId = base.getVodAddress().getId();
-            int id1 = o1.getVodAddress().getId();
-            int id2 = o2.getVodAddress().getId();
-			try {
-                assert id1 != id2;
-            } catch (AssertionError e) {
-                StringBuilder builder = new StringBuilder();
-                builder.append(self.getAddress().toString() + " duplicated view entries are forbidden\n");
-                builder.append("View content:");
-                for (VodDescriptor a : entries) {
-                    builder.append("\n" + a.toString());
-                }
-                AssertionError error = new AssertionError(builder);
-                error.setStackTrace(e.getStackTrace());
-                throw error;
-            }
 
-            if (id1 == baseId) {
+            if (utilityComparator.compare(o1, o2) == 0) {
+                return 0;
+            } else if (utilityComparator.compare(o1, base) == 0) {
                 return 1;
-            } else if (id2 == baseId) {
+            } else if (utilityComparator.compare(o2, base) == 0) {
                 return -1;
-            } else if (id1 < baseId && id2 > baseId) {
+            } else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == -1) {
 				return 1;
-			} else if (id1 < baseId && id2 < baseId && id1 > id2) {
+			} else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == 1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
-			} else if (id1 > baseId && id2 > baseId && id1 < id2) {
+			} else if (utilityComparator.compare(o1, base) == -1 && utilityComparator.compare(o2, base) == -1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
 			}
 			return -1;
@@ -299,7 +304,7 @@ public class GradientView {
 	 * @return a sorted list of the closest nodes to self
 	 */
 	private SortedSet<VodDescriptor> getClosestNodes(int number) {
-		return getClosestNodes(number, utilityComparator);
+		return getClosestNodes(number, preferenceComparator);
 	}
 
 	/**
@@ -312,7 +317,7 @@ public class GradientView {
 	 * @return a sorted list of the closest nodes to the given address
 	 */
 	private SortedSet<VodDescriptor> getClosestNodes(VodDescriptor address, int number) {
-		return getClosestNodes(number, new UtilityComparator(address));
+		return getClosestNodes(number, new PreferenceComparator(address));
 	}
 
 	/**
