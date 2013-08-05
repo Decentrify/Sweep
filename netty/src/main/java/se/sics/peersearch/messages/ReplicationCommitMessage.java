@@ -6,49 +6,47 @@ import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
-import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Created with IntelliJ IDEA.
  * User: kazarindn
  * Date: 8/2/13
- * Time: 5:19 PM
+ * Time: 5:36 PM
  */
-public class PrepairCommitMessage {
+public class ReplicationCommitMessage {
     public static class Request extends DirectMsgNetty.Request {
-        private final IndexEntry entry;
+        private final long entryId;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long entryId) {
             super(source, destination, timeoutId);
-            this.entry = entry;
+            this.entryId = entryId;
         }
 
-        public IndexEntry getEntry() {
-            return entry;
+        public long getEntryId() {
+            return entryId;
         }
 
         @Override
         public int getSize() {
-            return getHeaderSize();
+            return getHeaderSize() + 8;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, entry);
+            return new Request(vodSrc, vodDest, timeoutId, entryId);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntry(buffer, entry);
+            buffer.writeLong(entryId);
             return buffer;
         }
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.PREPAIR_COMMIT_REQUEST;
+            return MessageFrameDecoder.COMMIT_REQUEST;
         }
     }
 
@@ -64,10 +62,9 @@ public class PrepairCommitMessage {
             return entryId;
         }
 
-
         @Override
         public int getSize() {
-            return getHeaderSize();
+            return getHeaderSize()+8;
         }
 
         @Override
@@ -84,7 +81,7 @@ public class PrepairCommitMessage {
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.PREPAIR_COMMIT_REQUEST;
+            return MessageFrameDecoder.COMMIT_RESPONSE;
         }
     }
 }

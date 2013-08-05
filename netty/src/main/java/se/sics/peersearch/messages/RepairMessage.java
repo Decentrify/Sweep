@@ -18,22 +18,16 @@ import se.sics.peersearch.types.IndexEntry;
  */
 public class RepairMessage {
     public static class Request extends DirectMsgNetty.Request {
-        private final IndexEntry futureEntry;
         private final Long[] missingIds;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry futureEntry, Long[] missingIds) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Long[] missingIds) {
             super(source, destination, timeoutId);
-            this.futureEntry = futureEntry;
             this.missingIds = missingIds;
         }
 
 
         public Long[] getMissingIds() {
             return missingIds;
-        }
-
-        public IndexEntry getFutureEntry() {
-            return futureEntry;
         }
 
         @Override
@@ -43,13 +37,12 @@ public class RepairMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, futureEntry, missingIds);
+            return new Request(vodSrc, vodDest, timeoutId, missingIds);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntry(buffer, futureEntry);
             ApplicationTypesEncoderFactory.writeLongArray(buffer, missingIds);
             return buffer;
         }
@@ -61,21 +54,15 @@ public class RepairMessage {
     }
 
     public static class Response extends DirectMsgNetty.Response {
-        private final IndexEntry futureEntry;
         private final IndexEntry[] missingEntries;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry futureEntry, IndexEntry[] missingEntries) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry[] missingEntries) {
             super(source, destination, timeoutId);
-            this.futureEntry = futureEntry;
             this.missingEntries = missingEntries;
         }
 
         public IndexEntry[] getMissingEntries() {
             return missingEntries;
-        }
-
-        public IndexEntry getFutureEntry() {
-            return futureEntry;
         }
 
         @Override
@@ -85,13 +72,12 @@ public class RepairMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, timeoutId, futureEntry, missingEntries);
+            return new Response(vodSrc, vodDest, timeoutId, missingEntries);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntry(buffer, futureEntry);
             ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, missingEntries);
             return buffer;
         }

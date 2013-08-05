@@ -28,8 +28,8 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for collecting {@link se.sics.peersearch.messages.ReplicationMessage.Response}s for a specific
-	 * {@link se.sics.peersearch.messages.ReplicationMessage.Request}.
+	 * Timeout for collecting {@link se.sics.peersearch.messages.RepairMessage.Response}s for a specific
+	 * {@link se.sics.peersearch.messages.RepairMessage.Request}.
 	 */
 	protected static class ReplicationTimeout extends IndividualTimeout {
 

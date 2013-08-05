@@ -6,47 +6,49 @@ import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.peersearch.net.ApplicationTypesEncoderFactory;
 import se.sics.peersearch.net.MessageFrameDecoder;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Created with IntelliJ IDEA.
  * User: kazarindn
  * Date: 8/2/13
- * Time: 5:36 PM
+ * Time: 5:19 PM
  */
-public class CommitMessage {
+public class ReplicationPrepairCommitMessage {
     public static class Request extends DirectMsgNetty.Request {
-        private final long entryId;
+        private final IndexEntry entry;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long entryId) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry entry) {
             super(source, destination, timeoutId);
-            this.entryId = entryId;
+            this.entry = entry;
         }
 
-        public long getEntryId() {
-            return entryId;
+        public IndexEntry getEntry() {
+            return entry;
         }
 
         @Override
         public int getSize() {
-            return getHeaderSize() + 8;
+            return getHeaderSize();
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, entryId);
+            return new Request(vodSrc, vodDest, timeoutId, entry);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            buffer.writeLong(entryId);
+            ApplicationTypesEncoderFactory.writeIndexEntry(buffer, entry);
             return buffer;
         }
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.COMMIT_REQUEST;
+            return MessageFrameDecoder.PREPAIR_COMMIT_REQUEST;
         }
     }
 
@@ -62,9 +64,10 @@ public class CommitMessage {
             return entryId;
         }
 
+
         @Override
         public int getSize() {
-            return getHeaderSize()+8;
+            return getHeaderSize();
         }
 
         @Override
@@ -81,7 +84,7 @@ public class CommitMessage {
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.COMMIT_RESPONSE;
+            return MessageFrameDecoder.PREPAIR_COMMIT_REQUEST;
         }
     }
 }

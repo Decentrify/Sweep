@@ -109,7 +109,7 @@ public final class Search extends ComponentDefinition {
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
     private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
-    private HashMap<TimeoutId, IndexEntry> pendingForCommit = new HashMap<TimeoutId, IndexEntry>();
+    private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
 
     // When you partition the index you need to find new nodes
     // This is a routing table maintaining a list of pairs in each partition.
@@ -135,12 +135,9 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
-        subscribe(handleReplicationRequest, networkPort);
-        subscribe(handleReplicationResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
-        subscribe(handleReplicationTimeout, timerPort);
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleGapTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
@@ -421,10 +418,10 @@ public final class Search extends ComponentDefinition {
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
-     * and try again. Send a {@link ReplicationMessage} request to a number of nodes as
+     * and try again. Send a {@link se.sics.peersearch.messages.ReplicationPrepairCommitMessage} request to a number of nodes as
      * specified in the config file and schedule a timeout to wait for
      * responses. The adding operation will be acknowledged if either all nodes
-     * responded to the {@link ReplicationMessage} request or the timeout occurred and
+     * responded to the {@link se.sics.peersearch.messages.ReplicationPrepairCommitMessage} request or the timeout occurred and
      * enough nodes, as specified in the config, responded.
      */
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
@@ -464,8 +461,7 @@ public final class Search extends ComponentDefinition {
                 if (i == 0) {
                     break;
                 }
-                trigger(new PrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry), networkPort);
-                //trigger(new ReplicationMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry, 0, 0), networkPort);
+                trigger(new ReplicationPrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), newEntry), networkPort);
                 i--;
             }
 
@@ -473,50 +469,56 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
             rst.getTimeoutEvent().setTimeoutId(event.getTimeoutId());
             trigger(rst, timerPort);
-
-            //Snapshot.setLastId(id);
         }
     };
 
-    final Handler<PrepairCommitMessage.Request> prepairCommitHandler = new Handler<PrepairCommitMessage.Request>() {
+    /**
+     * Stores on a peer in the leader group information about a new entry to be probably commited
+     */
+    final Handler<ReplicationPrepairCommitMessage.Request> prepairCommitHandler = new Handler<ReplicationPrepairCommitMessage.Request>() {
         @Override
-        public void handle(PrepairCommitMessage.Request request) {
+        public void handle(ReplicationPrepairCommitMessage.Request request) {
             IndexEntry entry = request.getEntry();
             if(!isSignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
             TimeoutId timeout = UUID.nextUUID();
+            pendingForCommit.put(request.getEntry(), timeout);
 
-            pendingForCommit.put(timeout, request.getEntry());
-
-            trigger(new PrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+            trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId()));
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry()));
             rst.getTimeoutEvent().setTimeoutId(timeout);
             trigger(rst, timerPort);
         }
     };
 
+    /**
+     * Clears rendingForCommit map as the entry wasn't commited on time
+     */
     final Handler<AwaitingForCommitTimeout> awaitingForCommitTimeoutHandler = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
-            if(pendingForCommit.containsKey(awaitingForCommitTimeout.getTimeoutId()))
-                pendingForCommit.remove(awaitingForCommitTimeout.getTimeoutId());
+            if(pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
+                pendingForCommit.remove(awaitingForCommitTimeout.getEntry());
 
         }
     };
 
-    final Handler<PrepairCommitMessage.Response> prepairCoomitResponseHandler = new Handler<PrepairCommitMessage.Response>() {
+    /**
+     * Leader gains majority of responses and issues a request for a commit
+     */
+    final Handler<ReplicationPrepairCommitMessage.Response> prepairCoomitResponseHandler = new Handler<ReplicationPrepairCommitMessage.Response>() {
         @Override
-        public void handle(PrepairCommitMessage.Response response) {
+        public void handle(ReplicationPrepairCommitMessage.Response response) {
             TimeoutId timeout = response.getTimeoutId();
 
             CancelTimeout ct = new CancelTimeout(timeout);
             trigger(ct, timerPort);
 
             ReplicationCount replicationCount = replicationRequests.get(timeout);
-            if(replicationCount != null  && !replicationCount.incrementAndCheckReceived())
+            if(replicationCount == null  || !replicationCount.incrementAndCheckReceived())
                 return;
 
             IndexEntry entryToCommit = replicationCount.getEntry();
@@ -525,13 +527,8 @@ public final class Search extends ComponentDefinition {
             replicationRequests.remove(timeout);
 
             TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            int i = bucket.size() > config.getReplicationMaximum() ? config.getReplicationMaximum() : bucket.size();
             for (VodDescriptor peer : bucket) {
-                if (i == 0) {
-                    break;
-                }
-                trigger(new CommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId()), networkPort);
-                i--;
+                trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), commitTimeout, entryToCommit.getId()), networkPort);
             }
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
@@ -541,13 +538,16 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<CommitMessage.Request> commitRequestHandler = new Handler<CommitMessage.Request>() {
+    /**
+     * Performs commit on a peer in the leader group
+     */
+    final Handler<ReplicationCommitMessage.Request> commitRequestHandler = new Handler<ReplicationCommitMessage.Request>() {
         @Override
-        public void handle(CommitMessage.Request request) {
+        public void handle(ReplicationCommitMessage.Request request) {
             long id = request.getEntryId();
 
             IndexEntry toCommit = null;
-            for (IndexEntry entry : pendingForCommit.values()) {
+            for (IndexEntry entry : pendingForCommit.keySet()) {
                 if(entry.getId() == id) {
                     toCommit = entry;
                     break;
@@ -557,19 +557,43 @@ public final class Search extends ComponentDefinition {
             if(toCommit == null)
                 return;
 
+            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
+            trigger(ct, timerPort);
+
             try {
                 addEntryLocal(toCommit);
-                trigger(new CommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
+                trigger(new ReplicationCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
                 pendingForCommit.remove(toCommit);
+
+                int numOfPartitions = config.getNumPartitions();
+                long maxStoredId = getMaxStoredId(numOfPartitions);
+
+                if(toCommit.getId() - maxStoredId == numOfPartitions)
+                    return;
+
+                ArrayList<Long> missingIds = new ArrayList<Long>();
+                long currentMissingValue = maxStoredId < 0 ? partition : maxStoredId + numOfPartitions;
+                while(currentMissingValue < toCommit.getId()) {
+                    missingIds.add(currentMissingValue);
+                    currentMissingValue += numOfPartitions;
+                }
+
+                if(missingIds.size() > 0) {
+                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingIds.toArray(new Long[missingIds.size()]));
+                    trigger(repairMessage, networkPort);
+                }
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
         }
     };
 
-    final Handler<CommitMessage.Response> commitResponseHandler = new Handler<CommitMessage.Response>() {
+    /**
+     * Save entry on the leader and send an ACK back to the client
+     */
+    final Handler<ReplicationCommitMessage.Response> commitResponseHandler = new Handler<ReplicationCommitMessage.Response>() {
         @Override
-        public void handle(CommitMessage.Response response) {
+        public void handle(ReplicationCommitMessage.Response response) {
             TimeoutId commitId = response.getTimeoutId();
 
             CancelTimeout ct = new CancelTimeout(commitId);
@@ -581,7 +605,11 @@ public final class Search extends ComponentDefinition {
             ReplicationCount replicationCount = commitRequests.get(commitId);
             try {
                 addEntryLocal(replicationCount.getEntry());
+
+                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
+
                 commitRequests.remove(commitId);
+                Snapshot.setLastId(replicationCount.getEntry().getId());
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
@@ -596,56 +624,6 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    private static boolean isSignatureValid(IndexEntry newEntry) {
-        if(newEntry.getLeaderId() == null)
-            return false;
-
-        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-
-        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
-        dataBuffer.putLong(newEntry.getId());
-        dataBuffer.putLong(newEntry.getFileSize());
-        dataBuffer.putLong(newEntry.getUploaded().getTime());
-        dataBuffer.putInt(newEntry.getCategory().ordinal());
-        dataBuffer.put(urlBytes);
-        dataBuffer.put(fileNameBytes);
-        dataBuffer.put(languageBytes);
-        dataBuffer.put(descriptionBytes);
-
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
-            System.out.println(sha1);
-
-            Signature instance = Signature.getInstance("SHA1withRSA");
-            instance.initVerify(newEntry.getLeaderId());
-            instance.update(sha1.getBytes());
-            return instance.verify(hexStringToByteArray(newEntry.getHash()));
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        } catch (SignatureException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        }
-
-        return false;
-    }
-
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
-        }
-        return data;
-    }
-
     /**
      * An index entry has been successfully added.
      */
@@ -655,44 +633,6 @@ public final class Search extends ComponentDefinition {
             // TODO inform user
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
-        }
-    };
-
-    /**
-     * When receiving a replicate message from the leader, add the entry to the
-     * local store and send an acknowledgment if all previous entries are stored. If no - ask
-     * for them.
-    */
-    final Handler<ReplicationMessage.Request> handleReplicationRequest = new Handler<ReplicationMessage.Request>() {
-        @Override
-        public void handle(ReplicationMessage.Request event) {
-            try {
-
-
-                addEntryLocal(event.getIndexEntry());
-                ReplicationMessage.Response msg = new ReplicationMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId());
-                trigger(msg, networkPort);
-
-                int numOfPartitions = config.getNumPartitions();
-                long maxStoredId = getMaxStoredId(numOfPartitions);
-
-                if(event.getIndexEntry().getId() - maxStoredId == numOfPartitions)
-                    return;
-
-                ArrayList<Long> missingIds = new ArrayList<Long>();
-                long currentMissingValue = maxStoredId < 0 ? partition : maxStoredId + numOfPartitions;
-                while(currentMissingValue < event.getIndexEntry().getId()) {
-                    missingIds.add(currentMissingValue);
-                    currentMissingValue += numOfPartitions;
-                }
-
-                if(missingIds.size() > 0) {
-                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getIndexEntry(), missingIds.toArray(new Long[missingIds.size()]));
-                    trigger(repairMessage, networkPort);
-                }
-            } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            }
         }
     };
 
@@ -734,7 +674,7 @@ public final class Search extends ComponentDefinition {
                 logger.error(self.getId() + " " + e.getMessage());
             }
 
-            RepairMessage.Response msg = new RepairMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getFutureEntry(), missingEntries);
+            RepairMessage.Response msg = new RepairMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingEntries);
             trigger(msg, networkPort);
         }
     };
@@ -748,32 +688,9 @@ public final class Search extends ComponentDefinition {
         public void handle(RepairMessage.Response response) {
             try {
                 for(IndexEntry entry : response.getMissingEntries())
-                    addEntryLocal(entry);
-
-                addEntryLocal(response.getFutureEntry());
+                    if(entry != null) addEntryLocal(entry);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
-            }
-        }
-    };
-
-    /**
-     * As the leader, add an {@link ReplicationMessage.Request} to the according
-     * request and issue the response if the replication constraints were
-     * satisfied.
-     */
-    final Handler<ReplicationMessage.Response> handleReplicationResponse = new Handler<ReplicationMessage.Response>() {
-        @Override
-        public void handle(ReplicationMessage.Response event) {
-            if (!leader) {
-                return;
-            }
-
-            ReplicationCount replicationCount = replicationRequests.get(event.getTimeoutId());
-            if (replicationCount != null && replicationCount.incrementAndCheckReceived()) {
-
-                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), event.getTimeoutId()), networkPort);
-                replicationRequests.remove(event.getTimeoutId());
             }
         }
     };
@@ -819,23 +736,6 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchTimeout event) {
             answerSearchRequest();
-        }
-    };
-
-    /**
-     * Only execute in the role of the leader. Garbage collect replication
-     * requests if the constraints could not be satisfied in time. In this case,
-     * no acknowledgment is sent to the client.
-     */
-    final Handler<ReplicationTimeout> handleReplicationTimeout = new Handler<ReplicationTimeout>() {
-        @Override
-        public void handle(ReplicationTimeout event) {
-            // TODO We could send a message to the client here that we are
-            // unsure if it worked. The client can then search the entry later
-            // to check this and insert it again if necessary.
-
-            // Garbage collect entry
-            replicationRequests.remove(event.getTimeoutId());
         }
     };
 
@@ -1325,7 +1225,6 @@ public final class Search extends ComponentDefinition {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-1");
             String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
-            System.out.println(sha1);
 
             Signature instance = Signature.getInstance("SHA1withRSA");
             instance.initSign(privateKey);
@@ -1349,5 +1248,54 @@ public final class Search extends ComponentDefinition {
             formatter.format("%02x", b);
         }
         return formatter.toString();
+    }
+
+    private static boolean isSignatureValid(IndexEntry newEntry) {
+        if(newEntry.getLeaderId() == null)
+            return false;
+
+        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+
+        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        dataBuffer.put(urlBytes);
+        dataBuffer.put(fileNameBytes);
+        dataBuffer.put(languageBytes);
+        dataBuffer.put(descriptionBytes);
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            String sha1 = byteArray2Hex(digest.digest(dataBuffer.array()));
+
+            Signature instance = Signature.getInstance("SHA1withRSA");
+            instance.initVerify(newEntry.getLeaderId());
+            instance.update(sha1.getBytes());
+            return instance.verify(hexStringToByteArray(newEntry.getHash()));
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (SignatureException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+        return false;
+    }
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
     }
 }

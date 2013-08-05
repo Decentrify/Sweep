@@ -7,8 +7,6 @@ package se.sics.peersearch.net;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -213,60 +211,6 @@ public class EncodingDecodingTest {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             AddIndexEntryMessage.Response response = AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void ReplicationRequest() {
-        int numResponses = 5, responseNum = 1;
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        ReplicationMessage.Request msg = new ReplicationMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, numResponses, responseNum);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            ReplicationMessage.Request request = ReplicationMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getNumResponses() == numResponses);
-            assert (request.getResponseNumber() == responseNum);
-            assert (request.getIndexEntry().getUrl().equals(url));
-            assert (request.getIndexEntry().getFileName().equals(fileName));
-            assert (request.getIndexEntry().getFileSize() == size);
-            assert (request.getIndexEntry().getUploaded().equals(time));
-            assert (request.getIndexEntry().getLanguage().equals(language));
-            assert (request.getIndexEntry().getDescription().equals(description));
-            assert (request.getIndexEntry().getHash().equals(hash));
-            assert (request.getIndexEntry().getCategory() == IndexEntry.Category.Music);
-            assert (request.getIndexEntry().getId().equals(Long.MIN_VALUE));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void ReplicationResponse() {
-        ReplicationMessage.Response msg = new ReplicationMessage.Response(gSrc, gDest, UUID.nextUUID());
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            ReplicationMessage.Response request = ReplicationMessageFactory.Response.fromBuffer(buffer);
-
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -744,22 +688,13 @@ public class EncodingDecodingTest {
 
     @Test
     public void RepairRequest() {
-        String url = "url";
-        String fileName = "fileName";
-        Long size = 123L;
-        Date time = new Date();
-        String language = "language";
-        String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
         Long[] ids = new Long[]{1L};
-        RepairMessage.Request msg = new RepairMessage.Request(gSrc, gDest, UUID.nextUUID(), entry, ids);
+        RepairMessage.Request msg = new RepairMessage.Request(gSrc, gDest, UUID.nextUUID(), ids);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RepairMessage.Request request = RepairMessageFactory.Request.fromBuffer(buffer);
             assert (ids[0] == request.getMissingIds()[0]);
-            assert (entry.equals(request.getFutureEntry()));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -780,13 +715,12 @@ public class EncodingDecodingTest {
         String hash = "hash";
 
         IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, publicKey);
-        RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), entry, new IndexEntry[]{entry});
+        RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), new IndexEntry[]{entry});
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RepairMessage.Response request = RepairMessageFactory.Response.fromBuffer(buffer);
             assert (entry.equals(request.getMissingEntries()[0]));
-            assert (entry.equals(request.getFutureEntry()));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -823,11 +757,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        PrepairCommitMessage.Request msg = new PrepairCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
+        ReplicationPrepairCommitMessage.Request msg = new ReplicationPrepairCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            PrepairCommitMessage.Request request = PrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            ReplicationPrepairCommitMessage.Request request = PrepairCommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntry().getUrl().equals(url));
             assert (request.getEntry().getFileName().equals(fileName));
             assert (request.getEntry().getFileSize() == size);
@@ -850,11 +784,11 @@ public class EncodingDecodingTest {
     @Test
     public void PrepairCommitResponse() {
         Long size = 123L;
-        PrepairCommitMessage.Response msg = new PrepairCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
+        ReplicationPrepairCommitMessage.Response msg = new ReplicationPrepairCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            PrepairCommitMessage.Response response = PrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            ReplicationPrepairCommitMessage.Response response = PrepairCommitMessageFactory.Response.fromBuffer(buffer);
             assert (response.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {
@@ -869,11 +803,11 @@ public class EncodingDecodingTest {
     @Test
     public void CommitRequest() {
         Long size = 123L;
-        CommitMessage.Request msg = new CommitMessage.Request(gSrc, gDest, UUID.nextUUID(), size);
+        ReplicationCommitMessage.Request msg = new ReplicationCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), size);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            CommitMessage.Request request = CommitMessageFactory.Request.fromBuffer(buffer);
+            ReplicationCommitMessage.Request request = CommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {
@@ -888,11 +822,11 @@ public class EncodingDecodingTest {
     @Test
     public void CommitResponse() {
         Long size = 123L;
-        CommitMessage.Response msg = new CommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
+        ReplicationCommitMessage.Response msg = new ReplicationCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            CommitMessage.Response response = CommitMessageFactory.Response.fromBuffer(buffer);
+            ReplicationCommitMessage.Response response = CommitMessageFactory.Response.fromBuffer(buffer);
             assert (response.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {
