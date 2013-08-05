@@ -304,6 +304,9 @@ public class ElectionLeader extends ComponentDefinition {
             CancelPeriodicTimeout periodicTimeout = new CancelPeriodicTimeout(heartbeatTimeoutId);
             trigger(periodicTimeout, timerPort);
         }
+
+        voteTimeoutId = null;
+        heartbeatTimeoutId = null;
 	}
 
 	/**
