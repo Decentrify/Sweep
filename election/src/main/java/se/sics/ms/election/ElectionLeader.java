@@ -176,6 +176,7 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(RejectLeaderMessage event) {
             // TODO we need to check if the rejection is valid e.g. check the given better node
+            System.out.println(self.getAddress() + " got rejected by " + event.getVodSource() + " for " + event.getBetterLeader());
 			rejected();
 		}
 	};

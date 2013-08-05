@@ -168,7 +168,7 @@ public class ElectionFollower extends ComponentDefinition {
                 }
             } else if (event.getLeaderVodDescriptor().equals(highestUtilityNode) == false) {
                 rejectLeader(event.getVodSource(), highestUtilityNode);
-            } else if (event.getSource().equals(leader.getVodAddress())) {
+            } else if (event.getLeaderVodDescriptor().equals(leader)) {
                 acceptLeader(leader, event.getVodDescriptors());
             } else {
                 rejectLeader(leader.getVodAddress(), highestUtilityNode);
@@ -196,6 +196,7 @@ public class ElectionFollower extends ComponentDefinition {
                 scheduleHeartbeatTimeout(config.getRejectedTimeout());
             } else if (leader != null) {
                 ScheduleTimeout timeout = new ScheduleTimeout(config.getDeathTimeout());
+                timeout.setTimeoutEvent(new DeathTimeout(timeout, self.getId()));
                 deathVoteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
                 for (VodDescriptor addr : leaderView) {
@@ -208,8 +209,6 @@ public class ElectionFollower extends ComponentDefinition {
                             leader.getVodAddress());
                     trigger(msg, networkPort);
                 }
-
-                timeout.setTimeoutEvent(new DeathTimeout(timeout, self.getId()));
             }
         }
     };
