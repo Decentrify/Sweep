@@ -19,14 +19,14 @@ public class PrepairCommitMessageFactory {
         private Request() {
         }
 
-        public static PrepairCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (PrepairCommitMessage.Request) new PrepairCommitMessageFactory.Request().decode(buffer, true);
+        public static ReplicationPrepairCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (ReplicationPrepairCommitMessage.Request) new PrepairCommitMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected PrepairCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
+        protected ReplicationPrepairCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
-            return new PrepairCommitMessage.Request(vodSrc, vodDest, timeoutId, entry);
+            return new ReplicationPrepairCommitMessage.Request(vodSrc, vodDest, timeoutId, entry);
         }
     }
 
@@ -35,15 +35,15 @@ public class PrepairCommitMessageFactory {
         private Response() {
         }
 
-        public static PrepairCommitMessage.Response fromBuffer(ByteBuf buffer)
+        public static ReplicationPrepairCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (PrepairCommitMessage.Response) new PrepairCommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationPrepairCommitMessage.Response) new PrepairCommitMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             long entryId = buffer.readLong();
-            return new PrepairCommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
+            return new ReplicationPrepairCommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
         }
     }
 }

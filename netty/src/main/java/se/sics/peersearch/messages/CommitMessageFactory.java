@@ -17,14 +17,14 @@ public class CommitMessageFactory {
         private Request() {
         }
 
-        public static CommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (CommitMessage.Request) new CommitMessageFactory.Request().decode(buffer, true);
+        public static ReplicationCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (ReplicationCommitMessage.Request) new CommitMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected CommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
+        protected ReplicationCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             long entryId = buffer.readLong();
-            return new CommitMessage.Request(vodSrc, vodDest, timeoutId, entryId);
+            return new ReplicationCommitMessage.Request(vodSrc, vodDest, timeoutId, entryId);
         }
     }
 
@@ -33,15 +33,15 @@ public class CommitMessageFactory {
         private Response() {
         }
 
-        public static CommitMessage.Response fromBuffer(ByteBuf buffer)
+        public static ReplicationCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (CommitMessage.Response) new CommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationCommitMessage.Response) new CommitMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             long entryId = buffer.readLong();
-            return new CommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
+            return new ReplicationCommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
         }
     }
 }

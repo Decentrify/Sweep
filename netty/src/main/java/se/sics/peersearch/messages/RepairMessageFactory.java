@@ -29,9 +29,8 @@ public class RepairMessageFactory {
 
         @Override
         protected RepairMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
-            IndexEntry futureEntry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             Long[] missingIds = ApplicationTypesDecoderFactory.readLongArray(buffer);
-            return new RepairMessage.Request(vodSrc, vodDest, timeoutId, futureEntry, missingIds);
+            return new RepairMessage.Request(vodSrc, vodDest, timeoutId, missingIds);
         }
 
     }
@@ -49,9 +48,8 @@ public class RepairMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            IndexEntry futureEntry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
             IndexEntry[] missingEntries = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
-            return new RepairMessage.Response(vodSrc, vodDest, timeoutId, futureEntry, missingEntries);
+            return new RepairMessage.Response(vodSrc, vodDest, timeoutId, missingEntries);
         }
     }
 }

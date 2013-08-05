@@ -2,6 +2,7 @@ package se.sics.ms.search;
 
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
+import se.sics.peersearch.types.IndexEntry;
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,15 +11,15 @@ import se.sics.gvod.timer.Timeout;
  * Time: 2:11 PM
  */
 public class AwaitingForCommitTimeout extends Timeout {
-    private final int id;
+    private final IndexEntry entry;
 
-    public AwaitingForCommitTimeout(ScheduleTimeout rst, int id) {
+    public AwaitingForCommitTimeout(ScheduleTimeout rst, IndexEntry entry) {
         super(rst);
 
-        this.id = id;
+        this.entry = entry;
     }
 
-    public int getId() {
-        return id;
+    public IndexEntry getEntry() {
+        return entry;
     }
 }
