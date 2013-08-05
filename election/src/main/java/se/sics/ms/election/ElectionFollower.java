@@ -343,8 +343,6 @@ public class ElectionFollower extends ComponentDefinition {
      * custom period in ms
      */
     private void scheduleHeartbeatTimeout(int delay) {
-        cancelHeartbeatTimeout();
-
         ScheduleTimeout timeout = new ScheduleTimeout(delay);
         timeout.setTimeoutEvent(new HeartbeatTimeout(timeout, self.getId()));
         heartBeatTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
@@ -359,6 +357,7 @@ public class ElectionFollower extends ComponentDefinition {
             CancelTimeout ct = new CancelTimeout(heartBeatTimeoutId);
             trigger(ct, timerPort);
         }
+        heartBeatTimeoutId = null;
     }
 
     /**
@@ -389,17 +388,6 @@ public class ElectionFollower extends ComponentDefinition {
 
         // Cancel old timeouts
         cancelHeartbeatTimeout();
-        RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
-        trigger(msg, networkPort);
-    }
-
-    /**
-     * Rejects a leader candidate
-     *
-     * @param node the leader candidate's Address
-     * @param betterNode the better node's descriptor
-     */
-    private void rejectLeaderCandidate(VodAddress node, VodDescriptor betterNode) {
         RejectLeaderMessage msg = new RejectLeaderMessage(self.getAddress(), node, betterNode);
         trigger(msg, networkPort);
     }
