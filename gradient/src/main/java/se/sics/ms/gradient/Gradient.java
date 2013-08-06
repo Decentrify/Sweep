@@ -22,8 +22,10 @@ import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.AddIndexEntryMessage;
 import se.sics.peersearch.messages.GradientShuffleMessage;
 import se.sics.peersearch.messages.LeaderLookupMessage;
+import se.sics.peersearch.messages.PublicKeyMessage;
 import se.sics.peersearch.types.IndexEntry;
 
+import java.security.PublicKey;
 import java.util.*;
 
 
@@ -39,6 +41,7 @@ public final class Gradient extends ComponentDefinition {
     Positive<BroadcastGradientPartnersPort> broadcastGradientPartnersPort = positive(BroadcastGradientPartnersPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<LeaderRequestPort> leaderRequestPort = negative(LeaderRequestPort.class);
+    Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
 
     private Self self;
     private GradientConfiguration config;
@@ -76,6 +79,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handleAddIndexEntryRequest, leaderRequestPort);
+        subscribe(publicKeyBroadcastHandler, publicKeyPort);
+        subscribe(publicKeyMessageHandler, networkPort);
     }
     /**
      * Initialize the state of the component.
@@ -96,6 +101,7 @@ public final class Gradient extends ComponentDefinition {
             trigger(rst, timerPort);
         }
     };
+
     /**
      * Initiate a identifier exchange every round.
      */
@@ -262,6 +268,34 @@ public final class Gradient extends ComponentDefinition {
                     trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes[i], event.getTimeoutId()), networkPort);
                 }
             }
+        }
+    };
+
+    /**
+     * Handles broadcast public key request from Search component
+     */
+    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
+        @Override
+        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
+            PublicKey key = publicKeyBroadcast.getPublicKey();
+
+            for(VodAddress item : gradientView.getAll())
+                trigger(new PublicKeyMessage(self.getAddress(), item.getNodeAddress(), key), networkPort);
+        }
+    };
+
+    /**
+     * Handles PublicKey message and broadcasts it down to the gradient
+     */
+    final Handler<PublicKeyMessage> publicKeyMessageHandler = new Handler<PublicKeyMessage>() {
+        @Override
+        public void handle(PublicKeyMessage publicKeyMessage) {
+            PublicKey key = publicKeyMessage.getPublicKey();
+
+            trigger(new PublicKeyBroadcast(key), publicKeyPort);
+
+            for(VodAddress item : gradientView.getLowerNodes())
+                trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getNodeAddress(), key), networkPort);
         }
     };
 

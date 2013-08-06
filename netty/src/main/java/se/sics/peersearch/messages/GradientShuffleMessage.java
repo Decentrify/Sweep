@@ -31,6 +31,10 @@ public class GradientShuffleMessage {
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, VodAddress[] addresses) {
             super(source, destination, timeoutId);
+
+            if(addresses == null)
+                throw new NullPointerException("addresses can't be null");
+
             this.addresses = addresses;
         }
 
@@ -68,6 +72,10 @@ public class GradientShuffleMessage {
 
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, VodAddress[] addresses) {
             super(source, destination, timeoutId);
+
+            if(addresses == null)
+                throw new NullPointerException("addresses can't be null");
+
             this.addresses = addresses;
         }
 

@@ -19,6 +19,10 @@ public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
 
     public RejectLeaderMessage(VodAddress source, VodAddress destination, VodAddress betterLeader) {
         super(source, destination);
+
+        if(betterLeader == null)
+            throw new NullPointerException("betterLeader can't be null");
+
         this.betterLeader = betterLeader;
     }
 

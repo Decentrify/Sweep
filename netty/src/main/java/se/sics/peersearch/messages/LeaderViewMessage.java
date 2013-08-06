@@ -19,6 +19,10 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
 
     public LeaderViewMessage(VodAddress source, VodAddress destination, VodAddress[] view) {
         super(source, destination);
+
+        if(view == null)
+            throw new NullPointerException("view can't be null");
+
         this.view = view;
     }
 

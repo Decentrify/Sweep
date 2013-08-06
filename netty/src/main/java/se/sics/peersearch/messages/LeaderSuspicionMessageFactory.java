@@ -13,7 +13,7 @@ import se.sics.gvod.net.util.UserTypesDecoderFactory;
  * Date: 7/2/13
  * Time: 1:02 PM
  */
-public class LeaderSuspectionMessageFactory {
+public class LeaderSuspicionMessageFactory {
     public static class Request extends  RelayMsgNettyFactory.Request{
 
         private Request() {
@@ -22,7 +22,7 @@ public class LeaderSuspectionMessageFactory {
         public static LeaderSuspicionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspicionMessage.Request)
-                    new LeaderSuspectionMessageFactory.Request().decode(buffer, true);
+                    new LeaderSuspicionMessageFactory.Request().decode(buffer, true);
         }
 
 
@@ -41,7 +41,7 @@ public class LeaderSuspectionMessageFactory {
         public static LeaderSuspicionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspicionMessage.Response)
-                    new LeaderSuspectionMessageFactory.Response().decode(buffer, true);
+                    new LeaderSuspicionMessageFactory.Response().decode(buffer, true);
         }
 
 

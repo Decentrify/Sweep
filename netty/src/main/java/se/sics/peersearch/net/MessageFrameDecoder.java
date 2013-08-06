@@ -25,25 +25,30 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte SEARCH_RESPONSE               = 0x61;
     public static final byte ADD_ENTRY_REQUEST             = 0x62;
     public static final byte ADD_ENTRY_RESPONSE            = 0x63;
-    public static final byte REPLICATION_REQUEST           = 0x64;
-    public static final byte REPLICATION_RESPONSE          = 0x65;
-    public static final byte INDEX_EXCHANGE_REQUEST        = 0x66;
-    public static final byte INDEX_EXCHANGE_RESPONSE       = 0x67;
-    public static final byte LEADER_SELECTION_REQUEST      = 0x68;
-    public static final byte LEADER_SELECTION_RESPONSE     = 0x69;
-    public static final byte GRADIENT_SHUFFLE_REQUEST      = 0x6a;
-    public static final byte GRADIENT_SHUFFLE_RESPONSE     = 0x6b;
-    public static final byte LEADER_SUSPICION_REQUEST      = 0x6c;
-    public static final byte LEADER_SUSPICION_RESPONSE     = 0x6d;
-    public static final byte LEADER_ANNOUNCEMENT           = 0x6e;
-    public static final byte HEARTBEAT_REQUEST             = 0x6f;
-    public static final byte HEARTBEAT_RESPONSE            = 0x70;
-    public static final byte VOTING_RESULT_MESSAGE         = 0x71;
-    public static final byte REJECT_FOLLOWER_REQUEST       = 0x72;
-    public static final byte REJECT_FOLLOWER_RESPONSE      = 0x73;
-    public static final byte REJECT_LEADER_MESSAGE         = 0x74;
-    public static final byte LEADER_LOOKUP_REQUEST         = 0x75;
-    public static final byte LEADER_LOOKUP_RESPONSE        = 0x76;
+    public static final byte INDEX_EXCHANGE_REQUEST        = 0x64;
+    public static final byte INDEX_EXCHANGE_RESPONSE       = 0x65;
+    public static final byte LEADER_SELECTION_REQUEST      = 0x66;
+    public static final byte LEADER_SELECTION_RESPONSE     = 0x67;
+    public static final byte GRADIENT_SHUFFLE_REQUEST      = 0x68;
+    public static final byte GRADIENT_SHUFFLE_RESPONSE     = 0x69;
+    public static final byte LEADER_SUSPICION_REQUEST      = 0x6a;
+    public static final byte LEADER_SUSPICION_RESPONSE     = 0x6b;
+    public static final byte LEADER_ANNOUNCEMENT           = 0x6c;
+    public static final byte HEARTBEAT_REQUEST             = 0x6d;
+    public static final byte HEARTBEAT_RESPONSE            = 0x7e;
+    public static final byte VOTING_RESULT_MESSAGE         = 0x7f;
+    public static final byte REJECT_FOLLOWER_REQUEST       = 0x70;
+    public static final byte REJECT_FOLLOWER_RESPONSE      = 0x71;
+    public static final byte REJECT_LEADER_MESSAGE         = 0x72;
+    public static final byte LEADER_LOOKUP_REQUEST         = 0x73;
+    public static final byte LEADER_LOOKUP_RESPONSE        = 0x74;
+    public static final byte REPAIR_REQUEST                = 0x75;
+    public static final byte REPAIR_RESPONSE               = 0x76;
+    public static final byte PUBLIC_KEY_MESSAGE            = 0x77;
+    public static final byte PREPAIR_COMMIT_REQUEST        = 0x78;
+    public static final byte PREPAIR_COMMIT_RESPONSE       = 0x79;
+    public static final byte COMMIT_REQUEST                = 0x7a;
+    public static final byte COMMIT_RESPONSE               = 0x7b;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -77,10 +82,6 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return AddIndexEntryMessageFactory.Request.fromBuffer(buffer);
             case ADD_ENTRY_RESPONSE:
                 return AddIndexEntryMessageFactory.Response.fromBuffer(buffer);
-            case REPLICATION_REQUEST:
-                return ReplicationMessageFactory.Request.fromBuffer(buffer);
-            case REPLICATION_RESPONSE:
-                return ReplicationMessageFactory.Response.fromBuffer(buffer);
             case INDEX_EXCHANGE_REQUEST:
                 return IndexExchangeMessageFactory.Request.fromBuffer(buffer);
             case INDEX_EXCHANGE_RESPONSE:
@@ -94,11 +95,11 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case GRADIENT_SHUFFLE_RESPONSE:
                 return GradientShuffleMessageFactory.Response.fromBuffer(buffer);
             case LEADER_SUSPICION_REQUEST:
-                return LeaderSuspectionMessageFactory.Request.fromBuffer(buffer);
+                return LeaderSuspicionMessageFactory.Request.fromBuffer(buffer);
             case LEADER_SUSPICION_RESPONSE:
-                return LeaderSuspectionMessageFactory.Response.fromBuffer(buffer);
+                return LeaderSuspicionMessageFactory.Response.fromBuffer(buffer);
             case LEADER_ANNOUNCEMENT:
-                return LeaderAnnouncementMessageFactory.fromBuffer(buffer);
+                return LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
             case HEARTBEAT_REQUEST:
                 return HeartbeatMessageFactory.Request.fromBuffer(buffer);
             case HEARTBEAT_RESPONSE:
@@ -115,6 +116,20 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return LeaderLookupMessageFactory.Request.fromBuffer(buffer);
             case LEADER_LOOKUP_RESPONSE:
                 return LeaderLookupMessageFactory.Response.fromBuffer(buffer);
+            case REPAIR_REQUEST:
+                return RepairMessageFactory.Request.fromBuffer(buffer);
+            case REPAIR_RESPONSE:
+                return RepairMessageFactory.Response.fromBuffer(buffer);
+            case PUBLIC_KEY_MESSAGE:
+                return PublicKeyMessageFactory.fromBuffer(buffer);
+            case PREPAIR_COMMIT_REQUEST:
+                return ReplicationPrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            case PREPAIR_COMMIT_RESPONSE:
+                return ReplicationPrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            case COMMIT_REQUEST:
+                return ReplicationCommitMessageFactory.Request.fromBuffer(buffer);
+            case COMMIT_RESPONSE:
+                return ReplicationCommitMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }

@@ -1,6 +1,7 @@
 package se.sics.peersearch.types;
 
 import java.io.Serializable;
+import java.security.PublicKey;
 import java.util.Date;
 
 /**
@@ -33,7 +34,7 @@ public class IndexEntry implements Serializable {
 	private Category category;
 	private String description;
 	private String hash;
-	private String leaderId;
+	private PublicKey leaderId;
 
 	public Long getId() {
 		return id;
@@ -75,11 +76,11 @@ public class IndexEntry implements Serializable {
 		return hash;
 	}
 
-	public String getLeaderId() {
+	public PublicKey getLeaderId() {
 		return leaderId;
 	}
 
-	public void setLeaderId(String leaderId) {
+	public void setLeaderId(PublicKey leaderId) {
 		this.leaderId = leaderId;
 	}
 
@@ -162,7 +163,7 @@ public class IndexEntry implements Serializable {
      * @param hash
      * @param leaderId
      */
-    public IndexEntry(long id, String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description, String hash, String leaderId) {
+    public IndexEntry(long id, String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description, String hash, PublicKey leaderId) {
         this.id = id;
         this.url = url;
         this.fileName = fileName;
@@ -192,12 +193,14 @@ public class IndexEntry implements Serializable {
      * @param description
      * @param hash
      */
-    public IndexEntry(String url, String fileName, Category category, String description,
+    public IndexEntry(String url, String fileName, Date uploaded, Category category, String language, String description,
                       String hash) {
         super();
         this.url = url;
         this.fileName = fileName;
+        this.uploaded = uploaded;
         this.category = category;
+        this.language = language;
         this.description = description;
         this.hash = hash;
     }
@@ -212,7 +215,7 @@ public class IndexEntry implements Serializable {
      * @param leaderId
      */
     public IndexEntry(long indexId, String url, String fileName, Category category,
-                      String description, String hash, String leaderId) {
+                      String description, String hash, PublicKey leaderId) {
         super();
         this.id = indexId;
         this.url = url;
