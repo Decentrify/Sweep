@@ -46,7 +46,6 @@ public final class Gradient extends ComponentDefinition {
     private UtilityComparator utilityComparator = new UtilityComparator();
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
-    private int partition;
 
     // When you partition the index you need to find new nodes
     // This is a routing table maintaining a list of pairs in each partition.
@@ -92,8 +91,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleNodeCrash, leaderStatusPort);
-        subscribe(publicKeyBroadcastHandler, publicKeyPort);
-        subscribe(publicKeyMessageHandler, networkPort);
+        subscribe(handlePublicKeyBroadcast, publicKeyPort);
+        subscribe(handlePublicKeyMessage, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
         subscribe(handleIndexExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepairCommit, gradientRoutingPort);
@@ -115,8 +114,6 @@ public final class Gradient extends ComponentDefinition {
             // TODO do not access constants
             routingTable = new HashMap<Integer, TreeSet<VodDescriptor>>(MsConfig.SEARCH_NUM_PARTITIONS);
             leader = false;
-            // TODO do not access constants
-            partition = self.getId() % MsConfig.SEARCH_NUM_PARTITIONS;
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
@@ -361,7 +358,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationPrepairCommit = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            TreeSet<VodDescriptor> bucket = routingTable.get(self.getAddress().getPartitionId());
             // TODO do not access constants
             int i = bucket.size() > MsConfig.SEARCH_REPLICATION_MAXIMUM ? MsConfig.SEARCH_REPLICATION_MAXIMUM : bucket.size();
             for (VodDescriptor peer : bucket) {
@@ -377,7 +374,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationCommit event) {
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            TreeSet<VodDescriptor> bucket = routingTable.get(self.getAddress().getPartitionId());
             for (VodDescriptor peer : bucket) {
                 trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
             }
@@ -387,7 +384,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            TreeSet<VodDescriptor> bucket = routingTable.get(self.getAddress().getPartitionId());
             if (bucket != null) {
                 int n = random.nextInt(bucket.size());
 
@@ -403,7 +400,7 @@ public final class Gradient extends ComponentDefinition {
             int i = 0;
             for (SortedSet<VodDescriptor> bucket : routingTable.values()) {
                 // Skip local partition
-                if (i == partition) {
+                if (i == self.getAddress().getPartitionId()) {
                     i++;
                     continue;
                 }
@@ -419,7 +416,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Handles broadcast public key request from Search component
      */
-    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
+    final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
         @Override
         public void handle(PublicKeyBroadcast publicKeyBroadcast) {
             PublicKey key = publicKeyBroadcast.getPublicKey();
@@ -432,7 +429,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Handles PublicKey message and broadcasts it down to the gradient
      */
-    final Handler<PublicKeyMessage> publicKeyMessageHandler = new Handler<PublicKeyMessage>() {
+    final Handler<PublicKeyMessage> handlePublicKeyMessage = new Handler<PublicKeyMessage>() {
         @Override
         public void handle(PublicKeyMessage publicKeyMessage) {
             PublicKey key = publicKeyMessage.getPublicKey();

@@ -83,8 +83,6 @@ public final class Search extends ComponentDefinition {
     // Data structure to keep track of acknowledgments for newly added indexes
     private Map<TimeoutId, ReplicationCount> replicationRequests;
     private Map<TimeoutId, ReplicationCount> commitRequests;
-    // The number of the local partition
-    private int partition;
     // Structure that maps index ids to UUIDs of open gap timeouts
     private Map<Long, UUID> gapTimeouts;
     // Set of recent add requests to avoid duplication
@@ -127,15 +125,15 @@ public final class Search extends ComponentDefinition {
         subscribe(handleGapTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
-        subscribe(repairRequestHandler, networkPort);
-        subscribe(repairResponseHandler, networkPort);
-        subscribe(publicKeyBroadcastHandler, publicKeyPort);
-        subscribe(prepairCommitHandler, networkPort);
-        subscribe(awaitingForCommitTimeoutHandler, timerPort);
-        subscribe(prepairCoomitResponseHandler, networkPort);
-        subscribe(commitTimeoutHandler, timerPort);
-        subscribe(commitRequestHandler, networkPort);
-        subscribe(commitResponseHandler, networkPort);
+        subscribe(handleRepairRequest, networkPort);
+        subscribe(handleRepairResponse, networkPort);
+        subscribe(handlePublicKeyBroadcast, publicKeyPort);
+        subscribe(handlePrepairCommit, networkPort);
+        subscribe(handleAwaitingForCommitTimeout, timerPort);
+        subscribe(handlePrepairCoomitResponse, networkPort);
+        subscribe(handleCommitTimeout, timerPort);
+        subscribe(handleCommitRequest, networkPort);
+        subscribe(handleCommitResponse, networkPort);
     }
 
     /**
@@ -156,10 +154,9 @@ public final class Search extends ComponentDefinition {
                 e.printStackTrace();
             }
 
-            partition = self.getId() % config.getNumPartitions();
             replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
-            nextInsertionId = partition;
-            lowestMissingIndexValue = partition;
+            nextInsertionId = 0;
+            lowestMissingIndexValue = 0;
             commitRequests = new HashMap<TimeoutId, ReplicationCount>();
             existingEntries = new TreeSet<Long>();
             gapTimeouts = new HashMap<Long, UUID>();
@@ -248,14 +245,13 @@ public final class Search extends ComponentDefinition {
 
                     // Check if there is a gap between the last missing value
                     // and the smallest newly given one
-                    if (ids[0] != partition && lowestMissingIndexValue != ids[0]) {
+                    if (ids[0] != 0 && lowestMissingIndexValue != ids[0]) {
                         continuous = false;
                         Collections.addAll(existingEntries, ids);
                     } else {
                         // Search for gaps between the given ids
                         for (int j = 0; j < ids.length; j++) {
-                            lowestMissingIndexValue = ids[j]
-                                    + config.getNumPartitions();
+                            lowestMissingIndexValue = ids[j] + 1;
                             // If a gap was found add higher ids to the existing
                             // entries
                             if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
@@ -305,8 +301,8 @@ public final class Search extends ComponentDefinition {
                 // Search for entries the inquirer is missing
                 Long lastId = event.getOldestMissingIndexValue();
                 for (Long i : event.getExistingEntries()) {
-                    indexEntries.addAll(findIdRange(lastId, i - config.getNumPartitions(), config.getMaxExchangeCount() - indexEntries.size()));
-                    lastId = i + config.getNumPartitions();
+                    indexEntries.addAll(findIdRange(lastId, i - 1, config.getMaxExchangeCount() - indexEntries.size()));
+                    lastId = i + 1;
 
                     if (indexEntries.size() >= config.getMaxExchangeCount()) {
                         break;
@@ -414,7 +410,6 @@ public final class Search extends ComponentDefinition {
             avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
             replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
 
-
             //addEntryLocal(newEntry);
             trigger(new GradientRoutingPort.ReplicationPrepairCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
 
@@ -429,9 +424,7 @@ public final class Search extends ComponentDefinition {
      * @return a new id for a new {@link IndexEntry}
      */
     private long getNextInsertionId() {
-        long id = nextInsertionId;
-        nextInsertionId += config.getNumPartitions();
-        return id;
+        return nextInsertionId++;
     }
 
     /**
@@ -490,7 +483,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Stores on a peer in the leader group information about a new entry to be probably commited
      */
-    final Handler<ReplicationPrepairCommitMessage.Request> prepairCommitHandler = new Handler<ReplicationPrepairCommitMessage.Request>() {
+    final Handler<ReplicationPrepairCommitMessage.Request> handlePrepairCommit = new Handler<ReplicationPrepairCommitMessage.Request>() {
         @Override
         public void handle(ReplicationPrepairCommitMessage.Request request) {
             IndexEntry entry = request.getEntry();
@@ -512,7 +505,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Clears rendingForCommit map as the entry wasn't commited on time
      */
-    final Handler<AwaitingForCommitTimeout> awaitingForCommitTimeoutHandler = new Handler<AwaitingForCommitTimeout>() {
+    final Handler<AwaitingForCommitTimeout> handleAwaitingForCommitTimeout = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
             if(pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
@@ -524,7 +517,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Leader gains majority of responses and issues a request for a commit
      */
-    final Handler<ReplicationPrepairCommitMessage.Response> prepairCoomitResponseHandler = new Handler<ReplicationPrepairCommitMessage.Response>() {
+    final Handler<ReplicationPrepairCommitMessage.Response> handlePrepairCoomitResponse = new Handler<ReplicationPrepairCommitMessage.Response>() {
         @Override
         public void handle(ReplicationPrepairCommitMessage.Response response) {
             TimeoutId timeout = response.getTimeoutId();
@@ -564,7 +557,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Performs commit on a peer in the leader group
      */
-    final Handler<ReplicationCommitMessage.Request> commitRequestHandler = new Handler<ReplicationCommitMessage.Request>() {
+    final Handler<ReplicationCommitMessage.Request> handleCommitRequest = new Handler<ReplicationCommitMessage.Request>() {
         @Override
         public void handle(ReplicationCommitMessage.Request request) {
             long id = request.getEntryId();
@@ -604,17 +597,16 @@ public final class Search extends ComponentDefinition {
                 trigger(new ReplicationCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
                 pendingForCommit.remove(toCommit);
 
-                int numOfPartitions = config.getNumPartitions();
-                long maxStoredId = getMaxStoredId(numOfPartitions);
+                long maxStoredId = getMaxStoredId();
 
-                if(toCommit.getId() - maxStoredId == numOfPartitions)
+                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
                     return;
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
-                long currentMissingValue = maxStoredId < 0 ? partition : maxStoredId + numOfPartitions;
+                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
                 while(currentMissingValue < toCommit.getId()) {
                     missingIds.add(currentMissingValue);
-                    currentMissingValue += numOfPartitions;
+                    currentMissingValue++;
                 }
 
                 if(missingIds.size() > 0) {
@@ -633,7 +625,7 @@ public final class Search extends ComponentDefinition {
      * requests if the constraints could not be satisfied in time. In this case,
      * no acknowledgment is sent to the client.
      */
-    final Handler<ReplicationCommitMessage.Response> commitResponseHandler = new Handler<ReplicationCommitMessage.Response>() {
+    final Handler<ReplicationCommitMessage.Response> handleCommitResponse = new Handler<ReplicationCommitMessage.Response>() {
         @Override
         public void handle(ReplicationCommitMessage.Response response) {
             TimeoutId commitId = response.getTimeoutId();
@@ -658,7 +650,7 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<CommitTimeout> commitTimeoutHandler = new Handler<CommitTimeout>() {
+    final Handler<CommitTimeout> handleCommitTimeout = new Handler<CommitTimeout>() {
         @Override
         public void handle(CommitTimeout commitTimeout) {
             if(commitRequests.containsKey(commitTimeout.getTimeoutId()))
@@ -668,17 +660,10 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Returns max stored id on a peer
-     * @param numOfPartitions
      * @return max stored id on a peer
      */
-    private long getMaxStoredId(int numOfPartitions) {
-        long normalizedMissingIndexValue = lowestMissingIndexValue - partition;
-        if(normalizedMissingIndexValue == 0) {
-            //it the first value that is missing, return -1
-            return -1;
-        }
-
-        long currentIndexValue = lowestMissingIndexValue - numOfPartitions;
+    private long getMaxStoredId() {
+        long currentIndexValue = lowestMissingIndexValue - 1;
 
         if(existingEntries.isEmpty() || currentIndexValue > Collections.max(existingEntries))
             return currentIndexValue;
@@ -690,7 +675,7 @@ public final class Search extends ComponentDefinition {
      * Handles situations then a peer in the leader group is behind in the updates during add operation
      * and asks for missing data
      */
-    Handler<RepairMessage.Request> repairRequestHandler = new Handler<RepairMessage.Request>() {
+    Handler<RepairMessage.Request> handleRepairRequest = new Handler<RepairMessage.Request>() {
         @Override
         public void handle(RepairMessage.Request request) {
             IndexEntry[] missingEntries = new IndexEntry[request.getMissingIds().length];
@@ -713,7 +698,7 @@ public final class Search extends ComponentDefinition {
      * Handles missing data on the peer from the leader group when adding a new entry, but the peer is behind
      * with the updates
      */
-    Handler<RepairMessage.Response> repairResponseHandler = new Handler<RepairMessage.Response>() {
+    Handler<RepairMessage.Response> handleRepairResponse = new Handler<RepairMessage.Response>() {
         @Override
         public void handle(RepairMessage.Response response) {
             try {
@@ -743,7 +728,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Stores leader public key if not repeated
      */
-    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
+    final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
         @Override
         public void handle(PublicKeyBroadcast publicKeyBroadcast) {
             PublicKey key = publicKeyBroadcast.getPublicKey();
@@ -785,7 +770,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            addSearchResponse((IndexEntry[]) result.toArray(), partition);
+            addSearchResponse((IndexEntry[]) result.toArray(), self.getAddress().getPartitionId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -855,7 +840,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            addSearchResponse(event.getResults(), event.getVodSource().getId() % config.getNumPartitions());
+            addSearchResponse(event.getResults(), event.getVodSource().getPartitionId());
         }
     };
 
@@ -1010,14 +995,13 @@ public final class Search extends ComponentDefinition {
             // Search for the next missing index id
             do {
                 existingEntries.remove(lowestMissingIndexValue);
-                lowestMissingIndexValue += config.getNumPartitions();
+                lowestMissingIndexValue++;
             } while (existingEntries.contains(lowestMissingIndexValue));
         } else if (indexEntry.getId() > lowestMissingIndexValue) {
             existingEntries.add(indexEntry.getId());
 
             // Suspect all missing entries less than the new as gaps
-            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i = i
-                    + config.getNumPartitions()) {
+            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i++) {
                 if (gapTimeouts.containsKey(i)) {
                     continue;
                 }
