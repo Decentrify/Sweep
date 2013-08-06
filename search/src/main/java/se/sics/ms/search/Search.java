@@ -293,22 +293,6 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Add all entries received from another node to the local index store.
-     */
-    final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
-        @Override
-        public void handle(IndexExchangeMessage.Response event) {
-            try {
-                for (IndexEntry indexEntry : event.getIndexEntries()) {
-                    addEntryLocal(indexEntry);
-                }
-            } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            }
-        }
-    };
-
-    /**
      * Search for entries in the local store that the inquirer might need and
      * send them to him.
      */
@@ -321,9 +305,7 @@ public final class Search extends ComponentDefinition {
                 // Search for entries the inquirer is missing
                 Long lastId = event.getOldestMissingIndexValue();
                 for (Long i : event.getExistingEntries()) {
-                    indexEntries.addAll(findIdRange(lastId,
-                            i - config.getNumPartitions(),
-                            config.getMaxExchangeCount() - indexEntries.size()));
+                    indexEntries.addAll(findIdRange(lastId, i - config.getNumPartitions(), config.getMaxExchangeCount() - indexEntries.size()));
                     lastId = i + config.getNumPartitions();
 
                     if (indexEntries.size() >= config.getMaxExchangeCount()) {
@@ -333,8 +315,7 @@ public final class Search extends ComponentDefinition {
 
                 // In case there is some space left search for more
                 if (indexEntries.size() < config.getMaxExchangeCount()) {
-                    indexEntries.addAll(findIdRange(lastId, Long.MAX_VALUE,
-                            config.getMaxExchangeCount() - indexEntries.size()));
+                    indexEntries.addAll(findIdRange(lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - indexEntries.size()));
                 }
 
                 if (indexEntries.isEmpty()) {
@@ -342,6 +323,22 @@ public final class Search extends ComponentDefinition {
                 }
 
                 trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries.toArray(new IndexEntry[indexEntries.size()]), 0, 0), networkPort);
+            } catch (IOException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            }
+        }
+    };
+
+    /**
+     * Add all entries received from another node to the local index store.
+     */
+    final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
+        @Override
+        public void handle(IndexExchangeMessage.Response event) {
+            try {
+                for (IndexEntry indexEntry : event.getIndexEntries()) {
+                    addEntryLocal(indexEntry);
+                }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -365,41 +362,10 @@ public final class Search extends ComponentDefinition {
      * @param entry the {@link IndexEntry} to be added
      */
     private void addEntryGlobal(IndexEntry entry) {
-        // Limit the time to wait for responses and answer the web request
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
         rst.setTimeoutEvent(new AddRequestTimeout(rst, self.getId(), config.getRetryCount(), entry));
         addEntryGlobal(entry, rst);
     }
-
-    /**
-     * An index entry has been successfully added.
-     */
-    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
-        @Override
-        public void handle(AddIndexEntryMessage.Response event) {
-            // TODO inform user
-            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
-            trigger(ct, timerPort);
-        }
-    };
-
-    /**
-     * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
-     * in time. Try to add the entry again or respons with failure to the web client.
-     */
-    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
-        @Override
-        public void handle(AddRequestTimeout event) {
-            if (event.reachedRetryLimit()) {
-                // TODO inform the user
-            } else {
-                event.incrementTries();
-                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-                rst.setTimeoutEvent(event);
-                addEntryGlobal(event.getEntry(), rst);
-            }
-        }
-    };
 
     /**
      * Add a new {link {@link IndexEntry} to the system, add the given timeout to the timer.
@@ -459,28 +425,6 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    /**
-     * Stores on a peer in the leader group information about a new entry to be probably commited
-     */
-    final Handler<ReplicationPrepairCommitMessage.Request> prepairCommitHandler = new Handler<ReplicationPrepairCommitMessage.Request>() {
-        @Override
-        public void handle(ReplicationPrepairCommitMessage.Request request) {
-            IndexEntry entry = request.getEntry();
-            if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
-                return;
-
-            TimeoutId timeout = UUID.nextUUID();
-            pendingForCommit.put(request.getEntry(), timeout);
-
-            trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
-
-            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry()));
-            rst.getTimeoutEvent().setTimeoutId(timeout);
-            trigger(rst, timerPort);
-        }
-    };
-
     /*
      * @return a new id for a new {@link IndexEntry}
      */
@@ -510,6 +454,58 @@ public final class Search extends ComponentDefinition {
             for (TimeoutId uuid : removeList) {
                 recentRequests.remove(uuid);
             }
+        }
+    };
+
+    /**
+     * An index entry has been successfully added.
+     */
+    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+        @Override
+        public void handle(AddIndexEntryMessage.Response event) {
+            // TODO inform user
+            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+            trigger(ct, timerPort);
+        }
+    };
+
+    /**
+     * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
+     * in time. Try to add the entry again or respons with failure to the web client.
+     */
+    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
+        @Override
+        public void handle(AddRequestTimeout event) {
+            if (event.reachedRetryLimit()) {
+                // TODO inform the user
+            } else {
+                event.incrementTries();
+                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+                rst.setTimeoutEvent(event);
+                addEntryGlobal(event.getEntry(), rst);
+            }
+        }
+    };
+
+    /**
+     * Stores on a peer in the leader group information about a new entry to be probably commited
+     */
+    final Handler<ReplicationPrepairCommitMessage.Request> prepairCommitHandler = new Handler<ReplicationPrepairCommitMessage.Request>() {
+        @Override
+        public void handle(ReplicationPrepairCommitMessage.Request request) {
+            IndexEntry entry = request.getEntry();
+            if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+                return;
+
+            TimeoutId timeout = UUID.nextUUID();
+            pendingForCommit.put(request.getEntry(), timeout);
+
+            trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+
+            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry()));
+            rst.getTimeoutEvent().setTimeoutId(timeout);
+            trigger(rst, timerPort);
         }
     };
 
@@ -796,17 +792,6 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Answer a search request if the timeout occurred before all answers were
-     * collected.
-     */
-    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
-        @Override
-        public void handle(SearchTimeout event) {
-            answerSearchRequest();
-        }
-    };
-
-    /**
      * Query the local store with the given query string and send the response
      * back to the inquirer.
      */
@@ -900,6 +885,29 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
+     * Answer a search request if the timeout occurred before all answers were
+     * collected.
+     */
+    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+        @Override
+        public void handle(SearchTimeout event) {
+            answerSearchRequest();
+        }
+    };
+
+    /**
+     * Present the result to the user.
+     */
+    private void answerSearchRequest() {
+        try {
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+            // TODO present the result to the user
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Add the given {@link IndexEntry}s to the given Lucene directory
      *
      * @param index   the directory to which the given entries should be added
@@ -975,128 +983,6 @@ public final class Search extends ComponentDefinition {
 
         writer.addDocument(doc);
     };
-
-    /**
-     * Present the result to the user.
-     */
-    private void answerSearchRequest() {
-        try {
-            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
-            // TODO present the result to the user
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Generates a SHA-1 hash on IndexEntry and signs it with a private key
-     * @param newEntry
-     * @return signed SHA-1 key
-     */
-    private static String generateSignedHash(IndexEntry newEntry, PrivateKey privateKey) {
-        if(newEntry.getLeaderId() == null)
-            return null;
-
-        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-
-        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
-        dataBuffer.putLong(newEntry.getId());
-        dataBuffer.putLong(newEntry.getFileSize());
-        dataBuffer.putLong(newEntry.getUploaded().getTime());
-        dataBuffer.putInt(newEntry.getCategory().ordinal());
-        dataBuffer.put(urlBytes);
-        dataBuffer.put(fileNameBytes);
-        dataBuffer.put(languageBytes);
-        dataBuffer.put(descriptionBytes);
-
-        try {
-            return generateRSASignature(dataBuffer.array(), privateKey);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return null;
-    }
-
-    private static String generateRSASignature(byte[] data, PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-1");
-        String sha1 = byteArray2Hex(digest.digest(data));
-
-        Signature instance = Signature.getInstance("SHA1withRSA");
-        instance.initSign(privateKey);
-        instance.update(sha1.getBytes());
-        byte[] signature = instance.sign();
-        return byteArray2Hex(signature);
-    }
-
-    private static String byteArray2Hex(final byte[] hash) {
-        Formatter formatter = new Formatter();
-        for (byte b : hash) {
-            formatter.format("%02x", b);
-        }
-        return formatter.toString();
-    }
-
-    private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
-        if(newEntry.getLeaderId() == null)
-            return false;
-
-        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-
-        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
-        dataBuffer.putLong(newEntry.getId());
-        dataBuffer.putLong(newEntry.getFileSize());
-        dataBuffer.putLong(newEntry.getUploaded().getTime());
-        dataBuffer.putInt(newEntry.getCategory().ordinal());
-        dataBuffer.put(urlBytes);
-        dataBuffer.put(fileNameBytes);
-        dataBuffer.put(languageBytes);
-        dataBuffer.put(descriptionBytes);
-
-        try {
-            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return false;
-    }
-
-    private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-1");
-        String sha1 = byteArray2Hex(digest.digest(data));
-
-        Signature instance = Signature.getInstance("SHA1withRSA");
-        instance.initVerify(key);
-        instance.update(sha1.getBytes());
-        return instance.verify(hexStringToByteArray(signature));
-    }
-
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
-        }
-        return data;
-    }
 
     /**
      * Add a new {link {@link IndexEntry} to the local Lucene index.
@@ -1238,6 +1124,116 @@ public final class Search extends ComponentDefinition {
                 reader.close();
             }
         }
+    }
+
+    /**
+     * Generates a SHA-1 hash on IndexEntry and signs it with a private key
+     * @param newEntry
+     * @return signed SHA-1 key
+     */
+    private static String generateSignedHash(IndexEntry newEntry, PrivateKey privateKey) {
+        if(newEntry.getLeaderId() == null)
+            return null;
+
+        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+
+        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        dataBuffer.put(urlBytes);
+        dataBuffer.put(fileNameBytes);
+        dataBuffer.put(languageBytes);
+        dataBuffer.put(descriptionBytes);
+
+        try {
+            return generateRSASignature(dataBuffer.array(), privateKey);
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return null;
+    }
+
+    private static String generateRSASignature(byte[] data, PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        String sha1 = byteArray2Hex(digest.digest(data));
+
+        Signature instance = Signature.getInstance("SHA1withRSA");
+        instance.initSign(privateKey);
+        instance.update(sha1.getBytes());
+        byte[] signature = instance.sign();
+        return byteArray2Hex(signature);
+    }
+
+    private static String byteArray2Hex(final byte[] hash) {
+        Formatter formatter = new Formatter();
+        for (byte b : hash) {
+            formatter.format("%02x", b);
+        }
+        return formatter.toString();
+    }
+
+    private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
+        if(newEntry.getLeaderId() == null)
+            return false;
+
+        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+
+        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        dataBuffer.put(urlBytes);
+        dataBuffer.put(fileNameBytes);
+        dataBuffer.put(languageBytes);
+        dataBuffer.put(descriptionBytes);
+
+        try {
+            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return false;
+    }
+
+    private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        String sha1 = byteArray2Hex(digest.digest(data));
+
+        Signature instance = Signature.getInstance("SHA1withRSA");
+        instance.initVerify(key);
+        instance.update(sha1.getBytes());
+        return instance.verify(hexStringToByteArray(signature));
+    }
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
     }
 
     /**

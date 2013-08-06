@@ -205,6 +205,17 @@ public final class Gradient extends ComponentDefinition {
     };
 
     /**
+     * Broadcast the current view to the listening components.
+     */
+    void sendGradientViewChange() {
+        if (gradientView.isChanged()) {
+            // Create a copy so components don't affect each other
+            SortedSet<VodDescriptor> view = new TreeSet<VodDescriptor>(gradientView.getAll());
+            trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
+        }
+    }
+
+    /**
      * Remove a node from the view if it didn't respond to a request.
      */
     final Handler<ShuffleRequestTimeout> handleShuffleRequestTimeout = new Handler<ShuffleRequestTimeout>() {
@@ -347,34 +358,6 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
-    /**
-     * Handles broadcast public key request from Search component
-     */
-    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
-        @Override
-        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
-            PublicKey key = publicKeyBroadcast.getPublicKey();
-
-            for(VodDescriptor item : gradientView.getAll())
-                trigger(new PublicKeyMessage(self.getAddress(), item.getVodAddress().getNodeAddress(), key), networkPort);
-        }
-    };
-
-    /**
-     * Handles PublicKey message and broadcasts it down to the gradient
-     */
-    final Handler<PublicKeyMessage> publicKeyMessageHandler = new Handler<PublicKeyMessage>() {
-        @Override
-        public void handle(PublicKeyMessage publicKeyMessage) {
-            PublicKey key = publicKeyMessage.getPublicKey();
-
-            trigger(new PublicKeyBroadcast(key), publicKeyPort);
-
-            for(VodDescriptor item : gradientView.getLowerUtilityNodes())
-                trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getVodAddress().getNodeAddress(), key), networkPort);
-        }
-    };
-
     final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationPrepairCommit = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
@@ -434,15 +417,32 @@ public final class Gradient extends ComponentDefinition {
     };
 
     /**
-     * Broadcast the current view to the listening components.
+     * Handles broadcast public key request from Search component
      */
-    void sendGradientViewChange() {
-        if (gradientView.isChanged()) {
-            // Create a copy so components don't affect each other
-            SortedSet<VodDescriptor> view = new TreeSet<VodDescriptor>(gradientView.getAll());
-            trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
+    final Handler<PublicKeyBroadcast> publicKeyBroadcastHandler = new Handler<PublicKeyBroadcast>() {
+        @Override
+        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
+            PublicKey key = publicKeyBroadcast.getPublicKey();
+
+            for(VodDescriptor item : gradientView.getAll())
+                trigger(new PublicKeyMessage(self.getAddress(), item.getVodAddress().getNodeAddress(), key), networkPort);
         }
-    }
+    };
+
+    /**
+     * Handles PublicKey message and broadcasts it down to the gradient
+     */
+    final Handler<PublicKeyMessage> publicKeyMessageHandler = new Handler<PublicKeyMessage>() {
+        @Override
+        public void handle(PublicKeyMessage publicKeyMessage) {
+            PublicKey key = publicKeyMessage.getPublicKey();
+
+            trigger(new PublicKeyBroadcast(key), publicKeyPort);
+
+            for(VodDescriptor item : gradientView.getLowerUtilityNodes())
+                trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getVodAddress().getNodeAddress(), key), networkPort);
+        }
+    };
 
     // If you call this method with a list of entries, it will
     // return a single node, weighted towards the 'best' node (as defined by
