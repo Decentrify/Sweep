@@ -447,8 +447,6 @@ public final class Search extends ComponentDefinition {
 
             newEntry.setHash(signature);
 
-            // TODO PREPAIR PHAISE
-
             avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
             replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
 
@@ -540,11 +538,11 @@ public final class Search extends ComponentDefinition {
                 rst.getTimeoutEvent().setTimeoutId(commitTimeout);
                 trigger(rst, timerPort);
             } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             } catch (InvalidKeyException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             } catch (SignatureException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -566,11 +564,11 @@ public final class Search extends ComponentDefinition {
                 if(!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size()-1), request.getSignature()))
                     return;
             } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             } catch (InvalidKeyException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             } catch (SignatureException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             }
 
             IndexEntry toCommit = null;
@@ -610,7 +608,7 @@ public final class Search extends ComponentDefinition {
                     trigger(repairMessage, networkPort);
                 }
             } catch (IOException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -638,7 +636,7 @@ public final class Search extends ComponentDefinition {
                 commitRequests.remove(commitId);
                 Snapshot.setLastId(replicationCount.getEntry().getId());
             } catch (IOException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -1212,9 +1210,9 @@ public final class Search extends ComponentDefinition {
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(self.getId() + " " + e.getMessage());
         } catch (InvalidKeySpecException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(self.getId() + " " + e.getMessage());
         }
         IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                 d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
@@ -1252,11 +1250,11 @@ public final class Search extends ComponentDefinition {
         try {
             return generateRSASignature(dataBuffer.array(), privateKey);
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         } catch (SignatureException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         } catch (InvalidKeyException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         }
 
         return null;
@@ -1304,11 +1302,11 @@ public final class Search extends ComponentDefinition {
         try {
             return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         } catch (SignatureException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         } catch (InvalidKeyException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            logger.error(e.getMessage());
         }
 
         return false;
