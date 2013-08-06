@@ -26,7 +26,7 @@ public class PublicKeyMessageFactory extends DirectMsgNettyFactory.Oneway {
     }
 
     public static PublicKeyMessage fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-        return (PublicKeyMessage) new PublicKeyMessageFactory().decode(buffer, false);
+        return (PublicKeyMessage) new PublicKeyMessageFactory().decode(buffer);
     }
 
     @Override
