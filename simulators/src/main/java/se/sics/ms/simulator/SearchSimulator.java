@@ -16,6 +16,7 @@ import se.sics.kompics.*;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.peer.SearchPeer;
@@ -193,7 +194,6 @@ public final class SearchSimulator extends ComponentDefinition {
     };
 
     private final void createAndStartNewPeer(long id) {
-        int overlayId = 1;
         Component peer = create(SearchPeer.class);
         InetAddress ip = null;
             try {
@@ -203,7 +203,7 @@ public final class SearchSimulator extends ComponentDefinition {
             }
         Address address = new Address(ip, 9999, (int) id);
 
-        Self self = new SelfImpl(new VodAddress(address, overlayId));
+        Self self = new SelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, 1)));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
@@ -215,7 +215,7 @@ public final class SearchSimulator extends ComponentDefinition {
         peers.put(id, peer);
         peersAddress.put(id, self.getAddress());
 
-        Snapshot.addPeer(new VodAddress(address, overlayId));
+        Snapshot.addPeer(self.getAddress());
     }
 
     private void stopAndDestroyPeer(Long id) {
