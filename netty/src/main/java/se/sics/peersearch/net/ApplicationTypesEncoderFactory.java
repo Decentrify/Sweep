@@ -17,6 +17,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 
+import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
+
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
 
 /**

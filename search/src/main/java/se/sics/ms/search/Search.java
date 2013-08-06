@@ -16,7 +16,6 @@ import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -162,7 +161,6 @@ public final class Search extends ComponentDefinition {
             nextInsertionId = partition;
             lowestMissingIndexValue = partition;
             commitRequests = new HashMap<TimeoutId, ReplicationCount>();
-
             existingEntries = new TreeSet<Long>();
             gapTimeouts = new HashMap<Long, UUID>();
 
@@ -483,6 +481,38 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    /*
+     * @return a new id for a new {@link IndexEntry}
+     */
+    private long getNextInsertionId() {
+        long id = nextInsertionId;
+        nextInsertionId += config.getNumPartitions();
+        return id;
+    }
+
+    /**
+     * Periodically garbage collect the data structure used to identify
+     * duplicated {@link AddIndexEntryMessage.Request}.
+     */
+    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
+        @Override
+        public void handle(RecentRequestsGcTimeout event) {
+            long referenceTime = System.currentTimeMillis();
+
+            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
+            for (TimeoutId id : recentRequests.keySet()) {
+                if (referenceTime - recentRequests.get(id) > config
+                        .getRecentRequestsGcInterval()) {
+                    removeList.add(id);
+                }
+            }
+
+            for (TimeoutId uuid : removeList) {
+                recentRequests.remove(uuid);
+            }
+        }
+    };
+
     /**
      * Clears rendingForCommit map as the entry wasn't commited on time
      */
@@ -603,6 +633,9 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Save entry on the leader and send an ACK back to the client
+     * Only execute in the role of the leader. Garbage collect replication
+     * requests if the constraints could not be satisfied in time. In this case,
+     * no acknowledgment is sent to the client.
      */
     final Handler<ReplicationCommitMessage.Response> commitResponseHandler = new Handler<ReplicationCommitMessage.Response>() {
         @Override
@@ -634,35 +667,6 @@ public final class Search extends ComponentDefinition {
         public void handle(CommitTimeout commitTimeout) {
             if(commitRequests.containsKey(commitTimeout.getTimeoutId()))
                 commitRequests.remove(commitTimeout.getTimeoutId());
-        }
-    };
-
-    private long getNextInsertionId() {
-        long id = nextInsertionId;
-        nextInsertionId += config.getNumPartitions();
-        return id;
-    }
-
-    /**
-     * Periodically garbage collect the data structure used to identify
-     * duplicated {@link AddIndexEntryMessage.Request}.
-     */
-    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
-        @Override
-        public void handle(RecentRequestsGcTimeout event) {
-            long referenceTime = System.currentTimeMillis();
-
-            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
-            for (TimeoutId id : recentRequests.keySet()) {
-                if (referenceTime - recentRequests.get(id) > config
-                        .getRecentRequestsGcInterval()) {
-                    removeList.add(id);
-                }
-            }
-
-            for (TimeoutId uuid : removeList) {
-                recentRequests.remove(uuid);
-            }
         }
     };
 
@@ -801,18 +805,6 @@ public final class Search extends ComponentDefinition {
             answerSearchRequest();
         }
     };
-
-    /**
-     * Present the result to the user.
-     */
-    private void answerSearchRequest() {
-        try {
-            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
-            // TODO present the result to the user
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     /**
      * Query the local store with the given query string and send the response
@@ -982,147 +974,17 @@ public final class Search extends ComponentDefinition {
         }
 
         writer.addDocument(doc);
-    }
+    };
 
     /**
-     * Add a new {link {@link IndexEntry} to the local Lucene index.
-     *
-     * @param indexEntry the {@link IndexEntry} to be added
-     * @throws IOException if the Lucene index fails to store the entry
+     * Present the result to the user.
      */
-    private void addEntryLocal(IndexEntry indexEntry) throws IOException {
-        if (indexEntry.getId() < lowestMissingIndexValue
-                || existingEntries.contains(indexEntry.getId())) {
-            return;
-        }
-
-        addIndexEntry(index, indexEntry);
-        Snapshot.incNumIndexEntries(self.getAddress());
-
-        // Cancel gap detection timeouts for the given index
-        TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
-        if (timeoutId != null) {
-            CancelTimeout ct = new CancelTimeout(timeoutId);
-            trigger(ct, timerPort);
-        }
-
-        if (indexEntry.getId() == lowestMissingIndexValue) {
-            // Search for the next missing index id
-            do {
-                existingEntries.remove(lowestMissingIndexValue);
-                lowestMissingIndexValue += config.getNumPartitions();
-            } while (existingEntries.contains(lowestMissingIndexValue));
-        } else if (indexEntry.getId() > lowestMissingIndexValue) {
-            existingEntries.add(indexEntry.getId());
-
-            // Suspect all missing entries less than the new as gaps
-            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i = i
-                    + config.getNumPartitions()) {
-                if (gapTimeouts.containsKey(i)) {
-                    continue;
-                }
-
-                // This might be a gap so start a timeouts
-                ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
-                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
-                gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
-                trigger(rst, timerPort);
-            }
-        }
-    }
-
-    /**
-     * Create an {@link IndexEntry} from the given document.
-     *
-     * @param d the document to create an {@link IndexEntry} from
-     * @return an {@link IndexEntry} representing the given document
-     */
-    private IndexEntry createIndexEntry(Document d) {
-        String leaderId = d.get(IndexEntry.LEADER_ID);
-
-        if (leaderId == null)
-            return new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
-                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                    IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), null);
-
-        KeyFactory keyFactory;
-        PublicKey pub = null;
+    private void answerSearchRequest() {
         try {
-            keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
-            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
-            pub = keyFactory.generatePublic(publicKeySpec);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(self.getId() + " " + e.getMessage());
-        } catch (InvalidKeySpecException e) {
-            logger.error(self.getId() + " " + e.getMessage());
-        }
-        IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
-                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
-
-        return entry;
-    }
-
-    /*
- * Check if an entry with the given id exists in the local index store.
- *
- * @param id the id of the entry
- * @return true if an entry with the given id exists
- * @throws IOException if Lucene errors occur
- */
-    private boolean entryExists(long id) throws IOException {
-        IndexEntry indexEntry = findById(id);
-        return indexEntry != null ? true : false;
-    }
-
-    /**
-     * Find an entry for the given id in the local index store.
-     *
-     * @param id the id of the entry
-     * @return the entry if found or null if non-existing
-     * @throws IOException if Lucene errors occur
-     */
-    private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = findIdRange(id, id, 1);
-        if (indexEntries.isEmpty()) {
-            return null;
-        }
-        return indexEntries.get(0);
-    }
-
-    /**
-     * Retrieve all indexes with ids in the given range from the local index
-     * store.
-     *
-     * @param min   the inclusive minimum of the range
-     * @param max   the inclusive maximum of the range
-     * @param limit the maximal amount of entries to be returned
-     * @return a list of the entries found
-     * @throws IOException if Lucene errors occur
-     */
-    private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
-
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
-            TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
-                    Type.LONG)));
-            ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document d = searcher.doc(scoreDoc.doc);
-                indexEntries.add(createIndexEntry(d));
-            }
-
-            return indexEntries;
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+            // TODO present the result to the user
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -1234,6 +1096,148 @@ public final class Search extends ComponentDefinition {
                     + Character.digit(s.charAt(i+1), 16));
         }
         return data;
+    }
+
+    /**
+     * Add a new {link {@link IndexEntry} to the local Lucene index.
+     *
+     * @param indexEntry the {@link IndexEntry} to be added
+     * @throws IOException if the Lucene index fails to store the entry
+     */
+    private void addEntryLocal(IndexEntry indexEntry) throws IOException {
+        if (indexEntry.getId() < lowestMissingIndexValue
+                || existingEntries.contains(indexEntry.getId())) {
+            return;
+        }
+
+        addIndexEntry(index, indexEntry);
+        Snapshot.incNumIndexEntries(self.getAddress());
+
+        // Cancel gap detection timeouts for the given index
+        TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
+        if (timeoutId != null) {
+            CancelTimeout ct = new CancelTimeout(timeoutId);
+            trigger(ct, timerPort);
+        }
+
+        if (indexEntry.getId() == lowestMissingIndexValue) {
+            // Search for the next missing index id
+            do {
+                existingEntries.remove(lowestMissingIndexValue);
+                lowestMissingIndexValue += config.getNumPartitions();
+            } while (existingEntries.contains(lowestMissingIndexValue));
+        } else if (indexEntry.getId() > lowestMissingIndexValue) {
+            existingEntries.add(indexEntry.getId());
+
+            // Suspect all missing entries less than the new as gaps
+            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i = i
+                    + config.getNumPartitions()) {
+                if (gapTimeouts.containsKey(i)) {
+                    continue;
+                }
+
+                // This might be a gap so start a timeouts
+                ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
+                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
+                gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
+                trigger(rst, timerPort);
+            }
+        }
+    }
+
+    /**
+     * Create an {@link IndexEntry} from the given document.
+     *
+     * @param d the document to create an {@link IndexEntry} from
+     * @return an {@link IndexEntry} representing the given document
+     */
+    private IndexEntry createIndexEntry(Document d) {
+        String leaderId = d.get(IndexEntry.LEADER_ID);
+
+        if (leaderId == null)
+            return new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
+                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                    IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), null);
+
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(self.getId() + " " + e.getMessage());
+        } catch (InvalidKeySpecException e) {
+            logger.error(self.getId() + " " + e.getMessage());
+        }
+        IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
+                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
+
+        return entry;
+    }
+
+    /**
+     * Check if an entry with the given id exists in the local index store.
+     *
+     * @param id the id of the entry
+     * @return true if an entry with the given id exists
+     * @throws IOException if Lucene errors occur
+     */
+    private boolean entryExists(long id) throws IOException {
+        IndexEntry indexEntry = findById(id);
+        return indexEntry != null ? true : false;
+    }
+
+    /**
+     * Find an entry for the given id in the local index store.
+     *
+     * @param id the id of the entry
+     * @return the entry if found or null if non-existing
+     * @throws IOException if Lucene errors occur
+     */
+    private IndexEntry findById(long id) throws IOException {
+        List<IndexEntry> indexEntries = findIdRange(id, id, 1);
+        if (indexEntries.isEmpty()) {
+            return null;
+        }
+        return indexEntries.get(0);
+    }
+
+    /**
+     * Retrieve all indexes with ids in the given range from the local index
+     * store.
+     *
+     * @param min   the inclusive minimum of the range
+     * @param max   the inclusive maximum of the range
+     * @param limit the maximal amount of entries to be returned
+     * @return a list of the entries found
+     * @throws IOException if Lucene errors occur
+     */
+    private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
+            TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG)));
+            ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document d = searcher.doc(scoreDoc.doc);
+                indexEntries.add(createIndexEntry(d));
+            }
+
+            return indexEntries;
+        } finally {
+            if (reader != null) {
+                reader.close();
+            }
+        }
     }
 
     /**

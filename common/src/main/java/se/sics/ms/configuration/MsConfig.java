@@ -42,6 +42,8 @@ public class MsConfig extends VodConfig {
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
 
+    public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
+
     protected MsConfig(String[] args) throws IOException {
         super(args);
     }

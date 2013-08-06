@@ -96,8 +96,9 @@ public final class Gradient extends ComponentDefinition {
         subscribe(publicKeyMessageHandler, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
         subscribe(handleIndexExchangeRequest, gradientRoutingPort);
-        subscribe(handleReplicationRequest, gradientRoutingPort);
+        subscribe(handleReplicationPrepairCommit, gradientRoutingPort);
         subscribe(handleSearchRequest, gradientRoutingPort);
+        subscribe(handleReplicationCommit, gradientRoutingPort);
     }
 
     /**
@@ -374,20 +375,7 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
-    final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
-        @Override
-        public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
-            if (bucket != null) {
-                int n = random.nextInt(bucket.size());
-
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
-                        UUID.nextUUID(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), 0, 0), networkPort);
-            }
-        }
-    };
-
-    final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationRequest = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
+    final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationPrepairCommit = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
             TreeSet<VodDescriptor> bucket = routingTable.get(partition);
@@ -409,6 +397,19 @@ public final class Gradient extends ComponentDefinition {
             TreeSet<VodDescriptor> bucket = routingTable.get(partition);
             for (VodDescriptor peer : bucket) {
                 trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
+            }
+        }
+    };
+
+    final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.IndexExchangeRequest event) {
+            TreeSet<VodDescriptor> bucket = routingTable.get(partition);
+            if (bucket != null) {
+                int n = random.nextInt(bucket.size());
+
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
+                        UUID.nextUUID(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), 0, 0), networkPort);
             }
         }
     };
