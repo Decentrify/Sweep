@@ -34,6 +34,7 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
@@ -99,7 +100,7 @@ public class SystemMain extends ComponentDefinition {
                 System.exit(-1);
             } else {
             
-            self = new SelfImpl(ToVodAddr.systemAddr(myAddr));
+            self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
 
             Set<Address> publicNodes = new HashSet<Address>();
             try {

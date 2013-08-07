@@ -67,7 +67,7 @@ public class GradientView {
 
         if (mapping.containsKey(vodDescriptor.getVodAddress())) {
             VodDescriptor currentVodDescriptor = mapping.get(vodDescriptor.getVodAddress());
-            if (currentVodDescriptor.equals(vodDescriptor)) {
+            if (currentVodDescriptor.equals(vodDescriptor) && utilityComparator.compare(currentVodDescriptor, vodDescriptor) == 0) {
                 return;
             } else {
                 entries.remove(currentVodDescriptor);

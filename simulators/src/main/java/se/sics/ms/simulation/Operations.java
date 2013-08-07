@@ -7,8 +7,6 @@ import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 
 @SuppressWarnings("serial")
 public class Operations {
-	// Global counter to create monotonically increasing ids
-	private static long nextId = 0;
 
 	public static Operation1<AddIndexEntry, Long> addIndexEntry() {
 		return new Operation1<AddIndexEntry, Long>() {
@@ -24,11 +22,11 @@ public class Operations {
 	 * 
 	 * @return a new {@link PeerJoin} event
 	 */
-	public static Operation<PeerJoin> peerJoin() {
-		return new Operation<PeerJoin>() {
+	public static Operation1<PeerJoin, Long> peerJoin() {
+		return new Operation1<PeerJoin, Long>() {
 			@Override
-			public PeerJoin generate() {
-				return new PeerJoin(nextId++);
+			public PeerJoin generate(Long id) {
+				return new PeerJoin(id);
 			}
 		};
 	}

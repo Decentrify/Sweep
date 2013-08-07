@@ -12,6 +12,7 @@ import se.sics.kompics.Positive;
 import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
+import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.messages.ElectionMessage;
@@ -19,6 +20,7 @@ import se.sics.peersearch.messages.LeaderViewMessage;
 import se.sics.peersearch.messages.RejectFollowerMessage;
 import se.sics.peersearch.messages.RejectLeaderMessage;
 
+import javax.rmi.CORBA.Util;
 import java.util.SortedSet;
 
 /**
@@ -40,6 +42,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private Self self;
 	private SortedSet<VodDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
+    private final UtilityComparator utilityComparator = new UtilityComparator();
 
 	/**
 	 * A customised timeout class for when to send heart beats etc
@@ -146,7 +149,7 @@ public class ElectionLeader extends ComponentDefinition {
 		}
 	};
 
-	/**at se.sics.ms.election.ElectionLeader.evaluateVotes(ElectionLeader.java:391)
+	/**
 	 * A handler that will call for a vote call after a certain amount of time
 	 * if not all voters have returned with a vote
 	 */
@@ -176,7 +179,9 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(RejectLeaderMessage event) {
             // TODO we need to check if the rejection is valid e.g. check the given better node
-            System.out.println(self.getAddress() + " got rejected by " + event.getVodSource() + " for " + event.getBetterLeader());
+            if (utilityComparator.compare(self.getDescriptor(), event.getBetterLeader()) == 1) {
+                return;
+            }
 			rejected();
 		}
 	};

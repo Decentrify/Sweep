@@ -25,6 +25,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.GradientRoutingPort;
 import se.sics.ms.gradient.LeaderStatusPort;
@@ -982,6 +983,7 @@ public final class Search extends ComponentDefinition {
         }
 
         addIndexEntry(index, indexEntry);
+        ((MsSelfImpl)self).incrementNumberOfIndexEntries();
         Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index

@@ -16,6 +16,7 @@ import se.sics.kompics.*;
 import se.sics.kompics.web.Web;
 import se.sics.kompics.web.WebRequest;
 import se.sics.kompics.web.WebResponse;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
@@ -203,13 +204,12 @@ public final class SearchSimulator extends ComponentDefinition {
             }
         Address address = new Address(ip, 9999, (int) id);
 
-        Self self = new SelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, 1)));
+        Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, 1)));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
-        trigger(new SearchPeerInit(self, croupierConfiguration,
-                searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
+        trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);

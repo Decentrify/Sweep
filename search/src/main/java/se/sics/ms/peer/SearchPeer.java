@@ -125,7 +125,7 @@ public final class SearchPeer extends ComponentDefinition {
 
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
             if (self.getId() > 0) {
-                Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
+                Address peerAddress = new Address(ip, 9999, 0);
                 final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
                 descs.add(0, descr);
             }
