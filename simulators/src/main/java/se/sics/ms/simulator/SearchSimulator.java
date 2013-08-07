@@ -156,10 +156,13 @@ public final class SearchSimulator extends ComponentDefinition {
             trigger(new AddIndexSimulated(entry), peer.getNegative(IndexPort.class));
         }
     };
+    // TODO ids should be random!
+    static long nextId = 0;
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
-            Long id = event.getPeerId();
+//            Long id = event.getPeerId();
+            Long id = nextId++;
 
             // join with the next id if this id is taken
             Long successor = ringNodes.getNode(id);

@@ -40,7 +40,6 @@ public final class SearchPeer extends ComponentDefinition {
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
-    private Random ran;
 
     public SearchPeer() {
         natTraversal = create(NatTraverser.class);
@@ -98,7 +97,6 @@ public final class SearchPeer extends ComponentDefinition {
             GradientConfiguration gradientConfiguration = init.getGradientConfiguration();
             ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
             searchConfiguration = init.getSearchConfiguration();
-            ran = new Random(init.getSearchConfiguration().getSeed());
 
             trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
             trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());

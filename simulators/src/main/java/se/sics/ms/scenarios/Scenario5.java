@@ -26,7 +26,7 @@ public class Scenario5 extends Scenario {
 			StochasticProcess addMagnetEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(500));
-					raise(100, Operations.addMagnetEntry(), uniform(0, 100));
+					raise(100, Operations.addMagnetEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 

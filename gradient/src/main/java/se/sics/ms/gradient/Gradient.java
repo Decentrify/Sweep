@@ -243,7 +243,7 @@ public final class Gradient extends ComponentDefinition {
             Iterator<VodDescriptor> iterator = sample.iterator();
             while (iterator.hasNext()) {
                 // TODO do not access constants
-                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getId() % MsConfig.SEARCH_NUM_PARTITIONS)  {
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getAddress().getPartitionId())  {
                     iterator.remove();
                 }
             }
