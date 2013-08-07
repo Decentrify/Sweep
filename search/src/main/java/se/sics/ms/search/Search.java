@@ -487,6 +487,7 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationPrepairCommitMessage.Request> handlePrepairCommit = new Handler<ReplicationPrepairCommitMessage.Request>() {
         @Override
         public void handle(ReplicationPrepairCommitMessage.Request request) {
+            System.out.println("1");
             IndexEntry entry = request.getEntry();
             if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
@@ -509,6 +510,7 @@ public final class Search extends ComponentDefinition {
     final Handler<AwaitingForCommitTimeout> handleAwaitingForCommitTimeout = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
+            System.out.println("2");
             if(pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
                 pendingForCommit.remove(awaitingForCommitTimeout.getEntry());
 
@@ -521,6 +523,7 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationPrepairCommitMessage.Response> handlePrepairCoomitResponse = new Handler<ReplicationPrepairCommitMessage.Response>() {
         @Override
         public void handle(ReplicationPrepairCommitMessage.Response response) {
+            System.out.println("3");
             TimeoutId timeout = response.getTimeoutId();
 
             CancelTimeout ct = new CancelTimeout(timeout);
@@ -561,6 +564,7 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationCommitMessage.Request> handleCommitRequest = new Handler<ReplicationCommitMessage.Request>() {
         @Override
         public void handle(ReplicationCommitMessage.Request request) {
+            System.out.println("4");
             long id = request.getEntryId();
 
             if(leaderIds.isEmpty())
@@ -629,6 +633,7 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationCommitMessage.Response> handleCommitResponse = new Handler<ReplicationCommitMessage.Response>() {
         @Override
         public void handle(ReplicationCommitMessage.Response response) {
+            System.out.println("5");
             TimeoutId commitId = response.getTimeoutId();
 
             CancelTimeout ct = new CancelTimeout(commitId);
@@ -654,6 +659,7 @@ public final class Search extends ComponentDefinition {
     final Handler<CommitTimeout> handleCommitTimeout = new Handler<CommitTimeout>() {
         @Override
         public void handle(CommitTimeout commitTimeout) {
+            System.out.println("6");
             if(commitRequests.containsKey(commitTimeout.getTimeoutId()))
                 commitRequests.remove(commitTimeout.getTimeoutId());
         }

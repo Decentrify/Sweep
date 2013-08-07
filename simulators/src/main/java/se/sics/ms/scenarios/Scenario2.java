@@ -34,8 +34,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(500));
-//					raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
-                    raise(200, Operations.addIndexEntry(), uniform(1, 100));
+					raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
