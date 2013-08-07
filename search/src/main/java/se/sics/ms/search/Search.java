@@ -74,6 +74,7 @@ public final class Search extends ComponentDefinition {
     Positive<LeaderRequestPort> leaderRequestPort = positive(LeaderRequestPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
+    Negative<UiPort> uiPort = negative(UiPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
@@ -151,6 +152,7 @@ public final class Search extends ComponentDefinition {
         subscribe(commitTimeoutHandler, timerPort);
         subscribe(commitRequestHandler, networkPort);
         subscribe(commitResponseHandler, networkPort);
+        subscribe(searchRequestHandler, uiPort);
     }
 
     /**
@@ -850,6 +852,13 @@ public final class Search extends ComponentDefinition {
                     leaderIds.remove(leaderIds.get(0));
                 leaderIds.add(key);
             }
+        }
+    };
+
+    final Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+        @Override
+        public void handle(SearchRequest searchRequest) {
+            startSearch(searchRequest.getPattern());
         }
     };
 

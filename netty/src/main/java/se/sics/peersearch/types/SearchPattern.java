@@ -20,13 +20,13 @@ public class SearchPattern implements Serializable {
     private static final long serialVersionUID = -8499646226474655358L;
 
     private final String fileNamePattern;
-    private final int minFileSize;
-    private final int maxFileSize;
-    private final Date minUploadDate;
-    private final Date maxUploadDate;
-    private final String language;
-    private final IndexEntry.Category category;
-    private final String descriptionPattern;
+    private int minFileSize;
+    private int maxFileSize;
+    private Date minUploadDate;
+    private Date maxUploadDate;
+    private String language;
+    private IndexEntry.Category category;
+    private String descriptionPattern;
 
     /**
      * Creates a new search pattern. Fields can be set to null or 0 in case of
@@ -60,6 +60,10 @@ public class SearchPattern implements Serializable {
         this.language = language;
         this.category = category;
         this.descriptionPattern = descriptionPattern;
+    }
+
+    public SearchPattern(String fileNamePattern) {
+        this.fileNamePattern = fileNamePattern;
     }
 
     /**
