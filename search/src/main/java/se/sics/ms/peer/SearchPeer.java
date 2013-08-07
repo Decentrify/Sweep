@@ -13,6 +13,7 @@ import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
+import se.sics.kompics.*;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
@@ -23,6 +24,8 @@ import se.sics.ms.election.ElectionLeader;
 import se.sics.ms.gradient.*;
 import se.sics.ms.search.Search;
 import se.sics.ms.search.SearchInit;
+import se.sics.ms.search.SearchRequest;
+import se.sics.ms.search.UiPort;
 
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -32,6 +35,8 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
+    Positive<UiPort> uiPort = positive(UiPort.class);
+    Negative<SearchUiPort> searchUiPort = negative(SearchUiPort.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
@@ -81,8 +86,12 @@ public final class SearchPeer extends ComponentDefinition {
                 gradient.getPositive(LeaderStatusPort.class));
         connect(gradient.getPositive(GradientRoutingPort.class),
                 search.getNegative(GradientRoutingPort.class));
+        connect(gradient.getPositive(LeaderRequestPort.class),
+                search.getNegative(LeaderRequestPort.class));
+//        connect(search.getPositive(UiPort.class), this.uiPort);
 
         subscribe(handleInit, control);
+        subscribe(searchRequestHandler, searchUiPort);
     }
     Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
         @Override
@@ -113,6 +122,13 @@ public final class SearchPeer extends ComponentDefinition {
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
             trigger(new SearchInit(self, searchConfiguration), search.getControl());
+        }
+    };
+
+    Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+        @Override
+        public void handle(SearchRequest searchRequest) {
+            trigger(searchRequest, uiPort);
         }
     };
 }

@@ -78,7 +78,7 @@
             <artifactId>ms-election</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
-        </dependency> 
+        </dependency>
     </dependencies>
 
     <build>

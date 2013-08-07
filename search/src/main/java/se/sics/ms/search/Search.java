@@ -56,6 +56,9 @@ import java.util.logging.Level;
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
  * or not.
+ * <p/>
+ * {@link IndexEntry}s are spread via gossiping using the Cyclon samples stored
+ * in the routing tables for the partition of the local node.
  */
 public final class Search extends ComponentDefinition {
     /**
@@ -69,6 +72,7 @@ public final class Search extends ComponentDefinition {
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
+    Negative<UiPort> uiPort = negative(UiPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
@@ -181,6 +185,16 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
+        subscribe(repairRequestHandler, networkPort);
+        subscribe(repairResponseHandler, networkPort);
+        subscribe(publicKeyBroadcastHandler, publicKeyPort);
+        subscribe(prepairCommitHandler, networkPort);
+        subscribe(awaitingForCommitTimeoutHandler, timerPort);
+        subscribe(prepairCoomitResponseHandler, networkPort);
+        subscribe(commitTimeoutHandler, timerPort);
+        subscribe(commitRequestHandler, networkPort);
+        subscribe(commitResponseHandler, networkPort);
+        subscribe(searchRequestHandler, uiPort);
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
@@ -789,6 +803,13 @@ public final class Search extends ComponentDefinition {
                     leaderIds.remove(leaderIds.get(0));
                 leaderIds.add(key);
             }
+        }
+    };
+
+    final Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+        @Override
+        public void handle(SearchRequest searchRequest) {
+            startSearch(searchRequest.getPattern());
         }
     };
 
