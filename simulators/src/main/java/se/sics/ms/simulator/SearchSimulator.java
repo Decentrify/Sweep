@@ -207,9 +207,9 @@ public final class SearchSimulator extends ComponentDefinition {
 
         trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode), peer.getControl());
 
-        if (bootstrappingNode == null) {
+//        if (bootstrappingNode == null) {
             bootstrappingNode = self.getAddress();
-        }
+//        }
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
