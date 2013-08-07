@@ -9,17 +9,10 @@ import se.sics.ms.simulation.Operations;
 public class Scenario5 extends Scenario {
 	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
 		{
-			StochasticProcess startUp = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(100));
-					raise(1, Operations.peerJoin(), uniform(0, 0));
-				}
-			};
-
 			StochasticProcess joinNodes = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(100));
-					raise(99, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
@@ -30,8 +23,7 @@ public class Scenario5 extends Scenario {
 				}
 			};
 
-			startUp.start();
-			joinNodes.startAfterTerminationOf(2000, startUp);
+			joinNodes.start();
 			addMagnetEntries.startAfterTerminationOf(5000, joinNodes);
 		}
 	};

@@ -3,19 +3,14 @@ package se.sics.ms.simulator;
 import org.xml.sax.SAXException;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.config.*;
 import se.sics.gvod.filters.MsgDestFilterAddress;
-import se.sics.gvod.filters.TimeoutFilterOverlayId;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
-import se.sics.kompics.web.Web;
-import se.sics.kompics.web.WebRequest;
-import se.sics.kompics.web.WebResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.peer.IndexPort;
@@ -156,13 +151,10 @@ public final class SearchSimulator extends ComponentDefinition {
             trigger(new AddIndexSimulated(entry), peer.getNegative(IndexPort.class));
         }
     };
-    // TODO ids should be random!
-    static long nextId = 0;
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
-//            Long id = event.getPeerId();
-            Long id = nextId++;
+            Long id = event.getPeerId();
 
             // join with the next id if this id is taken
             Long successor = ringNodes.getNode(id);
@@ -197,22 +189,27 @@ public final class SearchSimulator extends ComponentDefinition {
         }
     };
 
+    private VodAddress bootstrappingNode;
     private final void createAndStartNewPeer(long id) {
         Component peer = create(SearchPeer.class);
         InetAddress ip = null;
-            try {
-                ip = InetAddress.getLocalHost();
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
-            }
-        Address address = new Address(ip, 9999, (int) id);
+        try {
+            ip = InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
 
+        Address address = new Address(ip, 9999, (int) id);
         Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, 0)));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
-        trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration), peer.getControl());
+        trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode), peer.getControl());
+
+        if (bootstrappingNode == null) {
+            bootstrappingNode = self.getAddress();
+        }
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);
