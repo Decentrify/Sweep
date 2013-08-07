@@ -35,7 +35,7 @@ public class Scenario2 extends Scenario {
 				{
 					eventInterArrivalTime(constant(500));
 //					raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
-                    raise(200, Operations.addIndexEntry(), uniform(1, 200));
+                    raise(200, Operations.addIndexEntry(), uniform(1, 100));
 				}
 			};
 
