@@ -36,7 +36,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Positive<UiPort> uiPort = positive(UiPort.class);
+    Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SearchUiPort> searchUiPort = negative(SearchUiPort.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
@@ -90,7 +90,9 @@ public final class SearchPeer extends ComponentDefinition {
                 gradient.getPositive(LeaderStatusPort.class));
         connect(gradient.getPositive(LeaderRequestPort.class),
                 search.getNegative(LeaderRequestPort.class));
-//        connect(search.getPositive(UiPort.class), this.uiPort);
+
+
+        connect(uiPort, search.getPositive(UiPort.class));
 
         subscribe(handleInit, control);
         subscribe(searchRequestHandler, searchUiPort);
