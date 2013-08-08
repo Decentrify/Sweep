@@ -420,7 +420,9 @@ public final class Gradient extends ComponentDefinition {
                 locatedLeaders.put(event.getVodSource(), numberOfAnswers);
 
                 for (VodAddress locatedLeader : locatedLeaders.keySet()) {
-                    if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2 + 1) {
+                    // TODO Make it work with a majority
+//                    if (locatedLeaders.get(locatedLeader) >= LeaderLookupMessage.QueryLimit / 2 + 1) {
+                    if (locatedLeaders.get(locatedLeader) >= 0) {
                         trigger(new AddIndexEntryMessage.Request(self.getAddress(), locatedLeader, addIndexEntryRequestTimeoutId, indexEntryToAdd), networkPort);
 
                         indexEntryToAdd = null;
@@ -515,13 +517,13 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
             if (categoryRoutingMap == null) {
-                logger.info("{} has no nodes to exchange indexes with", self.getAddress());
+                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
             }
 
             TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
             if (bucket == null) {
-                logger.info("{} has no nodes to exchange indexes with", self.getAddress());
+                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
             }
 

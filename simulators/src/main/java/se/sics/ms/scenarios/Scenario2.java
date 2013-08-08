@@ -26,14 +26,14 @@ public class Scenario2 extends Scenario {
 
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
-					eventInterArrivalTime(constant(500));
+					eventInterArrivalTime(constant(5000));
 					raise(500, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
 			joinNodes.start();
 			addEntries.startAfterTerminationOf(60 * 10 * 1000, joinNodes);
-			massiveJoin.startAfterTerminationOf(5000, addEntries);
+			massiveJoin.startAfterTerminationOf(2000, addEntries);
 		}
 	};
 

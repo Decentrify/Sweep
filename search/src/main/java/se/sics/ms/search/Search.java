@@ -549,7 +549,7 @@ public final class Search extends ComponentDefinition {
             trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry()));
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId(), request.getEntry()));
             rst.getTimeoutEvent().setTimeoutId(timeout);
             trigger(rst, timerPort);
         }

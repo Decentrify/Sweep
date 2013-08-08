@@ -2,6 +2,7 @@ package se.sics.ms.search;
 
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
+import se.sics.ms.timeout.IndividualTimeout;
 
 /**
  * Created with IntelliJ IDEA.
@@ -9,11 +10,8 @@ import se.sics.gvod.timer.Timeout;
  * Date: 8/3/13
  * Time: 2:31 PM
  */
-public class CommitTimeout extends Timeout {
-    private final int id;
+public class CommitTimeout extends IndividualTimeout {
     public CommitTimeout(ScheduleTimeout rst, int id) {
-        super(rst);
-
-        this.id = id;
+        super(rst, id);
     }
 }
