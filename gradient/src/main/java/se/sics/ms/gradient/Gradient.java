@@ -523,13 +523,13 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
             if (categoryRoutingMap == null) {
-                logger.info("{} handleIndexExchangeRequest: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
+                logger.info("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
             }
 
             TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
             if (bucket == null) {
-                logger.info("{} handleIndexExchangeRequest: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
+                logger.info("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
             }
 
