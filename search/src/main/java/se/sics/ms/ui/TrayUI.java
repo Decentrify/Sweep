@@ -25,6 +25,8 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
     private final UiComponent component;
     private final JFrame searchFrame;
     private final SearchUi searchUi;
+    private final JFrame addEntryFrame;
+    private final AddIndexEntryUi addIndexEntryUi;
 
     public TrayUI(Image image, UiComponent component) {
         super(image);
@@ -36,6 +38,12 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
         searchUi = new SearchUi(component);
         searchFrame.setContentPane(new SearchUi(component).root);
         searchFrame.pack();
+
+        addEntryFrame = new JFrame("Add Index Entry");
+        addIndexEntryUi = new AddIndexEntryUi(component);
+        addEntryFrame.setContentPane(addIndexEntryUi.root);
+        addEntryFrame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        addEntryFrame.pack();
 
         EventQueue.invokeLater(new Runnable() {
             @Override
@@ -78,7 +86,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
         return new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-
+                addEntryFrame.setVisible(true);
             }
         };
     }

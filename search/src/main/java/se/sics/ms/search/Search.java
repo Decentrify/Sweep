@@ -153,6 +153,7 @@ public final class Search extends ComponentDefinition {
         subscribe(commitRequestHandler, networkPort);
         subscribe(commitResponseHandler, networkPort);
         subscribe(searchRequestHandler, uiPort);
+        subscribe(addIndexEntryRequestHandler, uiPort);
     }
 
     /**
@@ -488,7 +489,7 @@ public final class Search extends ComponentDefinition {
             trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry()));
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry(), self.getId()));
             rst.getTimeoutEvent().setTimeoutId(timeout);
             trigger(rst, timerPort);
         }
@@ -657,9 +658,10 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
         @Override
         public void handle(AddIndexEntryMessage.Response event) {
-            // TODO inform user
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
+
+            trigger(new AddIndexEntryUiResponse(true), uiPort);
         }
     };
 
@@ -774,7 +776,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(AddRequestTimeout event) {
             if (event.reachedRetryLimit()) {
-                // TODO inform the user
+                trigger(new AddIndexEntryUiResponse(false), uiPort);
             } else {
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
@@ -859,6 +861,13 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchRequest searchRequest) {
             startSearch(searchRequest.getPattern());
+        }
+    };
+
+    final Handler<AddIndexEntryUiRequest> addIndexEntryRequestHandler = new Handler<AddIndexEntryUiRequest>() {
+        @Override
+        public void handle(AddIndexEntryUiRequest addIndexEntryRequest) {
+             addEntryGlobal(addIndexEntryRequest.getEntry());
         }
     };
 

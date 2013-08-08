@@ -78,7 +78,6 @@ public class SystemMain extends ComponentDefinition {
         connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
         connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
         connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
-        connect(ui.getNegative(Timer.class), timer.getPositive(Timer.class));
 
         connect(ui.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
 
