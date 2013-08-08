@@ -40,6 +40,7 @@ public class MsConfig extends VodConfig {
     public static final int MAX_LEADER_ID_HISTORY_SIZE = 5;
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
+    public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);

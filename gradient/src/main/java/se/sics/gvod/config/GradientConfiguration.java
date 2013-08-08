@@ -60,6 +60,7 @@ public class GradientConfiguration
     int convergenceTestRounds;
     int rto;
     int maxNumRoutingEntries;
+    int leaderLookupTimeout;
     
     /**
      * Default constructor comes first.
@@ -78,7 +79,8 @@ public class GradientConfiguration
                 VodConfig.GRADIENT_CONVERGENCE_TEST,
                 VodConfig.GRADIENT_CONVERGENCE_TEST_ROUNDS,
                 VodConfig.GRADIENT_SHUFFLE_TIMEOUT,
-                MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES
+                MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES,
+                MsConfig.GRADIENT_LEADER_LOOKUP_TIMEOUT
                 );
     }
 
@@ -98,7 +100,8 @@ public class GradientConfiguration
             double convergenceTest,
             int convergenceTestRounds,
             int rto,
-            int maxNumRoutingEntries
+            int maxNumRoutingEntries,
+            int leaderLookupTimeout
             ) {
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
@@ -113,6 +116,7 @@ public class GradientConfiguration
         this.convergenceTestRounds = convergenceTestRounds;
         this.rto = rto;
         this.maxNumRoutingEntries = maxNumRoutingEntries;
+        this.leaderLookupTimeout = leaderLookupTimeout;
     }
 
     public static GradientConfiguration build() {
@@ -158,6 +162,10 @@ public class GradientConfiguration
 
     public int getNumParallelSearches() {
         return numParallelSearches;
+    }
+
+    public int getLeaderLookupTimeout() {
+        return leaderLookupTimeout;
     }
 
     /**
@@ -240,6 +248,11 @@ public class GradientConfiguration
 
     public GradientConfiguration setMaxNumRoutingEntries(int maxNumRoutingEntries) {
         this.maxNumRoutingEntries = maxNumRoutingEntries;
+        return this;
+    }
+
+    public GradientConfiguration setLeaderLookupTimeout(int leaderLookupTimeout) {
+        this.leaderLookupTimeout = leaderLookupTimeout;
         return this;
     }
 }

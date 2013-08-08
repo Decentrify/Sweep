@@ -286,6 +286,7 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     }
+
     /**
      * This handler listens to updates regarding the leader status
      */
@@ -452,14 +453,12 @@ public final class Gradient extends ComponentDefinition {
     };
 
     private void sendLeaderLookupRequest(VodDescriptor node) {
-        queriedNodes.add(node);
-
-        // TODO magic number
-        ScheduleTimeout scheduleTimeout = new ScheduleTimeout(30000);
+        ScheduleTimeout scheduleTimeout = new ScheduleTimeout(config.getLeaderLookupTimeout());
         scheduleTimeout.setTimeoutEvent(new LeaderLookupMessage.RequestTimeout(scheduleTimeout, self.getId()));
         openRequests.put(scheduleTimeout.getTimeoutEvent().getTimeoutId(), node);
         trigger(scheduleTimeout, timerPort);
 
+        queriedNodes.add(node);
         trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
     }
 

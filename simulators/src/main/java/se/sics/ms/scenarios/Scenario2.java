@@ -33,7 +33,7 @@ public class Scenario2 extends Scenario {
 
 			joinNodes.start();
 			addEntries.startAfterTerminationOf(60 * 10 * 1000, joinNodes);
-			massiveJoin.startAfterTerminationOf(200, addEntries);
+			massiveJoin.startAfterTerminationOf(5000, addEntries);
 		}
 	};
 
