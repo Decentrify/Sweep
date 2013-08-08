@@ -204,6 +204,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
+        subscribe(addIndexEntryRequestHandler, uiPort);
     }
 
     /**
@@ -562,6 +563,7 @@ public final class Search extends ComponentDefinition {
             trigger(new ReplicationPrepareCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
+            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry(), self.getId()));
             rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId(), request.getEntry()));
             rst.getTimeoutEvent().setTimeoutId(timeout);
             trigger(rst, timerPort);
@@ -725,6 +727,19 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
+     * An index entry has been successfully added.
+     */
+    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+        @Override
+        public void handle(AddIndexEntryMessage.Response event) {
+            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+            trigger(ct, timerPort);
+
+            trigger(new AddIndexEntryUiResponse(true), uiPort);
+        }
+    };
+
+    /**
      * Returns max stored id on a peer
      * @return max stored id on a peer
      */
@@ -777,6 +792,108 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
+     * Query the local store with the given query string and send the response
+     * back to the inquirer.
+     */
+    final Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
+        @Override
+        public void handle(SearchMessage.Request event) {
+            try {
+                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
+
+                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
+            } catch (IOException ex) {
+                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IllegalSearchString illegalSearchString) {
+                illegalSearchString.printStackTrace();
+            }
+        }
+    };
+
+    /**
+     * Add the response to the search index store.
+     */
+    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
+        @Override
+        public void handle(SearchMessage.Response event) {
+            if (searchRequest == null || event.getTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
+                return;
+            }
+
+            addSearchResponse(event.getResults());
+        }
+    };
+
+    /**
+     * Answer a search request if the timeout occurred before all answers were
+     * collected.
+     */
+    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+        @Override
+        public void handle(SearchTimeout event) {
+            answerSearchRequest();
+        }
+    };
+
+    /**
+     * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
+     * in time. Try to add the entry again or respons with failure to the web client.
+     */
+    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
+        @Override
+        public void handle(AddRequestTimeout event) {
+            if (event.reachedRetryLimit()) {
+                trigger(new AddIndexEntryUiResponse(false), uiPort);
+            } else {
+                event.incrementTries();
+                ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
+                rst.setTimeoutEvent(event);
+                addEntryGlobal(event.getEntry(), rst);
+            }
+        }
+    };
+
+    /**
+     * Periodically garbage collect the data structure used to identify
+     * duplicated {@link AddIndexEntryMessage.Request}.
+     */
+    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
+        @Override
+        public void handle(RecentRequestsGcTimeout event) {
+            long referenceTime = System.currentTimeMillis();
+
+            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
+            for (TimeoutId id : recentRequests.keySet()) {
+                if (referenceTime - recentRequests.get(id) > config
+                        .getRecentRequestsGcInterval()) {
+                    removeList.add(id);
+                }
+            }
+
+            for (TimeoutId uuid : removeList) {
+                recentRequests.remove(uuid);
+            }
+        }
+    };
+
+    /**
+     * The entry for a detected gap was not added in time.
+     */
+    final Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
+        @Override
+        public void handle(GapTimeout event) {
+            try {
+                if (entryExists(event.getId()) == false) {
+                    // TODO implement new gap check
+                }
+            } catch (IOException e) {
+                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
+                        e);
+            }
+        }
+    };
+
+    /**
      * This handler listens to updates regarding the leader status
      */
     final Handler<LeaderStatusPort.LeaderStatus> handleLeaderStatus = new Handler<LeaderStatusPort.LeaderStatus>() {
@@ -810,6 +927,13 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchRequest searchRequest) {
             startSearch(searchRequest.getPattern());
+        }
+    };
+
+    final Handler<AddIndexEntryUiRequest> addIndexEntryRequestHandler = new Handler<AddIndexEntryUiRequest>() {
+        @Override
+        public void handle(AddIndexEntryUiRequest addIndexEntryRequest) {
+             addEntryGlobal(addIndexEntryRequest.getEntry());
         }
     };
 

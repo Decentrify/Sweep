@@ -92,6 +92,8 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(handleInit, control);
         subscribe(searchRequestHandler, searchUiPort);
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
+        subscribe(addIndexEntryRequestHandler, searchUiPort);
+        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
     }
     Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
         @Override
@@ -136,6 +138,20 @@ public final class SearchPeer extends ComponentDefinition {
         @Override
         public void handle(SearchResponse searchResponse) {
             trigger(searchResponse, searchUiPort);
+        }
+    };
+
+    final Handler<AddIndexEntryUiRequest> addIndexEntryRequestHandler = new Handler<AddIndexEntryUiRequest>() {
+        @Override
+        public void handle(AddIndexEntryUiRequest addIndexEntryRequest) {
+            trigger(addIndexEntryRequest, search.getPositive(UiPort.class));
+        }
+    };
+
+    final Handler<AddIndexEntryUiResponse> addIndexEntryUiResponseHandler = new Handler<AddIndexEntryUiResponse>() {
+        @Override
+        public void handle(AddIndexEntryUiResponse addIndexEntryUiResponse) {
+            trigger(addIndexEntryUiResponse, searchUiPort);
         }
     };
 }

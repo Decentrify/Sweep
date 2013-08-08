@@ -8,9 +8,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.search.SearchRequest;
-import se.sics.ms.search.SearchResponse;
-import se.sics.ms.search.UiPort;
+import se.sics.ms.search.*;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 
@@ -28,7 +26,6 @@ import java.util.ArrayList;
  */
 public class UiComponent extends ComponentDefinition {
     private Logger logger = LoggerFactory.getLogger(UiComponent.class);
-    Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
 
     private Self self;
@@ -36,9 +33,11 @@ public class UiComponent extends ComponentDefinition {
     private TrayUI trayUI;
 
     public UiComponent(){
+        component = this;
+
         subscribe(uiComponentInitHandler, control);
         subscribe(searchResponseHandler, uiPort);
-        component = this;
+        subscribe(addIndexEntryUiResponseHandler, uiPort);
     }
 
     final Handler<UiComponentInit> uiComponentInitHandler = new Handler<UiComponentInit>() {
@@ -66,6 +65,13 @@ public class UiComponent extends ComponentDefinition {
         }
     };
 
+    final Handler<AddIndexEntryUiResponse> addIndexEntryUiResponseHandler = new Handler<AddIndexEntryUiResponse>() {
+        @Override
+        public void handle(AddIndexEntryUiResponse addIndexEntryUiResponse) {
+            // TODO implement ack parser for UI
+        }
+    };
+
     protected static Image createImage(String path, String description) {
         URL imageURL = UiComponent.class.getResource(path);
 
@@ -79,5 +85,9 @@ public class UiComponent extends ComponentDefinition {
 
     public void search(SearchPattern pattern) {
         trigger(new SearchRequest(pattern), uiPort);
+    }
+
+    public void addIndexEntry(IndexEntry entry) {
+        trigger(new AddIndexEntryUiRequest(entry), uiPort);
     }
 }
