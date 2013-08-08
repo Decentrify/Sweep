@@ -48,6 +48,24 @@ public class AddIndexEntryUi {
         });
     }
 
+    public void showAddResult(boolean isSuccessful) {
+        String result;
+        if(isSuccessful)
+            result = "Entry was successfully added";
+        else
+            result = "Failed to add an entry, try again";
+
+        Object[] options = {"OK"};
+        JOptionPane.showOptionDialog(root,
+                result,"Result on Add Index Entry",
+                JOptionPane.PLAIN_MESSAGE,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]);
+
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame("AddIndexEntryUi");
         frame.setContentPane(new AddIndexEntryUi(null).root);
