@@ -693,7 +693,7 @@ public final class Search extends ComponentDefinition {
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
 
                 commitRequests.remove(commitId);
-                Snapshot.setLastId(replicationCount.getEntry().getId());
+                Snapshot.addIndexEntryId(self.getAddress().getId(), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }

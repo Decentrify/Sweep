@@ -9,7 +9,7 @@ import java.io.IOException;
  */
 public class Configuration extends CompositeConfiguration {
 
-    public static int SNAPSHOT_PERIOD = 1000;
+    public static int SNAPSHOT_PERIOD = 30 * 1000;
     public static int AVAILABLE_TOPICS = 20;
     CroupierConfiguration croupierConfiguration;
     GradientConfiguration gradientConfiguration;
