@@ -137,11 +137,4 @@ public class IndexExchangeMessage {
             return MessageFrameDecoder.INDEX_EXCHANGE_RESPONSE;
         }
     }
-
-    public static class RequestTimeout extends RewriteableRetryTimeout {
-
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
-        }
-    }
 }

@@ -492,50 +492,6 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void HeartbeatRequest() {
-
-        HeartbeatMessage.Request msg = new HeartbeatMessage.Request(gSrc, gDest, UUID.nextUUID());
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            HeartbeatMessage.Request request =
-                    HeartbeatMessageFactory.Request.fromBuffer(buffer);
-
-            assert (request.getVodDestination().equals(gDest));
-            assert (request.getVodSource().equals(gSrc));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
-    public void HeartbeatResponse() {
-
-        HeartbeatMessage.Response msg = new HeartbeatMessage.Response(gSrc, gDest, UUID.nextUUID());
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            HeartbeatMessage.Response response =
-                    HeartbeatMessageFactory.Response.fromBuffer(buffer);
-
-            assert (response.getVodDestination().equals(gDest));
-            assert (response.getVodSource().equals(gSrc));
-
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void VotingResultMessage() {
         InetAddress address1 = null;
         try {

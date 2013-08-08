@@ -117,10 +117,4 @@ public class ElectionMessage {
             return super.getHeaderSize();
         }
     }
-
-    public static class RequestTimeout extends RewriteableRetryTimeout {
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
-        }
-    }
 }

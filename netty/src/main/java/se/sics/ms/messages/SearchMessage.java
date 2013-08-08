@@ -14,10 +14,12 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
+import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 
@@ -139,10 +141,17 @@ public class SearchMessage {
         }
     }
 
-    public static class RequestTimeout extends RewriteableRetryTimeout {
+    /**
+     * Timeout for active {@link se.sics.ms.messages.SearchMessage.Request}s.
+     */
+    public static class RequestTimeout extends IndividualTimeout {
 
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
+        /**
+         * @param request
+         *            the ScheduleTimeout that holds the Timeout
+         */
+        public RequestTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
         }
     }
 }

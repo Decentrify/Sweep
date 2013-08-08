@@ -80,10 +80,4 @@ public class RejectFollowerMessage {
             return MessageFrameDecoder.REJECT_FOLLOWER_RESPONSE;
         }
     }
-
-    public static class RequestTimeout extends RewriteableRetryTimeout {
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
-        }
-    }
 }

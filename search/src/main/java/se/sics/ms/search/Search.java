@@ -33,7 +33,6 @@ import se.sics.ms.gradient.PublicKeyBroadcast;
 import se.sics.ms.peer.IndexPort;
 import se.sics.ms.peer.IndexPort.AddIndexSimulated;
 import se.sics.ms.gradient.PublicKeyPort;
-import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.exceptions.IllegalSearchString;
@@ -104,10 +103,67 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
 
-    public class ExchangeRound extends IndividualTimeout {
+    private class ExchangeRound extends IndividualTimeout {
 
         public ExchangeRound(SchedulePeriodicTimeout request, int id) {
             super(request, id);
+        }
+    }
+
+    /**
+     * Periodic scheduled timeout event to garbage collect the recent request
+     * data structure of {@link Search}.
+     */
+    private class RecentRequestsGcTimeout extends IndividualTimeout {
+
+        public RecentRequestsGcTimeout(SchedulePeriodicTimeout request, int id) {
+            super(request, id);
+        }
+    }
+
+    /**
+     * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
+     * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
+     */
+    private static class AddIndexTimeout extends IndividualTimeout {
+        private final int retryLimit;
+        private int numberOfRetries = 0;
+        private final IndexEntry entry;
+
+        /**
+         * @param request
+         *            the ScheduleTimeout that holds the Timeout
+         * @param retryLimit
+         *            the number of retries for the related
+         *            {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
+         * @param entry
+         *            the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
+         */
+        public AddIndexTimeout(ScheduleTimeout request, int id, int retryLimit, IndexEntry entry) {
+            super(request, id);
+            this.retryLimit = retryLimit;
+            this.entry = entry;
+        }
+
+        /**
+         * Increment the number of retries executed.
+         */
+        public void incrementTries() {
+            numberOfRetries++;
+        }
+
+        /**
+         * @return true if the number of retries exceeded the limit
+         */
+        public boolean reachedRetryLimit() {
+            return numberOfRetries > retryLimit;
+        }
+
+        /**
+         * @return the {@link IndexEntry} this timeout was scheduled for
+         */
+        public IndexEntry getEntry() {
+            return entry;
         }
     }
 
@@ -123,7 +179,6 @@ public final class Search extends ComponentDefinition {
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
         subscribe(handleAddRequestTimeout, timerPort);
-        subscribe(handleGapTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleRepairRequest, networkPort);
@@ -360,7 +415,7 @@ public final class Search extends ComponentDefinition {
      */
     private void addEntryGlobal(IndexEntry entry) {
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddRequestTimeout(rst, self.getId(), config.getRetryCount(), entry));
+        rst.setTimeoutEvent(new AddIndexTimeout(rst, self.getId(), config.getRetryCount(), entry));
         addEntryGlobal(entry, rst);
     }
 
@@ -411,13 +466,7 @@ public final class Search extends ComponentDefinition {
             avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
             replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
 
-            //addEntryLocal(newEntry);
             trigger(new GradientRoutingPort.ReplicationPrepairCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
-
-            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new ReplicationTimeout(rst, self.getId()));
-            rst.getTimeoutEvent().setTimeoutId(event.getTimeoutId());
-            trigger(rst, timerPort);
         }
     };
 
@@ -467,9 +516,9 @@ public final class Search extends ComponentDefinition {
      * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
      * in time. Try to add the entry again or respons with failure to the web client.
      */
-    final Handler<AddRequestTimeout> handleAddRequestTimeout = new Handler<AddRequestTimeout>() {
+    final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
         @Override
-        public void handle(AddRequestTimeout event) {
+        public void handle(AddIndexTimeout event) {
             if (event.reachedRetryLimit()) {
                 // TODO inform the user
             } else {
@@ -762,7 +811,7 @@ public final class Search extends ComponentDefinition {
         }
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
-        rst.setTimeoutEvent(new SearchTimeout(rst, self.getId()));
+        rst.setTimeoutEvent(new SearchMessage.RequestTimeout(rst, self.getId()));
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
@@ -873,9 +922,9 @@ public final class Search extends ComponentDefinition {
      * Answer a search request if the timeout occurred before all answers were
      * collected.
      */
-    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+    final Handler<SearchMessage.RequestTimeout> handleSearchTimeout = new Handler<SearchMessage.RequestTimeout>() {
         @Override
-        public void handle(SearchTimeout event) {
+        public void handle(SearchMessage.RequestTimeout event) {
             answerSearchRequest();
         }
     };
@@ -1000,19 +1049,6 @@ public final class Search extends ComponentDefinition {
             } while (existingEntries.contains(lowestMissingIndexValue));
         } else if (indexEntry.getId() > lowestMissingIndexValue) {
             existingEntries.add(indexEntry.getId());
-
-            // Suspect all missing entries less than the new as gaps
-            for (long i = lowestMissingIndexValue; i < indexEntry.getId(); i++) {
-                if (gapTimeouts.containsKey(i)) {
-                    continue;
-                }
-
-                // This might be a gap so start a timeouts
-                ScheduleTimeout rst = new ScheduleTimeout(config.getGapTimeout());
-                rst.setTimeoutEvent(new GapTimeout(rst, self.getId(), i));
-                gapTimeouts.put(indexEntry.getId(), (UUID) rst.getTimeoutEvent().getTimeoutId());
-                trigger(rst, timerPort);
-            }
         }
     }
 
@@ -1220,21 +1256,4 @@ public final class Search extends ComponentDefinition {
         }
         return data;
     }
-
-    /**
-     * The entry for a detected gap was not added in time.
-     */
-    final Handler<GapTimeout> handleGapTimeout = new Handler<GapTimeout>() {
-        @Override
-        public void handle(GapTimeout event) {
-            try {
-                if (entryExists(event.getId()) == false) {
-                    // TODO implement new gap check
-                }
-            } catch (IOException e) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null,
-                        e);
-            }
-        }
-    };
 }

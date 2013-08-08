@@ -76,13 +76,6 @@ public final class Gradient extends ComponentDefinition {
         }
     }
 
-    public class ShuffleRequestTimeout extends IndividualTimeout {
-
-        public ShuffleRequestTimeout(ScheduleTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
     public Gradient() {
         subscribe(handleInit, control);
         subscribe(handleRound, timerPort);
@@ -145,7 +138,7 @@ public final class Gradient extends ComponentDefinition {
         Set<VodDescriptor> exchangeNodes = gradientView.getExchangeDescriptors(exchangePartner, config.getShuffleLength());
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getShufflePeriod());
-        rst.setTimeoutEvent(new ShuffleRequestTimeout(rst, self.getId()));
+        rst.setTimeoutEvent(new GradientShuffleMessage.RequestTimeout(rst, self.getId()));
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
@@ -218,9 +211,9 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Remove a node from the view if it didn't respond to a request.
      */
-    final Handler<ShuffleRequestTimeout> handleShuffleRequestTimeout = new Handler<ShuffleRequestTimeout>() {
+    final Handler<GradientShuffleMessage.RequestTimeout> handleShuffleRequestTimeout = new Handler<GradientShuffleMessage.RequestTimeout>() {
         @Override
-        public void handle(ShuffleRequestTimeout event) {
+        public void handle(GradientShuffleMessage.RequestTimeout event) {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
             VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 

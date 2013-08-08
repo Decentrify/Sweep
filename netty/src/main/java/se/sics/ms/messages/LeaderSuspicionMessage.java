@@ -102,11 +102,4 @@ public class LeaderSuspicionMessage {
             return new Response(vodSrc, vodDest, clientId, remoteId, nextDest, timeoutId, getStatus(), isSuspected, leader);
         }
     }
-
-    public static class RequestTimeout extends RewriteableRetryTimeout {
-
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
-        }
-    }
 }

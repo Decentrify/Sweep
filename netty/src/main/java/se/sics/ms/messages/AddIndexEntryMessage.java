@@ -8,9 +8,11 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
 import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
+import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 
 /**
@@ -84,12 +86,6 @@ public class AddIndexEntryMessage {
         @Override
         public byte getOpcode() {
             return MessageFrameDecoder.ADD_ENTRY_RESPONSE;
-        }
-    }
-
-    public static class RequestTimeout extends RewriteableRetryTimeout {
-        public RequestTimeout(ScheduleRetryTimeout st, RewriteableMsg retryMessage) {
-            super(st, retryMessage);
         }
     }
 }
