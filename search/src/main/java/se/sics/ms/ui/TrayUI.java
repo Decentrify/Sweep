@@ -113,4 +113,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
         searchUi.showSearchResults(results);
     }
 
+    public void showAddResult(final boolean result) {
+        addIndexEntryUi.showAddResult(result);
+    }
 }

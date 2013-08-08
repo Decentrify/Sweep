@@ -66,7 +66,8 @@ public class UiComponent extends ComponentDefinition {
     final Handler<UiAddIndexEntryResponse> addIndexEntryUiResponseHandler = new Handler<UiAddIndexEntryResponse>() {
         @Override
         public void handle(UiAddIndexEntryResponse addIndexEntryUiResponse) {
-            // TODO implement ack parser for UI
+            boolean result = addIndexEntryUiResponse.isSuccessful();
+            trayUI.showAddResult(result);
         }
     };
 
