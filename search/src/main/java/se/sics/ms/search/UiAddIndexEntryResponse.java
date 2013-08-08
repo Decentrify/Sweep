@@ -8,10 +8,10 @@ import se.sics.kompics.Event;
  * Date: 8/8/13
  * Time: 5:49 PM
  */
-public class AddIndexEntryUiResponse extends Event {
+public class UiAddIndexEntryResponse extends Event {
     private final boolean isSuccessful;
 
-    public AddIndexEntryUiResponse(boolean successful) {
+    public UiAddIndexEntryResponse(boolean successful) {
         isSuccessful = successful;
     }
 

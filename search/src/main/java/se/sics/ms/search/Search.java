@@ -735,7 +735,7 @@ public final class Search extends ComponentDefinition {
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
 
-            trigger(new AddIndexEntryUiResponse(true), uiPort);
+            trigger(new UiAddIndexEntryResponse(true), uiPort);
         }
     };
 
@@ -843,7 +843,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(AddRequestTimeout event) {
             if (event.reachedRetryLimit()) {
-                trigger(new AddIndexEntryUiResponse(false), uiPort);
+                trigger(new UiAddIndexEntryResponse(false), uiPort);
             } else {
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
@@ -923,16 +923,16 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+    final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
-        public void handle(SearchRequest searchRequest) {
+        public void handle(UiSearchRequest searchRequest) {
             startSearch(searchRequest.getPattern());
         }
     };
 
-    final Handler<AddIndexEntryUiRequest> addIndexEntryRequestHandler = new Handler<AddIndexEntryUiRequest>() {
+    final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
-        public void handle(AddIndexEntryUiRequest addIndexEntryRequest) {
+        public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
              addEntryGlobal(addIndexEntryRequest.getEntry());
         }
     };
@@ -985,7 +985,7 @@ public final class Search extends ComponentDefinition {
         try {
             ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
 
-            trigger(new SearchResponse(result), uiPort);
+            trigger(new UiSearchResponse(result), uiPort);
         } catch (IOException e) {
             e.printStackTrace();
         }

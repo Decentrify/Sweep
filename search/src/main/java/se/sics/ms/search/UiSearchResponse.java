@@ -11,10 +11,10 @@ import java.util.ArrayList;
  * Date: 8/8/13
  * Time: 9:56 AM
  */
-public class SearchResponse extends Event {
+public class UiSearchResponse extends Event {
     private ArrayList<IndexEntry> results;
 
-    public SearchResponse(ArrayList<IndexEntry> result) {
+    public UiSearchResponse(ArrayList<IndexEntry> result) {
         this.results = result;
     }
 

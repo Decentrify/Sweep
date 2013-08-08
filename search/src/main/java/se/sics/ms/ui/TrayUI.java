@@ -41,8 +41,8 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
 
         addEntryFrame = new JFrame("Add Index Entry");
         addIndexEntryUi = new AddIndexEntryUi(component);
-        addEntryFrame.setContentPane(addIndexEntryUi.root);
         addEntryFrame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        addEntryFrame.setContentPane(addIndexEntryUi.root);
         addEntryFrame.pack();
 
         EventQueue.invokeLater(new Runnable() {

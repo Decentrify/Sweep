@@ -3,11 +3,9 @@ package se.sics.ms.ui;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.timer.Timer;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
 import se.sics.ms.search.*;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
@@ -56,18 +54,18 @@ public class UiComponent extends ComponentDefinition {
         }
     };
 
-    final Handler<SearchResponse> searchResponseHandler = new Handler<SearchResponse>() {
+    final Handler<UiSearchResponse> searchResponseHandler = new Handler<UiSearchResponse>() {
         @Override
-        public void handle(SearchResponse searchResponse) {
+        public void handle(UiSearchResponse searchResponse) {
             ArrayList<IndexEntry> results = searchResponse.getResults();
 
             trayUI.showSearchResults(results.toArray(new IndexEntry[results.size()]));
         }
     };
 
-    final Handler<AddIndexEntryUiResponse> addIndexEntryUiResponseHandler = new Handler<AddIndexEntryUiResponse>() {
+    final Handler<UiAddIndexEntryResponse> addIndexEntryUiResponseHandler = new Handler<UiAddIndexEntryResponse>() {
         @Override
-        public void handle(AddIndexEntryUiResponse addIndexEntryUiResponse) {
+        public void handle(UiAddIndexEntryResponse addIndexEntryUiResponse) {
             // TODO implement ack parser for UI
         }
     };
@@ -84,10 +82,10 @@ public class UiComponent extends ComponentDefinition {
     }
 
     public void search(SearchPattern pattern) {
-        trigger(new SearchRequest(pattern), uiPort);
+        trigger(new UiSearchRequest(pattern), uiPort);
     }
 
     public void addIndexEntry(IndexEntry entry) {
-        trigger(new AddIndexEntryUiRequest(entry), uiPort);
+        trigger(new UiAddIndexEntryRequest(entry), uiPort);
     }
 }

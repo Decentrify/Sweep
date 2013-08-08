@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
 /**
@@ -11,7 +10,13 @@ import se.sics.kompics.PortType;
  */
 public class UiPort extends PortType {
     {
-       positive(Event.class);
-       negative(Event.class);
+        positive(UiSearchResponse.class);
+        negative(UiSearchResponse.class);
+        negative(UiSearchRequest.class);
+        positive(UiSearchRequest.class);
+        positive(UiAddIndexEntryResponse.class);
+        negative(UiAddIndexEntryRequest.class);
+        negative(UiAddIndexEntryResponse.class);
+        positive(UiAddIndexEntryRequest.class);
     }
 }
