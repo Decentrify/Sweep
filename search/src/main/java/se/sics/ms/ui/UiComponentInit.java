@@ -1,4 +1,4 @@
-package se.sics.ms.main;
+package se.sics.ms.ui;
 
 import se.sics.gvod.common.Self;
 import se.sics.kompics.Init;

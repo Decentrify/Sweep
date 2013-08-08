@@ -1,12 +1,12 @@
-package se.sics.ms.main;
+package se.sics.ms.ui;
 
+import se.sics.ms.ui.UiComponent;
 import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.Date;
 
 /**
  * Created with IntelliJ IDEA.
