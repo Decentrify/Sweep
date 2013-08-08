@@ -1,5 +1,7 @@
 package se.sics.ms.gradient;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.GradientConfiguration;
@@ -17,9 +19,9 @@ import se.sics.kompics.Positive;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
+import se.sics.ms.messages.*;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.messages.*;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -30,6 +32,8 @@ import java.util.*;
  * preference function.
  */
 public final class Gradient extends ComponentDefinition {
+
+    private static final Logger logger = LoggerFactory.getLogger(Gradient.class);
 
     Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
@@ -48,7 +52,7 @@ public final class Gradient extends ComponentDefinition {
     private boolean leader;
 
     // This is a routing table maintaining a a list of descriptors for each category its partitions.
-    private Map<Integer, Map<Integer, TreeSet<VodDescriptor>>> routingTable;
+    private Map<IndexEntry.Category, Map<Integer, TreeSet<VodDescriptor>>> routingTable;
     Comparator<VodDescriptor> peerAgeComparator = new Comparator<VodDescriptor>() {
         @Override
         public int compare(VodDescriptor t0, VodDescriptor t1) {
@@ -97,6 +101,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleReplicationPrepairCommit, gradientRoutingPort);
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
+        subscribe(handleLeaderLookupRequestTimeout, timerPort);
     }
 
     /**
@@ -110,7 +115,7 @@ public final class Gradient extends ComponentDefinition {
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
-            routingTable = new HashMap<Integer, Map<Integer, TreeSet<VodDescriptor>>>();
+            routingTable = new HashMap<IndexEntry.Category, Map<Integer, TreeSet<VodDescriptor>>>();
             leader = false;
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
@@ -266,7 +271,7 @@ public final class Gradient extends ComponentDefinition {
 
     private void addRoutingTableEntries(Collection<VodDescriptor> nodes) {
         for (VodDescriptor vodDescriptor : nodes) {
-            int category = vodDescriptor.getVodAddress().getCategoryId();
+            IndexEntry.Category category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
             int partition = vodDescriptor.getVodAddress().getPartitionId();
 
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
@@ -308,37 +313,89 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
-    private IndexEntry entryToAdd;
-    private boolean leaderFound;
+    private IndexEntry indexEntryToAdd;
+    private TimeoutId addIndexEntryRequestTimeoutId;
+    final private HashSet<VodDescriptor> queriedNodes = new HashSet<VodDescriptor>();
+    final private HashMap<TimeoutId, VodDescriptor> openRequests = new HashMap<TimeoutId, VodDescriptor>();
+    final private HashMap<VodAddress, Integer> locatedLeaders = new HashMap<VodAddress, Integer>();
+
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
-            if (leader) {
-                trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), entryToAdd), networkPort);
+            // Random addId used for finding the right partition
+            int addId = random.nextInt(Integer.MAX_VALUE);
+            event.getEntry().setId(addId);
+
+            IndexEntry.Category selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());
+            IndexEntry.Category addCategory = event.getEntry().getCategory();
+            int selfPartition = self.getAddress().getPartitionId();
+            // TODO Do not access the search constant
+            int addPartition = addId % MsConfig.SEARCH_NUM_PARTITIONS;
+
+            indexEntryToAdd = event.getEntry();
+            addIndexEntryRequestTimeoutId = event.getTimeoutId();
+
+            if (addCategory == selfCategory && selfPartition == addPartition && leader) {
+                trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), indexEntryToAdd), networkPort);
                 return;
             }
 
-            entryToAdd = event.getEntry();
-            leaderFound = false;
+            Iterator<VodDescriptor> iterator;
+            if (addCategory == selfCategory && selfPartition == addPartition) {
+                SortedSet<VodDescriptor> higherUtilityNodes = gradientView.getHigherUtilityNodes();
+                NavigableSet<VodDescriptor> startNodes = new TreeSet<VodDescriptor>(higherUtilityNodes);
+                // Higher utility nodes are further away in the sorted set
+                iterator = startNodes.descendingIterator();
+            } else {
+                Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(addCategory);
+                if (partitions == null) {
+                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
+                    return;
+                }
 
-            // TODO should ask the best nodes
-            SortedSet<VodDescriptor> higherNodes = gradientView.getHigherUtilityNodes();
-            Iterator<VodDescriptor> iterator = higherNodes.iterator();
-            for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A && iterator.hasNext(); i++) {
-                trigger(new LeaderLookupMessage.Request(self.getAddress(), iterator.next().getVodAddress(), event.getTimeoutId()), networkPort);
+                NavigableSet<VodDescriptor> startNodes = partitions.get(addPartition);
+                if (startNodes == null) {
+                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), addPartition);
+                    return;
+                }
+
+                iterator = startNodes.iterator();
             }
+
+            for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+                VodDescriptor node = iterator.next();
+                sendLeaderLookupRequest(node);
+            }
+        }
+    };
+
+    final Handler<LeaderLookupMessage.RequestTimeout> handleLeaderLookupRequestTimeout = new Handler<LeaderLookupMessage.RequestTimeout>() {
+        @Override
+        public void handle(LeaderLookupMessage.RequestTimeout event) {
+            VodDescriptor unresponsiveNode = openRequests.remove(event.getTimeoutId());
+
+            if (unresponsiveNode == null) {
+                logger.warn("{} bogus timeout with id: {}", self.getAddress(), event.getTimeoutId());
+                return;
+            }
+
+            logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
+            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(category);
+            TreeSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
+            bucket.remove(unresponsiveNode);
         }
     };
 
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
         @Override
         public void handle(LeaderLookupMessage.Request event) {
-            SortedSet<VodDescriptor> higherNodes = gradientView.getHigherUtilityNodes();
+            TreeSet<VodDescriptor> higherNodes = new TreeSet<VodDescriptor>(gradientView.getHigherUtilityNodes());
             ArrayList<VodDescriptor> vodDescriptors = new ArrayList<VodDescriptor>();
 
-            // TODO should return the best nodes
-            Iterator<VodDescriptor> iterator = higherNodes.iterator();
-            for (int i = 0; i < LeaderLookupMessage.K && iterator.hasNext(); i++) {
+            // Higher utility nodes are further away in the sorted set
+            Iterator<VodDescriptor> iterator = higherNodes.descendingIterator();
+            for (int i = 0; i < LeaderLookupMessage.ResponseLimit && iterator.hasNext(); i++) {
                 vodDescriptors.add(iterator.next());
             }
 
@@ -349,29 +406,85 @@ public final class Gradient extends ComponentDefinition {
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
-            if (leaderFound) {
+            if (openRequests.containsKey(event.getTimeoutId()) == false) {
                 return;
             }
 
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
+            openRequests.remove(event.getTimeoutId());
+
             if (event.isLeader()) {
-                leaderFound = true;
-                trigger(new AddIndexEntryMessage.Request(self.getAddress(), event.getVodSource(), event.getTimeoutId(), entryToAdd), networkPort);
-                entryToAdd = null;
+
+                VodAddress source = event.getVodSource();
+                Integer numberOfAnswers;
+                if (locatedLeaders.containsKey(source)) {
+                    numberOfAnswers = locatedLeaders.get(event.getVodSource()) + 1;
+                } else {
+                    numberOfAnswers = 0;
+                }
+                locatedLeaders.put(event.getVodSource(), numberOfAnswers);
+
+                for (VodAddress locatedLeader : locatedLeaders.keySet()) {
+                    if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2 + 1) {
+                        trigger(new AddIndexEntryMessage.Request(self.getAddress(), locatedLeader, addIndexEntryRequestTimeoutId, indexEntryToAdd), networkPort);
+
+                        indexEntryToAdd = null;
+                        locatedLeaders.clear();
+                        queriedNodes.clear();
+                        openRequests.clear();
+                        break;
+                    }
+                }
             } else {
-                List<VodDescriptor> higherNodes = event.getVodDescriptors();
-                Collections.sort(higherNodes, utilityComparator);
-                for (int i = 0; i < higherNodes.size() && i < LeaderLookupMessage.A; i++) {
-                    trigger(new LeaderLookupMessage.Request(self.getAddress(), higherNodes.get(i).getVodAddress(), event.getTimeoutId()), networkPort);
+                List<VodDescriptor> higherUtilityNodes = event.getVodDescriptors();
+
+                if (higherUtilityNodes.size() > LeaderLookupMessage.QueryLimit) {
+                    Collections.sort(higherUtilityNodes, utilityComparator);
+                    // Higher utility nodes are further away
+                    Collections.reverse(higherUtilityNodes);
+                }
+
+                Iterator<VodDescriptor> iterator = higherUtilityNodes.iterator();
+                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+                    VodDescriptor node = iterator.next();
+                    if (queriedNodes.contains(node)) {
+                        i--;
+                        continue;
+                    }
+                    sendLeaderLookupRequest(node);
                 }
             }
         }
     };
 
+    private void sendLeaderLookupRequest(VodDescriptor node) {
+        queriedNodes.add(node);
+
+        // TODO magic number
+        ScheduleTimeout scheduleTimeout = new ScheduleTimeout(30000);
+        scheduleTimeout.setTimeoutEvent(new LeaderLookupMessage.RequestTimeout(scheduleTimeout, self.getId()));
+        openRequests.put(scheduleTimeout.getTimeoutEvent().getTimeoutId(), node);
+        trigger(scheduleTimeout, timerPort);
+
+        trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
+    }
+
     final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationPrepairCommit = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(self.getAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
+            if (categoryRoutingMap == null) {
+                logger.info("{} handleReplicationPrepairCommit: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
+                return;
+            }
+
             TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
+            if (bucket == null) {
+                logger.info("{} handleReplicationPrepairCommit: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
+                return;
+            }
+
             // TODO do not access constants
             int i = bucket.size() > MsConfig.SEARCH_REPLICATION_MAXIMUM ? MsConfig.SEARCH_REPLICATION_MAXIMUM : bucket.size();
             for (VodDescriptor peer : bucket) {
@@ -387,8 +500,18 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationCommit event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(self.getAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
+            if (categoryRoutingMap == null) {
+                logger.info("{} handleReplicationCommit: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
+                return;
+            }
+
             TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
+            if (bucket == null) {
+                logger.info("{} handleReplicationCommit: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
+                return;
+            }
+
             for (VodDescriptor peer : bucket) {
                 trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
             }
@@ -398,13 +521,15 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(self.getAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
             if (categoryRoutingMap == null) {
+                logger.info("{} handleIndexExchangeRequest: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
                 return;
             }
 
             TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
             if (bucket == null) {
+                logger.info("{} handleIndexExchangeRequest: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
                 return;
             }
 
@@ -417,7 +542,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
-            int category = event.getPattern().getCategory().ordinal();
+            IndexEntry.Category category = event.getPattern().getCategory();
             int i = 0;
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
 
@@ -428,7 +553,7 @@ public final class Gradient extends ComponentDefinition {
 
             for (SortedSet<VodDescriptor> bucket : categoryRoutingMap.values()) {
                 // Skip local partition
-                if (i == self.getAddress().getPartitionId() && category == self.getAddress().getCategoryId()) {
+                if (i == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                     i++;
                     continue;
                 }
@@ -469,12 +594,16 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
+    private IndexEntry.Category categoryFromCategoryId(int categoryId) {
+        return IndexEntry.Category.values()[categoryId];
+    }
+
     // If you call this method with a list of entries, it will
     // return a single node, weighted towards the 'best' node (as defined by
     // ComparatorById) with the temperature controlling the weighting.
-    // A temperature of '1.0' will be greedy and always return the best node.
-    // A temperature of '0.000001' will return a random node.
-    // A temperature of '0.0' will throw a divide by zero exception :)
+    // QueryLimit temperature of '1.0' will be greedy and always return the best node.
+    // QueryLimit temperature of '0.000001' will return a random node.
+    // QueryLimit temperature of '0.0' will throw a divide by zero exception :)
     // Reference:
     // http://webdocs.cs.ualberta.ca/~sutton/book/2/node4.html
     private VodDescriptor getSoftMaxAddress(List<VodDescriptor> entries) {

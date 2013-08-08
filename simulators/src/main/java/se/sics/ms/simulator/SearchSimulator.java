@@ -20,7 +20,7 @@ import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
@@ -45,7 +45,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private ConsistentHashtable<Long> ringNodes;
     private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
     private MagnetFileIterator magnetFiles;
-    static String[] articles = {" ", "The ", "A "};
+    static String[] articles = {" ", "The ", "QueryLimit "};
     static String[] verbs = {"fires ", "walks ", "talks ", "types ", "programs "};
     static String[] subjects = {"computer ", "Lucene ", "torrent "};
     static String[] objects = {"computer", "java", "video"};
@@ -114,7 +114,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("", "", new Date(), IndexEntry.Category.Books, "", "", "");
+            IndexEntry index = new IndexEntry("", "", new Date(), IndexEntry.Category.Video, "", "", "");
             index.setFileName(randomText());
             index.setLeaderId(null);
             trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
@@ -200,16 +200,14 @@ public final class SearchSimulator extends ComponentDefinition {
         }
 
         Address address = new Address(ip, 9999, (int) id);
-        Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, 0)));
+        Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt((int) id % MsConfig.SEARCH_NUM_PARTITIONS, IndexEntry.Category.Video.ordinal())));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
         trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode), peer.getControl());
 
-//        if (bootstrappingNode == null) {
-            bootstrappingNode = self.getAddress();
-//        }
+        bootstrappingNode = self.getAddress();
 
         trigger(new Start(), peer.getControl());
         peers.put(id, peer);

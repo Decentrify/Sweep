@@ -11,7 +11,6 @@ import se.sics.gvod.croupier.events.CroupierInit;
 import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.Component;
@@ -25,12 +24,8 @@ import se.sics.ms.gradient.*;
 import se.sics.ms.search.Search;
 import se.sics.ms.search.SearchInit;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
 
 public final class SearchPeer extends ComponentDefinition {
 

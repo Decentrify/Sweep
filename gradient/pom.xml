@@ -28,6 +28,11 @@
             <version>${nattraverser.version}</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>se.sics.ms</groupId>
+            <artifactId>netty</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

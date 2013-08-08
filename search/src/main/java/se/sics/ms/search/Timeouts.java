@@ -3,7 +3,7 @@ package se.sics.ms.search;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 /**
  * Class that groups all timeouts used for by the {@link Search} class.
@@ -14,7 +14,7 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for active {@link se.sics.peersearch.messages.SearchMessage.Request}s.
+	 * Timeout for active {@link se.sics.ms.messages.SearchMessage.Request}s.
 	 */
 	protected static class SearchTimeout extends IndividualTimeout {
 
@@ -28,8 +28,8 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for collecting {@link se.sics.peersearch.messages.RepairMessage.Response}s for a specific
-	 * {@link se.sics.peersearch.messages.RepairMessage.Request}.
+	 * Timeout for collecting {@link se.sics.ms.messages.RepairMessage.Response}s for a specific
+	 * {@link se.sics.ms.messages.RepairMessage.Request}.
 	 */
 	protected static class ReplicationTimeout extends IndividualTimeout {
 
@@ -43,8 +43,8 @@ public final class Timeouts {
 	}
 
 	/**
-	 * Timeout for waiting for an {@link se.sics.peersearch.messages.AddIndexEntryMessage.Response} acknowledgment for an
-	 * {@link se.sics.peersearch.messages.AddIndexEntryMessage.Response} request.
+	 * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
+	 * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
 	 */
 	protected static class AddRequestTimeout extends IndividualTimeout {
 		private final int retryLimit;
@@ -56,9 +56,9 @@ public final class Timeouts {
          *            the ScheduleTimeout that holds the Timeout
          * @param retryLimit
          *            the number of retries for the related
-         *            {@link se.sics.peersearch.messages.AddIndexEntryMessage.Request}
+         *            {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
          * @param entry
-*            the {@link se.sics.peersearch.types.IndexEntry} this timeout was scheduled for
+*            the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
 		public AddRequestTimeout(ScheduleTimeout request, int id, int retryLimit, IndexEntry entry) {
 			super(request, id);

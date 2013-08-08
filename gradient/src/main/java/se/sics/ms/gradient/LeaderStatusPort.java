@@ -11,7 +11,7 @@ public class LeaderStatusPort extends PortType {
 	}
 
 	/**
-	 * A message used to broadcast the leader's status
+	 * QueryLimit message used to broadcast the leader's status
 	 */
 	public static class LeaderStatus extends Event {
 		private final boolean isLeader;

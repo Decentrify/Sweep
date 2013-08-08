@@ -1,8 +1,7 @@
 package se.sics.ms.search;
 
 import se.sics.gvod.timer.UUID;
-import se.sics.kompics.web.WebRequest;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.types.SearchPattern;
 
 import java.util.HashSet;
 import java.util.Set;

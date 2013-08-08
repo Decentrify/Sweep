@@ -1,5 +1,7 @@
 package se.sics.ms.election;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
@@ -16,7 +18,7 @@ import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.messages.*;
+import se.sics.ms.messages.*;
 
 import java.util.Set;
 import java.util.SortedSet;
@@ -27,6 +29,8 @@ import java.util.SortedSet;
  * scenario when no more heart beat messages are received
  */
 public class ElectionFollower extends ComponentDefinition {
+
+    private static final Logger logger = LoggerFactory.getLogger(ElectionFollower.class);
 
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
@@ -44,7 +48,7 @@ public class ElectionFollower extends ComponentDefinition {
     private UtilityComparator utilityComparator = new UtilityComparator();
 
     /**
-     * A customised timeout class used for checking when heart beat messages
+     * QueryLimit customised timeout class used for checking when heart beat messages
      * should arrive
      */
     public class HeartbeatTimeout extends IndividualTimeout {
@@ -55,7 +59,7 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     /**
-     * A customised timeout class used to determine how long a node should wait
+     * QueryLimit customised timeout class used to determine how long a node should wait
      * for other nodes to reply to leader death message
      */
     public class DeathTimeout extends IndividualTimeout {
@@ -92,7 +96,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that will respond to voting requests sent from leader
+     * QueryLimit handler that will respond to voting requests sent from leader
      * candidates. It checks if that leader candidate is a suitable leader
      */
     Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
@@ -141,7 +145,7 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     /**
-     * A handler receiving gradient view broadcasts, and sets its view accordingly
+     * QueryLimit handler receiving gradient view broadcasts, and sets its view accordingly
      */
     Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
         @Override
@@ -177,7 +181,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler responsible for the actions taken when the node has not
+     * QueryLimit handler responsible for the actions taken when the node has not
      * received a heart beat message from the leader for a certain amount of
      * time. First it will try to ask the leader if it has been kicked out of
      * the leader's view. If there is no response from the leader it will call
@@ -213,7 +217,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that receives rejected confirmation messages from the leader.
+     * QueryLimit handler that receives rejected confirmation messages from the leader.
      * The node will reject the leader in case it has been kicked from the
      * leader's view, and is therefore no longer in the voting group
      */
@@ -232,7 +236,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that will respond whether it thinks that the leader is dead or
+     * QueryLimit handler that will respond whether it thinks that the leader is dead or
      * not
      */
     Handler<LeaderSuspicionMessage.Request> handleLeaderSuspicionRequest = new Handler<LeaderSuspicionMessage.Request>() {
@@ -251,7 +255,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that counts how many death responses have been received. If the
+     * QueryLimit handler that counts how many death responses have been received. If the
      * number of votes are the same as the number of nodes in the leader's view,
      * then it calls upon a vote count
      */
@@ -274,7 +278,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that listens for DeathTimeout event and will then call for an
+     * QueryLimit handler that listens for DeathTimeout event and will then call for an
      * evaluation of death responses
      */
     Handler<DeathTimeout> handleDeathTimeout = new Handler<ElectionFollower.DeathTimeout>() {
@@ -284,7 +288,7 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
     /**
-     * A handler that will set the leader to null in case the other nodes have
+     * QueryLimit handler that will set the leader to null in case the other nodes have
      * confirmed the leader to be dead
      */
     Handler<LeaderDeathAnnouncementMessage> handleLeaderDeathAnnouncement = new Handler<LeaderDeathAnnouncementMessage>() {

@@ -1,5 +1,7 @@
 package se.sics.ms.election;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -13,14 +15,13 @@ import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.UtilityComparator;
+import se.sics.ms.messages.ElectionMessage;
+import se.sics.ms.messages.LeaderViewMessage;
+import se.sics.ms.messages.RejectFollowerMessage;
+import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.messages.ElectionMessage;
-import se.sics.peersearch.messages.LeaderViewMessage;
-import se.sics.peersearch.messages.RejectFollowerMessage;
-import se.sics.peersearch.messages.RejectLeaderMessage;
 
-import javax.rmi.CORBA.Util;
 import java.util.SortedSet;
 
 /**
@@ -29,6 +30,8 @@ import java.util.SortedSet;
  * leader elections etc.
  */
 public class ElectionLeader extends ComponentDefinition {
+
+    private static final Logger logger = LoggerFactory.getLogger(ElectionLeader.class);
 
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
@@ -45,7 +48,7 @@ public class ElectionLeader extends ComponentDefinition {
     private final UtilityComparator utilityComparator = new UtilityComparator();
 
 	/**
-	 * A customised timeout class for when to send heart beats etc
+	 * QueryLimit customised timeout class for when to send heart beats etc
 	 */
 	public class HeartbeatSchedule extends IndividualTimeout {
 
@@ -125,7 +128,7 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that counts the number of votes received from the followers. If
+	 * QueryLimit handler that counts the number of votes received from the followers. If
 	 * all nodes have responded it will call for vote counting
 	 */
 	Handler<ElectionMessage.Response> handleVotingResponse = new Handler<ElectionMessage.Response>() {
@@ -150,7 +153,7 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that will call for a vote call after a certain amount of time
+	 * QueryLimit handler that will call for a vote call after a certain amount of time
 	 * if not all voters have returned with a vote
 	 */
 	Handler<VoteTimeout> handleVoteTimeout = new Handler<VoteTimeout>() {
@@ -161,7 +164,7 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that will periodically send out heart beats to the node's
+	 * QueryLimit handler that will periodically send out heart beats to the node's
 	 * (leader's) followers
 	 */
 	Handler<HeartbeatSchedule> handleHeartbeats = new Handler<HeartbeatSchedule>() {
@@ -172,7 +175,7 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that handles rejected messages send by nodes who have found a
+	 * QueryLimit handler that handles rejected messages send by nodes who have found a
 	 * better leader
 	 */
 	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
@@ -187,7 +190,7 @@ public class ElectionLeader extends ComponentDefinition {
 	};
 
 	/**
-	 * A handler that handles nodes who have been kicked out of the leader's
+	 * QueryLimit handler that handles nodes who have been kicked out of the leader's
 	 * view and ask if the leader if still alive
 	 */
 	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {

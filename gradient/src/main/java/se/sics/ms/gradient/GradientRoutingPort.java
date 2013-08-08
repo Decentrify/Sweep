@@ -3,9 +3,8 @@ package se.sics.ms.gradient;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
-import se.sics.peersearch.messages.AddIndexEntryMessage;
-import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 
 public class GradientRoutingPort extends PortType {
 	{

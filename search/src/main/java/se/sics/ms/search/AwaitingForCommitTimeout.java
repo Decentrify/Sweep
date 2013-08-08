@@ -2,7 +2,7 @@ package se.sics.ms.search;
 
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 /**
  * Created with IntelliJ IDEA.

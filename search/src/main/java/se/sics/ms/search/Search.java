@@ -36,10 +36,10 @@ import se.sics.ms.gradient.PublicKeyPort;
 import se.sics.ms.search.Timeouts.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.peersearch.exceptions.IllegalSearchString;
-import se.sics.peersearch.messages.*;
-import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.exceptions.IllegalSearchString;
+import se.sics.ms.messages.*;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -379,10 +379,10 @@ public final class Search extends ComponentDefinition {
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
-     * and try again. Send a {@link se.sics.peersearch.messages.ReplicationPrepairCommitMessage} request to a number of nodes as
+     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepairCommitMessage} request to a number of nodes as
      * specified in the config file and schedule a timeout to wait for
      * responses. The adding operation will be acknowledged if either all nodes
-     * responded to the {@link se.sics.peersearch.messages.ReplicationPrepairCommitMessage} request or the timeout occurred and
+     * responded to the {@link se.sics.ms.messages.ReplicationPrepairCommitMessage} request or the timeout occurred and
      * enough nodes, as specified in the config, responded.
      */
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
@@ -722,7 +722,6 @@ public final class Search extends ComponentDefinition {
             if(!leader) return;
 
             trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
-
         }
     };
 
