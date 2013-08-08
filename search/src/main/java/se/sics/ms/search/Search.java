@@ -520,7 +520,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(AddIndexTimeout event) {
             if (event.reachedRetryLimit()) {
-                // TODO inform the user
+                logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
             } else {
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());

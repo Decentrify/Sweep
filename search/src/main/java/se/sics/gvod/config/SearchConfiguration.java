@@ -22,7 +22,6 @@ public class SearchConfiguration
     int replicationMaximum;
     int replicationMinimum;
     int retryCount;
-    int gapTimeout;
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
@@ -37,7 +36,6 @@ public class SearchConfiguration
                 MsConfig.SEARCH_REPLICATION_MAXIMUM,
                 MsConfig.SEARCH_REPLICATION_MINIMUM,
                 MsConfig.SEARCH_RETRY_COUNT,
-                MsConfig.SEARCH_GAP_TIMEOUT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE);
@@ -56,7 +54,6 @@ public class SearchConfiguration
      * acknowledgments
      * @param retryCount the number retries executed if no acknowledgment for an
      * add operations was received
-     * @param gapTimeout the amount of time until a gap detection is issued
      * @param hitsPerQuery the maximum amount of entries reported for a search
      * request
      * @param recentRequestsGcInterval the interval used to garbage collect the
@@ -65,7 +62,7 @@ public class SearchConfiguration
     public SearchConfiguration(
             int numPartitions, int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout, int replicationMaximum, int replicationMinimum,
-            int retryCount, int gapTimeout, int hitsPerQuery, int recentRequestsGcInterval,
+            int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
@@ -75,7 +72,6 @@ public class SearchConfiguration
         this.replicationMaximum = replicationMaximum;
         this.replicationMinimum = replicationMinimum;
         this.retryCount = retryCount;
-        this.gapTimeout = gapTimeout;
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
@@ -114,10 +110,6 @@ public class SearchConfiguration
 
     public int getRetryCount() {
         return retryCount;
-    }
-
-    public int getGapTimeout() {
-        return gapTimeout;
     }
 
     public int getHitsPerQuery() {
@@ -169,11 +161,6 @@ public class SearchConfiguration
 
     public SearchConfiguration setRetryCount(int retryCount) {
         this.retryCount = retryCount;
-        return this;
-    }
-
-    public SearchConfiguration setGapTimeout(int gapTimeout) {
-        this.gapTimeout = gapTimeout;
         return this;
     }
 
