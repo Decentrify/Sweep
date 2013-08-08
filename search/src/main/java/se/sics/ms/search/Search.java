@@ -906,7 +906,7 @@ public final class Search extends ComponentDefinition {
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
             searchRequest.incrementNodesQueried();
-            addSearchResponse((IndexEntry[]) result.toArray());
+            addSearchResponse(result.toArray(new IndexEntry[result.size()]));
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }

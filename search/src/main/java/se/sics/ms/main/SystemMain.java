@@ -41,6 +41,7 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.peer.SearchUiPort;
+import se.sics.ms.search.UiPort;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
@@ -78,7 +79,7 @@ public class SystemMain extends ComponentDefinition {
         connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
         connect(ui.getNegative(Timer.class), timer.getPositive(Timer.class));
 
-        connect(searchPeer.getPositive(SearchUiPort.class), ui.getNegative(SearchUiPort.class));
+        connect(ui.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
 
         subscribe(handleStart, control);
         subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
