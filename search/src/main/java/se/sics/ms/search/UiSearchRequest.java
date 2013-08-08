@@ -9,10 +9,10 @@ import se.sics.peersearch.types.SearchPattern;
  * Date: 8/7/13
  * Time: 4:16 PM
  */
-public class SearchRequest extends Event {
+public class UiSearchRequest extends Event {
     private final SearchPattern pattern;
 
-    public SearchRequest(SearchPattern pattern) {
+    public UiSearchRequest(SearchPattern pattern) {
         this.pattern = pattern;
     }
 

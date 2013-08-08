@@ -2,6 +2,7 @@ package se.sics.ms.search;
 
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.gvod.timer.Timeout;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.peersearch.types.IndexEntry;
 

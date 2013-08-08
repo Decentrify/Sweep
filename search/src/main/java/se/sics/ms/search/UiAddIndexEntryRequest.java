@@ -9,10 +9,10 @@ import se.sics.peersearch.types.IndexEntry;
  * Date: 8/8/13
  * Time: 5:03 PM
  */
-public class AddIndexEntryUiRequest extends Event {
+public class UiAddIndexEntryRequest extends Event {
     private final IndexEntry entry;
 
-    public AddIndexEntryUiRequest(IndexEntry entry) {
+    public UiAddIndexEntryRequest(IndexEntry entry) {
         this.entry = entry;
     }
 

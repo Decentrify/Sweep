@@ -33,8 +33,8 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<IndexPort> indexPort = positive(IndexPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
-    Negative<UiPort> uiPort = negative(UiPort.class);
-    Positive<UiPort> searchUiPort = positive(UiPort.class);
+    Negative<UiPort> internalUiPort = negative(UiPort.class);
+    Positive<UiPort> externalUiPort = positive(UiPort.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
@@ -89,12 +89,12 @@ public final class SearchPeer extends ComponentDefinition {
                 search.getNegative(LeaderRequestPort.class));
 
 
-        connect(uiPort, search.getPositive(UiPort.class));
+        connect(internalUiPort, search.getPositive(UiPort.class));
 
         subscribe(handleInit, control);
-        subscribe(searchRequestHandler, searchUiPort);
+        subscribe(searchRequestHandler, externalUiPort);
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
-        subscribe(addIndexEntryRequestHandler, searchUiPort);
+        subscribe(addIndexEntryRequestHandler, externalUiPort);
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
     }
     Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
@@ -142,31 +142,31 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-    final Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+    final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
-        public void handle(SearchRequest searchRequest) {
+        public void handle(UiSearchRequest searchRequest) {
             trigger(searchRequest, search.getPositive(UiPort.class));
         }
     };
 
-    final Handler<SearchResponse> searchResponseHandler = new Handler<SearchResponse>() {
+    final Handler<UiSearchResponse> searchResponseHandler = new Handler<UiSearchResponse>() {
         @Override
-        public void handle(SearchResponse searchResponse) {
-            trigger(searchResponse, searchUiPort);
+        public void handle(UiSearchResponse searchResponse) {
+            trigger(searchResponse, externalUiPort);
         }
     };
 
-    final Handler<AddIndexEntryUiRequest> addIndexEntryRequestHandler = new Handler<AddIndexEntryUiRequest>() {
+    final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
-        public void handle(AddIndexEntryUiRequest addIndexEntryRequest) {
+        public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
             trigger(addIndexEntryRequest, search.getPositive(UiPort.class));
         }
     };
 
-    final Handler<AddIndexEntryUiResponse> addIndexEntryUiResponseHandler = new Handler<AddIndexEntryUiResponse>() {
+    final Handler<UiAddIndexEntryResponse> addIndexEntryUiResponseHandler = new Handler<UiAddIndexEntryResponse>() {
         @Override
-        public void handle(AddIndexEntryUiResponse addIndexEntryUiResponse) {
-            trigger(addIndexEntryUiResponse, searchUiPort);
+        public void handle(UiAddIndexEntryResponse addIndexEntryUiResponse) {
+            trigger(addIndexEntryUiResponse, externalUiPort);
         }
     };
 }

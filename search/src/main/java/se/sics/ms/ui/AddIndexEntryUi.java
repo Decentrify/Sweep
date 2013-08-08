@@ -21,14 +21,12 @@ public class AddIndexEntryUi {
     private JTextField fileNameField;
     private JTextField fileSizeField;
     private JTextField languageField;
-    private JComboBox categoryBox = new JComboBox(IndexEntry.Category.values());
+    private JComboBox categoryBox;
     private JTextArea descriptionTextArea;
     private JButton addIndexEntryButton;
 
     public AddIndexEntryUi(final UiComponent component) {
         this.component = component;
-
-//        categoryBox = new JComboBox(IndexEntry.Category.values());
 
         addIndexEntryButton.addActionListener(new ActionListener() {
             @Override
@@ -37,11 +35,13 @@ public class AddIndexEntryUi {
                 if(fileNameField.getText() == null) return;
                 if(fileSizeField.getText() == null) return;
                 if(languageField.getText() == null) return;
-                //if(categoryBox.getSelectedItem() == null) return;
                 if(descriptionTextArea.getText() == null) return;
 
+
+                int selectedCategory = categoryBox.getSelectedIndex();
+
                 IndexEntry entry = new IndexEntry(urlField.getText(), fileNameField.getText(), Long.parseLong(fileSizeField.getText()),
-                        new Date(), languageField.getText(), IndexEntry.Category.Books, descriptionTextArea.getText());
+                        new Date(), languageField.getText(), IndexEntry.Category.values()[selectedCategory], descriptionTextArea.getText());
 
                 component.addIndexEntry(entry);
             }
