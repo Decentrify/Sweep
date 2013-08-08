@@ -19,10 +19,7 @@ import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
 import se.sics.ms.gradient.*;
-import se.sics.ms.search.Search;
-import se.sics.ms.search.SearchInit;
-import se.sics.ms.search.SearchRequest;
-import se.sics.ms.search.UiPort;
+import se.sics.ms.search.*;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -96,6 +93,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         subscribe(handleInit, control);
         subscribe(searchRequestHandler, searchUiPort);
+        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
     }
     Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
         @Override
@@ -142,10 +140,17 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-    Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
+    final Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
         @Override
         public void handle(SearchRequest searchRequest) {
             trigger(searchRequest, search.getPositive(UiPort.class));
+        }
+    };
+
+    final Handler<SearchResponse> searchResponseHandler = new Handler<SearchResponse>() {
+        @Override
+        public void handle(SearchResponse searchResponse) {
+            trigger(searchResponse, searchUiPort);
         }
     };
 }

@@ -10,12 +10,15 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.peer.SearchUiPort;
 import se.sics.ms.search.SearchRequest;
+import se.sics.ms.search.SearchResponse;
 import se.sics.ms.search.UiPort;
+import se.sics.peersearch.types.IndexEntry;
 import se.sics.peersearch.types.SearchPattern;
 
 import javax.swing.*;
 import java.awt.*;
 import java.net.URL;
+import java.util.ArrayList;
 
 
 /**
@@ -35,6 +38,7 @@ public class UiComponent extends ComponentDefinition {
 
     public UiComponent(){
         subscribe(uiComponentInitHandler, control);
+        subscribe(searchResponseHandler, uiPort);
         component = this;
     }
 
@@ -51,6 +55,15 @@ public class UiComponent extends ComponentDefinition {
 
             trayUI = new TrayUI(createImage("search.png", "tray icon"),
                     component);
+        }
+    };
+
+    final Handler<SearchResponse> searchResponseHandler = new Handler<SearchResponse>() {
+        @Override
+        public void handle(SearchResponse searchResponse) {
+            ArrayList<IndexEntry> results = searchResponse.getResults();
+
+            trayUI.showSearchResults(results.toArray(new IndexEntry[results.size()]));
         }
     };
 

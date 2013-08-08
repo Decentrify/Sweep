@@ -918,7 +918,8 @@ public final class Search extends ComponentDefinition {
     private void answerSearchRequest() {
         try {
             ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
-            // TODO present the result to the user
+
+            trigger(new SearchResponse(result), uiPort);
         } catch (IOException e) {
             e.printStackTrace();
         }
