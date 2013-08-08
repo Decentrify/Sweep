@@ -857,6 +857,15 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchMessage.Request event) {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
+    private void answerSearchRequest() {
+        try {
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+
+            trigger(new SearchResponse(result), uiPort);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
                 trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
             } catch (IOException ex) {

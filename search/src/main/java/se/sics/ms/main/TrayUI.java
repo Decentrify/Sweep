@@ -36,7 +36,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
         searchFrame = new JFrame("Search");
         searchFrame.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         searchUi = new SearchUi(component);
-        searchFrame.setContentPane(searchUi.root);
+        searchFrame.setContentPane(new SearchUi(component).root);
         searchFrame.pack();
 
         EventQueue.invokeLater(new Runnable() {
