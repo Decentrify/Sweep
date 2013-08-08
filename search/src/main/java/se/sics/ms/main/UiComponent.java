@@ -6,9 +6,11 @@ import se.sics.gvod.common.Self;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
+import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.peer.SearchUiPort;
 import se.sics.ms.search.SearchRequest;
+import se.sics.ms.search.UiPort;
 import se.sics.peersearch.types.SearchPattern;
 
 import javax.swing.*;
@@ -25,7 +27,7 @@ import java.net.URL;
 public class UiComponent extends ComponentDefinition {
     private Logger logger = LoggerFactory.getLogger(UiComponent.class);
     Positive<Timer> timer = positive(Timer.class);
-    Positive<SearchUiPort> uiPort = positive(SearchUiPort.class);
+    Negative<UiPort> uiPort = negative(UiPort.class);
 
     private Self self;
     private UiComponent component;

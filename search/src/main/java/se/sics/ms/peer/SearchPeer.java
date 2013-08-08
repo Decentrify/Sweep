@@ -36,7 +36,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
-    Negative<SearchUiPort> searchUiPort = negative(SearchUiPort.class);
+    Positive<UiPort> searchUiPort = positive(UiPort.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
@@ -130,7 +130,7 @@ public final class SearchPeer extends ComponentDefinition {
     Handler<SearchRequest> searchRequestHandler = new Handler<SearchRequest>() {
         @Override
         public void handle(SearchRequest searchRequest) {
-            trigger(searchRequest, uiPort);
+            trigger(searchRequest, search.getPositive(UiPort.class));
         }
     };
 }
