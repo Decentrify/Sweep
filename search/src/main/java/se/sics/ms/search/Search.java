@@ -447,11 +447,10 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            Snapshot.incrementReceivedAddRequests();
-
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
+            Snapshot.incrementReceivedAddRequests();
             recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
 
             IndexEntry newEntry = event.getEntry();
