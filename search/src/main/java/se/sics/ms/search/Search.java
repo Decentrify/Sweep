@@ -447,6 +447,8 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
+            Snapshot.incrementReceivedAddRequests();
+
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -519,6 +521,7 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
         @Override
         public void handle(AddIndexTimeout event) {
+            Snapshot.incrementFailedddRequests();
             if (event.reachedRetryLimit()) {
                 logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
             } else {

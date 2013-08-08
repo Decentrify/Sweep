@@ -20,7 +20,9 @@ public class Snapshot {
 	private static String FILENAME = "search.out";
     private static ConcurrentHashMap<Integer, Long> latestIds = new ConcurrentHashMap<Integer, Long>();
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
+    private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
+    private static int failedAddRequests = 0;
 	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
 	public static void init(int numOfStripes) {
@@ -163,6 +165,14 @@ public class Snapshot {
 		latestIds.put(partition, id);
 	}
 
+    public static synchronized void incrementReceivedAddRequests() {
+        receivedAddRequests++;
+    }
+
+    public static synchronized void incrementFailedddRequests() {
+        failedAddRequests++;
+    }
+
 	/**
 	 * Create a report.
 	 */
@@ -183,6 +193,10 @@ public class Snapshot {
         builder.append("\n");
 		reportLatestIds(builder);
         builder.append("\n");
+        reportReceivedAddRequests(builder);
+        builder.append("\n");
+        reportFailedAddRequests(builder);
+        builder.append("\n");
 		reportIdDuplicates(builder);
 		builder.append("---------------------------------------------------------------------------------------------\n");
 
@@ -190,6 +204,14 @@ public class Snapshot {
 		System.out.println(str);
 		FileIO.append(str, FILENAME);
 	}
+
+    private static void reportFailedAddRequests(StringBuilder builder) {
+        builder.append("Total number of failed AddRequests: " + failedAddRequests + "\n");
+    }
+
+    private static void reportReceivedAddRequests(StringBuilder builder) {
+        builder.append("Total number of received AddRequests: " + receivedAddRequests + "\n");
+    }
 
     private static void reportNumberOfEntries(StringBuilder builder) {
         builder.append("Total number of index values: " + entriesAdded + "\n");
