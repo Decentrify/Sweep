@@ -1,4 +1,4 @@
-package se.sics.ms.main;
+package se.sics.ms.ui;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +8,6 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.peer.SearchUiPort;
 import se.sics.ms.search.SearchRequest;
 import se.sics.ms.search.SearchResponse;
 import se.sics.ms.search.UiPort;

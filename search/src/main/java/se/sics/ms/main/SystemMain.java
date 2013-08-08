@@ -40,8 +40,9 @@ import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.peer.SearchPeerInit;
-import se.sics.ms.peer.SearchUiPort;
 import se.sics.ms.search.UiPort;
+import se.sics.ms.ui.UiComponent;
+import se.sics.ms.ui.UiComponentInit;
 import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
