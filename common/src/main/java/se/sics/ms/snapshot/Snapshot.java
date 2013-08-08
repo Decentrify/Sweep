@@ -189,9 +189,9 @@ public class Snapshot {
         builder.append("\n");
 		reportDetails(builder);
         builder.append("\n");
-        reportNumberOfEntries(builder);
-        builder.append("\n");
 		reportLatestIds(builder);
+        builder.append("\n");
+        reportNumberOfEntries(builder);
         builder.append("\n");
         reportReceivedAddRequests(builder);
         builder.append("\n");
