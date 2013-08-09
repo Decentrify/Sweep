@@ -32,7 +32,6 @@ public class MsConfig extends VodConfig {
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;
     public static final int SEARCH_REPLICATION_TIMEOUT = 30*1000;
-    public static final int SEARCH_REPLICATION_MAXIMUM = 5;
     public static final int SEARCH_REPLICATION_MINIMUM = 2; 
     public static final int SEARCH_RETRY_COUNT = 2;
     public static final int SEARCH_HITS_PER_QUERY = 25;

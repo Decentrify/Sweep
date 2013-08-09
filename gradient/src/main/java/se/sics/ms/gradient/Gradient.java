@@ -422,6 +422,7 @@ public final class Gradient extends ComponentDefinition {
             }
 
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            System.out.println("cancel: " + event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
             openRequests.remove(event.getTimeoutId());
 
