@@ -37,6 +37,7 @@ public class AddIndexEntryUi {
                 if(languageField.getText() == null) return;
                 if(descriptionTextArea.getText() == null) return;
 
+                addIndexEntryButton.setEnabled(false);
 
                 int selectedCategory = categoryBox.getSelectedIndex();
 
@@ -63,6 +64,8 @@ public class AddIndexEntryUi {
                 null,
                 options,
                 options[0]);
+
+        addIndexEntryButton.setEnabled(true);
 
     }
 
