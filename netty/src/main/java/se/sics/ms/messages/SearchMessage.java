@@ -7,6 +7,7 @@ package se.sics.ms.messages;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -30,8 +31,9 @@ import se.sics.ms.types.SearchPattern;
 public class SearchMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final SearchPattern pattern;
+        private final TimeoutId searchTimeoutId;
 
-        public Request(VodAddress source, VodAddress destination,TimeoutId timeoutId, SearchPattern pattern) {
+        public Request(VodAddress source, VodAddress destination,TimeoutId timeoutId, TimeoutId searchTimeoutId, SearchPattern pattern) {
             super(source, destination, timeoutId);
 
             if(pattern == null)
@@ -41,10 +43,16 @@ public class SearchMessage {
 //            if (query.length() > 255) {
 //                throw new IllegalSearchString("Search string is too long. Max length is 255 chars.");
 //            }
+
+            this.searchTimeoutId = searchTimeoutId;
         }
 
         public SearchPattern getPattern() {
             return pattern;
+        }
+
+        public TimeoutId getSearchTimeoutId() {
+            return searchTimeoutId;
         }
 
         @Override
@@ -55,7 +63,7 @@ public class SearchMessage {
         @Override
         public RewriteableMsg copy() {
             SearchMessage.Request r = null;
-            r = new Request(vodSrc, vodDest, timeoutId, pattern);
+            r = new Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern);
             return r;
         }
 
@@ -63,6 +71,7 @@ public class SearchMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writeSearchPattern(buffer, pattern);
+            UserTypesEncoderFactory.writeTimeoutId(buffer, searchTimeoutId);
             return buffer;
         }
 
@@ -79,8 +88,9 @@ public class SearchMessage {
         private final IndexEntry[] results;
         private final int numResponses;
         private final int responseNumber;
+        private final TimeoutId searchTimeoutId;
         
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int numResponses, int responseNumber, IndexEntry[] results) throws IllegalSearchString {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, int numResponses, int responseNumber, IndexEntry[] results) throws IllegalSearchString {
             super(source, destination, timeoutId);
 
             if(results == null)
@@ -89,6 +99,7 @@ public class SearchMessage {
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
             this.results = results;
+            this.searchTimeoutId = searchTimeoutId;
         }
 
         public IndexEntry[] getResults() {
@@ -103,6 +114,10 @@ public class SearchMessage {
             return numResponses;
         }
 
+        public TimeoutId getSearchTimeoutId() {
+            return searchTimeoutId;
+        }
+
         @Override
         public int getSize() {
             return getHeaderSize()
@@ -114,8 +129,7 @@ public class SearchMessage {
         @Override
         public RewriteableMsg copy() {
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId,
-                        numResponses, responseNumber, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNumber, results);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
@@ -131,6 +145,7 @@ public class SearchMessage {
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, results);
+            UserTypesEncoderFactory.writeTimeoutId(buffer, searchTimeoutId);
             return buffer;
         }
 
@@ -145,13 +160,19 @@ public class SearchMessage {
      * Timeout for active {@link se.sics.ms.messages.SearchMessage.Request}s.
      */
     public static class RequestTimeout extends IndividualTimeout {
+        private final VodDescriptor vodDescriptor;
 
         /**
          * @param request
          *            the ScheduleTimeout that holds the Timeout
          */
-        public RequestTimeout(ScheduleTimeout request, int id) {
+        public RequestTimeout(ScheduleTimeout request, int id, VodDescriptor vodDescriptor) {
             super(request, id);
+            this.vodDescriptor = vodDescriptor;
+        }
+
+        public VodDescriptor getVodDescriptor() {
+            return vodDescriptor;
         }
     }
 }

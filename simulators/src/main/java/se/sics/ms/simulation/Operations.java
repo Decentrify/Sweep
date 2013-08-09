@@ -49,6 +49,15 @@ public class Operations {
 		};
 	}
 
+    public static Operation1<Search, Long> search() {
+        return new Operation1<Search, Long>() {
+            @Override
+            public Search generate(Long id) {
+                return new Search(id);
+            }
+        };
+    }
+
 	/**
 	 * Create an event to query the simulator to add an magnetic link entry from
 	 * a given xml file.

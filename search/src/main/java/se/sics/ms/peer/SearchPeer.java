@@ -29,7 +29,7 @@ import java.util.LinkedList;
 
 public final class SearchPeer extends ComponentDefinition {
 
-    Positive<IndexPort> indexPort = positive(IndexPort.class);
+    Positive<SimulationEventsPort> indexPort = positive(SimulationEventsPort.class);
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
@@ -66,7 +66,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         connect(croupier.getPositive(PeerSamplePort.class),
                 gradient.getNegative(PeerSamplePort.class));
-        connect(indexPort, search.getNegative(IndexPort.class));
+        connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(gradient.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
         connect(gradient.getNegative(GradientViewChangePort.class),

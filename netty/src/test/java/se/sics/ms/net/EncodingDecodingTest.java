@@ -106,7 +106,7 @@ public class EncodingDecodingTest {
             publicKey = key.getPublic();
             privateKey = key.getPrivate();
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
     }
 
@@ -117,12 +117,13 @@ public class EncodingDecodingTest {
     @Test
     public void searchRequest() {
         SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
-        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), pattern);
+        TimeoutId timeoutId = UUID.nextUUID();
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            SearchMessage.Request request =
-                    SearchMessageFactory.Request.fromBuffer(buffer);
+            SearchMessage.Request request = SearchMessageFactory.Request.fromBuffer(buffer);
+            assert timeoutId.equals(request.getSearchTimeoutId());
             assert (request.getPattern().equals(pattern));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -147,16 +148,17 @@ public class EncodingDecodingTest {
             String description = "description";
             String hash = "hash";
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, numResponses, responseNum, new IndexEntry[] {entry});
+            TimeoutId timeoutId = UUID.nextUUID();
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, timeoutId, numResponses, responseNum, new IndexEntry[] {entry});
             try {
                 ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
-                SearchMessage.Response response =
-                        SearchMessageFactory.Response.fromBuffer(buffer);
+                SearchMessage.Response response = SearchMessageFactory.Response.fromBuffer(buffer);
                 assert (id.equals(response.getTimeoutId()));
                 assert (response.getNumResponses() == numResponses);
                 assert (response.getResponseNumber() == responseNum);
                 assert (response.getResults()[0].equals(entry));
+                assert timeoutId.equals(response.getSearchTimeoutId());
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
