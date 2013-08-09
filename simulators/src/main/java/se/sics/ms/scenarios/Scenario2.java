@@ -3,7 +3,7 @@ package se.sics.ms.scenarios;
 import se.sics.ms.simulation.Operations;
 
 /**
- * Initializes the system with 100 nodes, add 500 entries to the index and
+ * Initializes the system with 100 nodes, add 200 entries to the index and
  * another 100 nodes after that.
  */
 @SuppressWarnings("serial")
@@ -26,8 +26,8 @@ public class Scenario2 extends Scenario {
 
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
-					eventInterArrivalTime(constant(5000));
-					raise(500, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+					eventInterArrivalTime(constant(2000));
+					raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 

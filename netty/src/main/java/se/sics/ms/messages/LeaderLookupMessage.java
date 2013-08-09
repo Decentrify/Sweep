@@ -19,7 +19,7 @@ import java.util.List;
  */
 public class LeaderLookupMessage {
     public static final int QueryLimit = 4;
-    public static final int ResponseLimit = 4;
+    public static final int ResponseLimit = 8;
 
     public static class Request extends DirectMsgNetty.Request {
 

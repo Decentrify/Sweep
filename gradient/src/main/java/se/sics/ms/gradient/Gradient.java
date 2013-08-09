@@ -328,6 +328,9 @@ public final class Gradient extends ComponentDefinition {
 
             indexEntryToAdd = event.getEntry();
             addIndexEntryRequestTimeoutId = event.getTimeoutId();
+            locatedLeaders.clear();
+            queriedNodes.clear();
+            openRequests.clear();
 
             if (addCategory == selfCategory && selfPartition == addPartition && leader) {
                 trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), indexEntryToAdd), networkPort);
@@ -336,8 +339,8 @@ public final class Gradient extends ComponentDefinition {
 
             Iterator<VodDescriptor> iterator;
             if (addCategory == selfCategory && selfPartition == addPartition) {
-                SortedSet<VodDescriptor> higherUtilityNodes = gradientView.getHigherUtilityNodes();
-                NavigableSet<VodDescriptor> startNodes = new TreeSet<VodDescriptor>(higherUtilityNodes);
+                NavigableSet<VodDescriptor> startNodes = new TreeSet<VodDescriptor>(utilityComparator);
+                startNodes.addAll(gradientView.getAll());
                 // Higher utility nodes are further away in the sorted set
                 iterator = startNodes.descendingIterator();
             } else {
@@ -374,10 +377,15 @@ public final class Gradient extends ComponentDefinition {
             }
 
             logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
-            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
-            Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(category);
-            TreeSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
-            bucket.remove(unresponsiveNode);
+            if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())
+                    && indexEntryToAdd.getId() % MsConfig.SEARCH_NUM_PARTITIONS == self.getAddress().getPartitionId()) {
+                gradientView.remove(unresponsiveNode.getVodAddress());
+            } else {
+                IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
+                Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(category);
+                TreeSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
+                bucket.remove(unresponsiveNode);
+            }
         }
     };
 
@@ -389,8 +397,17 @@ public final class Gradient extends ComponentDefinition {
 
             // Higher utility nodes are further away in the sorted set
             Iterator<VodDescriptor> iterator = higherNodes.descendingIterator();
-            for (int i = 0; i < LeaderLookupMessage.ResponseLimit && iterator.hasNext(); i++) {
+            while (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
                 vodDescriptors.add(iterator.next());
+            }
+
+            // Some space left, also return lower nodes
+            if (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit) {
+                TreeSet<VodDescriptor> lowerNodes = new TreeSet<VodDescriptor>(gradientView.getHigherUtilityNodes());
+                iterator = lowerNodes.descendingIterator();
+                while (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
+                    vodDescriptors.add(iterator.next());
+                }
             }
 
             trigger(new LeaderLookupMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), leader, vodDescriptors), networkPort);
@@ -415,23 +432,9 @@ public final class Gradient extends ComponentDefinition {
                 if (locatedLeaders.containsKey(source)) {
                     numberOfAnswers = locatedLeaders.get(event.getVodSource()) + 1;
                 } else {
-                    numberOfAnswers = 0;
+                    numberOfAnswers = 1;
                 }
                 locatedLeaders.put(event.getVodSource(), numberOfAnswers);
-
-                for (VodAddress locatedLeader : locatedLeaders.keySet()) {
-                    // TODO Make it work with a majority
-//                    if (locatedLeaders.get(locatedLeader) >= LeaderLookupMessage.QueryLimit / 2 + 1) {
-                    if (locatedLeaders.get(locatedLeader) >= 0) {
-                        trigger(new AddIndexEntryMessage.Request(self.getAddress(), locatedLeader, addIndexEntryRequestTimeoutId, indexEntryToAdd), networkPort);
-
-                        indexEntryToAdd = null;
-                        locatedLeaders.clear();
-                        queriedNodes.clear();
-                        openRequests.clear();
-                        break;
-                    }
-                }
             } else {
                 List<VodDescriptor> higherUtilityNodes = event.getVodDescriptors();
 
@@ -441,14 +444,29 @@ public final class Gradient extends ComponentDefinition {
                     Collections.reverse(higherUtilityNodes);
                 }
 
+                // If the lowest returned nodes is an announced leader, increment it's counter
+                VodDescriptor first = higherUtilityNodes.get(0);
+                if (locatedLeaders.containsKey(first.getVodAddress())) {
+                    Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress()) + 1;
+                    locatedLeaders.put(first.getVodAddress(), numberOfAnswers);
+                }
+
                 Iterator<VodDescriptor> iterator = higherUtilityNodes.iterator();
                 for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
                     VodDescriptor node = iterator.next();
+                    // Don't query nodes twice
                     if (queriedNodes.contains(node)) {
                         i--;
                         continue;
                     }
                     sendLeaderLookupRequest(node);
+                }
+            }
+
+            // Check it a quorum was reached
+            for (VodAddress locatedLeader : locatedLeaders.keySet()) {
+                if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2) {
+                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), locatedLeader, addIndexEntryRequestTimeoutId, indexEntryToAdd), networkPort);
                 }
             }
         }
