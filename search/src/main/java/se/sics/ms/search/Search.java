@@ -15,6 +15,7 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodNetwork;
@@ -30,8 +31,8 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.GradientRoutingPort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.PublicKeyBroadcast;
-import se.sics.ms.peer.IndexPort;
-import se.sics.ms.peer.IndexPort.AddIndexSimulated;
+import se.sics.ms.peer.SimulationEventsPort;
+import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.gradient.PublicKeyPort;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
@@ -63,7 +64,7 @@ public final class Search extends ComponentDefinition {
      */
     public static final boolean PERSISTENT_INDEX = false;
 
-    Positive<IndexPort> indexPort = positive(IndexPort.class);
+    Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
@@ -106,6 +107,13 @@ public final class Search extends ComponentDefinition {
     private class ExchangeRound extends IndividualTimeout {
 
         public ExchangeRound(SchedulePeriodicTimeout request, int id) {
+            super(request, id);
+        }
+    }
+
+    private class SearchTimeout extends IndividualTimeout {
+
+        public SearchTimeout(ScheduleTimeout request, int id) {
             super(request, id);
         }
     }
@@ -170,7 +178,7 @@ public final class Search extends ComponentDefinition {
     public Search() {
         subscribe(handleInit, control);
         subscribe(handleRound, timerPort);
-        subscribe(handleAddIndexSimulated, indexPort);
+        subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
@@ -190,6 +198,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
+        subscribe(handleSearchSimulated, simulationEventsPort);
     }
 
     /**
@@ -404,6 +413,13 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(AddIndexSimulated event) {
             addEntryGlobal(event.getEntry());
+        }
+    };
+
+    final Handler<SimulationEventsPort.SearchSimulated> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated>() {
+        @Override
+        public void handle(SimulationEventsPort.SearchSimulated event) {
+            startSearch(event.getSearchPattern());
         }
     };
 
@@ -813,15 +829,15 @@ public final class Search extends ComponentDefinition {
         }
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
-        rst.setTimeoutEvent(new SearchMessage.RequestTimeout(rst, self.getId()));
+        rst.setTimeoutEvent(new SearchTimeout(rst, self.getId()));
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
-        trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId()), gradientRoutingPort);
+        trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            addSearchResponse((IndexEntry[]) result.toArray(), self.getAddress().getPartitionId());
+            addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -837,7 +853,8 @@ public final class Search extends ComponentDefinition {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
 
-                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), 0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
+                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
+                        0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -887,7 +904,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
-            if (searchRequest == null || event.getTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
+            if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
 
@@ -924,9 +941,9 @@ public final class Search extends ComponentDefinition {
      * Answer a search request if the timeout occurred before all answers were
      * collected.
      */
-    final Handler<SearchMessage.RequestTimeout> handleSearchTimeout = new Handler<SearchMessage.RequestTimeout>() {
+    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
         @Override
-        public void handle(SearchMessage.RequestTimeout event) {
+        public void handle(SearchTimeout event) {
             answerSearchRequest();
         }
     };
@@ -938,6 +955,7 @@ public final class Search extends ComponentDefinition {
         try {
             ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
             // TODO present the result to the user
+            logger.info("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
         } catch (IOException e) {
             e.printStackTrace();
         }
