@@ -5,7 +5,7 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.kompics.Init;
 
 /**
- * A class that carries the configuration variables for election as well as it's
+ * QueryLimit class that carries the configuration variables for election as well as it's
  * own address from the boot strapping process to the election components
  */
 public class ElectionInit extends Init {
@@ -18,7 +18,7 @@ public class ElectionInit extends Init {
 	 * @param self
 	 *            The node's own address
 	 * @param config
-	 *            A reference to the configuration file containing the
+	 *            QueryLimit reference to the configuration file containing the
 	 *            configuration values
 	 */
 	public ElectionInit(Self self, ElectionConfiguration config) {

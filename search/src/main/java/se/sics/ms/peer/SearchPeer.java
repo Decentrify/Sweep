@@ -11,11 +11,12 @@ import se.sics.gvod.croupier.events.CroupierInit;
 import se.sics.gvod.croupier.events.CroupierJoin;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
-import se.sics.kompics.*;
-import se.sics.kompics.web.Web;
+import se.sics.kompics.Component;
+import se.sics.kompics.ComponentDefinition;
+import se.sics.kompics.Handler;
+import se.sics.kompics.Positive;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -23,12 +24,8 @@ import se.sics.ms.gradient.*;
 import se.sics.ms.search.Search;
 import se.sics.ms.search.SearchInit;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -38,7 +35,6 @@ public final class SearchPeer extends ComponentDefinition {
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
-    private Random ran;
 
     public SearchPeer() {
         natTraversal = create(NatTraverser.class);
@@ -69,24 +65,22 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, electionFollower.getNegative(Timer.class));
 
         connect(croupier.getPositive(PeerSamplePort.class),
-                search.getNegative(PeerSamplePort.class));
-        connect(croupier.getPositive(PeerSamplePort.class),
                 gradient.getNegative(PeerSamplePort.class));
         connect(indexPort, search.getNegative(IndexPort.class));
-        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
-                electionLeader.getPositive(BroadcastGradientPartnersPort.class));
         connect(gradient.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
-        connect(gradient.getNegative(BroadcastGradientPartnersPort.class),
-                electionFollower.getPositive(BroadcastGradientPartnersPort.class));
+        connect(gradient.getNegative(GradientViewChangePort.class),
+                electionLeader.getPositive(GradientViewChangePort.class));
+        connect(gradient.getNegative(GradientViewChangePort.class),
+                electionFollower.getPositive(GradientViewChangePort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 search.getPositive(LeaderStatusPort.class));
         connect(electionFollower.getNegative(LeaderStatusPort.class),
                 gradient.getPositive(LeaderStatusPort.class));
-        connect(gradient.getPositive(LeaderRequestPort.class),
-                search.getNegative(LeaderRequestPort.class));
+        connect(gradient.getPositive(GradientRoutingPort.class),
+                search.getNegative(GradientRoutingPort.class));
 
         subscribe(handleInit, control);
     }
@@ -98,7 +92,6 @@ public final class SearchPeer extends ComponentDefinition {
             GradientConfiguration gradientConfiguration = init.getGradientConfiguration();
             ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
             searchConfiguration = init.getSearchConfiguration();
-            ran = new Random(init.getSearchConfiguration().getSeed());
 
             trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
             trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
@@ -112,22 +105,10 @@ public final class SearchPeer extends ComponentDefinition {
                     StunServerConfiguration.build(),
                     ParentMakerConfiguration.build(), true), natTraversal.control());
 
-            final VodDescriptor desc = self.getDescriptor();
-            List<VodDescriptor> descriptors = new LinkedList<VodDescriptor>();
-            descriptors.add(0, desc);
-
-            InetAddress ip = null;
-            try {
-                ip = InetAddress.getLocalHost();
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
-            }
-
             LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
-            if (self.getId() > 0) {
-                Address peerAddress = new Address(ip, 9999, ran.nextInt(self.getId()));
-                final VodDescriptor descr = new VodDescriptor(new VodAddress(peerAddress, 1));
-                descs.add(0, descr);
+            if (init.getBootstrappingNode() != null) {
+                final VodDescriptor descr = new VodDescriptor(init.getBootstrappingNode());
+                descs.add(descr);
             }
 
             trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));

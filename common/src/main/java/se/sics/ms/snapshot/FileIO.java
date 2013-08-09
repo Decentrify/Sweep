@@ -82,7 +82,7 @@ public class FileIO {
 	 * 
 	 * @param fileName
 	 *            Specifies the name of storing file.
-	 * @return A string that contains the whole content of file.
+	 * @return QueryLimit string that contains the whole content of file.
 	 * @throws IOException
 	 *             Thrown if the the file is not exist.
 	 */

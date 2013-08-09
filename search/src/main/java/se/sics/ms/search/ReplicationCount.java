@@ -1,7 +1,7 @@
 package se.sics.ms.search;
 
 import se.sics.gvod.net.VodAddress;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 /**
  * Data structure used by the leader to keep track of replication responses when

@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.util.ToVodAddr;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
@@ -34,8 +33,9 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.peersearch.net.MessageFrameDecoder;
+import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
 public class SystemMain extends ComponentDefinition {
@@ -99,7 +99,7 @@ public class SystemMain extends ComponentDefinition {
                 System.exit(-1);
             } else {
             
-            self = new SelfImpl(ToVodAddr.systemAddr(myAddr));
+            self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
 
             Set<Address> publicNodes = new HashSet<Address>();
             try {

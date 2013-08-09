@@ -15,15 +15,12 @@ public class SearchConfiguration
         extends AbstractConfiguration<se.sics.gvod.config.SearchConfiguration> {
 
     int numPartitions;
-    int maxNumRoutingEntries;
     int maxExchangeCount;
     int queryTimeout;
     int addTimeout;
     int replicationTimeout;
-    int replicationMaximum;
     int replicationMinimum;
     int retryCount;
-    int gapTimeout;
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
@@ -31,15 +28,12 @@ public class SearchConfiguration
     public SearchConfiguration() {
         this(
                 MsConfig.SEARCH_NUM_PARTITIONS,
-                MsConfig.SEARCH_MAX_NUM_ROUTING_ENTRIES,
                 MsConfig.SEARCH_MAX_EXCHANGE_COUNT,
                 MsConfig.SEARCH_QUERY_TIMEOUT,
                 MsConfig.SEARCH_ADD_TIMEOUT,
                 MsConfig.SEARCH_REPLICATION_TIMEOUT,
-                MsConfig.SEARCH_REPLICATION_MAXIMUM,
                 MsConfig.SEARCH_REPLICATION_MINIMUM,
                 MsConfig.SEARCH_RETRY_COUNT,
-                MsConfig.SEARCH_GAP_TIMEOUT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE);
@@ -47,40 +41,33 @@ public class SearchConfiguration
 
     /**
      * @param numPartitions the number of partitions used to balance the load
-     * @param maxNumRoutingEntries the maximum number of entries for each bucket
-     * in the routing table
      * @param maxExchangeCount the maximum number of addresses exchanged in one
      * exchange request
      * @param queryTimeout the amount of time until a search request times out
      * @param addTimeout the amount of time until an add request times out
      * @param replicationTimeout addTimeout the amount of time until an
      * replication request times out
-     * @param replicationMaximum the maximum number of replication requests sent
      * @param replicationMinimum the minimum number of required replication
      * acknowledgments
      * @param retryCount the number retries executed if no acknowledgment for an
      * add operations was received
-     * @param gapTimeout the amount of time until a gap detection is issued
      * @param hitsPerQuery the maximum amount of entries reported for a search
      * request
      * @param recentRequestsGcInterval the interval used to garbage collect the
      * UUIDs of recente requests
      */
     public SearchConfiguration(
-            int numPartitions, int maxNumRoutingEntries, int maxExchangeCount, int queryTimeout,
-            int addTimeout, int replicationTimeout, int replicationMaximum, int replicationMinimum,
-            int retryCount, int gapTimeout, int hitsPerQuery, int recentRequestsGcInterval,
+            int numPartitions, int maxExchangeCount, int queryTimeout,
+            int addTimeout, int replicationTimeout, int replicationMinimum,
+            int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize) {
         this.numPartitions = numPartitions;
-        this.maxNumRoutingEntries = maxNumRoutingEntries;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
         this.replicationTimeout = replicationTimeout;
-        this.replicationMaximum = replicationMaximum;
         this.replicationMinimum = replicationMinimum;
         this.retryCount = retryCount;
-        this.gapTimeout = gapTimeout;
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
@@ -91,10 +78,6 @@ public class SearchConfiguration
     }
     public int getNumPartitions() {
         return numPartitions;
-    }
-
-    public int getMaxNumRoutingEntries() {
-        return maxNumRoutingEntries;
     }
 
     public int getMaxExchangeCount() {
@@ -113,20 +96,12 @@ public class SearchConfiguration
         return replicationTimeout;
     }
 
-    public int getReplicationMaximum() {
-        return replicationMaximum;
-    }
-
     public int getReplicationMinimum() {
         return replicationMinimum;
     }
 
     public int getRetryCount() {
         return retryCount;
-    }
-
-    public int getGapTimeout() {
-        return gapTimeout;
     }
 
     public int getHitsPerQuery() {
@@ -143,11 +118,6 @@ public class SearchConfiguration
 
     public SearchConfiguration setNumPartitions(int numPartitions) {
         this.numPartitions = numPartitions;
-        return this;
-    }
-
-    public SearchConfiguration setMaxNumRoutingEntries(int maxNumRoutingEntries) {
-        this.maxNumRoutingEntries = maxNumRoutingEntries;
         return this;
     }
 
@@ -171,11 +141,6 @@ public class SearchConfiguration
         return this;
     }
 
-    public SearchConfiguration setReplicationMaximum(int replicationMaximum) {
-        this.replicationMaximum = replicationMaximum;
-        return this;
-    }
-
     public SearchConfiguration setReplicationMinimum(int replicationMinimum) {
         this.replicationMinimum = replicationMinimum;
         return this;
@@ -183,11 +148,6 @@ public class SearchConfiguration
 
     public SearchConfiguration setRetryCount(int retryCount) {
         this.retryCount = retryCount;
-        return this;
-    }
-
-    public SearchConfiguration setGapTimeout(int gapTimeout) {
-        this.gapTimeout = gapTimeout;
         return this;
     }
 

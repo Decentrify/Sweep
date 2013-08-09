@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import se.sics.gvod.address.Address;
@@ -14,14 +15,14 @@ import se.sics.gvod.net.VodAddress;
  * information in a log file.
  */
 public class Snapshot {
-	private static SortedMap<VodAddress, PeerInfo> peers = Collections
-			.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
+	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
-	private static ConcurrentSkipListSet<Long> detectedGaps = new ConcurrentSkipListSet<Long>();
-	private static long lastId = -1;
+    private static ConcurrentHashMap<Integer, Long> latestIds = new ConcurrentHashMap<Integer, Long>();
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
+    private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
+    private static int failedAddRequests = 0;
 	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
 	public static void init(int numOfStripes) {
@@ -141,30 +142,36 @@ public class Snapshot {
 	}
 
 	/**
-	 * Add a detected gap to the snapshot.
-	 * 
-	 * @param gapNumber
-	 *            the id of the gap
-	 */
-	public static void addGap(long gapNumber) {
-		detectedGaps.add(gapNumber);
-	}
-
-	/**
 	 * Add the last added index id to the snapshot.
-	 * 
+	 *
+     * @param partition
+     *            the partition of the node adding the index
 	 * @param id
 	 *            the id of the lastest added index value
 	 */
-	public static synchronized void setLastId(long id) {
-		if (id <= lastId) {
-            // TODO doesn't make sense with multiple leaders
-//			idDuplicates.add(id);
-		}
-		lastId = id;
+	public static synchronized void addIndexEntryId(int partition, long id) {
+        entriesAdded++;
 
-		entriesAdded++;
+        Long lastId = latestIds.get(partition);
+        if (lastId == null) {
+            lastId = id;
+            latestIds.put(partition, lastId);
+            return;
+        }
+
+		if (id <= lastId.longValue()) {
+			idDuplicates.add(id);
+		}
+		latestIds.put(partition, id);
 	}
+
+    public static synchronized void incrementReceivedAddRequests() {
+        receivedAddRequests++;
+    }
+
+    public static synchronized void incrementFailedddRequests() {
+        failedAddRequests++;
+    }
 
 	/**
 	 * Create a report.
@@ -173,22 +180,44 @@ public class Snapshot {
 		StringBuilder builder = new StringBuilder();
 		builder.append("current time: " + counter++ + "\n");
 		reportNetworkState(builder);
-		reportSmalestId(builder);
+        builder.append("\n");
+		reportLowestId(builder);
+        builder.append("\n");
 		reportLeaders(builder);
+        builder.append("\n");
 		reportOldLeaders(builder);
+        builder.append("\n");
 		reportDetails(builder);
-		reportLastId(builder);
+        builder.append("\n");
+		reportLatestIds(builder);
+        builder.append("\n");
+        reportNumberOfEntries(builder);
+        builder.append("\n");
+        reportReceivedAddRequests(builder);
+        builder.append("\n");
+        reportFailedAddRequests(builder);
+        builder.append("\n");
 		reportIdDuplicates(builder);
-		reportAmountOfGaps(builder);
-		reportDetectedGaps(builder);
-		builder.append("###\n");
+		builder.append("---------------------------------------------------------------------------------------------\n");
 
 		String str = builder.toString();
 		System.out.println(str);
 		FileIO.append(str, FILENAME);
 	}
 
-	/**
+    private static void reportFailedAddRequests(StringBuilder builder) {
+        builder.append("Total number of failed AddRequests: " + failedAddRequests + "\n");
+    }
+
+    private static void reportReceivedAddRequests(StringBuilder builder) {
+        builder.append("Total number of received AddRequests: " + receivedAddRequests + "\n");
+    }
+
+    private static void reportNumberOfEntries(StringBuilder builder) {
+        builder.append("Total number of index values: " + entriesAdded + "\n");
+    }
+
+    /**
 	 * Create the network report.
 	 * 
 	 * @param builder
@@ -213,12 +242,15 @@ public class Snapshot {
             if(info == null) continue;
 			if (info.isLeader()) {
 				builder.append(p.getId());
-				builder.append(" is leader and its Gradient view was: ");
+				builder.append(" is leader of partition ");
+                builder.append(p.getPartitionId());
+                builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());
-				builder.append("\n");
-				builder.append("Its current view is: ");
+				builder.append("\n\tIts current view is: ");
 				builder.append(info.getCurrentView());
-				builder.append("\n");
+                builder.append("\n\tIts number of index entries: ");
+                builder.append(info.getNumIndexEntries());
+                builder.append("\n");
 			}
 		}
 	}
@@ -259,28 +291,13 @@ public class Snapshot {
 	}
 
 	/**
-	 * Create a report about detected gaps.
-	 * 
-	 * @param builder
-	 *            the builder used to add the information
-	 */
-	private static void reportDetectedGaps(StringBuilder builder) {
-		builder.append("Detected index gaps: ");
-		for (Long number : detectedGaps) {
-			builder.append(number);
-			builder.append(" ");
-		}
-		builder.append("\n");
-	}
-
-	/**
 	 * Create a report about the node with the smalest id.
 	 * 
 	 * @param builder
 	 *            the builder used to add the information
 	 */
-	private static void reportSmalestId(StringBuilder builder) {
-		builder.append("The smalest node id is: ");
+	private static void reportLowestId(StringBuilder builder) {
+		builder.append("The lowest node id is: ");
 		builder.append(peers.firstKey().getId());
 		builder.append("\n");
 	}
@@ -306,21 +323,11 @@ public class Snapshot {
 	 * @param builder
 	 *            the builder used to add the information
 	 */
-	private static void reportLastId(StringBuilder builder) {
-		builder.append("Last index id: ");
-		builder.append(lastId == -1 ? "" : lastId);
-		builder.append("\n");
-	}
-
-	/**
-	 * Create a report about the amount of gaps in the index range.
-	 * 
-	 * @param builder
-	 *            the builder used to add the information
-	 */
-	private static void reportAmountOfGaps(StringBuilder builder) {
-		builder.append("Amount of gaps: ");
-		builder.append(detectedGaps.size());
+	private static void reportLatestIds(StringBuilder builder) {
+		builder.append("Latest index id per partition:\n");
+        for (Integer partition : latestIds.keySet()) {
+            builder.append("\tPartition " + partition + ": " + latestIds.get(partition) + "\n");
+        }
 		builder.append("\n");
 	}
 
@@ -334,8 +341,8 @@ public class Snapshot {
 		builder.append("Nodes that have been leader:\n");
 		for (VodAddress node : oldLeaders) {
 			PeerInfo peer = peers.get(node);
-			builder.append(node.getId());
-			builder.append(" was leader with Gradient view: ");
+			builder.append("\t" + node.getId());
+			builder.append(" was leader with gradient view: ");
 			if (peer != null) {
 				builder.append(peer.getElectionView());
 			} else {

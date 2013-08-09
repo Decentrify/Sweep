@@ -9,7 +9,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 /**
  * Provides functionality to access the entries of an xml file with magnet links

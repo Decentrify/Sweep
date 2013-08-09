@@ -13,31 +13,24 @@ import se.sics.ms.simulation.Operations;
 public class Scenario4 extends Scenario {
 	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
 		{
-			StochasticProcess startUp = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(100));
-					raise(1, Operations.peerJoin());
-				}
-			};
-
 			StochasticProcess joinNodes = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(100));
-					raise(99, Operations.peerJoin());
+					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
 			StochasticProcess massiveJoin = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(100));
-					raise(100, Operations.peerJoin());
+					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
 			StochasticProcess churn = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(2000));
-					raise(30, Operations.peerJoin());
+					raise(30, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
 					raise(30, Operations.peerFail(), uniform(30, 200));
 				}
 			};
@@ -52,12 +45,11 @@ public class Scenario4 extends Scenario {
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(500));
-					raise(200, Operations.addIndexEntry(), uniform(0, 200));
+                    raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
-			startUp.start();
-			joinNodes.startAfterTerminationOf(2000, startUp);
+			joinNodes.start();
 			addEntries.startAfterTerminationOf(5000, joinNodes);
 			failLeader.startAfterTerminationOf(7000, joinNodes);
 			massiveJoin.startAfterTerminationOf(2000, addEntries);

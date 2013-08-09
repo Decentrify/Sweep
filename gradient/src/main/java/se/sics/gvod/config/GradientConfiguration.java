@@ -11,7 +11,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR QueryLimit PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 package se.sics.gvod.config;
+
+import se.sics.ms.configuration.MsConfig;
 
 /**
  *
@@ -57,11 +59,10 @@ public class GradientConfiguration
     // How many rounds does the convergenceTest need to be valid until the view is stated converged
     int convergenceTestRounds;
     int rto;
+    int maxNumRoutingEntries;
+    int leaderLookupTimeout;
     
-
-    
-    
-    /** 
+    /**
      * Default constructor comes first.
      */
     public GradientConfiguration() {
@@ -77,7 +78,9 @@ public class GradientConfiguration
                 VodConfig.GRADIENT_SEARCH_TTL,
                 VodConfig.GRADIENT_CONVERGENCE_TEST,
                 VodConfig.GRADIENT_CONVERGENCE_TEST_ROUNDS,
-                VodConfig.GRADIENT_SHUFFLE_TIMEOUT
+                VodConfig.GRADIENT_SHUFFLE_TIMEOUT,
+                MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES,
+                MsConfig.GRADIENT_LEADER_LOOKUP_TIMEOUT
                 );
     }
 
@@ -96,7 +99,9 @@ public class GradientConfiguration
             int searchTtl,
             double convergenceTest,
             int convergenceTestRounds,
-            int rto
+            int rto,
+            int maxNumRoutingEntries,
+            int leaderLookupTimeout
             ) {
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
@@ -110,6 +115,8 @@ public class GradientConfiguration
         this.convergenceTest = convergenceTest;
         this.convergenceTestRounds = convergenceTestRounds;
         this.rto = rto;
+        this.maxNumRoutingEntries = maxNumRoutingEntries;
+        this.leaderLookupTimeout = leaderLookupTimeout;
     }
 
     public static GradientConfiguration build() {
@@ -157,6 +164,10 @@ public class GradientConfiguration
         return numParallelSearches;
     }
 
+    public int getLeaderLookupTimeout() {
+        return leaderLookupTimeout;
+    }
+
     /**
      * @return the probeRequestTimeout
      */
@@ -171,6 +182,9 @@ public class GradientConfiguration
         return utilityThreshold;
     }
 
+    public int getMaxNumRoutingEntries() {
+        return maxNumRoutingEntries;
+    }
 
     public GradientConfiguration setViewSize(int viewSize) {
         this.viewSize = viewSize;
@@ -229,6 +243,16 @@ public class GradientConfiguration
 
     public GradientConfiguration setConvergenceTestRounds(int convergenceTestRounds) {
         this.convergenceTestRounds = convergenceTestRounds;
+        return this;
+    }
+
+    public GradientConfiguration setMaxNumRoutingEntries(int maxNumRoutingEntries) {
+        this.maxNumRoutingEntries = maxNumRoutingEntries;
+        return this;
+    }
+
+    public GradientConfiguration setLeaderLookupTimeout(int leaderLookupTimeout) {
+        this.leaderLookupTimeout = leaderLookupTimeout;
         return this;
     }
 }
