@@ -563,7 +563,6 @@ public final class Search extends ComponentDefinition {
             trigger(new ReplicationPrepareCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, request.getEntry(), self.getId()));
             rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId(), request.getEntry()));
             rst.getTimeoutEvent().setTimeoutId(timeout);
             trigger(rst, timerPort);
@@ -937,6 +936,20 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
+        @Override
+        public void handle(UiSearchRequest searchRequest) {
+            startSearch(searchRequest.getPattern());
+        }
+    };
+
+    final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
+        @Override
+        public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
+             addEntryGlobal(addIndexEntryRequest.getEntry());
+        }
+    };
+
     /**
      * Send a search request for a given search pattern to one node in each
      * partition except the local partition.
@@ -966,7 +979,8 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            addSearchResponse((IndexEntry[]) result.toArray(), self.getAddress().getPartitionId());
+            searchRequest.incrementNodesQueried();
+            addSearchResponse(result.toArray(new IndexEntry[result.size()]));
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }

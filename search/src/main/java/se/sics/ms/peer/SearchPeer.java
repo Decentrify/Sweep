@@ -89,6 +89,9 @@ public final class SearchPeer extends ComponentDefinition {
 
         connect(internalUiPort, search.getPositive(UiPort.class));
 
+
+        connect(internalUiPort, search.getPositive(UiPort.class));
+
         subscribe(handleInit, control);
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
