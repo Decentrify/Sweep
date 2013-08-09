@@ -36,6 +36,7 @@ public class MsConfig extends VodConfig {
     public static final int SEARCH_HITS_PER_QUERY = 25;
     public static final int SEARCH_RECENT_REQUESTS_GCINTERVAL = 5 * 60 * 1000;
     public static final int MAX_LEADER_ID_HISTORY_SIZE = 5;
+    public static final int SEARCH_MAX_SEARCH_RESULTS = 500;
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
     public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
