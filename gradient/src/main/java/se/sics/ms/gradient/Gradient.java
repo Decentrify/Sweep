@@ -544,7 +544,9 @@ public final class Gradient extends ComponentDefinition {
                 }
 
                 SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(partition);
-                for (VodDescriptor vodDescriptor : bucket) {
+                Iterator<VodDescriptor> iterator = bucket.iterator();
+                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
+                    VodDescriptor vodDescriptor = iterator.next();
                     ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
                     scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), vodDescriptor));
                     trigger(scheduleTimeout, timerPort);
