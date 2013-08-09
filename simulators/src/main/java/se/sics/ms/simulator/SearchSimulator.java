@@ -66,6 +66,7 @@ public final class SearchSimulator extends ComponentDefinition {
         subscribe(handleAddMagnetEntry, simulator);
         subscribe(handleSearch, simulator);
     }
+
     Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
         @Override
         public void handle(SimulatorInit init) {
@@ -100,6 +101,7 @@ public final class SearchSimulator extends ComponentDefinition {
         }
         return sb.toString();
     }
+
 //    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
 //        @Override
 //        public void handle(TerminateExperiment event) {
@@ -110,6 +112,7 @@ public final class SearchSimulator extends ComponentDefinition {
 //            System.exit(0);
 //        }
 //    };
+
     Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
         @Override
         public void handle(AddIndexEntry event) {
@@ -121,6 +124,7 @@ public final class SearchSimulator extends ComponentDefinition {
             trigger(new AddIndexSimulated(index), peer.getNegative(SimulationEventsPort.class));
         }
     };
+
     /**
      * Add real magnet links from a specified xml file to the system.
      */
@@ -152,6 +156,7 @@ public final class SearchSimulator extends ComponentDefinition {
             trigger(new AddIndexSimulated(entry), peer.getNegative(SimulationEventsPort.class));
         }
     };
+
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
@@ -169,6 +174,7 @@ public final class SearchSimulator extends ComponentDefinition {
             ringNodes.addNode(id);
         }
     };
+
     Handler<PeerFail> handlePeerFail = new Handler<PeerFail>() {
         @Override
         public void handle(PeerFail event) {
@@ -183,12 +189,14 @@ public final class SearchSimulator extends ComponentDefinition {
             stopAndDestroyPeer(id);
         }
     };
+
     Handler<GenerateReport> handleGenerateReport = new Handler<GenerateReport>() {
         @Override
         public void handle(GenerateReport event) {
             Snapshot.report();
         }
     };
+
     Handler<Search> handleSearch = new Handler<Search>() {
         @Override
         public void handle(Search event) {
