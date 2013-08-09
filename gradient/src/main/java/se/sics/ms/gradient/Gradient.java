@@ -2,6 +2,7 @@ package se.sics.ms.gradient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.GradientConfiguration;
@@ -50,6 +51,7 @@ public final class Gradient extends ComponentDefinition {
     private UtilityComparator utilityComparator = new UtilityComparator();
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
+    private Map<Integer,Long> shuffleTimes = new HashMap<Integer,Long>();
 
     // This is a routing table maintaining a a list of descriptors for each category its partitions.
     private Map<IndexEntry.Category, Map<Integer, TreeSet<VodDescriptor>>> routingTable;
@@ -152,6 +154,8 @@ public final class Gradient extends ComponentDefinition {
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
+
+        shuffleTimes.put(rTimeoutId.getId(), System.currentTimeMillis());
     }
 
     /**
@@ -200,6 +204,9 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.merge(event.getVodDescriptors());
             sendGradientViewChange();
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.addSample(self.getId(), event.getVodSource(), System.currentTimeMillis() - timeStarted);
         }
     };
 
@@ -226,6 +233,8 @@ public final class Gradient extends ComponentDefinition {
             if (deadNode != null) {
                 gradientView.remove(deadNode);
             }
+
+            shuffleTimes.remove(event.getTimeoutId().getId());
         }
     };
 
@@ -376,6 +385,7 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(LeaderLookupMessage.RequestTimeout event) {
             VodDescriptor unresponsiveNode = openRequests.remove(event.getTimeoutId());
+            shuffleTimes.remove(event.getTimeoutId().getId());
 
             if (unresponsiveNode == null) {
                 logger.warn("{} bogus timeout with id: {}", self.getAddress(), event.getTimeoutId());
@@ -426,6 +436,9 @@ public final class Gradient extends ComponentDefinition {
             if (openRequests.containsKey(event.getTimeoutId()) == false) {
                 return;
             }
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.addSample(self.getId(), event.getVodSource(), System.currentTimeMillis() - timeStarted);
 
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
@@ -486,6 +499,8 @@ public final class Gradient extends ComponentDefinition {
 
         queriedNodes.add(node);
         trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
+
+        shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
     }
 
     final Handler<GradientRoutingPort.ReplicationPrepareCommitRequest> handleReplicationPrepareCommit = new Handler<GradientRoutingPort.ReplicationPrepareCommitRequest>() {
@@ -552,6 +567,8 @@ public final class Gradient extends ComponentDefinition {
                     trigger(scheduleTimeout, timerPort);
                     trigger(new SearchMessage.Request(self.getAddress(), vodDescriptor.getVodAddress(),
                             scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern()), networkPort);
+
+                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
                 }
             }
         }
@@ -562,6 +579,9 @@ public final class Gradient extends ComponentDefinition {
         public void handle(SearchMessage.Response event) {
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.addSample(self.getId(), event.getVodSource(), System.currentTimeMillis() - timeStarted);
         }
     };
 
@@ -572,6 +592,8 @@ public final class Gradient extends ComponentDefinition {
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(event.getVodDescriptor().getVodAddress().getPartitionId());
             bucket.remove(event.getVodDescriptor());
+
+            shuffleTimes.remove(event.getTimeoutId().getId());
         }
     };
 
