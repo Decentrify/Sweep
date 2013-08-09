@@ -2,10 +2,7 @@ package se.sics.ms.simulator;
 
 import se.sics.kompics.PortType;
 import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
-import se.sics.ms.simulation.AddIndexEntry;
-import se.sics.ms.simulation.AddMagnetEntry;
-import se.sics.ms.simulation.PeerFail;
-import se.sics.ms.simulation.PeerJoin;
+import se.sics.ms.simulation.*;
 
 public class SimulatorPort extends PortType {
 	{
@@ -13,6 +10,7 @@ public class SimulatorPort extends PortType {
 		positive(PeerFail.class);
 		positive(AddIndexEntry.class);
 		positive(AddMagnetEntry.class);
+        positive(Search.class);
 		negative(TerminateExperiment.class);
 	}
 }

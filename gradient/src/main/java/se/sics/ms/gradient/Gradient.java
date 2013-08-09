@@ -58,6 +58,10 @@ public final class Gradient extends ComponentDefinition {
         public int compare(VodDescriptor t0, VodDescriptor t1) {
             if (t0.getVodAddress().equals(t1.getVodAddress())) {
                 return 0;
+            } else if (!t0.isConnected() && t1.isConnected()) {
+                return 1;
+            } else if (t0.isConnected() && !t1.isConnected()) {
+                return -1;
             } else if (t0.getAge() > t1.getAge()) {
                 return 1;
             } else {
@@ -95,6 +99,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
+        subscribe(handleSearchResponse, networkPort);
+        subscribe(handleSearchRequestTimeout, timerPort);
     }
 
     /**
@@ -525,26 +531,45 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
             IndexEntry.Category category = event.getPattern().getCategory();
-            int i = 0;
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
 
             if (categoryRoutingMap == null) {
-                // TODO We should show an error
                 return;
             }
 
-            for (SortedSet<VodDescriptor> bucket : categoryRoutingMap.values()) {
+            for (Integer partition : categoryRoutingMap.keySet()) {
                 // Skip local partition
-                if (i == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
-                    i++;
+                if (partition == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                     continue;
                 }
 
-                int n = random.nextInt(bucket.size());
-
-                trigger(new SearchMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(), event.getTimeoutId(), event.getPattern()), networkPort);
-                i++;
+                SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(partition);
+                for (VodDescriptor vodDescriptor : bucket) {
+                    ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
+                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), vodDescriptor));
+                    trigger(scheduleTimeout, timerPort);
+                    trigger(new SearchMessage.Request(self.getAddress(), vodDescriptor.getVodAddress(),
+                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern()), networkPort);
+                }
             }
+        }
+    };
+
+    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
+        @Override
+        public void handle(SearchMessage.Response event) {
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
+        }
+    };
+
+    final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
+        @Override
+        public void handle(SearchMessage.RequestTimeout event) {
+            IndexEntry.Category category = categoryFromCategoryId(event.getVodDescriptor().getVodAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+            SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(event.getVodDescriptor().getVodAddress().getPartitionId());
+            bucket.remove(event.getVodDescriptor());
         }
     };
 
