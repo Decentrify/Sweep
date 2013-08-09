@@ -91,7 +91,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handlePublicKeyMessage, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
         subscribe(handleIndexExchangeRequest, gradientRoutingPort);
-        subscribe(handleReplicationPrepairCommit, gradientRoutingPort);
+        subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
@@ -482,29 +482,11 @@ public final class Gradient extends ComponentDefinition {
         trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
     }
 
-    final Handler<GradientRoutingPort.ReplicationPrepairCommitRequest> handleReplicationPrepairCommit = new Handler<GradientRoutingPort.ReplicationPrepairCommitRequest>() {
+    final Handler<GradientRoutingPort.ReplicationPrepareCommitRequest> handleReplicationPrepareCommit = new Handler<GradientRoutingPort.ReplicationPrepareCommitRequest>() {
         @Override
-        public void handle(GradientRoutingPort.ReplicationPrepairCommitRequest event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
-            if (categoryRoutingMap == null) {
-                logger.info("{} handleReplicationPrepairCommit: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
-                return;
-            }
-
-            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
-            if (bucket == null) {
-                logger.info("{} handleReplicationPrepairCommit: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
-                return;
-            }
-
-            // TODO do not access constants
-            int i = bucket.size() > MsConfig.SEARCH_REPLICATION_MAXIMUM ? MsConfig.SEARCH_REPLICATION_MAXIMUM : bucket.size();
-            for (VodDescriptor peer : bucket) {
-                if (i == 0) {
-                    break;
-                }
-                trigger(new ReplicationPrepairCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
-                i--;
+        public void handle(GradientRoutingPort.ReplicationPrepareCommitRequest event) {
+            for (VodDescriptor peer : gradientView.getLowerUtilityNodes()) {
+                trigger(new ReplicationPrepareCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
             }
         }
     };
@@ -512,19 +494,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationCommit event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
-            if (categoryRoutingMap == null) {
-                logger.info("{} handleReplicationCommit: no partition for category {} ", self.getAddress(), categoryFromCategoryId(self.getAddress().getCategoryId()));
-                return;
-            }
-
-            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
-            if (bucket == null) {
-                logger.info("{} handleReplicationCommit: no nodes for partition {} ", self.getAddress(), self.getAddress().getPartitionId());
-                return;
-            }
-
-            for (VodDescriptor peer : bucket) {
+            for (VodDescriptor peer : gradientView.getLowerUtilityNodes()) {
                 trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
             }
         }

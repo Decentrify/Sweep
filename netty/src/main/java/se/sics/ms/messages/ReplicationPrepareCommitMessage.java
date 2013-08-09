@@ -16,7 +16,7 @@ import se.sics.ms.types.IndexEntry;
  * Date: 8/2/13
  * Time: 5:19 PM
  */
-public class ReplicationPrepairCommitMessage {
+public class ReplicationPrepareCommitMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final IndexEntry entry;
 

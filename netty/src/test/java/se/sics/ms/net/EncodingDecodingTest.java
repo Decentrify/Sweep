@@ -721,11 +721,11 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        ReplicationPrepairCommitMessage.Request msg = new ReplicationPrepairCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
+        ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationPrepairCommitMessage.Request request = ReplicationPrepairCommitMessageFactory.Request.fromBuffer(buffer);
+            ReplicationPrepareCommitMessage.Request request = ReplicationPrepairCommitMessageFactory.Request.fromBuffer(buffer);
             assert (request.getEntry().getUrl().equals(url));
             assert (request.getEntry().getFileName().equals(fileName));
             assert (request.getEntry().getFileSize() == size);
@@ -748,11 +748,11 @@ public class EncodingDecodingTest {
     @Test
     public void PrepairCommitResponse() {
         Long size = 123L;
-        ReplicationPrepairCommitMessage.Response msg = new ReplicationPrepairCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
+        ReplicationPrepareCommitMessage.Response msg = new ReplicationPrepareCommitMessage.Response(gSrc, gDest, UUID.nextUUID(), size);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            ReplicationPrepairCommitMessage.Response response = ReplicationPrepairCommitMessageFactory.Response.fromBuffer(buffer);
+            ReplicationPrepareCommitMessage.Response response = ReplicationPrepairCommitMessageFactory.Response.fromBuffer(buffer);
             assert (response.getEntryId() == size);
 
         } catch (MessageDecodingException ex) {

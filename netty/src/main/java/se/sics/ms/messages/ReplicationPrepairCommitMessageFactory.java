@@ -19,14 +19,14 @@ public class ReplicationPrepairCommitMessageFactory {
         private Request() {
         }
 
-        public static ReplicationPrepairCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ReplicationPrepairCommitMessage.Request) new ReplicationPrepairCommitMessageFactory.Request().decode(buffer, true);
+        public static ReplicationPrepareCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (ReplicationPrepareCommitMessage.Request) new ReplicationPrepairCommitMessageFactory.Request().decode(buffer, true);
         }
 
         @Override
-        protected ReplicationPrepairCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
+        protected ReplicationPrepareCommitMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             IndexEntry entry = ApplicationTypesDecoderFactory.readIndexEntry(buffer);
-            return new ReplicationPrepairCommitMessage.Request(vodSrc, vodDest, timeoutId, entry);
+            return new ReplicationPrepareCommitMessage.Request(vodSrc, vodDest, timeoutId, entry);
         }
     }
 
@@ -35,15 +35,15 @@ public class ReplicationPrepairCommitMessageFactory {
         private Response() {
         }
 
-        public static ReplicationPrepairCommitMessage.Response fromBuffer(ByteBuf buffer)
+        public static ReplicationPrepareCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (ReplicationPrepairCommitMessage.Response) new ReplicationPrepairCommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationPrepareCommitMessage.Response) new ReplicationPrepairCommitMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             long entryId = buffer.readLong();
-            return new ReplicationPrepairCommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
+            return new ReplicationPrepareCommitMessage.Response(vodSrc, vodDest, timeoutId, entryId);
         }
     }
 }

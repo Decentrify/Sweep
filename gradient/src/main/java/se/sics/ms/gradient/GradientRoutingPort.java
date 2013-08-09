@@ -11,7 +11,7 @@ public class GradientRoutingPort extends PortType {
 		negative(AddIndexEntryRequest.class);
         negative(IndexExchangeRequest.class);
         negative(SearchRequest.class);
-        negative(ReplicationPrepairCommitRequest.class);
+        negative(ReplicationPrepareCommitRequest.class);
         negative(ReplicationCommit.class);
         negative(SearchRequest.class);
 	}
@@ -71,11 +71,11 @@ public class GradientRoutingPort extends PortType {
         }
     }
 
-    public static class ReplicationPrepairCommitRequest extends Event {
+    public static class ReplicationPrepareCommitRequest extends Event {
         private final IndexEntry entry;
         private final TimeoutId timeoutId;
 
-        public ReplicationPrepairCommitRequest(IndexEntry entry, TimeoutId timeoutId) {
+        public ReplicationPrepareCommitRequest(IndexEntry entry, TimeoutId timeoutId) {
             this.entry = entry;
             this.timeoutId = timeoutId;
         }

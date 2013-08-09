@@ -184,9 +184,9 @@ public final class Search extends ComponentDefinition {
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
-        subscribe(handlePrepairCommit, networkPort);
+        subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
-        subscribe(handlePrepairCoomitResponse, networkPort);
+        subscribe(handlePrepareCommitResponse, networkPort);
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
@@ -434,10 +434,10 @@ public final class Search extends ComponentDefinition {
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
-     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepairCommitMessage} request to a number of nodes as
+     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request to a number of nodes as
      * specified in the config file and schedule a timeout to wait for
      * responses. The adding operation will be acknowledged if either all nodes
-     * responded to the {@link se.sics.ms.messages.ReplicationPrepairCommitMessage} request or the timeout occurred and
+     * responded to the {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request or the timeout occurred and
      * enough nodes, as specified in the config, responded.
      */
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
@@ -467,7 +467,7 @@ public final class Search extends ComponentDefinition {
             avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
             replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
 
-            trigger(new GradientRoutingPort.ReplicationPrepairCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
+            trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
         }
     };
 
@@ -535,9 +535,9 @@ public final class Search extends ComponentDefinition {
     /**
      * Stores on a peer in the leader group information about a new entry to be probably commited
      */
-    final Handler<ReplicationPrepairCommitMessage.Request> handlePrepairCommit = new Handler<ReplicationPrepairCommitMessage.Request>() {
+    final Handler<ReplicationPrepareCommitMessage.Request> handlePrepareCommit = new Handler<ReplicationPrepareCommitMessage.Request>() {
         @Override
-        public void handle(ReplicationPrepairCommitMessage.Request request) {
+        public void handle(ReplicationPrepareCommitMessage.Request request) {
             IndexEntry entry = request.getEntry();
             if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
@@ -545,7 +545,7 @@ public final class Search extends ComponentDefinition {
             TimeoutId timeout = UUID.nextUUID();
             pendingForCommit.put(request.getEntry(), timeout);
 
-            trigger(new ReplicationPrepairCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+            trigger(new ReplicationPrepareCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
 
             ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
             rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId(), request.getEntry()));
@@ -569,9 +569,9 @@ public final class Search extends ComponentDefinition {
     /**
      * Leader gains majority of responses and issues a request for a commit
      */
-    final Handler<ReplicationPrepairCommitMessage.Response> handlePrepairCoomitResponse = new Handler<ReplicationPrepairCommitMessage.Response>() {
+    final Handler<ReplicationPrepareCommitMessage.Response> handlePrepareCommitResponse = new Handler<ReplicationPrepareCommitMessage.Response>() {
         @Override
-        public void handle(ReplicationPrepairCommitMessage.Response response) {
+        public void handle(ReplicationPrepareCommitMessage.Response response) {
             TimeoutId timeout = response.getTimeoutId();
 
             CancelTimeout ct = new CancelTimeout(timeout);
