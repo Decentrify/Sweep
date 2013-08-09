@@ -196,6 +196,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Snapshot.report();
         }
     };
+
     Handler<Search> handleSearch = new Handler<Search>() {
         @Override
         public void handle(Search event) {
