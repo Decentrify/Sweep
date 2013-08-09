@@ -196,6 +196,15 @@ public final class SearchSimulator extends ComponentDefinition {
             Snapshot.report();
         }
     };
+    Handler<Search> handleSearch = new Handler<Search>() {
+        @Override
+        public void handle(Search event) {
+            Long successor = ringNodes.getNode(event.getId());
+            Component peer = peers.get(successor);
+            SearchPattern searchPattern = new SearchPattern(randomText(), 0, 0, null, null, null, IndexEntry.Category.Video, null);
+            trigger(new SimulationEventsPort.SearchSimulated(searchPattern), peer.getNegative(SimulationEventsPort.class));
+        }
+    };
 
     Handler<Search> handleSearch = new Handler<Search>() {
         @Override
