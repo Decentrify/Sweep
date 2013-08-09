@@ -715,11 +715,8 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
-        ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
-        ReplicationPrepairCommitMessage.Request msg = new ReplicationPrepairCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
+        ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);

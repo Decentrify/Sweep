@@ -1,7 +1,7 @@
 package se.sics.ms.search;
 
 import se.sics.kompics.Event;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.types.SearchPattern;
 
 /**
  * Created with IntelliJ IDEA.

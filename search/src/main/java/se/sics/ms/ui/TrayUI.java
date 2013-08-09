@@ -3,7 +3,7 @@ package se.sics.ms.ui;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.Kompics;
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 import javax.swing.*;
 import java.awt.*;

@@ -7,8 +7,8 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.ms.search.*;
-import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 
 import javax.swing.*;
 import java.awt.*;
@@ -54,6 +54,9 @@ public class UiComponent extends ComponentDefinition {
         }
     };
 
+    /**
+     * Handles results from the Search component
+     */
     final Handler<UiSearchResponse> searchResponseHandler = new Handler<UiSearchResponse>() {
         @Override
         public void handle(UiSearchResponse searchResponse) {
@@ -63,6 +66,9 @@ public class UiComponent extends ComponentDefinition {
         }
     };
 
+    /**
+     * Handles results of adding to the index
+     */
     final Handler<UiAddIndexEntryResponse> addIndexEntryUiResponseHandler = new Handler<UiAddIndexEntryResponse>() {
         @Override
         public void handle(UiAddIndexEntryResponse addIndexEntryUiResponse) {

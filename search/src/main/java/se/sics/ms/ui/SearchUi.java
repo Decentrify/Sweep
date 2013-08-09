@@ -1,8 +1,7 @@
 package se.sics.ms.ui;
 
-import se.sics.ms.ui.UiComponent;
-import se.sics.peersearch.types.IndexEntry;
-import se.sics.peersearch.types.SearchPattern;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;

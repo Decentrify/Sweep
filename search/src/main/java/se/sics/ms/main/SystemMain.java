@@ -15,10 +15,6 @@ import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.config.CroupierConfiguration;
-import se.sics.gvod.config.ElectionConfiguration;
-import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.NatNetworkControl;
@@ -48,11 +44,6 @@ import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.search.UiPort;
 import se.sics.ms.ui.UiComponent;
 import se.sics.ms.ui.UiComponentInit;
-import se.sics.ms.peer.SearchPeerInit;
-import se.sics.ms.search.UiPort;
-import se.sics.ms.ui.UiComponent;
-import se.sics.ms.ui.UiComponentInit;
-import se.sics.peersearch.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeer;
 
 public class SystemMain extends ComponentDefinition {
@@ -132,7 +123,7 @@ public class SystemMain extends ComponentDefinition {
             trigger(new NatTraverserInit(self, publicNodes, MsConfig.getSeed()),
                     natTraverser.getControl());
 
-            trigger(new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build()),
+            trigger(new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), null),
                     searchPeer.getControl());
             }
 

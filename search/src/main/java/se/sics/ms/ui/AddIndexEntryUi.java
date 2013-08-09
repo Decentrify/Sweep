@@ -1,6 +1,6 @@
 package se.sics.ms.ui;
 
-import se.sics.peersearch.types.IndexEntry;
+import se.sics.ms.types.IndexEntry;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;

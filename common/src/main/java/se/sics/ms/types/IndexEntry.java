@@ -236,7 +236,7 @@ public class IndexEntry implements Serializable {
         if (category != that.category) return false;
         if (!description.equals(that.description)) return false;
         if (!fileName.equals(that.fileName)) return false;
-        if (!hash.equals(that.hash)) return false;
+        if (hash != null ? !hash.equals(that.hash) : that.hash != null) return false;
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;
