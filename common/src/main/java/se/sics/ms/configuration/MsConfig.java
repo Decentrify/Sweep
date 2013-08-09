@@ -40,6 +40,7 @@ public class MsConfig extends VodConfig {
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
     public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
+    public static final int GRADIENT_SEARCH_PARALLELISM = 3;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);
