@@ -463,6 +463,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
+            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -836,7 +837,7 @@ public final class Search extends ComponentDefinition {
         trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
 
         try {
-            ArrayList<IndexEntry> result = searchLocal(index, pattern);
+            ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
             addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
@@ -851,7 +852,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Request event) {
             try {
-                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern());
+                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
                 trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
                         0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
@@ -868,15 +869,16 @@ public final class Search extends ComponentDefinition {
      *
      * @param index the {@link Directory} to search in
      * @param pattern the {@link SearchPattern} to use
+     * @param limit the maximal amount of entries to return
      * @return a list of matching entries
      * @throws IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(Directory index, SearchPattern pattern) throws IOException {
+    private ArrayList<IndexEntry> searchLocal(Directory index, SearchPattern pattern, int limit) throws IOException {
         IndexReader reader = null;
         try {
             reader = DirectoryReader.open(index);
             IndexSearcher searcher = new IndexSearcher(reader);
-            TopScoreDocCollector collector = TopScoreDocCollector.create(config.getHitsPerQuery(), true);
+            TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
             searcher.search(pattern.getQuery(), collector);
             ScoreDoc[] hits = collector.topDocs().scoreDocs;
 
@@ -953,7 +955,7 @@ public final class Search extends ComponentDefinition {
      */
     private void answerSearchRequest() {
         try {
-            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern(), config.getMaxSearchResults());
             // TODO present the result to the user
             logger.info("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
         } catch (IOException e) {
