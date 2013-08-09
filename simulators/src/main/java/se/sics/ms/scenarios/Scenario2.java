@@ -34,7 +34,7 @@ public class Scenario2 extends Scenario {
             StochasticProcess search = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(1000));
-                    raise(1, Operations.search(), uniform(0, Integer.MAX_VALUE));
+                    raise(50, Operations.search(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
