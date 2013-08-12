@@ -76,6 +76,13 @@ public final class Gradient extends ComponentDefinition {
 
         private int compareAvgRtt(VodDescriptor t0, VodDescriptor t1) {
             // TODO the RTT code needs to be tested in real
+            RTTStore.RTT rtt0 = RTTStore.getRtt(t0.getId(), t0.getVodAddress());
+            RTTStore.RTT rtt1 = RTTStore.getRtt(t1.getId(), t1.getVodAddress());
+
+            if (rtt0 == null || rtt1 == null) {
+                return 0;
+            }
+
             RttStats rttStats0 = RTTStore.getRtt(t0.getId(), t0.getVodAddress()).getRttStats();
             RttStats rttStats1 = RTTStore.getRtt(t1.getId(), t1.getVodAddress()).getRttStats();
 
@@ -168,6 +175,7 @@ public final class Gradient extends ComponentDefinition {
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
+        exchangePartner.setConnected(true);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
@@ -247,11 +255,14 @@ public final class Gradient extends ComponentDefinition {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
             VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 
-            if (deadNode != null) {
-                gradientView.remove(deadNode);
+            if (deadNode == null) {
+                logger.warn("{} bogus timeout with id: {}", self.getAddress(), event.getTimeoutId());
+                return;
             }
 
+            gradientView.remove(deadNode);
             shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.removeSamples(deadNode.getId(), deadNode);
         }
     };
 
@@ -335,7 +346,9 @@ public final class Gradient extends ComponentDefinition {
     final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
         public void handle(NodeCrashEvent event) {
-            gradientView.remove(event.getDeadNode());
+            VodAddress deadNode = event.getDeadNode();
+            gradientView.remove(deadNode);
+            RTTStore.removeSamples(deadNode.getId(), deadNode);
         }
     };
 
@@ -419,6 +432,7 @@ public final class Gradient extends ComponentDefinition {
                 TreeSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
                 bucket.remove(unresponsiveNode);
             }
+            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
         }
     };
 
@@ -517,6 +531,7 @@ public final class Gradient extends ComponentDefinition {
         queriedNodes.add(node);
         trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
 
+        node.setConnected(true);
         shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
     }
 
@@ -586,6 +601,7 @@ public final class Gradient extends ComponentDefinition {
                             scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern()), networkPort);
 
                     shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
+                    vodDescriptor.setConnected(true);
                 }
             }
         }
@@ -605,12 +621,14 @@ public final class Gradient extends ComponentDefinition {
     final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
-            IndexEntry.Category category = categoryFromCategoryId(event.getVodDescriptor().getVodAddress().getCategoryId());
+            VodAddress unresponsiveNode = event.getVodDescriptor().getVodAddress();
+            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getCategoryId());
             Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-            SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(event.getVodDescriptor().getVodAddress().getPartitionId());
+            SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionId());
             bucket.remove(event.getVodDescriptor());
 
             shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode);
         }
     };
 
