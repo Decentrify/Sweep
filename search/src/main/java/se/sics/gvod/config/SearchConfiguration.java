@@ -19,7 +19,6 @@ public class SearchConfiguration
     int queryTimeout;
     int addTimeout;
     int replicationTimeout;
-    int replicationMinimum;
     int retryCount;
     int hitsPerQuery;
     int recentRequestsGcInterval;
@@ -32,7 +31,6 @@ public class SearchConfiguration
                 MsConfig.SEARCH_QUERY_TIMEOUT,
                 MsConfig.SEARCH_ADD_TIMEOUT,
                 MsConfig.SEARCH_REPLICATION_TIMEOUT,
-                MsConfig.SEARCH_REPLICATION_MINIMUM,
                 MsConfig.SEARCH_RETRY_COUNT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
@@ -47,8 +45,6 @@ public class SearchConfiguration
      * @param addTimeout the amount of time until an add request times out
      * @param replicationTimeout addTimeout the amount of time until an
      * replication request times out
-     * @param replicationMinimum the minimum number of required replication
-     * acknowledgments
      * @param retryCount the number retries executed if no acknowledgment for an
      * add operations was received
      * @param hitsPerQuery the maximum amount of entries reported for a search
@@ -58,7 +54,7 @@ public class SearchConfiguration
      */
     public SearchConfiguration(
             int numPartitions, int maxExchangeCount, int queryTimeout,
-            int addTimeout, int replicationTimeout, int replicationMinimum,
+            int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize) {
         this.numPartitions = numPartitions;
@@ -66,7 +62,6 @@ public class SearchConfiguration
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
         this.replicationTimeout = replicationTimeout;
-        this.replicationMinimum = replicationMinimum;
         this.retryCount = retryCount;
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
@@ -94,10 +89,6 @@ public class SearchConfiguration
 
     public int getReplicationTimeout() {
         return replicationTimeout;
-    }
-
-    public int getReplicationMinimum() {
-        return replicationMinimum;
     }
 
     public int getRetryCount() {
@@ -138,11 +129,6 @@ public class SearchConfiguration
 
     public SearchConfiguration setReplicationTimeout(int replicationTimeout) {
         this.replicationTimeout = replicationTimeout;
-        return this;
-    }
-
-    public SearchConfiguration setReplicationMinimum(int replicationMinimum) {
-        this.replicationMinimum = replicationMinimum;
         return this;
     }
 

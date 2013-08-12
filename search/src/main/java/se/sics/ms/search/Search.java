@@ -15,7 +15,6 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodNetwork;
@@ -28,12 +27,9 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.gradient.GradientRoutingPort;
-import se.sics.ms.gradient.LeaderStatusPort;
-import se.sics.ms.gradient.PublicKeyBroadcast;
+import se.sics.ms.gradient.*;
 import se.sics.ms.peer.SimulationEventsPort;
 import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
-import se.sics.ms.gradient.PublicKeyPort;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.exceptions.IllegalSearchString;
@@ -199,6 +195,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
         subscribe(handleSearchSimulated, simulationEventsPort);
+        subscribe(handleViewSizeResponse, gradientRoutingPort);
     }
 
     /**
@@ -480,10 +477,22 @@ public final class Search extends ComponentDefinition {
 
             newEntry.setHash(signature);
 
-            avaitingForPrepairResponse.put(event.getTimeoutId(), newEntry);
-            replicationRequests.put(event.getTimeoutId(), new ReplicationCount(event.getVodSource(), config.getReplicationMinimum(), newEntry));
+            trigger(new ViewSizeMessage.Request(event.getTimeoutId(), newEntry, event.getVodSource()), gradientRoutingPort);
+        }
+    };
 
-            trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(newEntry, event.getTimeoutId()), gradientRoutingPort);
+    final Handler<ViewSizeMessage.Response> handleViewSizeResponse = new Handler<ViewSizeMessage.Response>() {
+        @Override
+        public void handle(ViewSizeMessage.Response response) {
+            int viewSize = response.getViewSize();
+
+            int majoritySize = (int)Math.ceil(viewSize/2) + 1;
+
+            avaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
+            replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
+
+            trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
+
         }
     };
 
