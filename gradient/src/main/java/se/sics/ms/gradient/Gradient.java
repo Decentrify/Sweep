@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
@@ -60,11 +61,27 @@ public final class Gradient extends ComponentDefinition {
         public int compare(VodDescriptor t0, VodDescriptor t1) {
             if (t0.getVodAddress().equals(t1.getVodAddress())) {
                 return 0;
+            } else if (t0.isConnected() && t1.isConnected()) {
+                return compareAvgRtt(t0, t1);
             } else if (!t0.isConnected() && t1.isConnected()) {
                 return 1;
             } else if (t0.isConnected() && !t1.isConnected()) {
                 return -1;
             } else if (t0.getAge() > t1.getAge()) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+
+        private int compareAvgRtt(VodDescriptor t0, VodDescriptor t1) {
+            // TODO the RTT code needs to be tested in real
+            RttStats rttStats0 = RTTStore.getRtt(t0.getId(), t0.getVodAddress()).getRttStats();
+            RttStats rttStats1 = RTTStore.getRtt(t1.getId(), t1.getVodAddress()).getRttStats();
+
+            if (rttStats0.getAvgRTT() == rttStats1.getAvgRTT()) {
+                return 0;
+            } else if (rttStats0.getAvgRTT() > rttStats1.getAvgRTT()) {
                 return 1;
             } else {
                 return -1;
