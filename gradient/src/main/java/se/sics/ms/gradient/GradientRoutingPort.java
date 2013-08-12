@@ -14,6 +14,8 @@ public class GradientRoutingPort extends PortType {
         negative(ReplicationPrepareCommitRequest.class);
         negative(ReplicationCommit.class);
         negative(SearchRequest.class);
+        negative(ViewSizeMessage.Request.class);
+        positive(ViewSizeMessage.Response.class);
 	}
 
     public static class AddIndexEntryRequest extends Event {
