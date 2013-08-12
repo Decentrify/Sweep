@@ -87,7 +87,6 @@ public final class Gradient extends ComponentDefinition {
 
             RttStats rttStats0 = rtt0.getRttStats();
             RttStats rttStats1 = rtt1.getRttStats();
-
             if (rttStats0.getAvgRTT() == rttStats1.getAvgRTT()) {
                 return 0;
             } else if (rttStats0.getAvgRTT() > rttStats1.getAvgRTT()) {
