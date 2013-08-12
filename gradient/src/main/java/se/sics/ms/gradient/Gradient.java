@@ -85,8 +85,8 @@ public final class Gradient extends ComponentDefinition {
                 return 0;
             }
 
-            RttStats rttStats0 = RTTStore.getRtt(t0.getId(), t0.getVodAddress()).getRttStats();
-            RttStats rttStats1 = RTTStore.getRtt(t1.getId(), t1.getVodAddress()).getRttStats();
+            RttStats rttStats0 = rtt0.getRttStats();
+            RttStats rttStats1 = rtt1.getRttStats();
 
             if (rttStats0.getAvgRTT() == rttStats1.getAvgRTT()) {
                 return 0;
