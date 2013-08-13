@@ -62,6 +62,8 @@ public class GradientConfiguration
     int maxNumRoutingEntries;
     int leaderLookupTimeout;
     int searchParallelism;
+    int latestRttStoreLimit;
+    double rttAnomalyTolerance;
     
     /**
      * Default constructor comes first.
@@ -82,7 +84,9 @@ public class GradientConfiguration
                 VodConfig.GRADIENT_SHUFFLE_TIMEOUT,
                 MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES,
                 MsConfig.GRADIENT_LEADER_LOOKUP_TIMEOUT,
-                MsConfig.GRADIENT_SEARCH_PARALLELISM
+                MsConfig.GRADIENT_SEARCH_PARALLELISM,
+                MsConfig.GRADIENT_LATEST_RTT_STORE_LIMIT,
+                MsConfig.GRADIENT_RTT_ANOMALY_TOLERANCE
                 );
     }
 
@@ -104,7 +108,9 @@ public class GradientConfiguration
             int rto,
             int maxNumRoutingEntries,
             int leaderLookupTimeout,
-            int searchParallelism
+            int searchParallelism,
+            int latestRttStoreLimit,
+            double rttAnomalyTolerance
             ) {
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
@@ -121,6 +127,8 @@ public class GradientConfiguration
         this.maxNumRoutingEntries = maxNumRoutingEntries;
         this.leaderLookupTimeout = leaderLookupTimeout;
         this.searchParallelism = searchParallelism;
+        this.latestRttStoreLimit = latestRttStoreLimit;
+        this.rttAnomalyTolerance = rttAnomalyTolerance;
     }
 
     public static GradientConfiguration build() {
@@ -192,6 +200,14 @@ public class GradientConfiguration
 
     public int getMaxNumRoutingEntries() {
         return maxNumRoutingEntries;
+    }
+
+    public int getLatestRttStoreLimit() {
+        return latestRttStoreLimit;
+    }
+
+    public double getRttAnomalyTolerance() {
+        return rttAnomalyTolerance;
     }
 
     public GradientConfiguration setViewSize(int viewSize) {
@@ -266,6 +282,16 @@ public class GradientConfiguration
 
     public GradientConfiguration setSearchParallelism(int searchParallelism) {
         this.searchParallelism = searchParallelism;
+        return this;
+    }
+
+    public GradientConfiguration setLatestRttStoreLimit(int latestRttStoreLimit) {
+        this.latestRttStoreLimit = latestRttStoreLimit;
+        return this;
+    }
+
+    public GradientConfiguration setRttAnomalyTolerance(double rttAnomalyTolerance) {
+        this.rttAnomalyTolerance = rttAnomalyTolerance;
         return this;
     }
 }
