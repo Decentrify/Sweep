@@ -566,20 +566,14 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
-            if (categoryRoutingMap == null) {
-                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
+            SortedSet<VodDescriptor> higherUtilityNodes = gradientView.getHigherUtilityNodes();
+            if (higherUtilityNodes.isEmpty()) {
+                logger.trace("{} has no nodes to exchange index entries with", self.getAddress());
                 return;
             }
 
-            HashSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
-            if (bucket == null) {
-                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
-                return;
-            }
-
-            int n = random.nextInt(bucket.size());
-            trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(),
+            int n = random.nextInt(higherUtilityNodes.size());
+            trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) higherUtilityNodes.toArray()[n]).getVodAddress(),
                     UUID.nextUUID(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), 0, 0), networkPort);
         }
     };
