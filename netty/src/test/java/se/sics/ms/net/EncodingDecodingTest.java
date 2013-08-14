@@ -145,8 +145,7 @@ public class EncodingDecodingTest {
             Date time = new Date();
             String language = "language";
             String description = "description";
-            String hash = "hash";
-            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
             SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, numResponses, responseNum, new IndexEntry[] {entry});
             try {
                 ByteBuf buffer = msg.toByteArray();
@@ -178,8 +177,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
         AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -191,7 +189,6 @@ public class EncodingDecodingTest {
             assert (request.getEntry().getUploaded().equals(time));
             assert (request.getEntry().getLanguage().equals(language));
             assert (request.getEntry().getDescription().equals(description));
-            assert (request.getEntry().getHash().equals(hash));
             assert (request.getEntry().getCategory() == IndexEntry.Category.Music);
             assert (request.getEntry().getId().equals(Long.MIN_VALUE));
 
@@ -256,9 +253,8 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        String hash = "hash";
         IndexEntry entry;
-        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
         IndexEntry[] items = new IndexEntry[]{entry};
         int numResponses=1;
         int responseNumber=2;
@@ -719,8 +715,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        String hash = "hash";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description, hash);
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
         ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -732,7 +727,6 @@ public class EncodingDecodingTest {
             assert (request.getEntry().getUploaded().equals(time));
             assert (request.getEntry().getLanguage().equals(language));
             assert (request.getEntry().getDescription().equals(description));
-            assert (request.getEntry().getHash().equals(hash));
             assert (request.getEntry().getCategory() == IndexEntry.Category.Music);
             assert (request.getEntry().getId().equals(Long.MIN_VALUE));
 

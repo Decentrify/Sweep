@@ -56,6 +56,9 @@ import java.util.logging.Level;
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
  * or not.
+ * <p/>
+ * {@link IndexEntry}s are spread via gossiping using the Cyclon samples stored
+ * in the routing tables for the partition of the local node.
  */
 public final class Search extends ComponentDefinition {
     /**
@@ -69,6 +72,7 @@ public final class Search extends ComponentDefinition {
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
+    Negative<UiPort> uiPort = negative(UiPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
@@ -181,6 +185,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
+        subscribe(searchRequestHandler, uiPort);
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
@@ -190,6 +195,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
+        subscribe(addIndexEntryRequestHandler, uiPort);
     }
 
     /**
@@ -479,41 +485,6 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Periodically garbage collect the data structure used to identify
-     * duplicated {@link AddIndexEntryMessage.Request}.
-     */
-    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
-        @Override
-        public void handle(RecentRequestsGcTimeout event) {
-            long referenceTime = System.currentTimeMillis();
-
-            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
-            for (TimeoutId id : recentRequests.keySet()) {
-                if (referenceTime - recentRequests.get(id) > config
-                        .getRecentRequestsGcInterval()) {
-                    removeList.add(id);
-                }
-            }
-
-            for (TimeoutId uuid : removeList) {
-                recentRequests.remove(uuid);
-            }
-        }
-    };
-
-    /**
-     * An index entry has been successfully added.
-     */
-    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
-        @Override
-        public void handle(AddIndexEntryMessage.Response event) {
-            // TODO inform user
-            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
-            trigger(ct, timerPort);
-        }
-    };
-
-    /**
      * No acknowledgment for an issued {@link AddIndexEntryMessage.Request} was received
      * in time. Try to add the entry again or respons with failure to the web client.
      */
@@ -523,6 +494,7 @@ public final class Search extends ComponentDefinition {
             if (event.reachedRetryLimit()) {
                 Snapshot.incrementFailedddRequests();
                 logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
+                trigger(new UiAddIndexEntryResponse(false), uiPort);
             } else {
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
@@ -711,6 +683,19 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
+     * An index entry has been successfully added.
+     */
+    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+        @Override
+        public void handle(AddIndexEntryMessage.Response event) {
+            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+            trigger(ct, timerPort);
+
+            trigger(new UiAddIndexEntryResponse(true), uiPort);
+        }
+    };
+
+    /**
      * Returns max stored id on a peer
      * @return max stored id on a peer
      */
@@ -763,6 +748,29 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
+     * Periodically garbage collect the data structure used to identify
+     * duplicated {@link AddIndexEntryMessage.Request}.
+     */
+    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
+        @Override
+        public void handle(RecentRequestsGcTimeout event) {
+            long referenceTime = System.currentTimeMillis();
+
+            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
+            for (TimeoutId id : recentRequests.keySet()) {
+                if (referenceTime - recentRequests.get(id) > config
+                        .getRecentRequestsGcInterval()) {
+                    removeList.add(id);
+                }
+            }
+
+            for (TimeoutId uuid : removeList) {
+                recentRequests.remove(uuid);
+            }
+        }
+    };
+
+    /**
      * This handler listens to updates regarding the leader status
      */
     final Handler<LeaderStatusPort.LeaderStatus> handleLeaderStatus = new Handler<LeaderStatusPort.LeaderStatus>() {
@@ -789,6 +797,20 @@ public final class Search extends ComponentDefinition {
                     leaderIds.remove(leaderIds.get(0));
                 leaderIds.add(key);
             }
+        }
+    };
+
+    final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
+        @Override
+        public void handle(UiSearchRequest searchRequest) {
+            startSearch(searchRequest.getPattern());
+        }
+    };
+
+    final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
+        @Override
+        public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
+             addEntryGlobal(addIndexEntryRequest.getEntry());
         }
     };
 
@@ -821,7 +843,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            addSearchResponse((IndexEntry[]) result.toArray(), self.getAddress().getPartitionId());
+            addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -845,6 +867,16 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
+
+    private void answerSearchRequest() {
+        try {
+            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
+
+            trigger(new UiSearchResponse(result), uiPort);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Query the given index store with a given search pattern.
@@ -930,18 +962,6 @@ public final class Search extends ComponentDefinition {
             answerSearchRequest();
         }
     };
-
-    /**
-     * Present the result to the user.
-     */
-    private void answerSearchRequest() {
-        try {
-            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern());
-            // TODO present the result to the user
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     /**
      * Add the given {@link IndexEntry}s to the given Lucene directory

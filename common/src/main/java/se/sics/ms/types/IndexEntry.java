@@ -134,9 +134,8 @@ public class IndexEntry implements Serializable {
      * @param language
      * @param category
      * @param description
-     * @param hash
      */
-    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description, String hash) {
+    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description) {
         this.url = url;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -144,7 +143,6 @@ public class IndexEntry implements Serializable {
         this.language = language;
         this.category = category;
         this.description = description;
-        this.hash = hash;
 
         this.id = Long.MIN_VALUE;
         this.leaderId = null;
@@ -238,7 +236,7 @@ public class IndexEntry implements Serializable {
         if (category != that.category) return false;
         if (!description.equals(that.description)) return false;
         if (!fileName.equals(that.fileName)) return false;
-        if (!hash.equals(that.hash)) return false;
+        if (hash != null ? !hash.equals(that.hash) : that.hash != null) return false;
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;

@@ -11,6 +11,10 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.util.ToVodAddr;
+import se.sics.gvod.config.CroupierConfiguration;
+import se.sics.gvod.config.ElectionConfiguration;
+import se.sics.gvod.config.GradientConfiguration;
+import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.NatNetworkControl;
@@ -36,6 +40,10 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.peer.SearchPeerInit;
+import se.sics.ms.search.UiPort;
+import se.sics.ms.ui.UiComponent;
+import se.sics.ms.ui.UiComponentInit;
 import se.sics.ms.peer.SearchPeer;
 
 public class SystemMain extends ComponentDefinition {
@@ -45,6 +53,7 @@ public class SystemMain extends ComponentDefinition {
     Component timer;
     Component natTraverser;
     Component searchPeer;
+    Component ui;
     private Component resolveIp;
     private Self self;
     private Address myAddr;
@@ -61,6 +70,7 @@ public class SystemMain extends ComponentDefinition {
         timer = create(JavaTimer.class);
         natTraverser = create(NatTraverser.class);
         searchPeer = create(SearchPeer.class);
+        ui = create(UiComponent.class);
 
         resolveIp = create(ResolveIp.class);
 
@@ -69,6 +79,7 @@ public class SystemMain extends ComponentDefinition {
         connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
         connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
 
+        connect(ui.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
 
         subscribe(handleStart, control);
         subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
@@ -112,9 +123,11 @@ public class SystemMain extends ComponentDefinition {
             trigger(new NatTraverserInit(self, publicNodes, MsConfig.getSeed()),
                     natTraverser.getControl());
 
-//            trigger(new SearchPeerInit(self, , null, null, null, null),
-//                    searchPeer.getControl());
+            trigger(new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), null),
+                    searchPeer.getControl());
             }
+
+            trigger(new UiComponentInit(self), ui.getControl());
             
         }
     };
