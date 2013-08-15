@@ -107,6 +107,9 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
 
+    private long minStoredId = Long.MIN_VALUE;
+    private long maxStoredId = Long.MIN_VALUE;
+
     private class ExchangeRound extends IndividualTimeout {
 
         public ExchangeRound(SchedulePeriodicTimeout request, int id) {
@@ -288,6 +291,9 @@ public final class Search extends ComponentDefinition {
                 e.printStackTrace();
                 System.exit(-1);
             }
+
+            minStoredId = getMinStoredIdFromLucene();
+            maxStoredId = getMaxStoredIdFromLucene();
         }
     };
 
@@ -617,6 +623,9 @@ public final class Search extends ComponentDefinition {
      * @return a new id for a new {@link IndexEntry}
      */
     private long getNextInsertionId() {
+        if(nextInsertionId == Long.MAX_VALUE - 1)
+            nextInsertionId = Long.MIN_VALUE;
+
         return nextInsertionId++;
     }
 
@@ -1210,6 +1219,23 @@ public final class Search extends ComponentDefinition {
         } else if (indexEntry.getId() > lowestMissingIndexValue) {
             existingEntries.add(indexEntry.getId());
         }
+
+        //update the counter, so we can check if partitioning is necessary
+        maxStoredId++;
+        if(leader)
+            checkPartitioning();
+    }
+
+    private void checkPartitioning() {
+        long numberOfEntries = Math.abs(maxStoredId - minStoredId);
+
+        if(numberOfEntries < config.getMaxEntriesOnPeer())
+            return;
+
+        int categoryId = self.getAddress().getCategoryId();
+        int partitionId = self.getAddress().getPartitionId();
+        long partitionsNumber = self.getDescriptor().getPartitionsNumber();
+
     }
 
     /**
@@ -1417,5 +1443,67 @@ public final class Search extends ComponentDefinition {
                     + Character.digit(s.charAt(i+1), 16));
         }
         return data;
+    }
+
+    private long getMinStoredIdFromLucene() {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG)));
+
+            if(topDocs.scoreDocs.length == 1) {
+                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
+
+                return createIndexEntry(doc).getId();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private long getMaxStoredIdFromLucene() {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG, true)));
+
+            if(topDocs.scoreDocs.length == 1) {
+                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
+
+                return createIndexEntry(doc).getId();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return 0;
     }
 }

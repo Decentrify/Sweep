@@ -23,6 +23,7 @@ public class SearchConfiguration
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
+    long maxEntriesOnPeer;
     int maxSearchResults;
     int indexExchangeTimeout;
     int indexExchangeRequestNumber;
@@ -37,6 +38,8 @@ public class SearchConfiguration
                 MsConfig.SEARCH_RETRY_COUNT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
+                MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
+                MsConfig.MAX_ENTRIES_ON_PEER);
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
                 MsConfig.SEARCH_MAX_SEARCH_RESULTS,
                 MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
@@ -66,7 +69,8 @@ public class SearchConfiguration
             int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize, int maxSearchResults,
-            int indexExchangeTimeout, int indexExchangeRequestNumber) {
+            int indexExchangeTimeout, int indexExchangeRequestNumber,
+            long maxEntriesOnPeer) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
@@ -76,6 +80,7 @@ public class SearchConfiguration
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
         this.maxSearchResults = maxSearchResults;
         this.indexExchangeTimeout = indexExchangeTimeout;
         this.indexExchangeRequestNumber = indexExchangeRequestNumber;
@@ -120,6 +125,10 @@ public class SearchConfiguration
         return maxLeaderIdHistorySize;
     }
 
+    public long getMaxEntriesOnPeer() {
+        return maxEntriesOnPeer;
+    }
+
     public int getMaxSearchResults() {
         return maxSearchResults;
     }
@@ -162,6 +171,10 @@ public class SearchConfiguration
     public SearchConfiguration setRecentRequestsGcInterval(int recentRequestsGcInterval) {
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         return this;
+    }
+
+    public void setMaxEntriesOnPeer(long maxEntriesOnPeer) {
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
     }
 
     public SearchConfiguration setMaxSearchResults(int maxSearchResults) {
