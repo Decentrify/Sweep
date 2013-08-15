@@ -23,6 +23,7 @@ public class SearchConfiguration
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
+    long maxEntriesOnPeer;
 
     public SearchConfiguration() {
         this(
@@ -34,7 +35,8 @@ public class SearchConfiguration
                 MsConfig.SEARCH_RETRY_COUNT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
-                MsConfig.MAX_LEADER_ID_HISTORY_SIZE);
+                MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
+                MsConfig.MAX_ENTRIES_ON_PEER);
     }
 
     /**
@@ -56,7 +58,7 @@ public class SearchConfiguration
             int numPartitions, int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
-            int maxLeaderIdHistorySize) {
+            int maxLeaderIdHistorySize, long maxEntriesOnPeer) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
@@ -66,6 +68,7 @@ public class SearchConfiguration
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
     }
 
     public static SearchConfiguration build() {
@@ -107,6 +110,10 @@ public class SearchConfiguration
         return maxLeaderIdHistorySize;
     }
 
+    public long getMaxEntriesOnPeer() {
+        return maxEntriesOnPeer;
+    }
+
     public SearchConfiguration setNumPartitions(int numPartitions) {
         this.numPartitions = numPartitions;
         return this;
@@ -145,5 +152,9 @@ public class SearchConfiguration
     public SearchConfiguration setRecentRequestsGcInterval(int recentRequestsGcInterval) {
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         return this;
+    }
+
+    public void setMaxEntriesOnPeer(long maxEntriesOnPeer) {
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
     }
 }
