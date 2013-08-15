@@ -13,14 +13,15 @@ import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.peer.IndexPort;
-import se.sics.ms.peer.IndexPort.AddIndexSimulated;
+import se.sics.ms.peer.SimulationEventsPort;
+import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.peer.SearchPeer;
 import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
@@ -63,7 +64,9 @@ public final class SearchSimulator extends ComponentDefinition {
 //        subscribe(handleTerminateExperiment, simulator);
         subscribe(handleAddIndexEntry, simulator);
         subscribe(handleAddMagnetEntry, simulator);
+        subscribe(handleSearch, simulator);
     }
+
     Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
         @Override
         public void handle(SimulatorInit init) {
@@ -98,6 +101,7 @@ public final class SearchSimulator extends ComponentDefinition {
         }
         return sb.toString();
     }
+
 //    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
 //        @Override
 //        public void handle(TerminateExperiment event) {
@@ -108,18 +112,19 @@ public final class SearchSimulator extends ComponentDefinition {
 //            System.exit(0);
 //        }
 //    };
+
     Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
         @Override
         public void handle(AddIndexEntry event) {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("", "", new Date(), IndexEntry.Category.Video, "", "", "");
-            index.setFileName(randomText());
+            IndexEntry index = new IndexEntry("", randomText(), new Date(), IndexEntry.Category.Video, "", "", "");
             index.setLeaderId(null);
-            trigger(new AddIndexSimulated(index), peer.getNegative(IndexPort.class));
+            trigger(new AddIndexSimulated(index), peer.getNegative(SimulationEventsPort.class));
         }
     };
+
     /**
      * Add real magnet links from a specified xml file to the system.
      */
@@ -148,9 +153,10 @@ public final class SearchSimulator extends ComponentDefinition {
 
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
-            trigger(new AddIndexSimulated(entry), peer.getNegative(IndexPort.class));
+            trigger(new AddIndexSimulated(entry), peer.getNegative(SimulationEventsPort.class));
         }
     };
+
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
@@ -168,6 +174,7 @@ public final class SearchSimulator extends ComponentDefinition {
             ringNodes.addNode(id);
         }
     };
+
     Handler<PeerFail> handlePeerFail = new Handler<PeerFail>() {
         @Override
         public void handle(PeerFail event) {
@@ -182,10 +189,21 @@ public final class SearchSimulator extends ComponentDefinition {
             stopAndDestroyPeer(id);
         }
     };
+
     Handler<GenerateReport> handleGenerateReport = new Handler<GenerateReport>() {
         @Override
         public void handle(GenerateReport event) {
             Snapshot.report();
+        }
+    };
+
+    Handler<Search> handleSearch = new Handler<Search>() {
+        @Override
+        public void handle(Search event) {
+            Long successor = ringNodes.getNode(event.getId());
+            Component peer = peers.get(successor);
+            SearchPattern searchPattern = new SearchPattern(randomText(), 0, 0, null, null, null, IndexEntry.Category.Video, null);
+            trigger(new SimulationEventsPort.SearchSimulated(searchPattern), peer.getNegative(SimulationEventsPort.class));
         }
     };
 

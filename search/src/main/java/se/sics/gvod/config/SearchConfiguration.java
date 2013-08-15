@@ -24,6 +24,7 @@ public class SearchConfiguration
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
+    int maxSearchResults;
 
     public SearchConfiguration() {
         this(
@@ -36,7 +37,8 @@ public class SearchConfiguration
                 MsConfig.SEARCH_RETRY_COUNT,
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
-                MsConfig.MAX_LEADER_ID_HISTORY_SIZE);
+                MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
+                MsConfig.SEARCH_MAX_SEARCH_RESULTS);
     }
 
     /**
@@ -54,13 +56,14 @@ public class SearchConfiguration
      * @param hitsPerQuery the maximum amount of entries reported for a search
      * request
      * @param recentRequestsGcInterval the interval used to garbage collect the
+     * @param maxSearchResults max number of results per search
      * UUIDs of recente requests
      */
     public SearchConfiguration(
             int numPartitions, int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout, int replicationMinimum,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
-            int maxLeaderIdHistorySize) {
+            int maxLeaderIdHistorySize, int maxSearchResults) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
@@ -71,6 +74,7 @@ public class SearchConfiguration
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
+        this.maxSearchResults = maxSearchResults;
     }
 
     public static SearchConfiguration build() {
@@ -116,6 +120,10 @@ public class SearchConfiguration
         return maxLeaderIdHistorySize;
     }
 
+    public int getMaxSearchResults() {
+        return maxSearchResults;
+    }
+
     public SearchConfiguration setNumPartitions(int numPartitions) {
         this.numPartitions = numPartitions;
         return this;
@@ -158,6 +166,11 @@ public class SearchConfiguration
 
     public SearchConfiguration setRecentRequestsGcInterval(int recentRequestsGcInterval) {
         this.recentRequestsGcInterval = recentRequestsGcInterval;
+        return this;
+    }
+
+    public SearchConfiguration setMaxSearchResults(int maxSearchResults) {
+        this.maxSearchResults = maxSearchResults;
         return this;
     }
 }

@@ -2,6 +2,7 @@ package se.sics.ms.types;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.StringTokenizer;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
@@ -131,7 +132,12 @@ public class SearchPattern implements Serializable {
         BooleanQuery booleanQuery = new BooleanQuery();
 
         if (fileNamePattern != null) {
-            Query query = new TermQuery(new Term(IndexEntry.FILE_NAME, fileNamePattern));
+            StringTokenizer st = new StringTokenizer(fileNamePattern);
+            BooleanQuery query = new BooleanQuery();
+            while (st.hasMoreTokens()) {
+                query.add(new TermQuery(new Term(IndexEntry.FILE_NAME, st.nextToken())), BooleanClause.Occur.SHOULD);
+            }
+
             booleanQuery.add(query, BooleanClause.Occur.MUST);
         }
 
@@ -171,7 +177,12 @@ public class SearchPattern implements Serializable {
         }
 
         if (descriptionPattern != null) {
-            Query query = new TermQuery(new Term(IndexEntry.DESCRIPTION, descriptionPattern));
+            StringTokenizer st = new StringTokenizer(descriptionPattern);
+            BooleanQuery query = new BooleanQuery();
+            while (st.hasMoreTokens()) {
+                query.add(new TermQuery(new Term(IndexEntry.DESCRIPTION, st.nextToken())), BooleanClause.Occur.SHOULD);
+            }
+
             booleanQuery.add(query, BooleanClause.Occur.MUST);
         }
 

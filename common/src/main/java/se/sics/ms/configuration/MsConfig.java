@@ -26,7 +26,6 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
-    
     public static final int SEARCH_NUM_PARTITIONS = 5;
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
@@ -35,11 +34,15 @@ public class MsConfig extends VodConfig {
     public static final int SEARCH_REPLICATION_MINIMUM = 2; 
     public static final int SEARCH_RETRY_COUNT = 2;
     public static final int SEARCH_HITS_PER_QUERY = 25;
-    public static final int SEARCH_RECENT_REQUESTS_GCINTERVAL = 100;
+    public static final int SEARCH_RECENT_REQUESTS_GCINTERVAL = 5 * 60 * 1000;
     public static final int MAX_LEADER_ID_HISTORY_SIZE = 5;
+    public static final int SEARCH_MAX_SEARCH_RESULTS = 500;
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
     public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
+    public static final int GRADIENT_SEARCH_PARALLELISM = 3;
+    public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
+    public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);

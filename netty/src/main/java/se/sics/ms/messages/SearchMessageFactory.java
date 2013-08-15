@@ -7,6 +7,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.types.IndexEntry;
@@ -28,7 +29,8 @@ public class SearchMessageFactory {
         @Override
         protected SearchMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
-            return new SearchMessage.Request(vodSrc, vodDest, timeoutId, pattern);
+            TimeoutId searchTimeoutId = UserTypesDecoderFactory.readTimeoutId(buffer);
+            return new SearchMessage.Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern);
         }
 
     }
@@ -38,10 +40,8 @@ public class SearchMessageFactory {
         private Response() {
         }
 
-        public static SearchMessage.Response fromBuffer(ByteBuf buffer)
-                throws MessageDecodingException {
-            return (SearchMessage.Response)
-                    new SearchMessageFactory.Response().decode(buffer, true);
+        public static SearchMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
+            return (SearchMessage.Response) new SearchMessageFactory.Response().decode(buffer, true);
         }
 
         @Override
@@ -49,8 +49,9 @@ public class SearchMessageFactory {
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
+            TimeoutId searchTimeoutId = UserTypesDecoderFactory.readTimeoutId(buffer);
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, numResponses, responseNum, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNum, results);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }

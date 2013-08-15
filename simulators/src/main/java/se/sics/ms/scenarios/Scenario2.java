@@ -31,9 +31,17 @@ public class Scenario2 extends Scenario {
 				}
 			};
 
+            StochasticProcess search = new StochasticProcess() {
+                {
+                    eventInterArrivalTime(constant(2000));
+                    raise(50, Operations.search(), uniform(0, Integer.MAX_VALUE));
+                }
+            };
+
 			joinNodes.start();
 			addEntries.startAfterTerminationOf(60 * 10 * 1000, joinNodes);
-			massiveJoin.startAfterTerminationOf(2000, addEntries);
+//			massiveJoin.startAfterTerminationOf(2000, addEntries);
+            search.startAfterTerminationOf(10000, addEntries);
 		}
 	};
 

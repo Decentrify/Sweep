@@ -2,8 +2,10 @@ package se.sics.ms.gradient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
+import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.PeerSamplePort;
 import se.sics.gvod.croupier.events.CroupierSample;
@@ -50,15 +52,44 @@ public final class Gradient extends ComponentDefinition {
     private UtilityComparator utilityComparator = new UtilityComparator();
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
+    private Map<Integer,Long> shuffleTimes = new HashMap<Integer,Long>();
 
-    // This is a routing table maintaining a a list of descriptors for each category its partitions.
-    private Map<IndexEntry.Category, Map<Integer, TreeSet<VodDescriptor>>> routingTable;
-    Comparator<VodDescriptor> peerAgeComparator = new Comparator<VodDescriptor>() {
+    int latestRttRingBufferPointer = 0;
+    private long[] latestRtts;
+
+    // This is a routing table maintaining a a list of descriptors for each category and its partitions.
+    private Map<IndexEntry.Category, Map<Integer, HashSet<VodDescriptor>>> routingTable;
+    Comparator<VodDescriptor> peerConnectivityComparator = new Comparator<VodDescriptor>() {
         @Override
         public int compare(VodDescriptor t0, VodDescriptor t1) {
             if (t0.getVodAddress().equals(t1.getVodAddress())) {
                 return 0;
+            } else if (t0.isConnected() && t1.isConnected()) {
+                return compareAvgRtt(t0, t1);
+            } else if (!t0.isConnected() && t1.isConnected()) {
+                return 1;
+            } else if (t0.isConnected() && !t1.isConnected()) {
+                return -1;
             } else if (t0.getAge() > t1.getAge()) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+
+        private int compareAvgRtt(VodDescriptor t0, VodDescriptor t1) {
+            RTTStore.RTT rtt0 = RTTStore.getRtt(t0.getId(), t0.getVodAddress());
+            RTTStore.RTT rtt1 = RTTStore.getRtt(t1.getId(), t1.getVodAddress());
+
+            if (rtt0 == null || rtt1 == null) {
+                return 0;
+            }
+
+            RttStats rttStats0 = rtt0.getRttStats();
+            RttStats rttStats1 = rtt1.getRttStats();
+            if (rttStats0.getAvgRTT() == rttStats1.getAvgRTT()) {
+                return 0;
+            } else if (rttStats0.getAvgRTT() > rttStats1.getAvgRTT()) {
                 return 1;
             } else {
                 return -1;
@@ -95,6 +126,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
+        subscribe(handleSearchResponse, networkPort);
+        subscribe(handleSearchRequestTimeout, timerPort);
     }
 
     /**
@@ -108,8 +141,9 @@ public final class Gradient extends ComponentDefinition {
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
-            routingTable = new HashMap<IndexEntry.Category, Map<Integer, TreeSet<VodDescriptor>>>();
+            routingTable = new HashMap<IndexEntry.Category, Map<Integer, HashSet<VodDescriptor>>>();
             leader = false;
+            latestRtts = new long[config.getLatestRttStoreLimit()];
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
@@ -143,9 +177,12 @@ public final class Gradient extends ComponentDefinition {
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
+        exchangePartner.setConnected(true);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
+
+        shuffleTimes.put(rTimeoutId.getId(), System.currentTimeMillis());
     }
 
     /**
@@ -194,6 +231,11 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.merge(event.getVodDescriptors());
             sendGradientViewChange();
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            long rtt = System.currentTimeMillis() - timeStarted;
+            RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
+            updateLatestRtts(rtt);
         }
     };
 
@@ -217,9 +259,14 @@ public final class Gradient extends ComponentDefinition {
             UUID rTimeoutId = (UUID) event.getTimeoutId();
             VodAddress deadNode = outstandingShuffles.remove(rTimeoutId);
 
-            if (deadNode != null) {
-                gradientView.remove(deadNode);
+            if (deadNode == null) {
+                logger.warn("{} bogus timeout with id: {}", self.getAddress(), event.getTimeoutId());
+                return;
             }
+
+            gradientView.remove(deadNode);
+            shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.removeSamples(deadNode.getId(), deadNode);
         }
     };
 
@@ -253,8 +300,8 @@ public final class Gradient extends ComponentDefinition {
     };
 
     private void incrementRoutingTableAge() {
-        for (Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap : routingTable.values()) {
-            for (TreeSet<VodDescriptor> bucket : categoryRoutingMap.values()) {
+        for (Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap : routingTable.values()) {
+            for (HashSet<VodDescriptor> bucket : categoryRoutingMap.values()) {
                 for (VodDescriptor descriptor : bucket) {
                     descriptor.incrementAndGetAge();
                 }
@@ -267,22 +314,23 @@ public final class Gradient extends ComponentDefinition {
             IndexEntry.Category category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
             int partition = vodDescriptor.getVodAddress().getPartitionId();
 
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             if (categoryRoutingMap == null) {
-                categoryRoutingMap = new HashMap<Integer, TreeSet<VodDescriptor>>();
+                categoryRoutingMap = new HashMap<Integer, HashSet<VodDescriptor>>();
                 routingTable.put(category, categoryRoutingMap);
             }
 
-            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(partition);
+            HashSet<VodDescriptor> bucket = categoryRoutingMap.get(partition);
             if (bucket == null) {
-                bucket = new TreeSet<VodDescriptor>(peerAgeComparator);
+                bucket = new HashSet<VodDescriptor>();
                 categoryRoutingMap.put(partition, bucket);
             }
 
             bucket.add(vodDescriptor);
-            // keep the freshest descriptors in this partition
+            // keep the best descriptors in this partition
+            TreeSet<VodDescriptor> sortedBucket = sortByConnectivity(bucket);
             while (bucket.size() > config.getMaxNumRoutingEntries()) {
-                bucket.pollLast();
+                bucket.remove(sortedBucket.pollLast());
             }
         }
     }
@@ -303,7 +351,9 @@ public final class Gradient extends ComponentDefinition {
     final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
         public void handle(NodeCrashEvent event) {
-            gradientView.remove(event.getDeadNode());
+            VodAddress deadNode = event.getDeadNode();
+            gradientView.remove(deadNode);
+            RTTStore.removeSamples(deadNode.getId(), deadNode);
         }
     };
 
@@ -344,19 +394,21 @@ public final class Gradient extends ComponentDefinition {
                 // Higher utility nodes are further away in the sorted set
                 iterator = startNodes.descendingIterator();
             } else {
-                Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(addCategory);
+                Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(addCategory);
                 if (partitions == null) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
                     return;
                 }
 
-                NavigableSet<VodDescriptor> startNodes = partitions.get(addPartition);
+                HashSet<VodDescriptor> startNodes = partitions.get(addPartition);
                 if (startNodes == null) {
                     logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), addPartition);
                     return;
                 }
 
-                iterator = startNodes.iterator();
+                // Need to sort it every time because values like RTT might have been changed
+                SortedSet<VodDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
+                iterator = sortedStartNodes.iterator();
             }
 
             for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
@@ -370,6 +422,7 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(LeaderLookupMessage.RequestTimeout event) {
             VodDescriptor unresponsiveNode = openRequests.remove(event.getTimeoutId());
+            shuffleTimes.remove(event.getTimeoutId().getId());
 
             if (unresponsiveNode == null) {
                 logger.warn("{} bogus timeout with id: {}", self.getAddress(), event.getTimeoutId());
@@ -382,10 +435,11 @@ public final class Gradient extends ComponentDefinition {
                 gradientView.remove(unresponsiveNode.getVodAddress());
             } else {
                 IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
-                Map<Integer, TreeSet<VodDescriptor>> partitions = routingTable.get(category);
-                TreeSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
+                Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(category);
+                HashSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
                 bucket.remove(unresponsiveNode);
             }
+            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
         }
     };
 
@@ -420,6 +474,11 @@ public final class Gradient extends ComponentDefinition {
             if (openRequests.containsKey(event.getTimeoutId()) == false) {
                 return;
             }
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            long rtt = System.currentTimeMillis() - timeStarted;
+            RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
+            updateLatestRtts(rtt);
 
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
@@ -480,6 +539,9 @@ public final class Gradient extends ComponentDefinition {
 
         queriedNodes.add(node);
         trigger(new LeaderLookupMessage.Request(self.getAddress(), node.getVodAddress(), scheduleTimeout.getTimeoutEvent().getTimeoutId()), networkPort);
+
+        node.setConnected(true);
+        shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
     }
 
     final Handler<GradientRoutingPort.ReplicationPrepareCommitRequest> handleReplicationPrepareCommit = new Handler<GradientRoutingPort.ReplicationPrepareCommitRequest>() {
@@ -503,13 +565,13 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
+            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(categoryFromCategoryId(self.getAddress().getCategoryId()));
             if (categoryRoutingMap == null) {
                 logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
             }
 
-            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
+            HashSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionId());
             if (bucket == null) {
                 logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
                 return;
@@ -525,26 +587,73 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
             IndexEntry.Category category = event.getPattern().getCategory();
-            int i = 0;
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
 
             if (categoryRoutingMap == null) {
-                // TODO We should show an error
                 return;
             }
 
-            for (SortedSet<VodDescriptor> bucket : categoryRoutingMap.values()) {
+            for (Integer partition : categoryRoutingMap.keySet()) {
                 // Skip local partition
-                if (i == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
-                    i++;
+                if (partition == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                     continue;
                 }
 
-                int n = random.nextInt(bucket.size());
+                TreeSet<VodDescriptor> bucket = sortByConnectivity(categoryRoutingMap.get(partition));
+                TreeSet<VodDescriptor> unconnectedNodes = null;
+                Iterator<VodDescriptor> iterator = bucket.iterator();
+                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
+                    VodDescriptor vodDescriptor = iterator.next();
 
-                trigger(new SearchMessage.Request(self.getAddress(), ((VodDescriptor) bucket.toArray()[n]).getVodAddress(), event.getTimeoutId(), event.getPattern()), networkPort);
-                i++;
+                    RTTStore.RTT rtt = RTTStore.getRtt(vodDescriptor.getId(), vodDescriptor.getVodAddress());
+                    double latestRttsAvg = getLatestRttsAvg();
+                    if (rtt != null && latestRttsAvg != 0 && rtt.getRttStats().getAvgRTT() > (config.getRttAnomalyTolerance() * latestRttsAvg)) {
+                        if (unconnectedNodes == null) {
+                            unconnectedNodes = getUnconnectedNodes(bucket);
+                        }
+
+                        if (!unconnectedNodes.isEmpty()) {
+                            vodDescriptor = unconnectedNodes.pollFirst();
+                        }
+                    }
+
+                    ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
+                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), vodDescriptor));
+                    trigger(scheduleTimeout, timerPort);
+                    trigger(new SearchMessage.Request(self.getAddress(), vodDescriptor.getVodAddress(),
+                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern()), networkPort);
+
+                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
+                    vodDescriptor.setConnected(true);
+                }
             }
+        }
+    };
+
+    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
+        @Override
+        public void handle(SearchMessage.Response event) {
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
+
+            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            long rtt = System.currentTimeMillis() - timeStarted;
+            RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
+            updateLatestRtts(rtt);
+        }
+    };
+
+    final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
+        @Override
+        public void handle(SearchMessage.RequestTimeout event) {
+            VodAddress unresponsiveNode = event.getVodDescriptor().getVodAddress();
+            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getCategoryId());
+            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+            Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionId());
+            bucket.remove(event.getVodDescriptor());
+
+            shuffleTimes.remove(event.getTimeoutId().getId());
+            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode);
         }
     };
 
@@ -578,6 +687,46 @@ public final class Gradient extends ComponentDefinition {
 
     private IndexEntry.Category categoryFromCategoryId(int categoryId) {
         return IndexEntry.Category.values()[categoryId];
+    }
+
+    private TreeSet<VodDescriptor> sortByConnectivity(Collection<VodDescriptor> vodDescriptors) {
+        // Need to sort it every time because values like RTT might have been changed
+        TreeSet<VodDescriptor> sortedVodDescriptors = new TreeSet<VodDescriptor>(vodDescriptors);
+        return sortedVodDescriptors;
+    }
+
+    private TreeSet<VodDescriptor> getUnconnectedNodes(Collection<VodDescriptor> vodDescriptors) {
+        TreeSet<VodDescriptor> unconnectedNodes = new TreeSet<VodDescriptor>(peerConnectivityComparator);
+        for (VodDescriptor vodDescriptor : vodDescriptors) {
+            if (vodDescriptor.isConnected() == false) {
+                unconnectedNodes.add(vodDescriptor);
+            }
+        }
+        return unconnectedNodes;
+    }
+
+    private void updateLatestRtts(long rtt) {
+        latestRtts[latestRttRingBufferPointer] = rtt;
+        latestRttRingBufferPointer = (latestRttRingBufferPointer + 1) % config.getLatestRttStoreLimit();
+    }
+
+    private double getLatestRttsAvg() {
+        long sum = 0;
+        int numberOfSamples = 0;
+
+        for (int i = 0; i < latestRtts.length; i++) {
+            if (latestRtts[i] == 0) {
+                break;
+            }
+            sum += latestRtts[i];
+            numberOfSamples++;
+        }
+
+        if (numberOfSamples == 0) {
+            return 0;
+        }
+
+        return sum / (double) numberOfSamples;
     }
 
     // If you call this method with a list of entries, it will
