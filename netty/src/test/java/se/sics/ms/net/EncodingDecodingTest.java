@@ -835,8 +835,6 @@ public class EncodingDecodingTest {
             opCodeCorrect(buffer, msg);
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
-            System.out.println(numberOfEntries);
-            System.out.println(response.getVodDescriptors().get(0).getNumberOfIndexEntries());
             assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -885,6 +883,36 @@ public class EncodingDecodingTest {
             for (IndexHash h : response.getHashes()) {
                 assert h.equals(i.next());
             }
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void NumberOfPartitions() {
+        int number = 100;
+        InetAddress address = null;
+        try {
+            address = InetAddress.getByName("192.168.0.1");
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, number);
+
+        List<VodDescriptor> items = new ArrayList<VodDescriptor>();
+        items.add(vodDescriptor);
+        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), false, items);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
+
+            assert (response.getVodDescriptors().get(0).getPartitionsNumber() == number);
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
