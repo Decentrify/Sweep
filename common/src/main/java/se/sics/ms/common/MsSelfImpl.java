@@ -15,6 +15,7 @@ import java.net.InetAddress;
  */
 public class MsSelfImpl extends SelfImpl {
     private long numberOfIndexEntries = 0;
+    private int partitionsNumber = 1;
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
@@ -27,11 +28,16 @@ public class MsSelfImpl extends SelfImpl {
     @Override
     public VodDescriptor getDescriptor() {
         int age = 0;
-        return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED, numberOfIndexEntries);
+        return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
+                numberOfIndexEntries, partitionsNumber);
     }
 
     public void setNumberOfIndexEntries(long numberOfIndexEntries) {
         this.numberOfIndexEntries = numberOfIndexEntries;
+    }
+
+    public void setPartitionsNumber(int partitionsNumber) {
+        this.partitionsNumber = partitionsNumber;
     }
 
     public void incrementNumberOfIndexEntries() {
