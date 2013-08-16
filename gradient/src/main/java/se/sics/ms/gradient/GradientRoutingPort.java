@@ -9,7 +9,7 @@ import se.sics.ms.types.SearchPattern;
 public class GradientRoutingPort extends PortType {
 	{
 		negative(AddIndexEntryRequest.class);
-        negative(IndexExchangeRequest.class);
+        negative(IndexHashExchangeRequest.class);
         negative(SearchRequest.class);
         negative(ReplicationPrepareCommitRequest.class);
         negative(ReplicationCommit.class);
@@ -37,13 +37,17 @@ public class GradientRoutingPort extends PortType {
         }
     }
 
-    public static class IndexExchangeRequest extends Event {
+    public static class IndexHashExchangeRequest extends Event {
         private final long lowestMissingIndexEntry;
         private final Long[] existingEntries;
+        private final TimeoutId timeoutId;
+        private final int numberOfRequests;
 
-        public IndexExchangeRequest(long lowestMissingIndexEntry, Long[] existingEntries) {
+        public IndexHashExchangeRequest(long lowestMissingIndexEntry, Long[] existingEntries, TimeoutId timeoutId, int numberOfRequests) {
             this.lowestMissingIndexEntry = lowestMissingIndexEntry;
             this.existingEntries = existingEntries;
+            this.timeoutId = timeoutId;
+            this.numberOfRequests = numberOfRequests;
         }
 
         public long getLowestMissingIndexEntry() {
@@ -52,6 +56,14 @@ public class GradientRoutingPort extends PortType {
 
         public Long[] getExistingEntries() {
             return existingEntries;
+        }
+
+        public TimeoutId getTimeoutId() {
+            return timeoutId;
+        }
+
+        public int getNumberOfRequests() {
+            return numberOfRequests;
         }
     }
 

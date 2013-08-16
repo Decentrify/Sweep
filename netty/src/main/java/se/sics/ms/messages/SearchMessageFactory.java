@@ -1,5 +1,6 @@
 package se.sics.ms.messages;
 
+import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
@@ -48,7 +49,7 @@ public class SearchMessageFactory {
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            IndexEntry[] results = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
+            Collection<IndexEntry> results = ApplicationTypesDecoderFactory.readIndexEntryCollection(buffer);
             TimeoutId searchTimeoutId = UserTypesDecoderFactory.readTimeoutId(buffer);
             try {
                 return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNum, results);

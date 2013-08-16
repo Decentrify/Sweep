@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
@@ -34,7 +35,9 @@ import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.messages.*;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
 import sun.misc.BASE64Encoder;
 
@@ -118,6 +121,13 @@ public final class Search extends ComponentDefinition {
         }
     }
 
+    private class IndexExchangeTimeout extends IndividualTimeout {
+
+        public IndexExchangeTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
+        }
+    }
+
     /**
      * Periodic scheduled timeout event to garbage collect the recent request
      * data structure of {@link Search}.
@@ -179,6 +189,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handleInit, control);
         subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
+        subscribe(handleIndexHashExchangeRequest, networkPort);
+        subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
@@ -202,6 +214,7 @@ public final class Search extends ComponentDefinition {
         subscribe(addIndexEntryRequestHandler, uiPort);
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
+        subscribe(handleIndexExchangeTimeout, timerPort);
     }
 
     /**
@@ -345,19 +358,110 @@ public final class Search extends ComponentDefinition {
         }
     }
 
+    private boolean exchangeInProgress = false;
+    private TimeoutId indexExchangeTimeout;
+    private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
+    private HashSet<IndexHash> intersection;
+
     /**
      * Issue an index exchange with another node.
      */
     final Handler<ExchangeRound> handleRound = new Handler<ExchangeRound>() {
         @Override
         public void handle(ExchangeRound event) {
+            if (exchangeInProgress) {
+                return;
+            }
+
+            exchangeInProgress = true;
+
+            ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
+            timeout.setTimeoutEvent(new IndexExchangeTimeout(timeout, self.getId()));
+            indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
+            trigger(timeout, timerPort);
+            collectedHashes.clear();
+
             Long[] existing = existingEntries.toArray(new Long[existingEntries.size()]);
-            trigger(new GradientRoutingPort.IndexExchangeRequest(lowestMissingIndexValue, existing), gradientRoutingPort);
+            trigger(new GradientRoutingPort.IndexHashExchangeRequest(lowestMissingIndexValue, existing,
+                    indexExchangeTimeout, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
         }
     };
 
     /**
      * Search for entries in the local store that the inquirer might need and
+     * send the ids and hashes.
+     */
+    final Handler<IndexHashExchangeMessage.Request> handleIndexHashExchangeRequest = new Handler<IndexHashExchangeMessage.Request>() {
+        @Override
+        public void handle(IndexHashExchangeMessage.Request event) {
+            try {
+                List<IndexHash> hashes = new ArrayList<IndexHash>();
+
+                // Search for entries the inquirer is missing
+                long lastId = event.getOldestMissingIndexValue();
+                for (long i : event.getExistingEntries()) {
+                    Collection<IndexEntry> indexEntries = findIdRange(lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
+                    for (IndexEntry indexEntry : indexEntries) {
+                        hashes.add((new IndexHash(indexEntry)));
+                    }
+                    lastId = i + 1;
+
+                    if (hashes.size() >= config.getMaxExchangeCount()) {
+                        break;
+                    }
+                }
+
+                // In case there is some space left search for more
+                if (hashes.size() < config.getMaxExchangeCount()) {
+                    Collection<IndexEntry> indexEntries = findIdRange(lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
+                    for (IndexEntry indexEntry : indexEntries) {
+                        hashes.add((new IndexHash(indexEntry)));
+                    }
+                }
+
+                trigger(new IndexHashExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), hashes), networkPort);
+            } catch (IOException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            }
+        }
+    };
+
+    final Handler<IndexHashExchangeMessage.Response> handleIndexHashExchangeResponse = new Handler<IndexHashExchangeMessage.Response>() {
+        @Override
+        public void handle(IndexHashExchangeMessage.Response event) {
+            // Drop old responses
+            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+                return;
+            }
+
+            // TODO we somehow need to check here that the answer is from the correct node
+            collectedHashes.put(event.getVodSource(), event.getHashes());
+            if (collectedHashes.size() == config.getIndexExchangeRequestNumber()) {
+                intersection = new HashSet<IndexHash>(collectedHashes.values().iterator().next());
+                for (Collection<IndexHash> hashes : collectedHashes.values()) {
+                    intersection.retainAll(hashes);
+                }
+
+                if (intersection.isEmpty()) {
+                    CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+                    trigger(cancelTimeout, timerPort);
+                    exchangeInProgress = false;
+                    return;
+                }
+
+                ArrayList<Id> ids = new ArrayList<Id>();
+                for (IndexHash hash : intersection) {
+                    ids.add(hash.getId());
+                }
+
+                VodAddress node = collectedHashes.keySet().iterator().next();
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, indexExchangeTimeout, ids), networkPort);
+            }
+        }
+    };
+
+    /**
+     * Search for entries in the local store that the inquirer requested and
      * send them to him.
      */
     final Handler<IndexExchangeMessage.Request> handleIndexExchangeRequest = new Handler<IndexExchangeMessage.Request>() {
@@ -365,28 +469,12 @@ public final class Search extends ComponentDefinition {
         public void handle(IndexExchangeMessage.Request event) {
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-
-                // Search for entries the inquirer is missing
-                Long lastId = event.getOldestMissingIndexValue();
-                for (Long i : event.getExistingEntries()) {
-                    indexEntries.addAll(findIdRange(lastId, i - 1, config.getMaxExchangeCount() - indexEntries.size()));
-                    lastId = i + 1;
-
-                    if (indexEntries.size() >= config.getMaxExchangeCount()) {
-                        break;
-                    }
+                for (Id id : event.getIds()) {
+                    // TODO use the leader id to search
+                    indexEntries.add(findById(id.getId()));
                 }
 
-                // In case there is some space left search for more
-                if (indexEntries.size() < config.getMaxExchangeCount()) {
-                    indexEntries.addAll(findIdRange(lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - indexEntries.size()));
-                }
-
-                if (indexEntries.isEmpty()) {
-                    return;
-                }
-
-                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries.toArray(new IndexEntry[indexEntries.size()]), 0, 0), networkPort);
+                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), networkPort);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -399,13 +487,35 @@ public final class Search extends ComponentDefinition {
     final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
+            // Drop old responses
+            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+                return;
+            }
+
+            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+            trigger(cancelTimeout, timerPort);
+            indexExchangeTimeout = null;
+            exchangeInProgress = false;
+
             try {
                 for (IndexEntry indexEntry : event.getIndexEntries()) {
-                    addEntryLocal(indexEntry);
+                    if (intersection.remove(new IndexHash(indexEntry)) && isIndexEntrySignatureValid(indexEntry)) {
+                        addEntryLocal(indexEntry);
+                    } else {
+                    }
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
+        }
+    };
+
+    final Handler<IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<IndexExchangeTimeout>() {
+        @Override
+        public void handle(IndexExchangeTimeout event) {
+            logger.info(self.getId() + " index exchange timed out");
+            indexExchangeTimeout = null;
+            exchangeInProgress = false;
         }
     };
 
@@ -741,12 +851,12 @@ public final class Search extends ComponentDefinition {
     Handler<RepairMessage.Request> handleRepairRequest = new Handler<RepairMessage.Request>() {
         @Override
         public void handle(RepairMessage.Request request) {
-            IndexEntry[] missingEntries = new IndexEntry[request.getMissingIds().length];
+            ArrayList<IndexEntry> missingEntries = new ArrayList<IndexEntry>();
             try {
                 for(int i=0; i<request.getMissingIds().length; i++) {
                     //System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
                     IndexEntry entry = findById(request.getMissingIds()[i]);
-                    if(entry != null) missingEntries[i] = entry;
+                    if(entry != null) missingEntries.add(entry);
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
@@ -869,7 +979,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionId());
+            addSearchResponse(result, self.getAddress().getPartitionId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -886,7 +996,7 @@ public final class Search extends ComponentDefinition {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
                 trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
-                        0, 0, result.toArray(new IndexEntry[result.size()])), networkPort);
+                        0, 0, result), networkPort);
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -951,7 +1061,7 @@ public final class Search extends ComponentDefinition {
      * @param entries the entries to be added
      * @param partition the partition from which the entries originate from
      */
-    private void addSearchResponse(IndexEntry[] entries, int partition) {
+    private void addSearchResponse(Collection<IndexEntry> entries, int partition) {
         if (searchRequest.hasResponded(partition)) {
             return;
         }
@@ -988,7 +1098,7 @@ public final class Search extends ComponentDefinition {
      * @param entries a collection of index entries to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntries(Directory index, IndexEntry[] entries)
+    private void addIndexEntries(Directory index, Collection<IndexEntry> entries)
             throws IOException {
         IndexWriter writer = null;
         try {

@@ -7,6 +7,8 @@ import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.types.IndexEntry;
 
+import java.util.Collection;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -47,7 +49,7 @@ public class RepairMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            IndexEntry[] missingEntries = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
+            Collection<IndexEntry> missingEntries = ApplicationTypesDecoderFactory.readIndexEntryCollection(buffer);
             return new RepairMessage.Response(vodSrc, vodDest, timeoutId, missingEntries);
         }
     }

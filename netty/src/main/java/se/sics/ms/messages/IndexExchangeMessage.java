@@ -1,78 +1,53 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
+import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
-import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
+import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 
-/**
- * Created with IntelliJ IDEA.
- * User: kazarindn
- * Date: 7/2/13
- * Time: 11:56 AM
- */
+import java.util.Collection;
+
 public class IndexExchangeMessage {
     public static class Request extends DirectMsgNetty.Request {
-        public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final long oldestMissingIndexValue;
-        private final Long[] existingEntries;
-        private final int numResponses;
-        private final int responseNumber;
+        private final Collection<Id> ids;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, long oldestMissingIndexValue, Long[] existingEntries, int numResponses, int responseNumber) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Collection<Id> ids) {
             super(source, destination, timeoutId);
 
-            if(existingEntries == null)
-                throw new NullPointerException("existingEntries can't be null");
+            if(ids == null)
+                throw new NullPointerException("ids can't be null");
 
-            this.oldestMissingIndexValue = oldestMissingIndexValue;
-            this.existingEntries = existingEntries;
-            this.numResponses = numResponses;
-            this.responseNumber = responseNumber;
+            this.ids = ids;
         }
 
-        public long getOldestMissingIndexValue() {
-            return oldestMissingIndexValue;
-        }
-
-        public Long[] getExistingEntries() {
-            return existingEntries;
-        }
-
-        public int getNumResponses() {
-            return numResponses;
-        }
-
-        public int getResponseNumber() {
-            return responseNumber;
+        public Collection<Id> getIds() {
+            return ids;
         }
 
         @Override
         public int getSize() {
-            return getHeaderSize() + MAX_RESULTS_STR_LEN;
+            return getHeaderSize();
         }
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, oldestMissingIndexValue, existingEntries, numResponses, responseNumber);
+            return new Request(vodSrc, vodDest, timeoutId, ids);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            buffer.writeLong(oldestMissingIndexValue);
-            ApplicationTypesEncoderFactory.writeLongArray(buffer, existingEntries);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
-            UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
+            ApplicationTypesEncoderFactory.writeIdCollection(buffer, ids);
             return buffer;
         }
 
@@ -85,11 +60,11 @@ public class IndexExchangeMessage {
     public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final IndexEntry[] indexEntries;
+        private final Collection<IndexEntry> indexEntries;
         private final int numResponses;
         private final int responseNumber;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry[] indexEntries, int numResponses, int responseNumber) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, Collection<IndexEntry> indexEntries, int numResponses, int responseNumber) {
             super(source, destination, timeoutId);
 
             if(indexEntries == null)
@@ -100,7 +75,7 @@ public class IndexExchangeMessage {
             this.responseNumber = responseNumber;
         }
 
-        public IndexEntry[] getIndexEntries() {
+        public Collection<IndexEntry> getIndexEntries() {
             return indexEntries;
         }
 
@@ -126,7 +101,7 @@ public class IndexExchangeMessage {
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, indexEntries);
+            ApplicationTypesEncoderFactory.writeIndexEntryCollection(buffer, indexEntries);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, numResponses);
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             return buffer;
@@ -135,6 +110,13 @@ public class IndexExchangeMessage {
         @Override
         public byte getOpcode() {
             return MessageFrameDecoder.INDEX_EXCHANGE_RESPONSE;
+        }
+    }
+
+    public static class RequestTimeout extends IndividualTimeout {
+
+        public RequestTimeout(ScheduleTimeout request, int id) {
+            super(request, id);
         }
     }
 }

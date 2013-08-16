@@ -10,6 +10,8 @@ import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.types.IndexEntry;
 
+import java.util.Collection;
+
 /**
  * Created with IntelliJ IDEA.
  * User: kazarindn
@@ -58,14 +60,14 @@ public class RepairMessage {
     }
 
     public static class Response extends DirectMsgNetty.Response {
-        private final IndexEntry[] missingEntries;
+        private final Collection<IndexEntry> missingEntries;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, IndexEntry[] missingEntries) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, Collection<IndexEntry> missingEntries) {
             super(source, destination, timeoutId);
             this.missingEntries = missingEntries;
         }
 
-        public IndexEntry[] getMissingEntries() {
+        public Collection<IndexEntry> getMissingEntries() {
             return missingEntries;
         }
 
@@ -82,7 +84,7 @@ public class RepairMessage {
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
-            ApplicationTypesEncoderFactory.writeIndexEntryArray(buffer, missingEntries);
+            ApplicationTypesEncoderFactory.writeIndexEntryCollection(buffer, missingEntries);
             return buffer;
         }
 

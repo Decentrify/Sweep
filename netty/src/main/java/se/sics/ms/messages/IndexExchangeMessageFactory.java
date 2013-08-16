@@ -6,14 +6,11 @@ import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 
-/**
- * Created with IntelliJ IDEA.
- * User: kazarindn
- * Date: 7/2/13
- * Time: 12:04 PM
- */
+import java.util.Collection;
+
 public class IndexExchangeMessageFactory {
     public static class Request extends DirectMsgNettyFactory.Request {
 
@@ -28,12 +25,8 @@ public class IndexExchangeMessageFactory {
 
         @Override
         protected IndexExchangeMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
-            long oldestMissingIndexValue = buffer.readLong();
-            Long[] existingEntries = ApplicationTypesDecoderFactory.readLongArray(buffer);
-            int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
-            return new IndexExchangeMessage.Request(vodSrc, vodDest,
-                    timeoutId, oldestMissingIndexValue, existingEntries, numResponses, responseNum);
+            Collection<Id> ids = ApplicationTypesDecoderFactory.readIdCollection(buffer);
+            return new IndexExchangeMessage.Request(vodSrc, vodDest, timeoutId, ids);
         }
 
     }
@@ -51,7 +44,7 @@ public class IndexExchangeMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            IndexEntry[] items = ApplicationTypesDecoderFactory.readIndexEntryArray(buffer);
+            Collection<IndexEntry> items = ApplicationTypesDecoderFactory.readIndexEntryCollection(buffer);
             int numResponses = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             return new IndexExchangeMessage.Response(vodSrc, vodDest, timeoutId, items, numResponses, responseNum);

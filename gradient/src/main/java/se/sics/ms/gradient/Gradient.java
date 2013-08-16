@@ -121,7 +121,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handlePublicKeyMessage, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
-        subscribe(handleIndexExchangeRequest, gradientRoutingPort);
+        subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
@@ -563,18 +563,22 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
-    final Handler<GradientRoutingPort.IndexExchangeRequest> handleIndexExchangeRequest = new Handler<GradientRoutingPort.IndexExchangeRequest>() {
+    final Handler<GradientRoutingPort.IndexHashExchangeRequest> handleIndexHashExchangeRequest = new Handler<GradientRoutingPort.IndexHashExchangeRequest>() {
         @Override
-        public void handle(GradientRoutingPort.IndexExchangeRequest event) {
-            SortedSet<VodDescriptor> higherUtilityNodes = gradientView.getHigherUtilityNodes();
-            if (higherUtilityNodes.isEmpty()) {
-                logger.trace("{} has no nodes to exchange index entries with", self.getAddress());
+        public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
+            ArrayList<VodDescriptor> nodes = new ArrayList<VodDescriptor>(gradientView.getHigherUtilityNodes());
+            if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
+                logger.warn("{} doesn't have enough nodes for index exchange", self.getAddress());
                 return;
             }
 
-            int n = random.nextInt(higherUtilityNodes.size());
-            trigger(new IndexExchangeMessage.Request(self.getAddress(), ((VodDescriptor) higherUtilityNodes.toArray()[n]).getVodAddress(),
-                    UUID.nextUUID(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), 0, 0), networkPort);
+            for (int i = 0; i < event.getNumberOfRequests(); i++) {
+                int n = random.nextInt(nodes.size());
+                VodDescriptor node = nodes.get(n);
+                nodes.remove(node);
+                trigger(new IndexHashExchangeMessage.Request(self.getAddress(), node.getVodAddress(), event.getTimeoutId(),
+                        event.getLowestMissingIndexEntry(), event.getExistingEntries()), networkPort);
+            }
         }
     };
 

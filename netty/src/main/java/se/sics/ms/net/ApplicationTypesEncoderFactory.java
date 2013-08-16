@@ -9,10 +9,13 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
 import sun.misc.BASE64Encoder;
 
+import java.util.Collection;
 import java.util.Set;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
@@ -40,14 +43,49 @@ public class ApplicationTypesEncoderFactory {
             writeStringLength65536(buffer, new BASE64Encoder().encode(indexEntry.getLeaderId().getEncoded()));
     }
 
-    public static void writeIndexEntryArray(ByteBuf buffer, IndexEntry[] items) throws MessageEncodingException {
+    public static void writeIndexEntryCollection(ByteBuf buffer, Collection<IndexEntry> items) throws MessageEncodingException {
         if(items == null){
             writeUnsignedintAsOneByte(buffer, 0);
             return;
         }
-        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, items.length);
+        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, items.size());
         for(IndexEntry item : items)
             writeIndexEntry(buffer, item);
+    }
+
+    public static void writeIndexEntryHash(ByteBuf buffer, IndexHash hash) throws MessageEncodingException {
+        writeId(buffer, hash.getId());
+        writeStringLength256(buffer, hash.getHash());
+    }
+
+    public static void writeIndexEntryHashCollection(ByteBuf buffer, Collection<IndexHash> hashes) throws MessageEncodingException {
+        if (hashes == null) {
+            UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, 0);
+            return;
+        }
+
+        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, hashes.size());
+        for (IndexHash hash : hashes) {
+            writeIndexEntryHash(buffer, hash);
+        }
+    }
+
+    public static void writeId(ByteBuf buffer, Id id) throws MessageEncodingException {
+        buffer.writeLong(id.getId());
+        if(id.getLeaderId() == null)
+            writeStringLength65536(buffer, new String());
+        else
+            writeStringLength65536(buffer, new BASE64Encoder().encode(id.getLeaderId().getEncoded()));
+    }
+
+    public static void writeIdCollection(ByteBuf buffer, Collection<Id> ids) throws MessageEncodingException {
+        if(ids == null){
+            writeUnsignedintAsOneByte(buffer, 0);
+            return;
+        }
+        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, ids.size());
+        for(Id id : ids)
+            writeId(buffer, id);
     }
 
     public static void writeLongArray(ByteBuf buffer, Long[] items) throws MessageEncodingException {

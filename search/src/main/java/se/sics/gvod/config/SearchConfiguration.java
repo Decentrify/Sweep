@@ -24,6 +24,8 @@ public class SearchConfiguration
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
     int maxSearchResults;
+    int indexExchangeTimeout;
+    int indexExchangeRequestNumber;
 
     public SearchConfiguration() {
         this(
@@ -36,7 +38,9 @@ public class SearchConfiguration
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
-                MsConfig.SEARCH_MAX_SEARCH_RESULTS);
+                MsConfig.SEARCH_MAX_SEARCH_RESULTS,
+                MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
+                MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER);
     }
 
     /**
@@ -51,15 +55,18 @@ public class SearchConfiguration
      * add operations was received
      * @param hitsPerQuery the maximum amount of entries reported for a search
      * request
-     * @param recentRequestsGcInterval the interval used to garbage collect the
+     * @param recentRequestsGcInterval the interval used to garbage collect the UUIDs of recent requests
      * @param maxSearchResults max number of results per search
-     * UUIDs of recente requests
+     * @param indexExchangeTimeout max time to wait for index exchange responses
+     * @param indexExchangeRequestNumber the number of nodes to query for hashes and compare them during the index request process
+     *
      */
     public SearchConfiguration(
             int numPartitions, int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
-            int maxLeaderIdHistorySize, int maxSearchResults) {
+            int maxLeaderIdHistorySize, int maxSearchResults,
+            int indexExchangeTimeout, int indexExchangeRequestNumber) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
@@ -70,6 +77,8 @@ public class SearchConfiguration
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
         this.maxSearchResults = maxSearchResults;
+        this.indexExchangeTimeout = indexExchangeTimeout;
+        this.indexExchangeRequestNumber = indexExchangeRequestNumber;
     }
 
     public static SearchConfiguration build() {
@@ -158,5 +167,13 @@ public class SearchConfiguration
     public SearchConfiguration setMaxSearchResults(int maxSearchResults) {
         this.maxSearchResults = maxSearchResults;
         return this;
+    }
+
+    public int getIndexExchangeTimeout() {
+        return indexExchangeTimeout;
+    }
+
+    public int getIndexExchangeRequestNumber() {
+        return indexExchangeRequestNumber;
     }
 }

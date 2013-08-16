@@ -6,7 +6,9 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
 
 import java.security.KeyFactory;
@@ -14,9 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static se.sics.gvod.net.util.UserTypesDecoderFactory.readGVodNodeDescriptor;
 
@@ -57,13 +57,60 @@ public class ApplicationTypesDecoderFactory {
         return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
     }
 
-    public static IndexEntry[] readIndexEntryArray(ByteBuf buffer) throws MessageDecodingException {
+    public static Collection<IndexEntry> readIndexEntryCollection(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        IndexEntry[] items = new IndexEntry[len];
+        Collection<IndexEntry> items = new ArrayList<IndexEntry>();
         for (int i = 0; i < len; i++) {
-            items[i] = readIndexEntry(buffer);
+            items.add(readIndexEntry(buffer));
         }
         return items;
+    }
+
+    public static IndexHash readIndexEntryHash(ByteBuf buffer) throws MessageDecodingException {
+        Id id = readId(buffer);
+        String hash = UserTypesDecoderFactory.readStringLength256(buffer);
+
+        return new IndexHash(id, hash);
+    }
+
+    public static Collection<IndexHash> readIndexEntryHashCollection(ByteBuf buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        List<IndexHash> hashes = new ArrayList<IndexHash>();
+        for (int i = 0; i < len; i++) {
+            hashes.add(readIndexEntryHash(buffer));
+        }
+        return hashes;
+    }
+
+    public static Id readId(ByteBuf buffer) throws MessageDecodingException {
+        Long id = buffer.readLong();
+        String leaderId = UserTypesDecoderFactory.readStringLength65536(buffer);
+        if (leaderId == null)
+            return new Id(id, null);
+
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();
+        }
+
+        return new Id(id, pub);
+    }
+
+    public static Collection<Id> readIdCollection(ByteBuf buffer) throws MessageDecodingException {
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        List<Id> hashes = new ArrayList<Id>();
+        for (int i = 0; i < len; i++) {
+            hashes.add(readId(buffer));
+        }
+        return hashes;
     }
 
     public static Long[] readLongArray(ByteBuf buffer) {

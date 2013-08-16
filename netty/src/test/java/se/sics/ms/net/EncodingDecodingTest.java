@@ -31,8 +31,10 @@ import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.messages.*;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
+import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
 
 /**
@@ -148,7 +150,9 @@ public class EncodingDecodingTest {
             String description = "description";
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
             TimeoutId timeoutId = UUID.nextUUID();
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, timeoutId, numResponses, responseNum, new IndexEntry[] {entry});
+            Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
+            indexEntries.add(entry);
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, timeoutId, numResponses, responseNum, indexEntries);
             try {
                 ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
@@ -156,7 +160,7 @@ public class EncodingDecodingTest {
                 assert (id.equals(response.getTimeoutId()));
                 assert (response.getNumResponses() == numResponses);
                 assert (response.getResponseNumber() == responseNum);
-                assert (response.getResults()[0].equals(entry));
+                assert (response.getResults().iterator().next().equals(entry));
                 assert timeoutId.equals(response.getSearchTimeoutId());
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -221,23 +225,17 @@ public class EncodingDecodingTest {
 
     @Test
     public void IndexExchangeRequest() {
-        long oldestMissingIndexValue = 1L;
-        Long[] existingEntries = new Long[]{1L, 2L};
-        int numResponses=1;
-        int responseNumber=2;
-        IndexExchangeMessage.Request msg = new IndexExchangeMessage.Request(gSrc, gDest, UUID.nextUUID(), oldestMissingIndexValue, existingEntries, numResponses, responseNumber);
+        Collection<Id> ids = new ArrayList<Id>();
+        ids.add(new Id(0, null));
+        IndexExchangeMessage.Request msg = new IndexExchangeMessage.Request(gSrc, gDest, UUID.nextUUID(), ids);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
-            IndexExchangeMessage.Request request =
-                    IndexExchangeMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getOldestMissingIndexValue() == oldestMissingIndexValue);
-            for(int i=0; i<request.getExistingEntries().length; i++) {
-                assert (request.getExistingEntries()[i] == existingEntries[i]);
+            IndexExchangeMessage.Request request = IndexExchangeMessageFactory.Request.fromBuffer(buffer);
+            Iterator<Id> i = ids.iterator();
+            for (Id id : ids) {
+                id.equals(i.next());
             }
-            assert (request.getNumResponses() == numResponses);
-            assert (request.getResponseNumber() == responseNumber);
-
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -257,7 +255,8 @@ public class EncodingDecodingTest {
         String description = "description";
         IndexEntry entry;
         entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
-        IndexEntry[] items = new IndexEntry[]{entry};
+        Collection<IndexEntry> items = new ArrayList<IndexEntry>();
+        items.add(entry);
         int numResponses=1;
         int responseNumber=2;
         IndexExchangeMessage.Response msg = new IndexExchangeMessage.Response(gSrc, gDest, UUID.nextUUID(), items, numResponses, responseNumber);
@@ -267,7 +266,7 @@ public class EncodingDecodingTest {
             IndexExchangeMessage.Response response =
                     IndexExchangeMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.getIndexEntries()[0].equals(entry));
+            assert (response.getIndexEntries().iterator().next().equals(entry));
             assert (response.getNumResponses() == numResponses);
             assert (response.getResponseNumber() == responseNumber);
 
@@ -677,12 +676,14 @@ public class EncodingDecodingTest {
         String hash = "hash";
 
         IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, publicKey);
-        RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), new IndexEntry[]{entry});
+        Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
+        indexEntries.add(entry);
+        RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), indexEntries);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             RepairMessage.Response request = RepairMessageFactory.Response.fromBuffer(buffer);
-            assert (entry.equals(request.getMissingEntries()[0]));
+            assert (entry.equals(request.getMissingEntries().iterator().next()));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -837,6 +838,53 @@ public class EncodingDecodingTest {
             System.out.println(numberOfEntries);
             System.out.println(response.getVodDescriptors().get(0).getNumberOfIndexEntries());
             assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void IndexHashExchangeRequest() {
+        long oldestMissingIndexValue = 1L;
+        Long[] existingEntries = new Long[]{1L, 2L};
+        IndexHashExchangeMessage.Request msg = new IndexHashExchangeMessage.Request(gSrc, gDest, UUID.nextUUID(), oldestMissingIndexValue, existingEntries);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            IndexHashExchangeMessage.Request request = IndexHashExchangeMessageFactory.Request.fromBuffer(buffer);
+            assert request.getOldestMissingIndexValue() == oldestMissingIndexValue;
+
+            for(int i = 0; i < request.getExistingEntries().length; i++) {
+                assert (request.getExistingEntries()[i] == existingEntries[i]);
+            }
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+    @Test
+    public void IndexHashExchangeResponse() {
+        IndexHash hash  = new IndexHash(new Id(0, null), "hash");
+        Collection<IndexHash> hashes = new ArrayList<IndexHash>();
+        hashes.add(hash);
+        IndexHashExchangeMessage.Response msg = new IndexHashExchangeMessage.Response(gSrc, gDest, UUID.nextUUID(), hashes);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            IndexHashExchangeMessage.Response response = IndexHashExchangeMessageFactory.Response.fromBuffer(buffer);
+
+            Iterator<IndexHash> i = hashes.iterator();
+            for (IndexHash h : response.getHashes()) {
+                assert h.equals(i.next());
+            }
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
