@@ -128,6 +128,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchRequestTimeout, timerPort);
+        subscribe(handleViewSizeRequest, gradientRoutingPort);
     }
 
     /**
@@ -682,6 +683,16 @@ public final class Gradient extends ComponentDefinition {
 
             for(VodDescriptor item : gradientView.getLowerUtilityNodes())
                 trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getVodAddress().getNodeAddress(), key), networkPort);
+        }
+    };
+
+    /**
+     * Responses with peer's view size
+     */
+    final Handler<ViewSizeMessage.Request> handleViewSizeRequest = new Handler<ViewSizeMessage.Request>() {
+        @Override
+        public void handle(ViewSizeMessage.Request request) {
+            trigger(new ViewSizeMessage.Response(request.getTimeoutId(), request.getNewEntry(), gradientView.getSize(), request.getSource()), gradientRoutingPort);
         }
     };
 
