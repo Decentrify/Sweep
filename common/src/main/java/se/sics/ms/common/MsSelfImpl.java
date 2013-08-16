@@ -8,7 +8,7 @@ import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.VodAddress;
 
 import java.net.InetAddress;
-import java.util.BitSet;
+import java.util.LinkedList;
 
 /**
  *
@@ -17,7 +17,7 @@ import java.util.BitSet;
 public class MsSelfImpl extends SelfImpl {
     private long numberOfIndexEntries = 0;
     private int partitionsNumber = 1;
-    private BitSet bitSet;
+    private LinkedList<Boolean> partitionId;
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
@@ -31,7 +31,7 @@ public class MsSelfImpl extends SelfImpl {
     public VodDescriptor getDescriptor() {
         int age = 0;
         return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
-                numberOfIndexEntries, partitionsNumber, bitSet);
+                numberOfIndexEntries, partitionsNumber, partitionId);
     }
 
     public void setNumberOfIndexEntries(long numberOfIndexEntries) {
@@ -42,8 +42,8 @@ public class MsSelfImpl extends SelfImpl {
         this.partitionsNumber = partitionsNumber;
     }
 
-    public void setBitSet(BitSet bitSet) {
-        this.bitSet = bitSet;
+    public void setPartitionId(LinkedList<Boolean> partitionId) {
+        this.partitionId = partitionId;
     }
 
     public void incrementNumberOfIndexEntries() {
