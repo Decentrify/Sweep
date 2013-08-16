@@ -287,7 +287,7 @@ public final class Gradient extends ComponentDefinition {
             Iterator<VodDescriptor> iterator = sample.iterator();
             while (iterator.hasNext()) {
                 // TODO do not access constants
-                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getAddress().getPartitionId())  {
+                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getAddress().getPartitionIdLength())  {
                     iterator.remove();
                 }
             }
@@ -313,7 +313,7 @@ public final class Gradient extends ComponentDefinition {
     private void addRoutingTableEntries(Collection<VodDescriptor> nodes) {
         for (VodDescriptor vodDescriptor : nodes) {
             IndexEntry.Category category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
-            int partition = vodDescriptor.getVodAddress().getPartitionId();
+            int partition = vodDescriptor.getVodAddress().getPartitionIdLength();
 
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             if (categoryRoutingMap == null) {
@@ -373,7 +373,7 @@ public final class Gradient extends ComponentDefinition {
 
             IndexEntry.Category selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());
             IndexEntry.Category addCategory = event.getEntry().getCategory();
-            int selfPartition = self.getAddress().getPartitionId();
+            int selfPartition = self.getAddress().getPartitionIdLength();
             // TODO Do not access the search constant
             int addPartition = addId % MsConfig.SEARCH_NUM_PARTITIONS;
 
@@ -432,7 +432,7 @@ public final class Gradient extends ComponentDefinition {
 
             logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
             if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())
-                    && indexEntryToAdd.getId() % MsConfig.SEARCH_NUM_PARTITIONS == self.getAddress().getPartitionId()) {
+                    && indexEntryToAdd.getId() % MsConfig.SEARCH_NUM_PARTITIONS == self.getAddress().getPartitionIdLength()) {
                 gradientView.remove(unresponsiveNode.getVodAddress());
             } else {
                 IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
@@ -572,6 +572,10 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
+            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionIdLength());
+            if (bucket == null) {
+                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
+                return;
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
                 VodDescriptor node = nodes.get(n);
@@ -594,7 +598,7 @@ public final class Gradient extends ComponentDefinition {
 
             for (Integer partition : categoryRoutingMap.keySet()) {
                 // Skip local partition
-                if (partition == self.getAddress().getPartitionId() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
+                if (partition == self.getAddress().getPartitionIdLength() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                     continue;
                 }
 
@@ -649,6 +653,9 @@ public final class Gradient extends ComponentDefinition {
             IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getCategoryId());
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionId());
+            IndexEntry.Category category = categoryFromCategoryId(event.getVodDescriptor().getVodAddress().getCategoryId());
+            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+            SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(event.getVodDescriptor().getVodAddress().getPartitionIdLength());
             bucket.remove(event.getVodDescriptor());
 
             shuffleTimes.remove(event.getTimeoutId().getId());
