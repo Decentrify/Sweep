@@ -729,7 +729,7 @@ public final class Search extends ComponentDefinition {
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
 
                 commitRequests.remove(commitId);
-                Snapshot.addIndexEntryId(self.getAddress().getPartitionId(), replicationCount.getEntry().getId());
+                Snapshot.addIndexEntryId(self.getAddress().getPartitionIdLength(), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -855,7 +855,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern);
-            addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionId());
+            addSearchResponse(result.toArray(new IndexEntry[result.size()]), self.getAddress().getPartitionIdLength());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -926,7 +926,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            addSearchResponse(event.getResults(), event.getVodSource().getPartitionId());
+            addSearchResponse(event.getResults(), event.getVodSource().getPartitionIdLength());
         }
     };
 
@@ -1102,7 +1102,7 @@ public final class Search extends ComponentDefinition {
             return;
 
         int categoryId = self.getAddress().getCategoryId();
-        int partitionId = self.getAddress().getPartitionId();
+        int partitionId = self.getAddress().getPartitionIdLength();
         long partitionsNumber = self.getDescriptor().getPartitionsNumber();
 
     }

@@ -816,7 +816,7 @@ public class EncodingDecodingTest {
         int partitionId = (int) Math.pow(2, 16) - 1;
         int categoryId = (int) Math.pow(2, 16) - 2;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodAddress.encodePartitionAndCategoryIdAsInt(partitionId, categoryId), nat);
-        assert vodAddress.getPartitionId() == partitionId;
+        assert vodAddress.getPartitionIdLength() == partitionId;
         assert vodAddress.getCategoryId() == categoryId;
     }
 
@@ -830,7 +830,17 @@ public class EncodingDecodingTest {
         }
         long numberOfEntries = (long) Math.pow(2, 61) - 1;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries);
+
+        BitSet bs = new BitSet(6);
+        bs.set(0, false);
+        bs.set(1, false);
+        bs.set(2, false);
+        bs.set(3, false);
+        bs.set(4, false);
+        bs.set(5, false);
+        bs.set(6, true);
+
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries, 1, bs);
 
         List<VodDescriptor> items = new ArrayList<VodDescriptor>();
         items.add(vodDescriptor);
@@ -841,6 +851,7 @@ public class EncodingDecodingTest {
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
+            assert (response.getVodDescriptors().get(0).getPartitionId().length() == bs.length());
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);

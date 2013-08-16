@@ -243,7 +243,7 @@ public class Snapshot {
 			if (info.isLeader()) {
 				builder.append(p.getId());
 				builder.append(" is leader of partition ");
-                builder.append(p.getPartitionId());
+                builder.append(p.getPartitionIdLength());
                 builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());
 				builder.append("\n\tIts current view is: ");
