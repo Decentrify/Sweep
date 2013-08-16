@@ -826,16 +826,14 @@ public class EncodingDecodingTest {
         long numberOfEntries = (long) Math.pow(2, 61) - 1;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        BitSet bs = new BitSet(6);
-        bs.set(0, false);
-        bs.set(1, false);
-        bs.set(2, false);
-        bs.set(3, false);
-        bs.set(4, false);
-        bs.set(5, false);
-        bs.set(6, true);
+        LinkedList<Boolean> list = new LinkedList<Boolean>();
+        list.add(false);
+        list.add(false);
+        list.add(true);
+        list.add(false);
 
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries, 1, bs);
+
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries, 1, list);
 
         List<VodDescriptor> items = new ArrayList<VodDescriptor>();
         items.add(vodDescriptor);
@@ -846,7 +844,7 @@ public class EncodingDecodingTest {
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
-            assert (response.getVodDescriptors().get(0).getPartitionId().length() == bs.length());
+            assert (response.getVodDescriptors().get(0).getPartitionId().equals(list));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
