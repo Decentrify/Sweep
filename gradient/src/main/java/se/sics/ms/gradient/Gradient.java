@@ -53,6 +53,7 @@ public final class Gradient extends ComponentDefinition {
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
     private Map<Integer,Long> shuffleTimes = new HashMap<Integer,Long>();
+    private ArrayList<TimeoutId> partitionRequestList;
 
     int latestRttRingBufferPointer = 0;
     private long[] latestRtts;
@@ -129,6 +130,8 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchRequestTimeout, timerPort);
         subscribe(handleViewSizeRequest, gradientRoutingPort);
+        subscribe(handlePartitionMessage, gradientRoutingPort);
+        subscribe(handlePartitioningMessage, networkPort);
     }
 
     /**
@@ -145,6 +148,7 @@ public final class Gradient extends ComponentDefinition {
             routingTable = new HashMap<IndexEntry.Category, Map<Integer, HashSet<VodDescriptor>>>();
             leader = false;
             latestRtts = new long[config.getLatestRttStoreLimit()];
+            partitionRequestList = new ArrayList<TimeoutId>();
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
@@ -691,6 +695,36 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(ViewSizeMessage.Request request) {
             trigger(new ViewSizeMessage.Response(request.getTimeoutId(), request.getNewEntry(), gradientView.getSize(), request.getSource()), gradientRoutingPort);
+        }
+    };
+
+    /**
+     * Sends partitioning message down over the gradient
+     */
+    final Handler<PartitionMessage> handlePartitionMessage = new Handler<PartitionMessage>() {
+        @Override
+        public void handle(PartitionMessage partitionMessage) {
+            for(VodDescriptor node : gradientView.getLowerUtilityNodes())
+                trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), partitionMessage.getRequestId(), partitionMessage.getMedianId(), partitionMessage.getPartitionsNumber()), networkPort);
+        }
+    };
+
+    /**
+     * Broadcast partitioning message down over the gradient
+     */
+    final Handler<PartitioningMessage> handlePartitioningMessage = new Handler<PartitioningMessage>() {
+        @Override
+        public void handle(PartitioningMessage partitioningMessage) {
+            if(partitionRequestList.contains(partitioningMessage.getRequestId()))
+                return;
+
+            //Store the request id
+            if(partitionRequestList.size() > config.getMaxPartitionHistorySize())
+                partitionRequestList.remove(partitionRequestList.get(0));
+            partitionRequestList.add(partitioningMessage.getRequestId());
+
+            for(VodDescriptor node : gradientView.getLowerUtilityNodes())
+                trigger(new PartitioningMessage(partitioningMessage.getVodSource(), node.getVodAddress(), partitioningMessage.getRequestId(), partitioningMessage.getMiddleEntryId(), partitioningMessage.getPartitionsNumber()), networkPort);
         }
     };
 

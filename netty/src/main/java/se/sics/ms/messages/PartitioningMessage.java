@@ -18,11 +18,14 @@ import se.sics.ms.net.MessageFrameDecoder;
 public class PartitioningMessage extends DirectMsgNetty.Oneway {
     private final long middleEntryId;
     private final TimeoutId requestId;
+    private final long partitionsNumber;
 
-    public PartitioningMessage(VodAddress source, VodAddress destination, long middleEntryId, TimeoutId requestId) {
+
+    public PartitioningMessage(VodAddress source, VodAddress destination, TimeoutId requestId, long middleEntryId, long partitionsNumber) {
         super(source, destination);
         this.middleEntryId = middleEntryId;
         this.requestId = requestId;
+        this.partitionsNumber = partitionsNumber;
     }
 
     public long getMiddleEntryId() {
@@ -33,6 +36,10 @@ public class PartitioningMessage extends DirectMsgNetty.Oneway {
         return requestId;
     }
 
+    public long getPartitionsNumber() {
+        return partitionsNumber;
+    }
+
     @Override
     public int getSize() {
         return getHeaderSize() + 8;
@@ -40,7 +47,7 @@ public class PartitioningMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new PartitioningMessage(vodSrc, vodDest, middleEntryId, requestId);
+        return new PartitioningMessage(vodSrc, vodDest, requestId, middleEntryId, partitionsNumber);
     }
 
     @Override
@@ -48,6 +55,7 @@ public class PartitioningMessage extends DirectMsgNetty.Oneway {
         ByteBuf buffer = createChannelBufferWithHeader();
         buffer.writeLong(middleEntryId);
         UserTypesEncoderFactory.writeTimeoutId(buffer, requestId);
+        buffer.writeLong(partitionsNumber);
         return buffer;
     }
 

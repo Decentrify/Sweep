@@ -936,14 +936,16 @@ public class EncodingDecodingTest {
 
         long middleEntryId = 1L;
         TimeoutId requestId = UUID.nextUUID();
+        long partitionsNumber = 1L;
 
-        PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, middleEntryId, requestId);
+        PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, requestId, middleEntryId, partitionsNumber);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             PartitioningMessage response = PartitioningMessageFactory.fromBuffer(buffer);
 
             assert (response.getMiddleEntryId() == middleEntryId);
+            assert (response.getPartitionsNumber() == partitionsNumber);
             assert (response.getRequestId().equals(requestId));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);

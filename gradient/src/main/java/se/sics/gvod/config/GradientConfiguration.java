@@ -64,7 +64,8 @@ public class GradientConfiguration
     int searchParallelism;
     int latestRttStoreLimit;
     double rttAnomalyTolerance;
-    
+    int maxPartitionHistorySize;
+
     /**
      * Default constructor comes first.
      */
@@ -86,7 +87,8 @@ public class GradientConfiguration
                 MsConfig.GRADIENT_LEADER_LOOKUP_TIMEOUT,
                 MsConfig.GRADIENT_SEARCH_PARALLELISM,
                 MsConfig.GRADIENT_LATEST_RTT_STORE_LIMIT,
-                MsConfig.GRADIENT_RTT_ANOMALY_TOLERANCE
+                MsConfig.GRADIENT_RTT_ANOMALY_TOLERANCE,
+                MsConfig.MAX_PARTITION_HISTORY_SIZE
                 );
     }
 
@@ -110,7 +112,8 @@ public class GradientConfiguration
             int leaderLookupTimeout,
             int searchParallelism,
             int latestRttStoreLimit,
-            double rttAnomalyTolerance
+            double rttAnomalyTolerance,
+            int maxPartitionHistorySize
             ) {
         this.viewSize = viewSize;
         this.shuffleLength = shuffleLength;
@@ -129,6 +132,7 @@ public class GradientConfiguration
         this.searchParallelism = searchParallelism;
         this.latestRttStoreLimit = latestRttStoreLimit;
         this.rttAnomalyTolerance = rttAnomalyTolerance;
+        this.maxPartitionHistorySize = maxPartitionHistorySize;
     }
 
     public static GradientConfiguration build() {
@@ -293,5 +297,13 @@ public class GradientConfiguration
     public GradientConfiguration setRttAnomalyTolerance(double rttAnomalyTolerance) {
         this.rttAnomalyTolerance = rttAnomalyTolerance;
         return this;
+    }
+
+    public void setMaxPartitionHistorySize(int maxPartitionHistorySize) {
+        this.maxPartitionHistorySize = maxPartitionHistorySize;
+    }
+
+    public int getMaxPartitionHistorySize() {
+        return maxPartitionHistorySize;
     }
 }

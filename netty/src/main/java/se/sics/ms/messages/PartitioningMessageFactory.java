@@ -25,6 +25,7 @@ public class PartitioningMessageFactory extends DirectMsgNettyFactory.Oneway {
     protected PartitioningMessage process(ByteBuf buffer) throws MessageDecodingException {
         long middleEntryId = buffer.readLong();
         TimeoutId requestId = UserTypesDecoderFactory.readTimeoutId(buffer);
-        return new PartitioningMessage(vodSrc, vodDest, middleEntryId, requestId);
+        long partitionsNumber = buffer.readLong();
+        return new PartitioningMessage(vodSrc, vodDest, requestId, middleEntryId, partitionsNumber);
     }
 }

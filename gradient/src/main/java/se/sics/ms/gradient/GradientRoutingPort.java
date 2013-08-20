@@ -3,6 +3,7 @@ package se.sics.ms.gradient;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
+import se.sics.ms.messages.PartitionMessage;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 
@@ -16,6 +17,7 @@ public class GradientRoutingPort extends PortType {
         negative(SearchRequest.class);
         negative(ViewSizeMessage.Request.class);
         positive(ViewSizeMessage.Response.class);
+        negative(PartitionMessage.class);
 	}
 
     public static class AddIndexEntryRequest extends Event {

@@ -1232,9 +1232,24 @@ public final class Search extends ComponentDefinition {
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
-        int categoryId = self.getAddress().getCategoryId();
-        int partitionId = self.getAddress().getPartitionIdLength();
         long partitionsNumber = self.getDescriptor().getPartitionsNumber();
+        long medianId;
+
+        if(maxStoredId > minStoredId)
+            medianId = (maxStoredId - minStoredId + 1)/2;
+        else {
+            long values = numberOfEntries/2;
+
+            if(Long.MAX_VALUE - 1 - values > minStoredId)
+                medianId = minStoredId + values;
+            else {
+                long thisPart = Long.MAX_VALUE - minStoredId -1;
+                values -= thisPart;
+                medianId = Long.MIN_VALUE + values + 1;
+            }
+        }
+
+        trigger(new PartitionMessage(UUID.nextUUID(), medianId, partitionsNumber), gradientRoutingPort);
 
     }
 

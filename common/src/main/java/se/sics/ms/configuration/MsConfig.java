@@ -46,6 +46,7 @@ public class MsConfig extends VodConfig {
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
     public static final long MAX_ENTRIES_ON_PEER = 5;
+    public static final int MAX_PARTITION_HISTORY_SIZE = 5;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);
