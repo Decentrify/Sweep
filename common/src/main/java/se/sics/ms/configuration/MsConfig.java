@@ -26,7 +26,7 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
-    public static final int SEARCH_NUM_PARTITIONS = 5;
+    public static final int SEARCH_NUM_PARTITIONS = 1;
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;
@@ -45,7 +45,7 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 100000;
+    public static final long MAX_ENTRIES_ON_PEER = 5;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);

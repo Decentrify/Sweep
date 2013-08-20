@@ -13,7 +13,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess joinNodes = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(100));
-					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+					raise(20, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
                 }
 			};
 
@@ -27,7 +27,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(2000));
-					raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+					raise(20, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
@@ -41,7 +41,7 @@ public class Scenario2 extends Scenario {
 			joinNodes.start();
 			addEntries.startAfterTerminationOf(60 * 10 * 1000, joinNodes);
 //			massiveJoin.startAfterTerminationOf(2000, addEntries);
-            search.startAfterTerminationOf(10000, addEntries);
+//          search.startAfterTerminationOf(10000, addEntries);
 		}
 	};
 
