@@ -936,7 +936,7 @@ public class EncodingDecodingTest {
 
         long middleEntryId = 1L;
         TimeoutId requestId = UUID.nextUUID();
-        long partitionsNumber = 1L;
+        int partitionsNumber = 1;
 
         PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, requestId, middleEntryId, partitionsNumber);
         try {

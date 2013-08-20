@@ -18,6 +18,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
@@ -706,10 +707,12 @@ public final class Gradient extends ComponentDefinition {
     final Handler<PartitionMessage> handlePartitionMessage = new Handler<PartitionMessage>() {
         @Override
         public void handle(PartitionMessage partitionMessage) {
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
             for(VodDescriptor node : gradientView.getLowerUtilityNodes())
                 trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), partitionMessage.getRequestId(), partitionMessage.getMedianId(), partitionMessage.getPartitionsNumber()), networkPort);
+
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+
+            determineYourPartition(partitionMessage.getPartitionsNumber());
         }
     };
 
@@ -727,12 +730,50 @@ public final class Gradient extends ComponentDefinition {
                 partitionRequestList.remove(partitionRequestList.get(0));
             partitionRequestList.add(partitioningMessage.getRequestId());
 
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
             for(VodDescriptor node : gradientView.getLowerUtilityNodes())
                 trigger(new PartitioningMessage(partitioningMessage.getVodSource(), node.getVodAddress(), partitioningMessage.getRequestId(), partitioningMessage.getMiddleEntryId(), partitioningMessage.getPartitionsNumber()), networkPort);
+
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+
+            determineYourPartition(partitioningMessage.getPartitionsNumber());
         }
     };
+
+    private void determineYourPartition(int partitionsNumber) {
+        int nodeId = self.getId();
+        if(partitionsNumber == 1) {
+            boolean partitionSubId = (nodeId & 1) == 0;
+
+            LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+            partitionId.addFirst(partitionSubId);
+
+            ((MsSelfImpl)self).setPartitionId(partitionId);
+            ((MsSelfImpl)self).setPartitionsNumber(2);
+
+            clearViewForNewOverlay(partitionSubId);
+        }
+        else {
+            LinkedList partitionId = ((MsSelfImpl)self).getPartitionId();
+            int partitionIdLength = partitionId.size();
+
+            boolean partitionSubId = (nodeId & (1 << partitionIdLength)) == 0;
+            partitionId.addFirst(partitionSubId);
+            ((MsSelfImpl)self).setPartitionsNumber(partitionsNumber+1);
+
+            clearViewForNewOverlay(partitionSubId);
+        }
+    }
+
+    private void clearViewForNewOverlay(boolean partitionSubId) {
+        VodDescriptor[] view = gradientView.getAll().toArray(new VodDescriptor[gradientView.getAll().size()]);
+
+        for(VodDescriptor descriptor : view) {
+            int nodeId = descriptor.getId();
+            boolean partition = (nodeId & 1) == 0;
+            if(partition != partitionSubId)
+                gradientView.remove(descriptor.getVodAddress());
+        }
+    }
 
     private IndexEntry.Category categoryFromCategoryId(int categoryId) {
         return IndexEntry.Category.values()[categoryId];

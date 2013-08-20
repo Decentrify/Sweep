@@ -1234,7 +1234,7 @@ public final class Search extends ComponentDefinition {
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
-        long partitionsNumber = self.getDescriptor().getPartitionsNumber();
+        int partitionsNumber = self.getDescriptor().getPartitionsNumber();
         long medianId;
 
         if(maxStoredId > minStoredId)

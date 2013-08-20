@@ -12,10 +12,10 @@ import se.sics.kompics.Event;
 public class PartitionMessage extends Event {
     private final TimeoutId requestId;
     private final long medianId;
-    private final long partitionsNumber;
+    private final int partitionsNumber;
 
 
-    public PartitionMessage(TimeoutId requestId, long medianId, long partitionsNumber) {
+    public PartitionMessage(TimeoutId requestId, long medianId, int partitionsNumber) {
         this.requestId = requestId;
         this.medianId = medianId;
         this.partitionsNumber = partitionsNumber;
@@ -29,7 +29,7 @@ public class PartitionMessage extends Event {
         return medianId;
     }
 
-    public long getPartitionsNumber() {
+    public int getPartitionsNumber() {
         return partitionsNumber;
     }
 }

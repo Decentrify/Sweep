@@ -51,7 +51,7 @@ public class Scenario2 extends Scenario {
 //			massiveJoin.startAfterTerminationOf(2000, addEntries);
 //          search.startAfterTerminationOf(10000, addEntries);
 
-            addEntries1.startAfterTerminationOf(1000000, addEntries);
+//            addEntries1.startAfterTerminationOf(1000000, addEntries);
 		}
 	};
 

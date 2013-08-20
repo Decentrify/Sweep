@@ -21,6 +21,9 @@ public class MsSelfImpl extends SelfImpl {
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
+
+        partitionId = new LinkedList<Boolean>();
+        partitionId.addFirst(false);
     }
 
     public MsSelfImpl(Nat nat, InetAddress ip, int port, int nodeId, int overlayId) {
@@ -48,5 +51,9 @@ public class MsSelfImpl extends SelfImpl {
 
     public void incrementNumberOfIndexEntries() {
         numberOfIndexEntries++;
+    }
+
+    public LinkedList<Boolean> getPartitionId() {
+        return partitionId;
     }
 }
