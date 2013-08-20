@@ -930,4 +930,25 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+    @Test
+    public void PartitioningMessage() {
+
+        long middleEntryId = 1L;
+
+        PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, middleEntryId);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            PartitioningMessage response = PartitioningMessageFactory.fromBuffer(buffer);
+
+            assert (response.getMiddleEntryId() == middleEntryId);
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
 }
