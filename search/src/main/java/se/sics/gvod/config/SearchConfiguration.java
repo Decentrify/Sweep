@@ -39,11 +39,10 @@ public class SearchConfiguration
                 MsConfig.SEARCH_HITS_PER_QUERY,
                 MsConfig.SEARCH_RECENT_REQUESTS_GCINTERVAL,
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
-                MsConfig.MAX_ENTRIES_ON_PEER);
-                MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
                 MsConfig.SEARCH_MAX_SEARCH_RESULTS,
                 MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
-                MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER);
+                MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER,
+                MsConfig.MAX_ENTRIES_ON_PEER);
     }
 
     /**

@@ -437,7 +437,7 @@ public final class Gradient extends ComponentDefinition {
             } else {
                 IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
                 Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(category);
-                HashSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
+                HashSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionIdLength());
                 bucket.remove(unresponsiveNode);
             }
             RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
@@ -572,10 +572,6 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
-            TreeSet<VodDescriptor> bucket = categoryRoutingMap.get(self.getAddress().getPartitionIdLength());
-            if (bucket == null) {
-                logger.trace("{} has no nodes to exchange indexes with", self.getAddress());
-                return;
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
                 VodDescriptor node = nodes.get(n);
@@ -652,10 +648,7 @@ public final class Gradient extends ComponentDefinition {
             VodAddress unresponsiveNode = event.getVodDescriptor().getVodAddress();
             IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getCategoryId());
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-            Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionId());
-            IndexEntry.Category category = categoryFromCategoryId(event.getVodDescriptor().getVodAddress().getCategoryId());
-            Map<Integer, TreeSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-            SortedSet<VodDescriptor> bucket = categoryRoutingMap.get(event.getVodDescriptor().getVodAddress().getPartitionIdLength());
+            Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionIdLength());
             bucket.remove(event.getVodDescriptor());
 
             shuffleTimes.remove(event.getTimeoutId().getId());

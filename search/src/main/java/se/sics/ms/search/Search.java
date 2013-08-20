@@ -988,7 +988,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result, self.getAddress().getPartitionId());
+            addSearchResponse(result, self.getAddress().getPartitionIdLength());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -1342,21 +1342,55 @@ public final class Search extends ComponentDefinition {
         if(newEntry.getLeaderId() == null)
             return null;
 
-        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+        //url
+        byte[] urlBytes;
+        if(newEntry.getUrl() != null)
+            urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        else
+            urlBytes = new byte[0];
 
-        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
+        //filename
+        byte[] fileNameBytes;
+        if(newEntry.getFileName() != null)
+            fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        else
+            fileNameBytes = new byte[0];
+
+        //language
+        byte[] languageBytes;
+        if(newEntry.getLanguage() != null)
+            languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        else
+            languageBytes = new byte[0];
+
+        //description
+        byte[] descriptionBytes;
+        if(newEntry.getDescription() != null)
+            descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+        else
+            descriptionBytes = new byte[0];
+
+        ByteBuffer dataBuffer;
+        if(newEntry.getUploaded() != null)
+            dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                    languageBytes.length + descriptionBytes.length);
+        else
+            dataBuffer = ByteBuffer.allocate(8 * 2 + 4 + urlBytes.length + fileNameBytes.length +
+                    languageBytes.length + descriptionBytes.length);
         dataBuffer.putLong(newEntry.getId());
         dataBuffer.putLong(newEntry.getFileSize());
-        dataBuffer.putLong(newEntry.getUploaded().getTime());
+        if(newEntry.getUploaded() != null)
+            dataBuffer.putLong(newEntry.getUploaded().getTime());
         dataBuffer.putInt(newEntry.getCategory().ordinal());
-        dataBuffer.put(urlBytes);
-        dataBuffer.put(fileNameBytes);
-        dataBuffer.put(languageBytes);
-        dataBuffer.put(descriptionBytes);
+        if(newEntry.getUrl() != null)
+            dataBuffer.put(urlBytes);
+        if(newEntry.getFileName() != null)
+            dataBuffer.put(fileNameBytes);
+        if(newEntry.getLanguage() != null)
+            dataBuffer.put(languageBytes);
+        if(newEntry.getDescription() != null)
+            dataBuffer.put(descriptionBytes);
+
 
         try {
             return generateRSASignature(dataBuffer.array(), privateKey);
@@ -1391,38 +1425,71 @@ public final class Search extends ComponentDefinition {
     }
 
     private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
-        return true;
-        // TODO fix crash if fields are null
-//        if(newEntry.getLeaderId() == null)
-//            return false;
-//
-//        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-//        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-//        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-//        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-//
-//        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-//                languageBytes.length + descriptionBytes.length);
-//        dataBuffer.putLong(newEntry.getId());
-//        dataBuffer.putLong(newEntry.getFileSize());
-//        dataBuffer.putLong(newEntry.getUploaded().getTime());
-//        dataBuffer.putInt(newEntry.getCategory().ordinal());
-//        dataBuffer.put(urlBytes);
-//        dataBuffer.put(fileNameBytes);
-//        dataBuffer.put(languageBytes);
-//        dataBuffer.put(descriptionBytes);
-//
-//        try {
-//            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
-//        } catch (NoSuchAlgorithmException e) {
-//            logger.error(e.getMessage());
-//        } catch (SignatureException e) {
-//            logger.error(e.getMessage());
-//        } catch (InvalidKeyException e) {
-//            logger.error(e.getMessage());
-//        }
-//
-//        return false;
+//        return true;
+        if(newEntry.getLeaderId() == null)
+            return false;
+
+        //url
+        byte[] urlBytes;
+        if(newEntry.getUrl() != null)
+            urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        else
+            urlBytes = new byte[0];
+
+        //filename
+        byte[] fileNameBytes;
+        if(newEntry.getFileName() != null)
+            fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        else
+            fileNameBytes = new byte[0];
+
+        //language
+        byte[] languageBytes;
+        if(newEntry.getLanguage() != null)
+            languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        else
+            languageBytes = new byte[0];
+
+        //description
+        byte[] descriptionBytes;
+        if(newEntry.getDescription() != null)
+            descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+        else
+            descriptionBytes = new byte[0];
+
+        ByteBuffer dataBuffer;
+        if(newEntry.getUploaded() != null)
+            dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        else
+            dataBuffer = ByteBuffer.allocate(8 * 2 + 4 + urlBytes.length + fileNameBytes.length +
+                    languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        if(newEntry.getUploaded() != null)
+            dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        if(newEntry.getUrl() != null)
+            dataBuffer.put(urlBytes);
+        if(newEntry.getFileName() != null)
+            dataBuffer.put(fileNameBytes);
+        if(newEntry.getLanguage() != null)
+            dataBuffer.put(languageBytes);
+        if(newEntry.getDescription() != null)
+            dataBuffer.put(descriptionBytes);
+
+
+        try {
+            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return false;
     }
 
     private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
