@@ -509,10 +509,12 @@ public final class Gradient extends ComponentDefinition {
                 }
 
                 // If the lowest returned nodes is an announced leader, increment it's counter
-                VodDescriptor first = higherUtilityNodes.get(0);
-                if (locatedLeaders.containsKey(first.getVodAddress())) {
-                    Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress()) + 1;
-                    locatedLeaders.put(first.getVodAddress(), numberOfAnswers);
+                if(higherUtilityNodes.size() > 0) {
+                    VodDescriptor first = higherUtilityNodes.get(0);
+                    if (locatedLeaders.containsKey(first.getVodAddress())) {
+                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress()) + 1;
+                        locatedLeaders.put(first.getVodAddress(), numberOfAnswers);
+                    }
                 }
 
                 Iterator<VodDescriptor> iterator = higherUtilityNodes.iterator();
@@ -704,6 +706,8 @@ public final class Gradient extends ComponentDefinition {
     final Handler<PartitionMessage> handlePartitionMessage = new Handler<PartitionMessage>() {
         @Override
         public void handle(PartitionMessage partitionMessage) {
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+
             for(VodDescriptor node : gradientView.getLowerUtilityNodes())
                 trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), partitionMessage.getRequestId(), partitionMessage.getMedianId(), partitionMessage.getPartitionsNumber()), networkPort);
         }
@@ -722,6 +726,8 @@ public final class Gradient extends ComponentDefinition {
             if(partitionRequestList.size() > config.getMaxPartitionHistorySize())
                 partitionRequestList.remove(partitionRequestList.get(0));
             partitionRequestList.add(partitioningMessage.getRequestId());
+
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
             for(VodDescriptor node : gradientView.getLowerUtilityNodes())
                 trigger(new PartitioningMessage(partitioningMessage.getVodSource(), node.getVodAddress(), partitioningMessage.getRequestId(), partitioningMessage.getMiddleEntryId(), partitioningMessage.getPartitionsNumber()), networkPort);

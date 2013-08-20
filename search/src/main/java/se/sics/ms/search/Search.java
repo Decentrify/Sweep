@@ -923,6 +923,8 @@ public final class Search extends ComponentDefinition {
         public void handle(LeaderStatusPort.LeaderStatus event) {
             leader = event.isLeader();
 
+
+
             if(!leader) return;
 
             trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
