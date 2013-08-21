@@ -11,6 +11,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
@@ -259,6 +260,8 @@ public class ElectionLeader extends ComponentDefinition {
 				trigger(timeout, timerPort);
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+
+                System.out.println(self.getId() + " " + ((MsSelfImpl)self).getPartitionId() + " I am the leader");
 			}
 		} else {
 			rejected();

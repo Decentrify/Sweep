@@ -5,8 +5,11 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.configuration.MsConfig;
 
 
 /**
@@ -89,6 +92,10 @@ public class GradientView {
 		}
 	}
 
+    public void setChanged() {
+        changed = true;
+    }
+
 	/**
 	 * Remove a node from the view.
 	 * 
@@ -133,6 +140,15 @@ public class GradientView {
 	 *            the nodes to be merged
 	 */
 	protected void merge(Collection<VodDescriptor> vodDescriptors) {
+        //leave vodDescriptors only from your partition
+        ArrayList<VodDescriptor> allDescriptors = new ArrayList<VodDescriptor>(vodDescriptors);
+        for(VodDescriptor descriptor : allDescriptors) {
+            LinkedList<Boolean> currentPartition = ((MsSelfImpl)self).getPartitionId();
+            if(!descriptor.getPartitionId().equals(currentPartition))
+                vodDescriptors.remove(descriptor);
+        }
+
+
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 

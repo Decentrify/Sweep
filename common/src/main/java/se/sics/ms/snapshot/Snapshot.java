@@ -165,6 +165,13 @@ public class Snapshot {
 		latestIds.put(partition, id);
 	}
 
+    public static synchronized void addPartition(int partition) {
+        Long lastId = latestIds.get(partition);
+        if (lastId == null) {
+            latestIds.put(partition, Long.MIN_VALUE);
+        }
+    }
+
     public static synchronized void incrementReceivedAddRequests() {
         receivedAddRequests++;
     }

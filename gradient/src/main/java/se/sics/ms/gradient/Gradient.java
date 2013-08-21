@@ -23,6 +23,7 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.messages.*;
+import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 
@@ -712,6 +713,8 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
+            gradientView.setChanged();
+
             determineYourPartition(partitionMessage.getPartitionsNumber());
         }
     };
@@ -735,6 +738,8 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
+            gradientView.setChanged();
+
             determineYourPartition(partitioningMessage.getPartitionsNumber());
         }
     };
@@ -751,6 +756,8 @@ public final class Gradient extends ComponentDefinition {
             ((MsSelfImpl)self).setPartitionsNumber(2);
 
             clearViewForNewOverlay(partitionSubId);
+
+            Snapshot.addPartition(nodeId & 1);
         }
         else {
             LinkedList partitionId = ((MsSelfImpl)self).getPartitionId();
@@ -758,9 +765,12 @@ public final class Gradient extends ComponentDefinition {
 
             boolean partitionSubId = (nodeId & (1 << partitionIdLength)) == 0;
             partitionId.addFirst(partitionSubId);
-            ((MsSelfImpl)self).setPartitionsNumber(partitionsNumber+1);
+            int newNumber = partitionsNumber+1;
+            ((MsSelfImpl)self).setPartitionsNumber(newNumber);
 
             clearViewForNewOverlay(partitionSubId);
+
+            Snapshot.addPartition(nodeId & (1 << partitionIdLength));
         }
     }
 
