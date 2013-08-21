@@ -294,6 +294,12 @@ public final class Search extends ComponentDefinition {
 
             minStoredId = getMinStoredIdFromLucene();
             maxStoredId = getMaxStoredIdFromLucene();
+
+            if(minStoredId > maxStoredId) {
+                long temp = minStoredId;
+                minStoredId = maxStoredId;
+                maxStoredId = temp;
+            }
         }
     };
 
