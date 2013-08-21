@@ -502,6 +502,8 @@ public final class Search extends ComponentDefinition {
     final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
+            //drop response from another partition
+
             // Drop old responses
             if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
                 return;
@@ -1118,6 +1120,14 @@ public final class Search extends ComponentDefinition {
     final Handler<RemoveEntriesNotFromYourPartition> handleRemoveEntriesNotFromYourPartition = new Handler<RemoveEntriesNotFromYourPartition>() {
         @Override
         public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
+            intersection = new HashSet<IndexHash>();
+            if (intersection.isEmpty()) {
+                CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+                trigger(cancelTimeout, timerPort);
+                exchangeInProgress = false;
+                return;
+            }
+
             if(removeEntriesNotFromYourPartition.isPartition())
                 deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
             else
