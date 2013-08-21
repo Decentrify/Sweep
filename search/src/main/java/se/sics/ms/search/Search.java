@@ -486,7 +486,9 @@ public final class Search extends ComponentDefinition {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
                 for (Id id : event.getIds()) {
                     // TODO use the leader id to search
-                    indexEntries.add(findById(id.getId()));
+                    IndexEntry entry = findById(id.getId());
+                    if(entry != null)
+                        indexEntries.add(entry);
                 }
 
                 trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), networkPort);
@@ -502,8 +504,6 @@ public final class Search extends ComponentDefinition {
     final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
-            //drop response from another partition
-
             // Drop old responses
             if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
                 return;
@@ -1120,13 +1120,10 @@ public final class Search extends ComponentDefinition {
     final Handler<RemoveEntriesNotFromYourPartition> handleRemoveEntriesNotFromYourPartition = new Handler<RemoveEntriesNotFromYourPartition>() {
         @Override
         public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
-            intersection = new HashSet<IndexHash>();
-            if (intersection.isEmpty()) {
-                CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
-                trigger(cancelTimeout, timerPort);
-                exchangeInProgress = false;
-                return;
-            }
+            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+            trigger(cancelTimeout, timerPort);
+            indexExchangeTimeout = null;
+            exchangeInProgress = false;
 
             if(removeEntriesNotFromYourPartition.isPartition())
                 deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
@@ -1142,7 +1139,15 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
-            System.out.println(minStoredId + " " + maxStoredId);
+            int partitionLength =  ((MsSelfImpl)self).getPartitionId().size();
+            int partitionId = 0;
+            for(int i = 0; i<partitionLength; i++) {
+                int nodeId = self.getId();
+
+                partitionId = partitionId ^ (nodeId & (1 << i));
+            }
+
+            Snapshot.resetPartitionHighestId(partitionId, maxStoredId);
         }
     };
 

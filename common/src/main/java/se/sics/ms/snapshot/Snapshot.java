@@ -165,6 +165,10 @@ public class Snapshot {
 		latestIds.put(partition, id);
 	}
 
+    public static synchronized void resetPartitionHighestId(int partition, long id) {
+            latestIds.put(partition, id);
+    }
+
     public static synchronized void addPartition(int partition) {
         Long lastId = latestIds.get(partition);
         if (lastId == null) {

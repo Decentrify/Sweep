@@ -375,6 +375,7 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
             // Random addId used for finding the right partition
             int addId = random.nextInt(Integer.MAX_VALUE);
+
             event.getEntry().setId(addId);
 
             IndexEntry.Category selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());

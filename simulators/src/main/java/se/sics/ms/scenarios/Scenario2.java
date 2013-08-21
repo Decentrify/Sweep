@@ -13,7 +13,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess joinNodes = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(100));
-					raise(30, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+					raise(40, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
                 }
 			};
 
