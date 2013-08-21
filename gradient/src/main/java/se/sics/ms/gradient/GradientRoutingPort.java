@@ -18,6 +18,7 @@ public class GradientRoutingPort extends PortType {
         negative(ViewSizeMessage.Request.class);
         positive(ViewSizeMessage.Response.class);
         negative(PartitionMessage.class);
+        positive(RemoveEntriesNotFromYourPartition.class);
 	}
 
     public static class AddIndexEntryRequest extends Event {

@@ -218,6 +218,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
+        subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
     }
 
     /**
@@ -294,6 +295,8 @@ public final class Search extends ComponentDefinition {
 
             minStoredId = getMinStoredIdFromLucene();
             maxStoredId = getMaxStoredIdFromLucene();
+
+
 
             if(minStoredId > maxStoredId) {
                 long temp = minStoredId;
@@ -1108,6 +1111,29 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
+    /**
+     * Removes IndexEntries that don't belong to your partition after a partition splits into two
+     */
+    final Handler<RemoveEntriesNotFromYourPartition> handleRemoveEntriesNotFromYourPartition = new Handler<RemoveEntriesNotFromYourPartition>() {
+        @Override
+        public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
+            if(removeEntriesNotFromYourPartition.isPartition())
+                deleteDocumentsWithIdLessThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
+
+            minStoredId = getMinStoredIdFromLucene();
+            maxStoredId = getMaxStoredIdFromLucene();
+
+            if(maxStoredId < minStoredId) {
+                long temp = maxStoredId;
+                maxStoredId = minStoredId;
+                minStoredId = temp;
+            }
+
+            System.out.println(minStoredId + " " + maxStoredId);
+        }
+    };
+
     /**
      * Add the given {@link IndexEntry}s to the given Lucene directory
      *
@@ -1229,12 +1255,15 @@ public final class Search extends ComponentDefinition {
         }
 
         //update the counter, so we can check if partitioning is necessary
-        maxStoredId++;
         if(leader)
             checkPartitioning();
+
+        maxStoredId++;
     }
 
     private void checkPartitioning() {
+        long max = getMaxStoredIdFromLucene();
+
         long numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
 
         if(numberOfEntries < config.getMaxEntriesOnPeer())
@@ -1552,5 +1581,42 @@ public final class Search extends ComponentDefinition {
         }
 
         return 0;
+    }
+
+    /**
+     * Deletes all documents from the index with ids less or equal then id
+     * @param id
+     * @param bottom
+     * @param top
+     * @return
+     */
+    private boolean deleteDocumentsWithIdLessThen(long id, long bottom, long top) {
+        IndexWriter writer;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            if(bottom < top) {
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+                writer.deleteDocuments(query);
+                writer.commit();
+                return true;
+            }
+            else {
+                if(id < bottom) {
+                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, Long.MAX_VALUE - 1, true, true);
+                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, id, true, true);
+                    writer.deleteDocuments(query1, query2);
+                }
+                else {
+                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+                    writer.deleteDocuments(query);
+                }
+                writer.commit();
+                return true;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 }

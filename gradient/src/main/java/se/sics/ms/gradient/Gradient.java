@@ -715,7 +715,8 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.setChanged();
 
-            determineYourPartition(partitionMessage.getPartitionsNumber());
+            boolean partition = determineYourPartition(partitionMessage.getPartitionsNumber());
+            trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
     };
 
@@ -740,11 +741,12 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.setChanged();
 
-            determineYourPartition(partitioningMessage.getPartitionsNumber());
+            boolean partition = determineYourPartition(partitioningMessage.getPartitionsNumber());
+            trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
         }
     };
 
-    private void determineYourPartition(int partitionsNumber) {
+    private boolean determineYourPartition(int partitionsNumber) {
         int nodeId = self.getId();
         if(partitionsNumber == 1) {
             boolean partitionSubId = (nodeId & 1) == 0;
@@ -758,6 +760,8 @@ public final class Gradient extends ComponentDefinition {
             clearViewForNewOverlay(partitionSubId);
 
             Snapshot.addPartition(nodeId & 1);
+
+            return partitionSubId;
         }
         else {
             LinkedList partitionId = ((MsSelfImpl)self).getPartitionId();
@@ -771,6 +775,8 @@ public final class Gradient extends ComponentDefinition {
             clearViewForNewOverlay(partitionSubId);
 
             Snapshot.addPartition(nodeId & (1 << partitionIdLength));
+
+            return partitionSubId;
         }
     }
 
