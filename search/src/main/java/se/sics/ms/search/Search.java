@@ -1119,6 +1119,8 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
             if(removeEntriesNotFromYourPartition.isPartition())
+                deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
+            else
                 deleteDocumentsWithIdLessThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
 
             minStoredId = getMinStoredIdFromLucene();
@@ -1608,6 +1610,43 @@ public final class Search extends ComponentDefinition {
                 }
                 else {
                     Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+                    writer.deleteDocuments(query);
+                }
+                writer.commit();
+                return true;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    /**
+     * Deletes all documents from the index with ids bigger then id (not including)
+     * @param id
+     * @param bottom
+     * @param top
+     * @return
+     */
+    private boolean deleteDocumentsWithIdMoreThen(long id, long bottom, long top) {
+        IndexWriter writer;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            if(bottom < top) {
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
+                writer.deleteDocuments(query);
+                writer.commit();
+                return true;
+            }
+            else {
+                if(id >= top) {
+                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, Long.MAX_VALUE - 1, true, true);
+                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, top, true, true);
+                    writer.deleteDocuments(query1, query2);
+                }
+                else {
+                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
                     writer.deleteDocuments(query);
                 }
                 writer.commit();
