@@ -219,6 +219,7 @@ public final class Gradient extends ComponentDefinition {
             trigger(rResponse, networkPort);
 
             gradientView.merge(vodDescriptors);
+
             sendGradientViewChange();
         }
     };
@@ -253,6 +254,7 @@ public final class Gradient extends ComponentDefinition {
         if (gradientView.isChanged()) {
             // Create a copy so components don't affect each other
             SortedSet<VodDescriptor> view = new TreeSet<VodDescriptor>(gradientView.getAll());
+
             trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
         }
     }
@@ -723,6 +725,9 @@ public final class Gradient extends ComponentDefinition {
             gradientView.setChanged();
 
             boolean partition = determineYourPartition(partitionMessage.getPartitionsNumber());
+
+            gradientView.adjustViewToNewPartitions(partitionMessage.getPartitionsNumber() == 1 ? true : false);
+
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
     };
@@ -748,8 +753,11 @@ public final class Gradient extends ComponentDefinition {
 
             gradientView.setChanged();
 
+
+
             boolean partition = determineYourPartition(partitioningMessage.getPartitionsNumber());
 
+            gradientView.adjustViewToNewPartitions(partitioningMessage.getPartitionsNumber() == 1 ? true : false);
 
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);

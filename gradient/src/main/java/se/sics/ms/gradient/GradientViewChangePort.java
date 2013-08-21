@@ -1,10 +1,7 @@
 package se.sics.ms.gradient;
 
-import java.util.ArrayList;
 import java.util.SortedSet;
-
 import se.sics.gvod.common.VodDescriptor;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 

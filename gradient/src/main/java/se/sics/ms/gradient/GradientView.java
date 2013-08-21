@@ -140,15 +140,6 @@ public class GradientView {
 	 *            the nodes to be merged
 	 */
 	protected void merge(Collection<VodDescriptor> vodDescriptors) {
-        //leave vodDescriptors only from your partition
-        ArrayList<VodDescriptor> allDescriptors = new ArrayList<VodDescriptor>(vodDescriptors);
-        for(VodDescriptor descriptor : allDescriptors) {
-            LinkedList<Boolean> currentPartition = ((MsSelfImpl)self).getPartitionId();
-            if(!descriptor.getPartitionId().equals(currentPartition))
-                vodDescriptors.remove(descriptor);
-        }
-
-
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
@@ -171,6 +162,37 @@ public class GradientView {
             converged = false;
         }
 	}
+
+    protected void adjustViewToNewPartitions(boolean isFirstSplit) {
+        int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
+
+        //calculate partitionIds
+        for(VodDescriptor descriptor : entries) {
+            int nodeId = descriptor.getId();
+
+            boolean partition = (nodeId & (1 << bitToCheck)) == 0;
+
+            if(isFirstSplit) {
+                LinkedList<Boolean> partitionId  = new LinkedList<Boolean>();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionId(partitionId);
+                descriptor.setPartitionsNumber(2);
+            }
+            else {
+                LinkedList<Boolean> partitionId = descriptor.getPartitionId();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionsNumber(descriptor.getPartitionsNumber()+1);
+            }
+        }
+
+        //remove all peers not from your overlay
+        VodDescriptor[] temp = entries.toArray(new VodDescriptor[entries.size()]);
+        for(VodDescriptor descriptor : temp) {
+            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
+                entries.remove(descriptor);
+            }
+        }
+    }
 
 	/**
 	 * Return the number most preferred nodes for the given vodDescriptor.

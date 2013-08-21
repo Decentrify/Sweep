@@ -13,6 +13,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
@@ -20,6 +21,8 @@ import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.messages.*;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.Set;
 import java.util.SortedSet;
 
@@ -125,6 +128,7 @@ public class ElectionFollower extends ComponentDefinition {
     };
 
     private VodDescriptor getHighestUtilityNode() {
+        //removeNodesFromOtherPartitions();
         VodDescriptor vodDescriptor;
         if (higherUtilityNodes.size() != 0) {
             vodDescriptor = higherUtilityNodes.last();
@@ -136,6 +140,7 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     private VodDescriptor getHighestUtilityNode(VodDescriptor vodDescriptor) {
+        //removeNodesFromOtherPartitions();
         if (higherUtilityNodes.size() != 0) {
             vodDescriptor = utilityComparator.compare(higherUtilityNodes.last(), vodDescriptor) == 1 ? higherUtilityNodes.last() : vodDescriptor;
         } else {
@@ -143,6 +148,16 @@ public class ElectionFollower extends ComponentDefinition {
         }
 
         return  vodDescriptor;
+    }
+
+    private void removeNodesFromOtherPartitions() {
+        VodDescriptor[] descriptors = higherUtilityNodes.toArray(new VodDescriptor[higherUtilityNodes.size()]);
+
+        for(VodDescriptor descriptor : descriptors) {
+            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
+                higherUtilityNodes.remove(descriptor);
+            }
+        }
     }
 
     /**
@@ -313,8 +328,49 @@ public class ElectionFollower extends ComponentDefinition {
             leader = null;
             leaderView = null;
             leaderIsAlive = false;
+
+            cancelHeartbeatTimeout();
+
+            adjustViewToNewPartitions(higherUtilityNodes);
+            adjustViewToNewPartitions(leaderView);
         }
     };
+
+    private void adjustViewToNewPartitions(Set<VodDescriptor> entries) {
+        if(entries == null)
+            return;
+
+        int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
+
+        boolean isFirstSplit = self.getDescriptor().getPartitionsNumber() == 1 ? true : false;
+
+        //calculate partitionIds
+        for(VodDescriptor descriptor : entries) {
+            int nodeId = descriptor.getId();
+
+            boolean partition = (nodeId & (1 << bitToCheck)) == 0;
+
+            if(isFirstSplit) {
+                LinkedList<Boolean> partitionId  = new LinkedList<Boolean>();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionId(partitionId);
+                descriptor.setPartitionsNumber(2);
+            }
+            else {
+                LinkedList<Boolean> partitionId = descriptor.getPartitionId();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionsNumber(descriptor.getPartitionsNumber()+1);
+            }
+        }
+
+        //remove all peers not from your overlay
+        VodDescriptor[] temp = entries.toArray(new VodDescriptor[entries.size()]);
+        for(VodDescriptor descriptor : temp) {
+            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
+                entries.remove(descriptor);
+            }
+        }
+    }
 
     /**
      * Counts the votes from its leader death election

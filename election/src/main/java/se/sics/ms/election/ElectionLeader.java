@@ -23,6 +23,9 @@ import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Set;
 import java.util.SortedSet;
 
 /**
@@ -218,8 +221,48 @@ public class ElectionLeader extends ComponentDefinition {
             iAmLeader = false;
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+
+            adjustViewToNewPartitions(higherUtilityNodes);
+            adjustViewToNewPartitions(lowerUtilityNodes);
+
         }
     };
+
+    private void adjustViewToNewPartitions(Set<VodDescriptor> entries) {
+        if(entries == null)
+            return;
+
+        int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
+
+        boolean isFirstSplit = self.getDescriptor().getPartitionsNumber() == 1;
+
+        //calculate partitionIds
+        for(VodDescriptor descriptor : entries) {
+            int nodeId = descriptor.getId();
+
+            boolean partition = (nodeId & (1 << bitToCheck)) == 0;
+
+            if(isFirstSplit) {
+                LinkedList<Boolean> partitionId  = new LinkedList<Boolean>();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionId(partitionId);
+                descriptor.setPartitionsNumber(2);
+            }
+            else {
+                LinkedList<Boolean> partitionId = descriptor.getPartitionId();
+                partitionId.addFirst(partition);
+                descriptor.setPartitionsNumber(descriptor.getPartitionsNumber()+1);
+            }
+        }
+
+        //remove all peers not from your overlay
+        VodDescriptor[] temp = entries.toArray(new VodDescriptor[entries.size()]);
+        for(VodDescriptor descriptor : temp) {
+            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
+                entries.remove(descriptor);
+            }
+        }
+    }
 
 	/**
 	 * This class counts the votes. If the node is elected as a leader it will
