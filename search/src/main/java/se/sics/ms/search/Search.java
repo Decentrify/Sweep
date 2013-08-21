@@ -1139,7 +1139,9 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
-            int partitionLength =  ((MsSelfImpl)self).getPartitionId().size();
+            nextInsertionId = maxStoredId+1;
+
+            int partitionLength = ((MsSelfImpl)self).getPartitionId().size();
             int partitionId = 0;
             for(int i = 0; i<partitionLength; i++) {
                 int nodeId = self.getId();

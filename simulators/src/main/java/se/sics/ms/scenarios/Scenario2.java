@@ -39,6 +39,13 @@ public class Scenario2 extends Scenario {
                 }
             };
 
+            StochasticProcess addEntries2 = new StochasticProcess() {
+                {
+                    eventInterArrivalTime(constant(2000));
+                    raise(50, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                }
+            };
+
             StochasticProcess search = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(2000));
@@ -52,6 +59,7 @@ public class Scenario2 extends Scenario {
 //          search.startAfterTerminationOf(10000, addEntries);
 
             addEntries1.startAfterTerminationOf(1000000, addEntries);
+            addEntries2.startAfterStartOf(100000, addEntries1);
 		}
 	};
 
