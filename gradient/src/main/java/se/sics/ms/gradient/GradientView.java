@@ -10,6 +10,7 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.PartitionHelper;
 
 
 /**
@@ -186,68 +187,8 @@ public class GradientView {
         }
 	}
 
-    protected void adjustViewToNewPartitions(boolean isFirstSplit) {
-//        if(!isFirstSplit) {
-//            int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
-//
-//            for(VodDescriptor descriptor : entries) {
-//                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-//
-//                for(int i=0; i<bitsToCheck; i++) {
-//                    partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
-//                }
-//
-//                descriptor.setPartitionId(partitionId);
-//                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-//            }
-//        }
-//        else {
-//            for(VodDescriptor descriptor : entries) {
-//                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-//                partitionId.addFirst(false);
-//
-//                descriptor.setPartitionId(partitionId);
-//                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-//            }
-//        }
-//
-//        Iterator<VodDescriptor> iterator = entries.iterator();
-//        while (iterator.hasNext()) {
-//            VodDescriptor next = iterator.next();
-//            if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
-//                iterator.remove();
-//            }
-//        }
-
-
-        int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
-
-        //calculate partitionIds
-        for(VodDescriptor descriptor : entries) {
-            int nodeId = descriptor.getId();
-
-            boolean partition = (nodeId & (1 << bitToCheck)) == 0;
-
-            if(isFirstSplit) {
-                LinkedList<Boolean> partitionId  = new LinkedList<Boolean>();
-                partitionId.addFirst(partition);
-                descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(2);
-            }
-            else {
-                LinkedList<Boolean> partitionId = descriptor.getPartitionId();
-                partitionId.addFirst(partition);
-                descriptor.setPartitionsNumber(descriptor.getPartitionsNumber()+1);
-            }
-        }
-
-        //remove all peers not from your overlay
-        VodDescriptor[] temp = entries.toArray(new VodDescriptor[entries.size()]);
-        for(VodDescriptor descriptor : temp) {
-            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
-                entries.remove(descriptor);
-            }
-        }
+    protected void adjustViewToNewPartitions() {
+        PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, entries);
     }
 
 	/**

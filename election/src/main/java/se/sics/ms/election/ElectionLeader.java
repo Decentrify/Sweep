@@ -27,6 +27,8 @@ import se.sics.ms.timeout.IndividualTimeout;
 
 import java.util.*;
 
+import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
+
 /**
  * This component contains functions for how a node will find out if it is the
  * leader. It also contains functions that a leader needs in order to perform
@@ -116,7 +118,7 @@ public class ElectionLeader extends ComponentDefinition {
 			for (VodDescriptor node : lowerUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
 			}
-			Snapshot.setCurrentView(self.getAddress(), builder.toString());
+			Snapshot.setCurrentView(self.getDescriptor(), builder.toString());
 
 			if (event.isConverged()
 					&& !iAmLeader
@@ -221,48 +223,10 @@ public class ElectionLeader extends ComponentDefinition {
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-            adjustViewToNewPartitions(higherUtilityNodes);
-            adjustViewToNewPartitions(lowerUtilityNodes);
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, lowerUtilityNodes);
         }
     };
-
-    private void adjustViewToNewPartitions(Set<VodDescriptor> entries) {
-        if(entries == null)
-            return;
-
-        boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
-        if(!isOnePartition) {
-            int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
-
-            for(VodDescriptor descriptor : entries) {
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-
-                for(int i=0; i<bitsToCheck; i++) {
-                    partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
-                }
-
-                descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-        }
-        else {
-            for(VodDescriptor descriptor : entries) {
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-                partitionId.addFirst(false);
-
-                descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-        }
-
-        Iterator<VodDescriptor> iterator = entries.iterator();
-        while (iterator.hasNext()) {
-            VodDescriptor next = iterator.next();
-            if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
-                iterator.remove();
-            }
-        }
-    }
 
 	/**
 	 * This class counts the votes. If the node is elected as a leader it will
@@ -290,8 +254,7 @@ public class ElectionLeader extends ComponentDefinition {
 				for (VodDescriptor node : lowerUtilityNodes) {
 					builder.append(node.getVodAddress().getId() + " ");
 				}
-				Snapshot.setElectionView(self.getAddress(), builder.toString());
-				Snapshot.setLeaderStatus(self.getAddress(), true);
+				Snapshot.setElectionView(self.getDescriptor(), builder.toString());
 
 				variableReset();
 				iAmLeader = true;
@@ -303,6 +266,8 @@ public class ElectionLeader extends ComponentDefinition {
 				trigger(timeout, timerPort);
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+
+                Snapshot.setLeaderStatus(self.getDescriptor(), true);
 
                 System.out.println(self.getId() + " " + ((MsSelfImpl)self).getPartitionId() + " I am the leader");
 			}
@@ -381,7 +346,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private void rejected() {
         iAmLeader = false;
         trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-        Snapshot.setLeaderStatus(self.getAddress(), false);
+        Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
 }

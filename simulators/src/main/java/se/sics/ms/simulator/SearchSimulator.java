@@ -231,7 +231,7 @@ public final class SearchSimulator extends ComponentDefinition {
         peers.put(id, peer);
         peersAddress.put(id, self.getAddress());
 
-        Snapshot.addPeer(self.getAddress());
+        Snapshot.addPeer(self.getDescriptor());
     }
 
     private void stopAndDestroyPeer(Long id) {

@@ -25,6 +25,8 @@ import se.sics.ms.messages.*;
 
 import java.util.*;
 
+import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
+
 /**
  * This class contains functions for those nodes that are directly following a
  * leader. Such functions range from leader election to how to handle the
@@ -179,6 +181,9 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderViewMessage event) {
             VodDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderVodDescriptor());
 
+            if(!highestUtilityNode.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
+                highestUtilityNode = event.getLeaderVodDescriptor();
+
             if (leader == null) {
                 if (event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
                     acceptLeader(event.getLeaderVodDescriptor(), event.getVodDescriptors());
@@ -330,48 +335,10 @@ public class ElectionFollower extends ComponentDefinition {
 
             cancelHeartbeatTimeout();
 
-            adjustViewToNewPartitions(higherUtilityNodes);
-            adjustViewToNewPartitions(leaderView);
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, leaderView);
         }
     };
-
-    private void adjustViewToNewPartitions(Set<VodDescriptor> entries) {
-        if(entries == null)
-            return;
-
-        boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
-        if(!isOnePartition) {
-            int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
-
-            for(VodDescriptor descriptor : entries) {
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-
-                for(int i=0; i<bitsToCheck; i++) {
-                    partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
-                }
-
-                descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-        }
-        else {
-            for(VodDescriptor descriptor : entries) {
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-                partitionId.addFirst(false);
-
-                descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-        }
-
-        Iterator<VodDescriptor> iterator = entries.iterator();
-        while (iterator.hasNext()) {
-            VodDescriptor next = iterator.next();
-            if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
-                iterator.remove();
-            }
-        }
-    }
 
     /**
      * Counts the votes from its leader death election

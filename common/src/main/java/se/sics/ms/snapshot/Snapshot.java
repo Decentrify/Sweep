@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import se.sics.gvod.address.Address;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 
 /**
@@ -15,7 +16,7 @@ import se.sics.gvod.net.VodAddress;
  * information in a log file.
  */
 public class Snapshot {
-	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
+	private static SortedMap<VodDescriptor, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodDescriptor, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
     private static ConcurrentHashMap<Integer, Long> latestIds = new ConcurrentHashMap<Integer, Long>();
@@ -23,7 +24,7 @@ public class Snapshot {
     private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
     private static int failedAddRequests = 0;
-	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
+	private static ConcurrentSkipListSet<VodDescriptor> oldLeaders = new ConcurrentSkipListSet<VodDescriptor>();
 
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
@@ -35,7 +36,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void addPeer(VodAddress address) {
+	public static void addPeer(VodDescriptor address) {
 		peers.put(address, new PeerInfo());
 	}
 
@@ -55,7 +56,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void incNumIndexEntries(VodAddress address) {
+	public static void incNumIndexEntries(VodDescriptor address) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -91,7 +92,7 @@ public class Snapshot {
 	 * @param leader
 	 *            the leader status
 	 */
-	public static void setLeaderStatus(VodAddress address, boolean leader) {
+	public static void setLeaderStatus(VodDescriptor address, boolean leader) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (leader) {
@@ -113,7 +114,7 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the Gradient view
 	 */
-	public static void setElectionView(VodAddress address, String view) {
+	public static void setElectionView(VodDescriptor address, String view) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -131,7 +132,7 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the Gradient view
 	 */
-	public static void setCurrentView(VodAddress address, String view) {
+	public static void setCurrentView(VodDescriptor address, String view) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -248,13 +249,13 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLeaders(StringBuilder builder) {
-		for (VodAddress p : peers.keySet()) {
+		for (VodDescriptor p : peers.keySet()) {
 			PeerInfo info = peers.get(p);
             if(info == null) continue;
 			if (info.isLeader()) {
 				builder.append(p.getId());
 				builder.append(" is leader of partition ");
-                builder.append(p.getPartitionIdLength());
+                builder.append(p.getPartitionId());
                 builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());
 				builder.append("\n\tIts current view is: ");
@@ -274,11 +275,11 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportDetails(StringBuilder builder) {
-        VodAddress maxPeer = null;
-        VodAddress minPeer = null;
+        VodDescriptor maxPeer = null;
+        VodDescriptor minPeer = null;
 		long maxNumIndexEntries = 0;
 		long minNumIndexEntries = Integer.MAX_VALUE;
-		for (VodAddress node : peers.keySet()) {
+		for (VodDescriptor node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
             if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
@@ -350,7 +351,7 @@ public class Snapshot {
 	 */
 	private static void reportOldLeaders(StringBuilder builder) {
 		builder.append("Nodes that have been leader:\n");
-		for (VodAddress node : oldLeaders) {
+		for (VodDescriptor node : oldLeaders) {
 			PeerInfo peer = peers.get(node);
 			builder.append("\t" + node.getId());
 			builder.append(" was leader with gradient view: ");

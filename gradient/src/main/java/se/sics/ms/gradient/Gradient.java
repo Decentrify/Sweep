@@ -26,6 +26,7 @@ import se.sics.ms.messages.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.util.PartitionHelper;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -288,6 +289,19 @@ public final class Gradient extends ComponentDefinition {
         if (gradientView.isChanged()) {
             // Create a copy so components don't affect each other
             SortedSet<VodDescriptor> view = new TreeSet<VodDescriptor>(gradientView.getAll());
+
+            Iterator<VodDescriptor> iterator = view.iterator();
+            while(iterator.hasNext()) {
+                VodDescriptor next = iterator.next();
+                if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
+                    iterator.remove();
+            }
+
+//            for(VodDescriptor descriptor : view) {
+//                if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
+//                    System.out.println("Meeeeee " + descriptor.getId() + " from " + self.getId());
+//                }
+//            }
 
             trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
         }
@@ -781,9 +795,9 @@ public final class Gradient extends ComponentDefinition {
 
             //gradientView.setChanged();
 
-            boolean partition = determineYourPartition(partitionMessage.getPartitionsNumber());
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitionMessage.getPartitionsNumber());
 
-            gradientView.adjustViewToNewPartitions(partitionMessage.getPartitionsNumber() == 1);
+            gradientView.adjustViewToNewPartitions();
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
@@ -811,19 +825,21 @@ public final class Gradient extends ComponentDefinition {
             //gradientView.setChanged();
 
 
-            boolean partition = determineYourPartition(partitioningMessage.getPartitionsNumber());
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber());
 
-            gradientView.adjustViewToNewPartitions(partitioningMessage.getPartitionsNumber() == 1);
+            gradientView.adjustViewToNewPartitions();
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
         }
     };
 
-    private boolean determineYourPartition(int partitionsNumber) {
+    private boolean determineYourPartitionAndUpdatePartitionsNumber(int partitionsNumber) {
         int nodeId = self.getId();
-        if(partitionsNumber == 1) {
-            boolean partitionSubId = (nodeId & 1) == 0;
 
+        boolean partitionSubId = PartitionHelper.determineYourPartition(nodeId, ((MsSelfImpl)self).getPartitionId(),
+                partitionsNumber == 1);
+
+        if(partitionsNumber == 1) {
             LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
             partitionId.addFirst(partitionSubId);
 
@@ -833,14 +849,11 @@ public final class Gradient extends ComponentDefinition {
             clearViewForNewOverlay(partitionSubId);
 
             Snapshot.addPartition(nodeId & 1);
-
-            return partitionSubId;
         }
         else {
             LinkedList partitionId = ((MsSelfImpl)self).getPartitionId();
             int partitionIdLength = partitionId.size();
 
-            boolean partitionSubId = (nodeId & (1 << partitionIdLength)) == 0;
             partitionId.addFirst(partitionSubId);
             int newNumber = partitionsNumber+1;
             ((MsSelfImpl)self).setPartitionsNumber(newNumber);
@@ -848,9 +861,9 @@ public final class Gradient extends ComponentDefinition {
             clearViewForNewOverlay(partitionSubId);
 
             Snapshot.addPartition(nodeId & (1 << partitionIdLength));
-
-            return partitionSubId;
         }
+
+        return partitionSubId;
     }
 
     private void clearViewForNewOverlay(boolean partitionSubId) {

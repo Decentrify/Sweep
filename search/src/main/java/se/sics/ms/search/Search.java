@@ -104,7 +104,7 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
+    private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
 
     private long minStoredId = Long.MIN_VALUE;
@@ -622,7 +622,7 @@ public final class Search extends ComponentDefinition {
 
             int majoritySize = (int)Math.ceil(viewSize/2) + 1;
 
-            avaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
+            awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
             replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
 
             trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
@@ -1254,7 +1254,7 @@ public final class Search extends ComponentDefinition {
 
         addIndexEntry(index, indexEntry);
         ((MsSelfImpl)self).incrementNumberOfIndexEntries();
-        Snapshot.incNumIndexEntries(self.getAddress());
+        Snapshot.incNumIndexEntries(self.getDescriptor());
 
         // Cancel gap detection timeouts for the given index
         TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
