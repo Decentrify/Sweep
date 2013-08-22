@@ -237,7 +237,41 @@ public final class Gradient extends ComponentDefinition {
                 trigger(ct, timerPort);
             }
 
-            gradientView.merge(event.getVodDescriptors());
+            Collection<VodDescriptor> descriptors = event.getVodDescriptors();
+
+            boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
+            if(!isOnePartition) {
+                int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
+
+                for(VodDescriptor descriptor : descriptors) {
+                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+
+                    for(int i=0; i<bitsToCheck; i++) {
+                        partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
+                    }
+
+                    descriptor.setPartitionId(partitionId);
+                }
+            }
+            else {
+                for(VodDescriptor descriptor : descriptors) {
+                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+                    partitionId.addFirst(false);
+
+                    descriptor.setPartitionId(partitionId);
+                }
+            }
+
+            // Remove all samples from other partitions
+            Iterator<VodDescriptor> iterator = descriptors.iterator();
+            while (iterator.hasNext()) {
+                VodDescriptor next = iterator.next();
+                if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
+                    iterator.remove();
+                }
+            }
+
+            gradientView.merge(descriptors);
             sendGradientViewChange();
 
             long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
@@ -745,11 +779,11 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            gradientView.setChanged();
+            //gradientView.setChanged();
 
             boolean partition = determineYourPartition(partitionMessage.getPartitionsNumber());
 
-            gradientView.adjustViewToNewPartitions(partitionMessage.getPartitionsNumber() == 1 ? true : false);
+            gradientView.adjustViewToNewPartitions(partitionMessage.getPartitionsNumber() == 1);
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
@@ -774,14 +808,12 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            gradientView.setChanged();
-
+            //gradientView.setChanged();
 
 
             boolean partition = determineYourPartition(partitioningMessage.getPartitionsNumber());
 
-            gradientView.adjustViewToNewPartitions(partitioningMessage.getPartitionsNumber() == 1 ? true : false);
-
+            gradientView.adjustViewToNewPartitions(partitioningMessage.getPartitionsNumber() == 1);
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
         }

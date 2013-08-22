@@ -143,8 +143,31 @@ public class GradientView {
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
+        boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
+
 		for (VodDescriptor vodDescriptor : vodDescriptors) {
-			add(vodDescriptor);
+            if(!isOnePartition) {
+                int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
+
+                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+
+                for(int i=0; i<bitsToCheck; i++) {
+                    partitionId.addFirst((vodDescriptor.getId() & (1<<i)) == 0);
+                }
+
+                vodDescriptor.setPartitionId(partitionId);
+                vodDescriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
+            }
+            else {
+                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+                partitionId.addFirst(false);
+
+                vodDescriptor.setPartitionId(partitionId);
+                vodDescriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
+            }
+
+            if(vodDescriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
+			    add(vodDescriptor);
 		}
 
 		oldEntries.retainAll(entries);
@@ -164,6 +187,39 @@ public class GradientView {
 	}
 
     protected void adjustViewToNewPartitions(boolean isFirstSplit) {
+//        if(!isFirstSplit) {
+//            int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
+//
+//            for(VodDescriptor descriptor : entries) {
+//                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+//
+//                for(int i=0; i<bitsToCheck; i++) {
+//                    partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
+//                }
+//
+//                descriptor.setPartitionId(partitionId);
+//                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
+//            }
+//        }
+//        else {
+//            for(VodDescriptor descriptor : entries) {
+//                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+//                partitionId.addFirst(false);
+//
+//                descriptor.setPartitionId(partitionId);
+//                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
+//            }
+//        }
+//
+//        Iterator<VodDescriptor> iterator = entries.iterator();
+//        while (iterator.hasNext()) {
+//            VodDescriptor next = iterator.next();
+//            if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
+//                iterator.remove();
+//            }
+//        }
+
+
         int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
 
         //calculate partitionIds

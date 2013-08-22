@@ -9,6 +9,8 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
@@ -21,10 +23,7 @@ import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.messages.*;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Set;
-import java.util.SortedSet;
+import java.util.*;
 
 /**
  * This class contains functions for those nodes that are directly following a
@@ -333,8 +332,6 @@ public class ElectionFollower extends ComponentDefinition {
 
             adjustViewToNewPartitions(higherUtilityNodes);
             adjustViewToNewPartitions(leaderView);
-
-            System.out.println();
         }
     };
 
@@ -342,37 +339,36 @@ public class ElectionFollower extends ComponentDefinition {
         if(entries == null)
             return;
 
-        int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
+        boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
+        if(!isOnePartition) {
+            int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
 
-        boolean isFirstSplit = self.getDescriptor().getPartitionsNumber() == 2;
+            for(VodDescriptor descriptor : entries) {
+                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
 
-        //calculate partitionIds
-        for(VodDescriptor descriptor : entries) {
-            if(descriptor.getPartitionId().size() == ((MsSelfImpl) self).getPartitionId().size() && !isFirstSplit)
-                continue;
+                for(int i=0; i<bitsToCheck; i++) {
+                    partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
+                }
 
-            int nodeId = descriptor.getId();
-
-            boolean partition = (nodeId & (1 << bitToCheck)) == 0;
-
-            if(isFirstSplit) {
-                LinkedList<Boolean> partitionId  = new LinkedList<Boolean>();
-                partitionId.addFirst(partition);
                 descriptor.setPartitionId(partitionId);
-                descriptor.setPartitionsNumber(2);
+                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
             }
-            else {
-                LinkedList<Boolean> partitionId = descriptor.getPartitionId();
-                partitionId.addFirst(partition);
-                descriptor.setPartitionsNumber(descriptor.getPartitionsNumber()+1);
+        }
+        else {
+            for(VodDescriptor descriptor : entries) {
+                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+                partitionId.addFirst(false);
+
+                descriptor.setPartitionId(partitionId);
+                descriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
             }
         }
 
-        //remove all peers not from your overlay
-        VodDescriptor[] temp = entries.toArray(new VodDescriptor[entries.size()]);
-        for(VodDescriptor descriptor : temp) {
-            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
-                entries.remove(descriptor);
+        Iterator<VodDescriptor> iterator = entries.iterator();
+        while (iterator.hasNext()) {
+            VodDescriptor next = iterator.next();
+            if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
+                iterator.remove();
             }
         }
     }
