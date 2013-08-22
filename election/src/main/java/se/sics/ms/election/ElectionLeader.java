@@ -225,6 +225,8 @@ public class ElectionLeader extends ComponentDefinition {
             adjustViewToNewPartitions(higherUtilityNodes);
             adjustViewToNewPartitions(lowerUtilityNodes);
 
+            System.out.println();
+
         }
     };
 
@@ -234,10 +236,13 @@ public class ElectionLeader extends ComponentDefinition {
 
         int bitToCheck = ((MsSelfImpl)self).getPartitionId().size()-1;
 
-        boolean isFirstSplit = self.getDescriptor().getPartitionsNumber() == 1;
+        boolean isFirstSplit = self.getDescriptor().getPartitionsNumber() == 2;
 
         //calculate partitionIds
         for(VodDescriptor descriptor : entries) {
+            if(descriptor.getPartitionId().size() == ((MsSelfImpl) self).getPartitionId().size() && !isFirstSplit)
+                continue;
+
             int nodeId = descriptor.getId();
 
             boolean partition = (nodeId & (1 << bitToCheck)) == 0;

@@ -288,14 +288,37 @@ public final class Gradient extends ComponentDefinition {
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
 
+            boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
+            if(!isOnePartition) {
+                int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
+
+                for(VodDescriptor descriptor : sample) {
+                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+
+                    for(int i=0; i<bitsToCheck; i++) {
+                        partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
+                    }
+
+                    descriptor.setPartitionId(partitionId);
+                }
+            }
+            else {
+                for(VodDescriptor descriptor : sample) {
+                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+                    partitionId.addFirst(false);
+
+                    descriptor.setPartitionId(partitionId);
+                }
+            }
+
             incrementRoutingTableAge();
             addRoutingTableEntries(sample);
 
             // Remove all samples from other partitions
             Iterator<VodDescriptor> iterator = sample.iterator();
             while (iterator.hasNext()) {
-                // TODO do not access constants
-                if(iterator.next().getVodAddress().getId() % MsConfig.SEARCH_NUM_PARTITIONS != self.getAddress().getPartitionIdLength())  {
+                VodDescriptor next = iterator.next();
+                if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
                     iterator.remove();
                 }
             }

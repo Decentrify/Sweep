@@ -56,4 +56,8 @@ public class MsSelfImpl extends SelfImpl {
     public LinkedList<Boolean> getPartitionId() {
         return partitionId;
     }
+
+    public int getPartitionsNumber() {
+        return partitionsNumber;
+    }
 }
