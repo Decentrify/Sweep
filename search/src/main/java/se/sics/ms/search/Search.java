@@ -826,7 +826,20 @@ public final class Search extends ComponentDefinition {
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
 
                 commitRequests.remove(commitId);
-                Snapshot.addIndexEntryId(self.getAddress().getPartitionIdLength(), replicationCount.getEntry().getId());
+
+                int partitionId = 0;
+                if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
+                    int partitionLength = ((MsSelfImpl)self).getPartitionId().size();
+                    for(int i = 0; i<partitionLength; i++) {
+                        int nodeId = self.getId();
+
+                        partitionId = partitionId ^ (nodeId & (1 << i));
+                    }
+                }
+                else
+
+
+                Snapshot.addIndexEntryId(partitionId, replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }

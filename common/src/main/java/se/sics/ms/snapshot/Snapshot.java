@@ -158,7 +158,7 @@ public class Snapshot {
             return;
         }
 
-		if (id <= lastId.longValue()) {
+		if (id <= lastId.longValue() && id >= minIds.get(partition).longValue()) {
 			idDuplicates.add(id);
 		}
 		maxIds.put(partition, id);
@@ -294,7 +294,7 @@ public class Snapshot {
 				maxPeer = node;
 			}
 		}
-		builder.append(maxPeer == null ? "None" : maxPeer.getId());
+		builder.append(maxPeer == null ? "None" : maxPeer.getId()-minPeer.getId()+1);
 		builder.append(" is the peer with max num of index entries: ");
 		builder.append(maxNumIndexEntries);
 		builder.append("\n");
