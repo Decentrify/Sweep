@@ -297,12 +297,6 @@ public final class Gradient extends ComponentDefinition {
                     iterator.remove();
             }
 
-//            for(VodDescriptor descriptor : view) {
-//                if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
-//                    System.out.println("Meeeeee " + descriptor.getId() + " from " + self.getId());
-//                }
-//            }
-
             trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
         }
     }
