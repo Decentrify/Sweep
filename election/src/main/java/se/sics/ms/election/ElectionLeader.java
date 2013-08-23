@@ -118,7 +118,7 @@ public class ElectionLeader extends ComponentDefinition {
 			for (VodDescriptor node : lowerUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
 			}
-			Snapshot.setCurrentView(self.getDescriptor(), builder.toString());
+			Snapshot.setCurrentView(self.getAddress(), builder.toString());
 
 			if (event.isConverged()
 					&& !iAmLeader
@@ -220,6 +220,11 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
             iAmLeader = false;
+            electionInProgress = false;
+//            higherUtilityNodes.clear();
+//            lowerUtilityNodes.clear();
+            voteTimeoutId = null;
+            heartbeatTimeoutId = null;
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
@@ -254,7 +259,7 @@ public class ElectionLeader extends ComponentDefinition {
 				for (VodDescriptor node : lowerUtilityNodes) {
 					builder.append(node.getVodAddress().getId() + " ");
 				}
-				Snapshot.setElectionView(self.getDescriptor(), builder.toString());
+				Snapshot.setElectionView(self.getAddress(), builder.toString());
 
 				variableReset();
 				iAmLeader = true;
@@ -267,7 +272,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-                Snapshot.setLeaderStatus(self.getDescriptor(), true);
+                Snapshot.setLeaderStatus(self.getAddress(), true, ((MsSelfImpl)self).getPartitionId());
 
                 System.out.println(self.getId() + " " + ((MsSelfImpl)self).getPartitionId() + " I am the leader");
 			}
@@ -346,7 +351,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private void rejected() {
         iAmLeader = false;
         trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-        Snapshot.setLeaderStatus(self.getDescriptor(), false);
+        //Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
 }

@@ -602,6 +602,9 @@ public final class Search extends ComponentDefinition {
 
             IndexEntry newEntry = event.getEntry();
             long id = getNextInsertionId();
+
+            System.out.println(self.getId());
+
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
 
@@ -1149,6 +1152,7 @@ public final class Search extends ComponentDefinition {
                 partitionId = partitionId ^ (nodeId & (1 << i));
             }
 
+            Snapshot.resetPartitionLowestId(partitionId, minStoredId);
             Snapshot.resetPartitionHighestId(partitionId, maxStoredId);
         }
     };
@@ -1254,7 +1258,7 @@ public final class Search extends ComponentDefinition {
 
         addIndexEntry(index, indexEntry);
         ((MsSelfImpl)self).incrementNumberOfIndexEntries();
-        Snapshot.incNumIndexEntries(self.getDescriptor());
+        Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
         TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());

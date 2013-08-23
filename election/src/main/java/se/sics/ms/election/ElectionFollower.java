@@ -151,16 +151,6 @@ public class ElectionFollower extends ComponentDefinition {
         return  vodDescriptor;
     }
 
-    private void removeNodesFromOtherPartitions() {
-        VodDescriptor[] descriptors = higherUtilityNodes.toArray(new VodDescriptor[higherUtilityNodes.size()]);
-
-        for(VodDescriptor descriptor : descriptors) {
-            if(!descriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId())) {
-                higherUtilityNodes.remove(descriptor);
-            }
-        }
-    }
-
     /**
      * QueryLimit handler receiving gradient view broadcasts, and sets its view accordingly
      */
@@ -329,14 +319,16 @@ public class ElectionFollower extends ComponentDefinition {
     final Handler<LeaderStatusPort.TerminateBeingLeader> handleTerminateBeingLeader = new Handler<LeaderStatusPort.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
+            cancelHeartbeatTimeout();
+
             leader = null;
             leaderView = null;
             leaderIsAlive = false;
-
-            cancelHeartbeatTimeout();
+            isConverged = false;
+            //higherUtilityNodes.clear();
+            deathVoteTimeout = null;
 
             adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
-            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, leaderView);
         }
     };
 

@@ -1,14 +1,10 @@
 package se.sics.ms.snapshot;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import se.sics.gvod.address.Address;
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 
 /**
@@ -16,15 +12,16 @@ import se.sics.gvod.net.VodAddress;
  * information in a log file.
  */
 public class Snapshot {
-	private static SortedMap<VodDescriptor, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodDescriptor, PeerInfo>());
+	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
-    private static ConcurrentHashMap<Integer, Long> latestIds = new ConcurrentHashMap<Integer, Long>();
+    private static ConcurrentHashMap<Integer, Long> maxIds = new ConcurrentHashMap<Integer, Long>();
+    private static ConcurrentHashMap<Integer, Long> minIds = new ConcurrentHashMap<Integer, Long>();
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
     private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
     private static int failedAddRequests = 0;
-	private static ConcurrentSkipListSet<VodDescriptor> oldLeaders = new ConcurrentSkipListSet<VodDescriptor>();
+	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
@@ -36,7 +33,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void addPeer(VodDescriptor address) {
+	public static void addPeer(VodAddress address) {
 		peers.put(address, new PeerInfo());
 	}
 
@@ -56,7 +53,7 @@ public class Snapshot {
 	 * @param address
 	 *            the address of the peer
 	 */
-	public static void incNumIndexEntries(VodDescriptor address) {
+	public static void incNumIndexEntries(VodAddress address) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -92,7 +89,7 @@ public class Snapshot {
 	 * @param leader
 	 *            the leader status
 	 */
-	public static void setLeaderStatus(VodDescriptor address, boolean leader) {
+	public static void setLeaderStatus(VodAddress address, boolean leader, LinkedList<Boolean> partition) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (leader) {
@@ -103,6 +100,7 @@ public class Snapshot {
 			return;
 		}
 
+        peerInfo.setPartitionId(partition);
 		peerInfo.setLeader(leader);
 	}
 
@@ -114,7 +112,7 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the Gradient view
 	 */
-	public static void setElectionView(VodDescriptor address, String view) {
+	public static void setElectionView(VodAddress address, String view) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -132,7 +130,7 @@ public class Snapshot {
 	 * @param view
 	 *            the string representation of the Gradient view
 	 */
-	public static void setCurrentView(VodDescriptor address, String view) {
+	public static void setCurrentView(VodAddress address, String view) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (peerInfo == null) {
@@ -153,27 +151,32 @@ public class Snapshot {
 	public static synchronized void addIndexEntryId(int partition, long id) {
         entriesAdded++;
 
-        Long lastId = latestIds.get(partition);
+        Long lastId = maxIds.get(partition);
         if (lastId == null) {
             lastId = id;
-            latestIds.put(partition, lastId);
+            maxIds.put(partition, lastId);
             return;
         }
 
 		if (id <= lastId.longValue()) {
 			idDuplicates.add(id);
 		}
-		latestIds.put(partition, id);
+		maxIds.put(partition, id);
 	}
 
     public static synchronized void resetPartitionHighestId(int partition, long id) {
-            latestIds.put(partition, id);
+        maxIds.put(partition, id);
+    }
+
+    public static synchronized void resetPartitionLowestId(int partition, long id) {
+        minIds.put(partition, id);
     }
 
     public static synchronized void addPartition(int partition) {
-        Long lastId = latestIds.get(partition);
+        Long lastId = maxIds.get(partition);
         if (lastId == null) {
-            latestIds.put(partition, Long.MIN_VALUE);
+            maxIds.put(partition, Long.MIN_VALUE);
+            minIds.put(partition, 0L);
         }
     }
 
@@ -249,13 +252,13 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLeaders(StringBuilder builder) {
-		for (VodDescriptor p : peers.keySet()) {
+		for (VodAddress p : peers.keySet()) {
 			PeerInfo info = peers.get(p);
             if(info == null) continue;
 			if (info.isLeader()) {
 				builder.append(p.getId());
 				builder.append(" is leader of partition ");
-                builder.append(p.getPartitionId());
+                builder.append(info.getPartitionId());
                 builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());
 				builder.append("\n\tIts current view is: ");
@@ -275,11 +278,11 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportDetails(StringBuilder builder) {
-        VodDescriptor maxPeer = null;
-        VodDescriptor minPeer = null;
+        VodAddress maxPeer = null;
+        VodAddress minPeer = null;
 		long maxNumIndexEntries = 0;
 		long minNumIndexEntries = Integer.MAX_VALUE;
-		for (VodDescriptor node : peers.keySet()) {
+		for (VodAddress node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
             if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
@@ -336,9 +339,12 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLatestIds(StringBuilder builder) {
-		builder.append("Latest index id per partition:\n");
-        for (Integer partition : latestIds.keySet()) {
-            builder.append("\tPartition " + partition + ": " + latestIds.get(partition) + "\n");
+		builder.append("Ids on partitions:\n");
+        for (Integer partition : maxIds.keySet()) {
+            long min = minIds.get(partition);
+            long max = maxIds.get(partition);
+            builder.append(String.format("\t Partition %s. Min: %s Max: %s Total: %s\n",
+                    partition, min, max, Math.abs(max - min + 1)));
         }
 		builder.append("\n");
 	}
@@ -351,7 +357,7 @@ public class Snapshot {
 	 */
 	private static void reportOldLeaders(StringBuilder builder) {
 		builder.append("Nodes that have been leader:\n");
-		for (VodDescriptor node : oldLeaders) {
+		for (VodAddress node : oldLeaders) {
 			PeerInfo peer = peers.get(node);
 			builder.append("\t" + node.getId());
 			builder.append(" was leader with gradient view: ");
