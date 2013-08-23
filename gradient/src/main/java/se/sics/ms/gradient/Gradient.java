@@ -330,24 +330,21 @@ public final class Gradient extends ComponentDefinition {
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
 
-            boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
+            boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
             if(!isOnePartition) {
                 int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
 
                 for(VodDescriptor descriptor : sample) {
-                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-
-                    for(int i=0; i<bitsToCheck; i++) {
-                        partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
-                    }
+                    LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
+                            isOnePartition, bitsToCheck);
 
                     descriptor.setPartitionId(partitionId);
                 }
             }
             else {
                 for(VodDescriptor descriptor : sample) {
-                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-                    partitionId.addFirst(false);
+                    LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
+                            isOnePartition, 1);
 
                     descriptor.setPartitionId(partitionId);
                 }
