@@ -144,32 +144,13 @@ public class GradientView {
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
-        boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
+        if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
+            PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, vodDescriptors);
+        }
 
-		for (VodDescriptor vodDescriptor : vodDescriptors) {
-            if(!isOnePartition) {
-                int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
-
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-
-                for(int i=0; i<bitsToCheck; i++) {
-                    partitionId.addFirst((vodDescriptor.getId() & (1<<i)) == 0);
-                }
-
-                vodDescriptor.setPartitionId(partitionId);
-                vodDescriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-            else {
-                LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-                partitionId.addFirst(false);
-
-                vodDescriptor.setPartitionId(partitionId);
-                vodDescriptor.setPartitionsNumber(((MsSelfImpl)self).getPartitionsNumber());
-            }
-
-            if(vodDescriptor.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
-			    add(vodDescriptor);
-		}
+        for (VodDescriptor vodDescriptor : vodDescriptors) {
+            add(vodDescriptor);
+        }
 
 		oldEntries.retainAll(entries);
 		if (oldSize == entries.size() && oldEntries.size() > convergenceTest * entries.size()) {

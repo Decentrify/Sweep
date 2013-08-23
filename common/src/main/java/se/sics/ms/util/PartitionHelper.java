@@ -80,6 +80,9 @@ public class PartitionHelper {
         boolean isFirstPartition = self.getPartitionsNumber() == 2;
         if(isFirstPartition) {
             for(VodDescriptor descriptor : descriptors) {
+                if(self.getPartitionsNumber() == descriptor.getPartitionsNumber())
+                    continue;
+
                 LinkedList<Boolean> partitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, 1);
 
@@ -91,6 +94,9 @@ public class PartitionHelper {
             int bitsToCheck = self.getPartitionId().size();
 
             for(VodDescriptor descriptor : descriptors) {
+                if(self.getPartitionsNumber() == descriptor.getPartitionsNumber())
+                    continue;
+
                 LinkedList<Boolean> partitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, bitsToCheck);
 
