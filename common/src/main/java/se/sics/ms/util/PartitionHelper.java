@@ -107,4 +107,15 @@ public class PartitionHelper {
             }
         }
     }
+
+    public static int LinkedListPartitionToInt(LinkedList<Boolean> partition) {
+        int partitionId = 0;
+        int j = 0;
+        for(int i = partition.size()-1; i >= 0; i--) {
+            if(partition.get(i))
+                partitionId = partitionId | (1 << j++);
+        }
+
+        return partitionId;
+    }
 }

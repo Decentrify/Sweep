@@ -39,6 +39,7 @@ import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -827,17 +828,7 @@ public final class Search extends ComponentDefinition {
 
                 commitRequests.remove(commitId);
 
-                int partitionId = 0;
-                if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
-                    int partitionLength = ((MsSelfImpl)self).getPartitionId().size();
-                    for(int i = 0; i<partitionLength; i++) {
-                        int nodeId = self.getId();
-
-                        partitionId = partitionId ^ (nodeId & (1 << i));
-                    }
-                }
-                else
-
+                int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
 
                 Snapshot.addIndexEntryId(partitionId, replicationCount.getEntry().getId());
             } catch (IOException e) {
@@ -1157,13 +1148,7 @@ public final class Search extends ComponentDefinition {
 
             nextInsertionId = maxStoredId+1;
 
-            int partitionLength = ((MsSelfImpl)self).getPartitionId().size();
-            int partitionId = 0;
-            for(int i = 0; i<partitionLength; i++) {
-                int nodeId = self.getId();
-
-                partitionId = partitionId ^ (nodeId & (1 << i));
-            }
+            int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
 
             Snapshot.resetPartitionLowestId(partitionId, minStoredId);
             Snapshot.resetPartitionHighestId(partitionId, maxStoredId);
