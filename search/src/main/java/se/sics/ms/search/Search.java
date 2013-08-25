@@ -798,8 +798,7 @@ public final class Search extends ComponentDefinition {
                     trigger(repairMessage, networkPort);
                 }
             } catch (IOException e) {
-                System.out.println(self.getId() + " " + e.getMessage());
-                //logger.error(self.getId() + " " + e.getMessage());
+                logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -833,8 +832,7 @@ public final class Search extends ComponentDefinition {
 
                 Snapshot.addIndexEntryId(partitionId, replicationCount.getEntry().getId());
             } catch (IOException e) {
-                System.out.println(self.getId() + " " + e.getMessage());
-                //logger.error(self.getId() + " " + e.getMessage());
+                logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -1544,6 +1542,10 @@ public final class Search extends ComponentDefinition {
         return data;
     }
 
+    /**
+     * Returns min id value stored in Lucene
+     * @return min Id value stored in Lucene
+     */
     private long getMinStoredIdFromLucene() {
         IndexReader reader = null;
         try {
@@ -1575,6 +1577,10 @@ public final class Search extends ComponentDefinition {
         return 0;
     }
 
+    /**
+     * Returns max id value stored in Lucene
+     * @return max Id value stored in Lucene
+     */
     private long getMaxStoredIdFromLucene() {
         IndexReader reader = null;
         try {

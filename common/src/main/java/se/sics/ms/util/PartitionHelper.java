@@ -72,6 +72,12 @@ public class PartitionHelper {
         return partitionId;
     }
 
+    /**
+     * Ensures that all entries in descriptors belong to the same partition as self by recalculation of partitionIds
+     * on this descriptors and throwing out those that are from another partitions
+     * @param self
+     * @param descriptors
+     */
     public static void adjustDescriptorsToNewPartitionId(MsSelfImpl self, Collection<VodDescriptor> descriptors) {
         if(descriptors == null)
             return;
@@ -108,6 +114,11 @@ public class PartitionHelper {
         }
     }
 
+    /**
+     * Converts a partitionId as LinkedList<Boolean> to Integer
+     * @param partition partitionId as LinkedList<Boolean>
+     * @return partitionId as integer
+     */
     public static int LinkedListPartitionToInt(LinkedList<Boolean> partition) {
         int partitionId = 0;
         int j = 0;
