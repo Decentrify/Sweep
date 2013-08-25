@@ -27,7 +27,7 @@ public class Scenario2 extends Scenario {
 			StochasticProcess addEntries = new StochasticProcess() {
 				{
 					eventInterArrivalTime(constant(2000));
-					raise(20, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+					raise(50, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
 				}
 			};
 
@@ -42,7 +42,7 @@ public class Scenario2 extends Scenario {
             StochasticProcess addEntries2 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(2000));
-                    raise(50, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 

@@ -341,8 +341,8 @@ public class Snapshot {
 	private static void reportLatestIds(StringBuilder builder) {
 		builder.append("Ids on partitions:\n");
         for (Integer partition : maxIds.keySet()) {
-            long min = minIds.get(partition);
-            long max = maxIds.get(partition);
+            long min = minIds.get(partition) == null ? 0 : minIds.get(partition).longValue();
+            long max = maxIds.get(partition) == null ? -1 : maxIds.get(partition).longValue();
             builder.append(String.format("\t Partition %s. Min: %s Max: %s Total: %s\n",
                     partition, min, max, Math.abs(max - min + 1)));
         }

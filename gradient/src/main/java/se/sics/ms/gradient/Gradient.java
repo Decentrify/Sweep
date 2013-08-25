@@ -784,12 +784,8 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            //gradientView.setChanged();
-
             boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitionMessage.getPartitionsNumber());
-
             gradientView.adjustViewToNewPartitions();
-
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
     };
@@ -813,13 +809,8 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            //gradientView.setChanged();
-
-
             boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber());
-
             gradientView.adjustViewToNewPartitions();
-
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
         }
     };
@@ -838,22 +829,17 @@ public final class Gradient extends ComponentDefinition {
             ((MsSelfImpl)self).setPartitionsNumber(2);
 
             clearViewForNewOverlay(partitionSubId);
-
-            Snapshot.addPartition(nodeId & 1);
         }
         else {
             LinkedList partitionId = ((MsSelfImpl)self).getPartitionId();
-            int partitionIdLength = partitionId.size();
-
             partitionId.addFirst(partitionSubId);
             int newNumber = partitionsNumber+1;
             ((MsSelfImpl)self).setPartitionsNumber(newNumber);
 
             clearViewForNewOverlay(partitionSubId);
-
-            Snapshot.addPartition(nodeId & (1 << partitionIdLength));
         }
 
+        Snapshot.addPartition(PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()));
         return partitionSubId;
     }
 

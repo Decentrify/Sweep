@@ -798,7 +798,8 @@ public final class Search extends ComponentDefinition {
                     trigger(repairMessage, networkPort);
                 }
             } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
+                System.out.println(self.getId() + " " + e.getMessage());
+                //logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -832,7 +833,8 @@ public final class Search extends ComponentDefinition {
 
                 Snapshot.addIndexEntryId(partitionId, replicationCount.getEntry().getId());
             } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
+                System.out.println(self.getId() + " " + e.getMessage());
+                //logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
@@ -1612,7 +1614,7 @@ public final class Search extends ComponentDefinition {
      * @return
      */
     private boolean deleteDocumentsWithIdLessThen(long id, long bottom, long top) {
-        IndexWriter writer;
+        IndexWriter writer=null;
         try {
             writer = new IndexWriter(index, indexWriterConfig);
             if(bottom < top) {
@@ -1637,6 +1639,14 @@ public final class Search extends ComponentDefinition {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        finally {
+            if (writer != null)
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+        }
 
         return false;
     }
@@ -1649,7 +1659,7 @@ public final class Search extends ComponentDefinition {
      * @return
      */
     private boolean deleteDocumentsWithIdMoreThen(long id, long bottom, long top) {
-        IndexWriter writer;
+        IndexWriter writer=null;
         try {
             writer = new IndexWriter(index, indexWriterConfig);
             if(bottom < top) {
@@ -1673,6 +1683,14 @@ public final class Search extends ComponentDefinition {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+        finally {
+            if (writer != null)
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
         }
 
         return false;
