@@ -27,6 +27,7 @@ public class SearchConfiguration
     int maxSearchResults;
     int indexExchangeTimeout;
     int indexExchangeRequestNumber;
+    int maxPartitionIdLength;
 
     public SearchConfiguration() {
         this(
@@ -42,7 +43,8 @@ public class SearchConfiguration
                 MsConfig.SEARCH_MAX_SEARCH_RESULTS,
                 MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
                 MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER,
-                MsConfig.MAX_ENTRIES_ON_PEER);
+                MsConfig.MAX_ENTRIES_ON_PEER,
+                MsConfig.MAX_PARTITION_ID_LENGTH);
     }
 
     /**
@@ -69,7 +71,7 @@ public class SearchConfiguration
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize, int maxSearchResults,
             int indexExchangeTimeout, int indexExchangeRequestNumber,
-            long maxEntriesOnPeer) {
+            long maxEntriesOnPeer, int maxPartitionIdLength) {
         this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
@@ -83,6 +85,7 @@ public class SearchConfiguration
         this.maxSearchResults = maxSearchResults;
         this.indexExchangeTimeout = indexExchangeTimeout;
         this.indexExchangeRequestNumber = indexExchangeRequestNumber;
+        this.maxPartitionIdLength = maxPartitionIdLength;
     }
 
     public static SearchConfiguration build() {
@@ -187,5 +190,9 @@ public class SearchConfiguration
 
     public int getIndexExchangeRequestNumber() {
         return indexExchangeRequestNumber;
+    }
+
+    public int getMaxPartitionIdLength() {
+        return maxPartitionIdLength;
     }
 }

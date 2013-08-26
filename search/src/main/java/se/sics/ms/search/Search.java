@@ -1276,7 +1276,7 @@ public final class Search extends ComponentDefinition {
         }
 
         //update the counter, so we can check if partitioning is necessary
-        if(leader)
+        if(leader && ((MsSelfImpl)self).getPartitionId().size() < config.getMaxPartitionIdLength())
             checkPartitioning();
 
         maxStoredId++;

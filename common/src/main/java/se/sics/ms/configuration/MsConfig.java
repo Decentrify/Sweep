@@ -47,6 +47,7 @@ public class MsConfig extends VodConfig {
 
     public static final long MAX_ENTRIES_ON_PEER = 5;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
+    public static final int MAX_PARTITION_ID_LENGTH = 16;
 
     protected MsConfig(String[] args) throws IOException {
         super(args);
