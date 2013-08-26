@@ -818,25 +818,27 @@ public final class Gradient extends ComponentDefinition {
     private boolean determineYourPartitionAndUpdatePartitionsNumber(int partitionsNumber) {
         int nodeId = self.getId();
 
-        boolean partitionSubId = PartitionHelper.determineAndChangeYourPartition(nodeId, ((MsSelfImpl) self).getPartitionId(),
+        boolean partitionSubId = PartitionHelper.determineYourNewPartition(nodeId, ((MsSelfImpl) self).getPartitionId(),
                 partitionsNumber == 1);
 
         if(partitionsNumber == 1) {
-            LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-            partitionId.addFirst(partitionSubId);
+            ((MsSelfImpl)self).getPartitionId().set(0, partitionSubId);
 
             ((MsSelfImpl)self).setPartitionsNumber(2);
 
             clearViewForNewOverlay(partitionSubId);
         }
         else {
+            ((MsSelfImpl)self).getPartitionId().addFirst(partitionSubId);
             int newNumber = partitionsNumber+1;
             ((MsSelfImpl)self).setPartitionsNumber(newNumber);
 
             clearViewForNewOverlay(partitionSubId);
         }
 
-        Snapshot.addPartition(PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()));
+        int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl) self).getPartitionId());
+
+        Snapshot.addPartition(partitionId);
         return partitionSubId;
     }
 

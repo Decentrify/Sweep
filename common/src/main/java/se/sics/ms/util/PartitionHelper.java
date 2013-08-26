@@ -23,27 +23,15 @@ public class PartitionHelper {
      * @param isFirstPartition true if it's after first partitioning
      * @return next bit of the partition id
      */
-    public static boolean determineAndChangeYourPartition(int yourNodeId, LinkedList<Boolean> currentPartitionId,
-                                                          boolean isFirstPartition) {
+    public static boolean determineYourNewPartition(int yourNodeId, LinkedList<Boolean> currentPartitionId,
+                                                    boolean isFirstPartition) {
         if(currentPartitionId == null)
             throw new IllegalArgumentException("currentPartitionId can't be null");
 
-        if(isFirstPartition) {
-            boolean partitionSubId = (yourNodeId & 1) != 0;
+        if(isFirstPartition)
+            return (yourNodeId & 1) != 0;
 
-            LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-            partitionId.addFirst(partitionSubId);
-
-            return partitionSubId;
-        }
-
-        LinkedList partitionId = currentPartitionId;
-        int partitionIdLength = partitionId.size();
-
-        boolean partitionSubId = (yourNodeId & (1 << partitionIdLength)) != 0;
-        partitionId.addFirst(partitionSubId);
-
-        return partitionSubId;
+        return (yourNodeId & (1 << currentPartitionId.size())) != 0;
     }
 
     /**
