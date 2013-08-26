@@ -1283,8 +1283,6 @@ public final class Search extends ComponentDefinition {
     }
 
     private void checkPartitioning() {
-        long max = getMaxStoredIdFromLucene();
-
         long numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
 
         if(numberOfEntries < config.getMaxEntriesOnPeer())
