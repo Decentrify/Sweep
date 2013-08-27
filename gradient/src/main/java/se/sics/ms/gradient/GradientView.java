@@ -128,9 +128,11 @@ public class GradientView {
 		}
 
 		incrementDescriptorAges();
-		VodDescriptor oldestEntry = Collections.max(entries);
+//		VodDescriptor oldestEntry = Collections.max(entries);
+//
+//		return oldestEntry;
 
-		return oldestEntry;
+      return getClosestNodes(1).first();
 	}
 
 	/**
@@ -297,15 +299,25 @@ public class GradientView {
 
             if (utilityComparator.compare(o1, o2) == 0) {
                 return 0;
-            } else if (utilityComparator.compare(o1, base) == 0) {
+            }
+
+            if (utilityComparator.compare(o1, base) == 0) {
                 return 1;
-            } else if (utilityComparator.compare(o2, base) == 0) {
+            }
+
+            if (utilityComparator.compare(o2, base) == 0) {
                 return -1;
-            } else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == -1) {
+            }
+
+            if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == -1) {
 				return 1;
-			} else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == 1 && utilityComparator.compare(o1, o2) == 1) {
+			}
+
+            if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == 1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
-			} else if (utilityComparator.compare(o1, base) == -1 && utilityComparator.compare(o2, base) == -1 && utilityComparator.compare(o1, o2) == 1) {
+			}
+
+            if (utilityComparator.compare(o1, base) == -1 && utilityComparator.compare(o2, base) == -1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
 			}
 			return -1;
