@@ -19,7 +19,6 @@ import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.messages.*;
@@ -383,7 +382,7 @@ public final class Gradient extends ComponentDefinition {
     private void addRoutingTableEntries(Collection<VodDescriptor> nodes) {
         for (VodDescriptor vodDescriptor : nodes) {
             IndexEntry.Category category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
-            int partition = vodDescriptor.getVodAddress().getPartitionIdLength();
+            int partition = PartitionHelper.LinkedListPartitionToInt(vodDescriptor.getPartitionId());
 
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             if (categoryRoutingMap == null) {
@@ -508,13 +507,12 @@ public final class Gradient extends ComponentDefinition {
             }
 
             logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
-            if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())
-                    && indexEntryToAdd.getId() % MsConfig.SEARCH_NUM_PARTITIONS == self.getAddress().getPartitionIdLength()) {
+            if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                 gradientView.remove(unresponsiveNode.getVodAddress());
             } else {
                 IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
                 Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(category);
-                HashSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionIdLength());
+                HashSet<VodDescriptor> bucket = partitions.get(PartitionHelper.LinkedListPartitionToInt(unresponsiveNode.getPartitionId()));
                 bucket.remove(unresponsiveNode);
             }
             RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
@@ -673,7 +671,8 @@ public final class Gradient extends ComponentDefinition {
 
             for (Integer partition : categoryRoutingMap.keySet()) {
                 // Skip local partition
-                if (partition == self.getAddress().getPartitionIdLength() && category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
+                if (partition == PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()) &&
+                        category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                     continue;
                 }
 
@@ -699,7 +698,8 @@ public final class Gradient extends ComponentDefinition {
                     scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), vodDescriptor));
                     trigger(scheduleTimeout, timerPort);
                     trigger(new SearchMessage.Request(self.getAddress(), vodDescriptor.getVodAddress(),
-                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern()), networkPort);
+                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
+                            PartitionHelper.LinkedListPartitionToInt(vodDescriptor.getPartitionId())), networkPort);
 
                     shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
                     vodDescriptor.setConnected(true);
@@ -724,14 +724,14 @@ public final class Gradient extends ComponentDefinition {
     final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
-            VodAddress unresponsiveNode = event.getVodDescriptor().getVodAddress();
-            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getCategoryId());
+            VodDescriptor unresponsiveNode = event.getVodDescriptor();
+            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-            Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getPartitionIdLength());
+            Set<VodDescriptor> bucket = categoryRoutingMap.get(PartitionHelper.LinkedListPartitionToInt(unresponsiveNode.getPartitionId()));
             bucket.remove(event.getVodDescriptor());
 
             shuffleTimes.remove(event.getTimeoutId().getId());
-            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode);
+            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
         }
     };
 

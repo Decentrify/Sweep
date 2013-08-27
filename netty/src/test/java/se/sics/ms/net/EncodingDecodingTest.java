@@ -120,13 +120,15 @@ public class EncodingDecodingTest {
     public void searchRequest() {
         SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
         TimeoutId timeoutId = UUID.nextUUID();
-        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern);
+        int partitionId = 1;
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern, partitionId);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             SearchMessage.Request request = SearchMessageFactory.Request.fromBuffer(buffer);
             assert timeoutId.equals(request.getSearchTimeoutId());
             assert (request.getPattern().equals(pattern));
+            assert msg.getPartitionId() == partitionId;
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -151,8 +153,9 @@ public class EncodingDecodingTest {
             IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
             TimeoutId timeoutId = UUID.nextUUID();
             Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
+            int partitionId = 1;
             indexEntries.add(entry);
-            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, timeoutId, numResponses, responseNum, indexEntries);
+            SearchMessage.Response msg = new SearchMessage.Response(gSrc, gDest, id, timeoutId, numResponses, responseNum, indexEntries, partitionId);
             try {
                 ByteBuf buffer = msg.toByteArray();
                 opCodeCorrect(buffer, msg);
@@ -162,6 +165,7 @@ public class EncodingDecodingTest {
                 assert (response.getResponseNumber() == responseNum);
                 assert (response.getResults().iterator().next().equals(entry));
                 assert timeoutId.equals(response.getSearchTimeoutId());
+                assert msg.getPartitionId() == partitionId;
             } catch (MessageDecodingException ex) {
                 Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
                 assert (false);
@@ -811,7 +815,6 @@ public class EncodingDecodingTest {
         int partitionId = (int) Math.pow(2, 16) - 1;
         int categoryId = (int) Math.pow(2, 16) - 2;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodAddress.encodePartitionAndCategoryIdAsInt(partitionId, categoryId), nat);
-        assert vodAddress.getPartitionIdLength() == partitionId;
         assert vodAddress.getCategoryId() == categoryId;
     }
 

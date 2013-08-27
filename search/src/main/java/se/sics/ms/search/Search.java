@@ -1008,7 +1008,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result, self.getAddress().getPartitionIdLength());
+            addSearchResponse(result, PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()));
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -1025,7 +1025,7 @@ public final class Search extends ComponentDefinition {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
                 trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
-                        0, 0, result), networkPort);
+                        0, 0, result, event.getPartitionId()), networkPort);
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -1080,7 +1080,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            addSearchResponse(event.getResults(), event.getVodSource().getPartitionIdLength());
+            addSearchResponse(event.getResults(), event.getPartitionId());
         }
     };
 
