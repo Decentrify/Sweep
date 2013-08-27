@@ -1140,6 +1140,8 @@ public final class Search extends ComponentDefinition {
             minStoredId = getMinStoredIdFromLucene();
             maxStoredId = getMaxStoredIdFromLucene();
 
+            ((MsSelfImpl)self).setNumberOfIndexEntries(Math.abs(maxStoredId - minStoredId + 1));
+
             if(maxStoredId < minStoredId) {
                 long temp = maxStoredId;
                 maxStoredId = minStoredId;
