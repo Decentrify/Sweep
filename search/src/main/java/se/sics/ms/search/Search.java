@@ -1278,15 +1278,19 @@ public final class Search extends ComponentDefinition {
             existingEntries.add(indexEntry.getId());
         }
 
+        maxStoredId++;
+
         //update the counter, so we can check if partitioning is necessary
         if(leader && ((MsSelfImpl)self).getPartitionId().size() < config.getMaxPartitionIdLength())
             checkPartitioning();
-
-        maxStoredId++;
     }
 
     private void checkPartitioning() {
-        long numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
+        long numberOfEntries;
+        if(((MsSelfImpl)self).getPartitionsNumber() == 1)
+            numberOfEntries = Math.abs(maxStoredId - minStoredId);
+        else
+            numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
 
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
@@ -1295,7 +1299,7 @@ public final class Search extends ComponentDefinition {
         long medianId;
 
         if(maxStoredId > minStoredId)
-            medianId = (maxStoredId - minStoredId + 1)/2;
+            medianId = (maxStoredId - minStoredId)/2;
         else {
             long values = numberOfEntries/2;
 
