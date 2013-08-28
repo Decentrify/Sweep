@@ -180,7 +180,7 @@ public class ElectionFollower extends ComponentDefinition {
                 } else {
                     rejectLeader(event.getVodSource(), highestUtilityNode);
                 }
-            } else if (event.getLeaderVodDescriptor().equals(highestUtilityNode) == false) {
+            } else if (!event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
                 rejectLeader(event.getVodSource(), highestUtilityNode);
             } else if (event.getLeaderVodDescriptor().equals(leader)) {
                 acceptLeader(leader, event.getVodDescriptors());

@@ -781,7 +781,7 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitionMessage.getPartitionsNumber());
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitionMessage.getPartitionsNumber(), true);
             gradientView.adjustViewToNewPartitions();
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
@@ -806,13 +806,13 @@ public final class Gradient extends ComponentDefinition {
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber());
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber(), false);
             gradientView.adjustViewToNewPartitions();
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
         }
     };
 
-    private boolean determineYourPartitionAndUpdatePartitionsNumber(int partitionsNumber) {
+    private boolean determineYourPartitionAndUpdatePartitionsNumber(int partitionsNumber, boolean increment) {
         int nodeId = self.getId();
 
         boolean partitionSubId = PartitionHelper.determineYourNewPartition(nodeId, ((MsSelfImpl) self).getPartitionId(),
@@ -827,8 +827,12 @@ public final class Gradient extends ComponentDefinition {
         }
         else {
             ((MsSelfImpl)self).getPartitionId().addFirst(partitionSubId);
-            int newNumber = partitionsNumber+1;
-            ((MsSelfImpl)self).setPartitionsNumber(newNumber);
+            if(increment) {
+                int newNumber = partitionsNumber+1;
+                ((MsSelfImpl)self).setPartitionsNumber(newNumber);
+            }
+            else
+                ((MsSelfImpl)self).setPartitionsNumber(partitionsNumber);
 
             clearViewForNewOverlay(partitionSubId);
         }
