@@ -244,11 +244,8 @@ public final class Gradient extends ComponentDefinition {
                 int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
 
                 for(VodDescriptor descriptor : descriptors) {
-                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-
-                    for(int i=0; i<bitsToCheck; i++) {
-                        partitionId.addFirst((descriptor.getId() & (1<<i)) == 0);
-                    }
+                    LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
+                            isOnePartition, bitsToCheck);
 
                     descriptor.setPartitionId(partitionId);
                 }

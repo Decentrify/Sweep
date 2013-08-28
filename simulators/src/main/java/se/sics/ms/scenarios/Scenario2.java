@@ -35,18 +35,11 @@ public class Scenario2 extends Scenario {
             StochasticProcess addEntries1 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(2000));
-                    raise(5, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(3, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
             StochasticProcess addEntries2 = new StochasticProcess() {
-                {
-                    eventInterArrivalTime(constant(2000));
-                    raise(5, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
-                }
-            };
-
-            StochasticProcess addEntries3 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(2000));
                     raise(5, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
@@ -66,8 +59,7 @@ public class Scenario2 extends Scenario {
 //          search.startAfterTerminationOf(10000, addEntries);
 
             addEntries1.startAfterTerminationOf(100000, addEntries);
-            addEntries2.startAfterStartOf(100000, addEntries1);
-            addEntries3.startAfterStartOf(100000, addEntries2);
+//            addEntries2.startAfterStartOf(100000, addEntries1);
 		}
 	};
 
