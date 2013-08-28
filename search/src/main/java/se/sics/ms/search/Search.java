@@ -1149,6 +1149,7 @@ public final class Search extends ComponentDefinition {
             }
 
             nextInsertionId = maxStoredId+1;
+            lowestMissingIndexValue = maxStoredId;
 
             int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
 
