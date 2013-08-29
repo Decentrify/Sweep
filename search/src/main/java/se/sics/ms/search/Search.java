@@ -1156,6 +1156,7 @@ public final class Search extends ComponentDefinition {
 
             Snapshot.resetPartitionLowestId(partitionId, minStoredId);
             Snapshot.resetPartitionHighestId(partitionId, maxStoredId);
+            Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
         }
     };
 

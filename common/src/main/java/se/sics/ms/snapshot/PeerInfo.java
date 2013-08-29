@@ -108,4 +108,8 @@ public class PeerInfo {
     public synchronized void setPartitionId(LinkedList<Boolean> partitionId) {
         this.partitionId = partitionId;
     }
+
+    public void setNumIndexEntries(long numIndexEntries) {
+        this.numIndexEntries = numIndexEntries;
+    }
 }

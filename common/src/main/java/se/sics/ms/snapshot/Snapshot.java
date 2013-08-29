@@ -64,6 +64,16 @@ public class Snapshot {
 		peerInfo.incNumIndexEntries();
 	}
 
+    public static void setNumIndexEntries(VodAddress address, long value) {
+        PeerInfo peerInfo = peers.get(address);
+
+        if (peerInfo == null) {
+            return;
+        }
+
+        peerInfo.setNumIndexEntries(value);
+    }
+
 	/**
 	 * Set the neighbors in the snapshot of a peer.
 	 * 
@@ -291,22 +301,22 @@ public class Snapshot {
             if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
 				minNumIndexEntries = p.getNumIndexEntries();
-				minPeer = node;
+				//minPeer = node;
 			}
 			if (p.getNumIndexEntries() > maxNumIndexEntries) {
 				maxNumIndexEntries = p.getNumIndexEntries();
-				maxPeer = node;
+				//maxPeer = node;
 			}
 		}
-		builder.append(maxPeer == null ? "None" : maxPeer.getId()-minPeer.getId()+1);
-		builder.append(" is the peer with max num of index entries: ");
-		builder.append(maxNumIndexEntries);
-		builder.append("\n");
-
-		builder.append(minPeer == null ? "None" : minPeer.getId());
-		builder.append(" is the peer with min num of index entries: ");
-		builder.append(minNumIndexEntries);
-		builder.append("\n");
+//		builder.append(maxPeer == null ? "None" : maxPeer.getId()-minPeer.getId()+1);
+//		builder.append(" is the peer with max num of index entries: ");
+//		builder.append(maxNumIndexEntries);
+//		builder.append("\n");
+//
+//		builder.append(minPeer == null ? "None" : minPeer.getId());
+//		builder.append(" is the peer with min num of index entries: ");
+//		builder.append(minNumIndexEntries);
+//		builder.append("\n");
 	}
 
 	/**
