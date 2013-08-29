@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import com.sun.tools.javac.util.Pair;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -831,7 +832,7 @@ public final class Search extends ComponentDefinition {
 
                 int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
 
-                Snapshot.addIndexEntryId(partitionId, replicationCount.getEntry().getId());
+                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -1154,8 +1155,10 @@ public final class Search extends ComponentDefinition {
 
             int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
 
-            Snapshot.resetPartitionLowestId(partitionId, minStoredId);
-            Snapshot.resetPartitionHighestId(partitionId, maxStoredId);
+            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+                    minStoredId);
+            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+                    maxStoredId);
             Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
         }
     };

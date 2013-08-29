@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import com.sun.tools.javac.util.Pair;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.configuration.MsConfig;
@@ -16,8 +17,8 @@ public class Snapshot {
 	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
-    private static ConcurrentHashMap<Integer, Long> maxIds = new ConcurrentHashMap<Integer, Long>();
-    private static ConcurrentHashMap<Integer, Long> minIds = new ConcurrentHashMap<Integer, Long>();
+    private static ConcurrentHashMap<Pair<Integer, Integer>, Long> maxIds = new ConcurrentHashMap<Pair<Integer, Integer>, Long>();
+    private static ConcurrentHashMap<Pair<Integer, Integer>, Long> minIds = new ConcurrentHashMap<Pair<Integer, Integer>, Long>();
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
     private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
@@ -154,40 +155,40 @@ public class Snapshot {
 	/**
 	 * Add the last added index id to the snapshot.
 	 *
-     * @param partition
-     *            the partition of the node adding the index
+     * @param categoryPartitionPair
+     *            pair of node's category and partitionId
 	 * @param id
 	 *            the id of the lastest added index value
 	 */
-	public static synchronized void addIndexEntryId(int partition, long id) {
+	public static synchronized void addIndexEntryId(Pair<Integer, Integer> categoryPartitionPair, long id) {
         entriesAdded++;
 
-        Long lastId = maxIds.get(partition);
+        Long lastId = maxIds.get(categoryPartitionPair);
         if (lastId == null) {
             lastId = id;
-            maxIds.put(partition, lastId);
+            maxIds.put(categoryPartitionPair, lastId);
             return;
         }
 
-		if (id <= lastId.longValue() && id >= minIds.get(partition).longValue()) {
+		if (id <= lastId.longValue() && id >= minIds.get(categoryPartitionPair).longValue()) {
 			idDuplicates.add(id);
 		}
-		maxIds.put(partition, id);
+		maxIds.put(categoryPartitionPair, id);
 	}
 
-    public static synchronized void resetPartitionHighestId(int partition, long id) {
-        maxIds.put(partition, id);
+    public static synchronized void resetPartitionHighestId(Pair<Integer, Integer> categoryPartitionPair, long id) {
+        maxIds.put(categoryPartitionPair, id);
     }
 
-    public static synchronized void resetPartitionLowestId(int partition, long id) {
-        minIds.put(partition, id);
+    public static synchronized void resetPartitionLowestId(Pair<Integer, Integer> categoryPartitionPair, long id) {
+        minIds.put(categoryPartitionPair, id);
     }
 
-    public static synchronized void addPartition(int partition) {
-        Long lastId = maxIds.get(partition);
+    public static synchronized void addPartition(Pair<Integer, Integer> categoryPartitionPair) {
+        Long lastId = maxIds.get(categoryPartitionPair);
         if (lastId == null) {
-            maxIds.put(partition, Long.MIN_VALUE);
-            minIds.put(partition, 0L);
+            maxIds.put(categoryPartitionPair, Long.MIN_VALUE);
+            minIds.put(categoryPartitionPair, 0L);
         }
     }
 
@@ -354,11 +355,12 @@ public class Snapshot {
 	 */
 	private static void reportLatestIds(StringBuilder builder) {
 		builder.append("Ids on partitions:\n");
-        for (Integer partition : maxIds.keySet()) {
-            long min = minIds.get(partition) == null ? 0 : minIds.get(partition).longValue();
-            long max = maxIds.get(partition) == null ? -1 : maxIds.get(partition).longValue();
-            builder.append(String.format("\t Partition %s. Min: %s Max: %s Total: %s\n",
-                    partition, min, max, Math.abs(max - min + 1)));
+        for (Pair<Integer, Integer> categoryPartitionPair : maxIds.keySet()) {
+            long min = minIds.get(categoryPartitionPair) == null ? 0 : minIds.get(categoryPartitionPair);
+            long max = maxIds.get(categoryPartitionPair) == null ? -1 : maxIds.get(categoryPartitionPair).longValue();
+            builder.append(String.format("\t Category \"%s\". Partition %s. Min: %s Max: %s Total: %s\n",
+                    MsConfig.Categories.values()[categoryPartitionPair.fst], categoryPartitionPair.snd,
+                    min, max, Math.abs(max - min + 1)));
         }
 		builder.append("\n");
 	}

@@ -1,5 +1,6 @@
 package se.sics.ms.gradient;
 
+import com.sun.tools.javac.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.RTTStore;
@@ -843,7 +844,7 @@ public final class Gradient extends ComponentDefinition {
 
         int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl) self).getPartitionId());
 
-        Snapshot.addPartition(partitionId);
+        Snapshot.addPartition(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId));
         return partitionSubId;
     }
 
