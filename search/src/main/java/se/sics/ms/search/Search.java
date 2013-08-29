@@ -228,6 +228,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchInit> handleInit = new Handler<SearchInit>() {
         public void handle(SearchInit init) {
             self = init.getSelf();
+
             config = init.getConfiguration();
             KeyPairGenerator keyGen;
             try {

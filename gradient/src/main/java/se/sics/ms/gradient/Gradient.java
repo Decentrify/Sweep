@@ -237,6 +237,9 @@ public final class Gradient extends ComponentDefinition {
                 trigger(ct, timerPort);
             }
 
+            if(self.getAddress().getCategoryId() != event.getVodSource().getCategoryId())
+                return;
+
             Collection<VodDescriptor> descriptors = event.getVodDescriptors();
 
             boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 1;
@@ -353,7 +356,8 @@ public final class Gradient extends ComponentDefinition {
             Iterator<VodDescriptor> iterator = sample.iterator();
             while (iterator.hasNext()) {
                 VodDescriptor next = iterator.next();
-                if(!next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
+                if(next.getVodAddress().getCategoryId() != self.getAddress().getCategoryId() ||
+                        !next.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))  {
                     iterator.remove();
                 }
             }
@@ -793,8 +797,9 @@ public final class Gradient extends ComponentDefinition {
     final Handler<PartitioningMessage> handlePartitioningMessage = new Handler<PartitioningMessage>() {
         @Override
         public void handle(PartitioningMessage partitioningMessage) {
-            if(partitionRequestList.contains(partitioningMessage.getRequestId()))
+            if(partitionRequestList.contains(partitioningMessage.getRequestId())) {
                 return;
+            }
 
             //Store the request id
             if(partitionRequestList.size() > config.getMaxPartitionHistorySize())
