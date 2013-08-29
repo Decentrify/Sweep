@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
-import se.sics.ms.types.IndexEntry;
+import se.sics.ms.configuration.MsConfig;
 
 /**
  * Keep track of the system state for evaluation and debugging. Write the
@@ -261,7 +261,7 @@ public class Snapshot {
 				builder.append(" is leader of partition ");
                 builder.append(info.getPartitionId());
                 builder.append(" for category \"");
-                builder.append(IndexEntry.Category.values()[p.getCategoryId()]);
+                builder.append(MsConfig.Categories.values()[p.getCategoryId()]);
                 builder.append("\"");
                 builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());

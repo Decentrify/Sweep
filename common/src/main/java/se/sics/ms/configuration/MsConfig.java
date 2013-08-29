@@ -13,6 +13,10 @@ import se.sics.gvod.config.VodConfig;
  */
 public class MsConfig extends VodConfig {
 
+    public static enum Categories {
+        Video, Music, Books
+    }
+
     public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;
     public static final int ELECTION_REJECTED_TIMEOUT = 20 * 1000;
     public static final int ELECTION_VOTE_REQUEST_TIMEOUT = 20 * 1000;
@@ -26,7 +30,6 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
-    public static final int SEARCH_NUM_PARTITIONS = 1;
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;

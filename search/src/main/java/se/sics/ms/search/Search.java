@@ -784,8 +784,8 @@ public final class Search extends ComponentDefinition {
 
                 long maxStoredId = getMaxStoredId();
 
-                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
-                    return;
+//                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
+//                    return;
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
                 long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
@@ -1103,11 +1103,11 @@ public final class Search extends ComponentDefinition {
         }
 
         searchRequest.addRespondedPartition(partition);
-        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
-            trigger(ct, timerPort);
-            answerSearchRequest();
-        }
+//        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
+//            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+//            trigger(ct, timerPort);
+//            answerSearchRequest();
+//        }
     }
 
     /**
@@ -1329,7 +1329,7 @@ public final class Search extends ComponentDefinition {
         if (leaderId == null)
             return new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                     d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                    IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                    MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
                     d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), null);
 
         KeyFactory keyFactory;
@@ -1346,7 +1346,7 @@ public final class Search extends ComponentDefinition {
         }
         IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                 d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
                 d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         return entry;

@@ -27,6 +27,7 @@ import se.sics.gvod.common.UtilityVod;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.common.hp.HPMechanism;
 import se.sics.gvod.common.hp.HPRole;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.messages.*;
 import se.sics.gvod.timer.TimeoutId;
@@ -118,7 +119,7 @@ public class EncodingDecodingTest {
 
     @Test
     public void searchRequest() {
-        SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", IndexEntry.Category.Books, "booo");
+        SearchPattern pattern = new SearchPattern("abc", 1, 100, new Date(100L), new Date(200L), "language", MsConfig.Categories.Books, "booo");
         TimeoutId timeoutId = UUID.nextUUID();
         int partitionId = 1;
         SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern, partitionId);
@@ -150,7 +151,7 @@ public class EncodingDecodingTest {
             Date time = new Date();
             String language = "language";
             String description = "description";
-            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
+            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
             TimeoutId timeoutId = UUID.nextUUID();
             Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
             int partitionId = 1;
@@ -187,7 +188,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
         AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -199,7 +200,7 @@ public class EncodingDecodingTest {
             assert (request.getEntry().getUploaded().equals(time));
             assert (request.getEntry().getLanguage().equals(language));
             assert (request.getEntry().getDescription().equals(description));
-            assert (request.getEntry().getCategory() == IndexEntry.Category.Music);
+            assert (request.getEntry().getCategory() == MsConfig.Categories.Music);
             assert (request.getEntry().getId().equals(Long.MIN_VALUE));
 
         } catch (MessageDecodingException ex) {
@@ -258,7 +259,7 @@ public class EncodingDecodingTest {
         String language = "language";
         String description = "description";
         IndexEntry entry;
-        entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
+        entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
         Collection<IndexEntry> items = new ArrayList<IndexEntry>();
         items.add(entry);
         int numResponses=1;
@@ -679,7 +680,7 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
 
-        IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, IndexEntry.Category.Music, description, hash, publicKey);
+        IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, MsConfig.Categories.Music, description, hash, publicKey);
         Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         indexEntries.add(entry);
         RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), indexEntries);
@@ -722,7 +723,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, IndexEntry.Category.Music, description);
+        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
         ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -734,7 +735,7 @@ public class EncodingDecodingTest {
             assert (request.getEntry().getUploaded().equals(time));
             assert (request.getEntry().getLanguage().equals(language));
             assert (request.getEntry().getDescription().equals(description));
-            assert (request.getEntry().getCategory() == IndexEntry.Category.Music);
+            assert (request.getEntry().getCategory() == MsConfig.Categories.Music);
             assert (request.getEntry().getId().equals(Long.MIN_VALUE));
 
         } catch (MessageDecodingException ex) {

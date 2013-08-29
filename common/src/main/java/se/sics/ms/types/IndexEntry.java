@@ -1,5 +1,7 @@
 package se.sics.ms.types;
 
+import se.sics.ms.configuration.MsConfig;
+
 import java.io.Serializable;
 import java.security.PublicKey;
 import java.util.Date;
@@ -21,17 +23,13 @@ public class IndexEntry implements Serializable {
 	public static final String HASH = "hash";
 	public static final String LEADER_ID = "leader_id";
 
-	public static enum Category {
-		Video, Music, Books
-	};
-
 	private Long id;
 	private String url;
 	private String fileName;
 	private long fileSize;
 	private Date uploaded;
 	private String language;
-	private Category category;
+	private MsConfig.Categories category;
 	private String description;
 	private String hash;
 	private PublicKey leaderId;
@@ -64,7 +62,7 @@ public class IndexEntry implements Serializable {
 		return language;
 	}
 
-	public Category getCategory() {
+	public MsConfig.Categories getCategory() {
 		return category;
 	}
 
@@ -104,7 +102,7 @@ public class IndexEntry implements Serializable {
         this.language = language;
     }
 
-    public void setCategory(Category category) {
+    public void setCategory(MsConfig.Categories category) {
         this.category = category;
     }
 
@@ -135,7 +133,7 @@ public class IndexEntry implements Serializable {
      * @param category
      * @param description
      */
-    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description) {
+    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
         this.url = url;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -161,7 +159,7 @@ public class IndexEntry implements Serializable {
      * @param hash
      * @param leaderId
      */
-    public IndexEntry(long id, String url, String fileName, long fileSize, Date uploaded, String language, Category category, String description, String hash, PublicKey leaderId) {
+    public IndexEntry(long id, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description, String hash, PublicKey leaderId) {
         this.id = id;
         this.url = url;
         this.fileName = fileName;
@@ -181,7 +179,7 @@ public class IndexEntry implements Serializable {
      * @param description
      * @param hash
      */
-    public IndexEntry(String url, String fileName, Date uploaded, Category category, String language, String description,
+    public IndexEntry(String url, String fileName, Date uploaded, MsConfig.Categories category, String language, String description,
                       String hash) {
         super();
         this.url = url;
@@ -202,7 +200,7 @@ public class IndexEntry implements Serializable {
      * @param hash
      * @param leaderId
      */
-    public IndexEntry(long indexId, String url, String fileName, Category category,
+    public IndexEntry(long indexId, String url, String fileName, MsConfig.Categories category,
                       String description, String hash, PublicKey leaderId) {
         super();
         this.id = indexId;

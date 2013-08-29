@@ -14,7 +14,6 @@ import se.sics.ms.configuration.MsConfig;
 public class SearchConfiguration
         extends AbstractConfiguration<se.sics.gvod.config.SearchConfiguration> {
 
-    int numPartitions;
     int maxExchangeCount;
     int queryTimeout;
     int addTimeout;
@@ -31,7 +30,6 @@ public class SearchConfiguration
 
     public SearchConfiguration() {
         this(
-                MsConfig.SEARCH_NUM_PARTITIONS,
                 MsConfig.SEARCH_MAX_EXCHANGE_COUNT,
                 MsConfig.SEARCH_QUERY_TIMEOUT,
                 MsConfig.SEARCH_ADD_TIMEOUT,
@@ -48,7 +46,6 @@ public class SearchConfiguration
     }
 
     /**
-     * @param numPartitions the number of partitions used to balance the load
      * @param maxExchangeCount the maximum number of addresses exchanged in one
      * exchange request
      * @param queryTimeout the amount of time until a search request times out
@@ -66,13 +63,12 @@ public class SearchConfiguration
      *
      */
     public SearchConfiguration(
-            int numPartitions, int maxExchangeCount, int queryTimeout,
+            int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize, int maxSearchResults,
             int indexExchangeTimeout, int indexExchangeRequestNumber,
             long maxEntriesOnPeer, int maxPartitionIdLength) {
-        this.numPartitions = numPartitions;
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
@@ -90,9 +86,6 @@ public class SearchConfiguration
 
     public static SearchConfiguration build() {
         return new SearchConfiguration();
-    }
-    public int getNumPartitions() {
-        return numPartitions;
     }
 
     public int getMaxExchangeCount() {
@@ -133,11 +126,6 @@ public class SearchConfiguration
 
     public int getMaxSearchResults() {
         return maxSearchResults;
-    }
-
-    public SearchConfiguration setNumPartitions(int numPartitions) {
-        this.numPartitions = numPartitions;
-        return this;
     }
 
     public SearchConfiguration setMaxExchangeCount(int maxExchangeCount) {

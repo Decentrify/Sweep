@@ -119,7 +119,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("", randomText(), new Date(), IndexEntry.Category.Video, "", "", "");
+            IndexEntry index = new IndexEntry("", randomText(), new Date(), MsConfig.Categories.Video, "", "", "");
             index.setLeaderId(null);
             trigger(new AddIndexSimulated(index), peer.getNegative(SimulationEventsPort.class));
         }
@@ -202,7 +202,7 @@ public final class SearchSimulator extends ComponentDefinition {
         public void handle(Search event) {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
-            SearchPattern searchPattern = new SearchPattern(randomText(), 0, 0, null, null, null, IndexEntry.Category.Video, null);
+            SearchPattern searchPattern = new SearchPattern(randomText(), 0, 0, null, null, null, MsConfig.Categories.Video, null);
             trigger(new SimulationEventsPort.SearchSimulated(searchPattern), peer.getNegative(SimulationEventsPort.class));
         }
     };
@@ -220,7 +220,7 @@ public final class SearchSimulator extends ComponentDefinition {
         Address address = new Address(ip, 9999, (int) id);
 
 
-        IndexEntry.Category[] values = IndexEntry.Category.values();
+        MsConfig.Categories[] values = MsConfig.Categories.values();
         int categoryId = (int) (Math.random() * values.length);
 
         Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionAndCategoryIdAsInt(0, values[categoryId].ordinal())));

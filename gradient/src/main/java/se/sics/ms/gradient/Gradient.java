@@ -19,6 +19,7 @@ import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.messages.*;
@@ -61,7 +62,7 @@ public final class Gradient extends ComponentDefinition {
     private long[] latestRtts;
 
     // This is a routing table maintaining a a list of descriptors for each category and its partitions.
-    private Map<IndexEntry.Category, Map<Integer, HashSet<VodDescriptor>>> routingTable;
+    private Map<MsConfig.Categories, Map<Integer, HashSet<VodDescriptor>>> routingTable;
     Comparator<VodDescriptor> peerConnectivityComparator = new Comparator<VodDescriptor>() {
         @Override
         public int compare(VodDescriptor t0, VodDescriptor t1) {
@@ -147,7 +148,7 @@ public final class Gradient extends ComponentDefinition {
             outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
-            routingTable = new HashMap<IndexEntry.Category, Map<Integer, HashSet<VodDescriptor>>>();
+            routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<VodDescriptor>>>();
             leader = false;
             latestRtts = new long[config.getLatestRttStoreLimit()];
             partitionRequestList = new ArrayList<TimeoutId>();
@@ -236,9 +237,6 @@ public final class Gradient extends ComponentDefinition {
                 CancelTimeout ct = new CancelTimeout(shuffleId);
                 trigger(ct, timerPort);
             }
-
-            if(self.getAddress().getCategoryId() != event.getVodSource().getCategoryId())
-                return;
 
             Collection<VodDescriptor> descriptors = event.getVodDescriptors();
 
@@ -382,7 +380,7 @@ public final class Gradient extends ComponentDefinition {
 
     private void addRoutingTableEntries(Collection<VodDescriptor> nodes) {
         for (VodDescriptor vodDescriptor : nodes) {
-            IndexEntry.Category category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
+            MsConfig.Categories category = categoryFromCategoryId(vodDescriptor.getVodAddress().getCategoryId());
             int partition = PartitionHelper.LinkedListPartitionToInt(vodDescriptor.getPartitionId());
 
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
@@ -442,11 +440,8 @@ public final class Gradient extends ComponentDefinition {
 
             //event.getEntry().setId(addId);
 
-            IndexEntry.Category selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());
-            IndexEntry.Category addCategory = event.getEntry().getCategory();
-//            int selfPartition = self.getAddress().getPartitionIdLength();
-//            // TODO Do not access the search constant
-//            int addPartition = addId % MsConfig.SEARCH_NUM_PARTITIONS;
+            MsConfig.Categories selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());
+            MsConfig.Categories addCategory = event.getEntry().getCategory();
 
             indexEntryToAdd = event.getEntry();
             addIndexEntryRequestTimeoutId = event.getTimeoutId();
@@ -511,7 +506,7 @@ public final class Gradient extends ComponentDefinition {
             if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())) {
                 gradientView.remove(unresponsiveNode.getVodAddress());
             } else {
-                IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
+                MsConfig.Categories category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
                 Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(category);
                 HashSet<VodDescriptor> bucket = partitions.get(PartitionHelper.LinkedListPartitionToInt(unresponsiveNode.getPartitionId()));
                 bucket.remove(unresponsiveNode);
@@ -663,7 +658,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
-            IndexEntry.Category category = event.getPattern().getCategory();
+            MsConfig.Categories category = event.getPattern().getCategory();
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
 
             if (categoryRoutingMap == null) {
@@ -726,7 +721,7 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
             VodDescriptor unresponsiveNode = event.getVodDescriptor();
-            IndexEntry.Category category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
+            MsConfig.Categories category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
             Set<VodDescriptor> bucket = categoryRoutingMap.get(PartitionHelper.LinkedListPartitionToInt(unresponsiveNode.getPartitionId()));
             bucket.remove(event.getVodDescriptor());
@@ -859,8 +854,8 @@ public final class Gradient extends ComponentDefinition {
         }
     }
 
-    private IndexEntry.Category categoryFromCategoryId(int categoryId) {
-        return IndexEntry.Category.values()[categoryId];
+    private MsConfig.Categories categoryFromCategoryId(int categoryId) {
+        return MsConfig.Categories.values()[categoryId];
     }
 
     private TreeSet<VodDescriptor> sortByConnectivity(Collection<VodDescriptor> vodDescriptors) {
