@@ -610,7 +610,7 @@ public final class Search extends ComponentDefinition {
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
 
-            String signature =  generateSignedHash(newEntry, privateKey);
+            String signature = generateSignedHash(newEntry, privateKey);
             if(signature == null)
                 return;
 

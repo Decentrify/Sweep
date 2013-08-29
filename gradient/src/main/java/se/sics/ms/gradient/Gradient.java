@@ -466,28 +466,32 @@ public final class Gradient extends ComponentDefinition {
                     sendLeaderLookupRequest(node);
                 }
             }
-//            else {
-//                Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(addCategory);
-//                if (partitions == null) {
-//                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
-//                    return;
-//                }
-//
-//                HashSet<VodDescriptor> startNodes = partitions.get(addPartition);
-//                if (startNodes == null) {
-//                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), addPartition);
-//                    return;
-//                }
-//
-//                // Need to sort it every time because values like RTT might have been changed
-//                SortedSet<VodDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
-//                iterator = sortedStartNodes.iterator();
-//            }
-//
-//            for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
-//                VodDescriptor node = iterator.next();
-//                sendLeaderLookupRequest(node);
-//            }
+            else {
+                Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(addCategory);
+                if (partitions == null || partitions.isEmpty()) {
+                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
+                    return;
+                }
+
+                ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
+                int categoryPartitionId = (int)(Math.random() * categoryPartitionsIds.size());
+
+                HashSet<VodDescriptor> startNodes = partitions.get(categoryPartitionsIds.get(categoryPartitionId));
+                if (startNodes == null) {
+                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(),
+                            categoryPartitionsIds.get(categoryPartitionId));
+                    return;
+                }
+
+                // Need to sort it every time because values like RTT might have been changed
+                SortedSet<VodDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
+                Iterator iterator = sortedStartNodes.iterator();
+
+                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+                    VodDescriptor node = (VodDescriptor)iterator.next();
+                    sendLeaderLookupRequest(node);
+                }
+            }
         }
     };
 
