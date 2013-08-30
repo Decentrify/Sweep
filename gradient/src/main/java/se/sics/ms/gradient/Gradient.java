@@ -787,6 +787,10 @@ public final class Gradient extends ComponentDefinition {
     final Handler<PartitionMessage> handlePartitionMessage = new Handler<PartitionMessage>() {
         @Override
         public void handle(PartitionMessage partitionMessage) {
+            //don't partition if view isn't full
+            if(gradientView.getAll().size() < config.getViewSize())
+                return;
+
             for(VodDescriptor node : gradientView.getLowerUtilityNodes())
                 trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), partitionMessage.getRequestId(), partitionMessage.getMedianId(), partitionMessage.getPartitionsNumber()), networkPort);
 
