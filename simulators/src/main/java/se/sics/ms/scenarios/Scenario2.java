@@ -8,41 +8,26 @@ import se.sics.ms.simulation.Operations;
  */
 @SuppressWarnings("serial")
 public class Scenario2 extends Scenario {
-	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
-		{
-			StochasticProcess joinNodes = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(100));
-					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
-                }
-			};
-
-			StochasticProcess massiveJoin = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(100));
-					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
-				}
-			};
-
-			StochasticProcess addEntries = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(2000));
-					raise(5, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
-				}
-			};
-
-
-            StochasticProcess addEntries1 = new StochasticProcess() {
+    private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
+        {
+            StochasticProcess joinNodes = new StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(2000));
-                    raise(2, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    eventInterArrivalTime(constant(100));
+                    raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
-            StochasticProcess addEntries2 = new StochasticProcess() {
+            StochasticProcess massiveJoin = new StochasticProcess() {
+                {
+                    eventInterArrivalTime(constant(100));
+                    raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+                }
+            };
+
+            StochasticProcess addEntries = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(2000));
-                    raise(5, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(200, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
@@ -53,17 +38,14 @@ public class Scenario2 extends Scenario {
                 }
             };
 
-			joinNodes.start();
-			addEntries.startAfterTerminationOf(1000000, joinNodes);
+            joinNodes.start();
+            addEntries.startAfterTerminationOf(60 * 10 * 1000, joinNodes);
 //			massiveJoin.startAfterTerminationOf(2000, addEntries);
-//          search.startAfterTerminationOf(10000, addEntries);
+            search.startAfterTerminationOf(10000, addEntries);
+        }
+    };
 
-            addEntries1.startAfterTerminationOf(1000000, addEntries);
-//            addEntries2.startAfterTerminationOf(1000000, addEntries1);
-		}
-	};
-
-	public Scenario2() {
-		super(scenario);
-	}
+    public Scenario2() {
+        super(scenario);
+    }
 }

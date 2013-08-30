@@ -606,8 +606,6 @@ public final class Search extends ComponentDefinition {
             IndexEntry newEntry = event.getEntry();
             long id = getNextInsertionId();
 
-            System.out.println(self.getId());
-
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
 
@@ -883,7 +881,6 @@ public final class Search extends ComponentDefinition {
             ArrayList<IndexEntry> missingEntries = new ArrayList<IndexEntry>();
             try {
                 for(int i=0; i<request.getMissingIds().length; i++) {
-                    //System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
                     IndexEntry entry = findById(request.getMissingIds()[i]);
                     if(entry != null) missingEntries.add(entry);
                 }
