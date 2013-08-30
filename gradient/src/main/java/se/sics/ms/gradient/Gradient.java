@@ -32,6 +32,8 @@ import se.sics.ms.util.PartitionHelper;
 import java.security.PublicKey;
 import java.util.*;
 
+import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
+
 
 /**
  * Component creating a gradient network from Croupier samples according to a
@@ -328,23 +330,25 @@ public final class Gradient extends ComponentDefinition {
         public void handle(CroupierSample event) {
             List<VodDescriptor> sample = event.getNodes();
 
-            boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
-            if(!isOnePartition) {
-                int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
+            if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
+                boolean isOnePartition = ((MsSelfImpl)self).getPartitionsNumber() == 2;
+                if(!isOnePartition) {
+                    int bitsToCheck = ((MsSelfImpl)self).getPartitionId().size();
 
-                for(VodDescriptor descriptor : sample) {
-                    LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
-                            isOnePartition, bitsToCheck);
+                    for(VodDescriptor descriptor : sample) {
+                        LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
+                                isOnePartition, bitsToCheck);
 
-                    descriptor.setPartitionId(partitionId);
+                        descriptor.setPartitionId(partitionId);
+                    }
                 }
-            }
-            else {
-                for(VodDescriptor descriptor : sample) {
-                    LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
-                            isOnePartition, 1);
+                else {
+                    for(VodDescriptor descriptor : sample) {
+                        LinkedList<Boolean> partitionId = PartitionHelper.determineVodDescriptorPartition(descriptor,
+                                isOnePartition, 1);
 
-                    descriptor.setPartitionId(partitionId);
+                        descriptor.setPartitionId(partitionId);
+                    }
                 }
             }
 
@@ -394,6 +398,9 @@ public final class Gradient extends ComponentDefinition {
             if (bucket == null) {
                 bucket = new HashSet<VodDescriptor>();
                 categoryRoutingMap.put(partition, bucket);
+
+                //update old routing tables if see an entry from a new partition
+                updateBucketsInRoutingTable(vodDescriptor.getPartitionId(), categoryRoutingMap, bucket);
             }
 
             bucket.add(vodDescriptor);
@@ -820,7 +827,7 @@ public final class Gradient extends ComponentDefinition {
     private boolean determineYourPartitionAndUpdatePartitionsNumber(int partitionsNumber, boolean increment) {
         int nodeId = self.getId();
 
-        boolean partitionSubId = PartitionHelper.determineYourNewPartition(nodeId, ((MsSelfImpl) self).getPartitionId(),
+        boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, ((MsSelfImpl) self).getPartitionId(),
                 partitionsNumber == 1);
 
         if(partitionsNumber == 1) {

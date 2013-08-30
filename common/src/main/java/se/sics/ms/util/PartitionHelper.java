@@ -1,13 +1,9 @@
 package se.sics.ms.util;
 
 import se.sics.gvod.common.VodDescriptor;
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created with IntelliJ IDEA.
@@ -23,8 +19,8 @@ public class PartitionHelper {
      * @param isFirstPartition true if it's after first partitioning
      * @return next bit of the partition id
      */
-    public static boolean determineYourNewPartition(int yourNodeId, LinkedList<Boolean> currentPartitionId,
-                                                    boolean isFirstPartition) {
+    public static boolean determineYourNewPartitionSubId(int yourNodeId, LinkedList<Boolean> currentPartitionId,
+                                                         boolean isFirstPartition) {
         if(currentPartitionId == null)
             throw new IllegalArgumentException("currentPartitionId can't be null");
 
@@ -116,5 +112,63 @@ public class PartitionHelper {
         }
 
         return partitionId;
+    }
+
+    /**
+     * updates a bucket in the categoryRoutingMap regarding new partitionId
+     * @param newPartitionId unseen before partition id
+     * @param categoryRoutingMap map for looking for an old bucket
+     * @param bucket bucket for new partition id
+     */
+    public static void updateBucketsInRoutingTable(LinkedList<Boolean> newPartitionId, Map<Integer,
+            HashSet<VodDescriptor>> categoryRoutingMap, HashSet<VodDescriptor> bucket) {
+        if(newPartitionId.isEmpty() || LinkedListPartitionToInt(newPartitionId) == 0)
+            return;
+
+        //if first split
+        if(newPartitionId.size() == 1) {
+            HashSet<VodDescriptor> oldBucket = categoryRoutingMap.get(0);
+            if(oldBucket == null)
+                return;
+
+            Iterator<VodDescriptor> oldBucketIterator = oldBucket.iterator();
+            while(oldBucketIterator.hasNext()) {
+                VodDescriptor next = oldBucketIterator.next();
+                boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
+                        next.getPartitionId(), true);
+                //first spilling => move to a new bucket all with "true"
+                if(partitionSubId) {
+                    LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
+                    partitionId.addFirst(true);
+                    next.setPartitionId(partitionId);
+                    oldBucketIterator.remove();
+                    bucket.add(next);
+                }
+            }
+
+            return;
+        }
+
+        LinkedList<Boolean> partitionIdCopy = (LinkedList<Boolean>)newPartitionId.clone();
+        partitionIdCopy.removeFirst();
+        int oldPartitionId = PartitionHelper.LinkedListPartitionToInt(partitionIdCopy);
+        HashSet<VodDescriptor> oldBucket = categoryRoutingMap.get(oldPartitionId);
+        if(oldBucket == null)
+            return;
+
+        Iterator<VodDescriptor> oldBucketIterator = oldBucket.iterator();
+        while(oldBucketIterator.hasNext()) {
+            VodDescriptor next = oldBucketIterator.next();
+            boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
+                    next.getPartitionId(), false);
+            next.getPartitionId().addFirst(partitionSubId);
+
+            //move to a new bucket all with first "true"
+            if(partitionSubId == newPartitionId.getFirst()) {
+                oldBucketIterator.remove();
+                bucket.add(next);
+            }
+        }
+
     }
 }

@@ -60,10 +60,10 @@ public class UtilTests {
         LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
         partitionId.addFirst(false);
 
-        boolean partition1 = PartitionHelper.determineYourNewPartition(1, partitionId, true);
+        boolean partition1 = PartitionHelper.determineYourNewPartitionSubId(1, partitionId, true);
         assert (partition1);
 
-        boolean partition2 = PartitionHelper.determineYourNewPartition(2, partitionId, true);
+        boolean partition2 = PartitionHelper.determineYourNewPartitionSubId(2, partitionId, true);
         assert (!partition2);
 
     }
