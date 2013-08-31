@@ -7,10 +7,13 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
@@ -22,7 +25,9 @@ import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 
-import java.util.SortedSet;
+import java.util.*;
+
+import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
 /**
  * This component contains functions for how a node will find out if it is the
@@ -76,13 +81,14 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleLeaderRejection, networkPort);
 		subscribe(handleGradientBroadcast, gradientViewChangePort);
 		subscribe(handleRejectedFollower, networkPort);
+        subscribe(handleTerminateBeingLeader, leaderStatusPort);
 	}
 
 	/**
 	 * The initialisation handler. It is called when the component is loaded and
 	 * will initiate variables
 	 */
-	Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
+	final Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
 		@Override
 		public void handle(ElectionInit init) {
 			self = init.getSelf();
@@ -98,7 +104,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * node fulfills the requirements in order to become a leader, and in that
 	 * case it will call for a leader election
 	 */
-	Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
+	final Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
 		@Override
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
 			higherUtilityNodes = event.getHigherUtilityNodes(self.getDescriptor());
@@ -131,7 +137,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * QueryLimit handler that counts the number of votes received from the followers. If
 	 * all nodes have responded it will call for vote counting
 	 */
-	Handler<ElectionMessage.Response> handleVotingResponse = new Handler<ElectionMessage.Response>() {
+	final Handler<ElectionMessage.Response> handleVotingResponse = new Handler<ElectionMessage.Response>() {
 		@Override
 		public void handle(ElectionMessage.Response event) {
 			// Check if the vote comes from this batch of votes
@@ -156,7 +162,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * QueryLimit handler that will call for a vote call after a certain amount of time
 	 * if not all voters have returned with a vote
 	 */
-	Handler<VoteTimeout> handleVoteTimeout = new Handler<VoteTimeout>() {
+	final Handler<VoteTimeout> handleVoteTimeout = new Handler<VoteTimeout>() {
 		@Override
 		public void handle(VoteTimeout event) {
 			evaluateVotes();
@@ -167,7 +173,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * QueryLimit handler that will periodically send out heart beats to the node's
 	 * (leader's) followers
 	 */
-	Handler<HeartbeatSchedule> handleHeartbeats = new Handler<HeartbeatSchedule>() {
+	final Handler<HeartbeatSchedule> handleHeartbeats = new Handler<HeartbeatSchedule>() {
 		@Override
 		public void handle(HeartbeatSchedule event) {
             sendLeaderView();
@@ -178,7 +184,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * QueryLimit handler that handles rejected messages send by nodes who have found a
 	 * better leader
 	 */
-	Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
+	final Handler<RejectLeaderMessage> handleLeaderRejection = new Handler<RejectLeaderMessage>() {
 		@Override
 		public void handle(RejectLeaderMessage event) {
             // TODO we need to check if the rejection is valid e.g. check the given better node
@@ -193,7 +199,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * QueryLimit handler that handles nodes who have been kicked out of the leader's
 	 * view and ask if the leader if still alive
 	 */
-	Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
+	final Handler<RejectFollowerMessage.Request> handleRejectedFollower = new Handler<RejectFollowerMessage.Request>() {
 		@Override
 		public void handle(RejectFollowerMessage.Request event) {
 			boolean sourceIsInView = false;
@@ -209,6 +215,23 @@ public class ElectionLeader extends ComponentDefinition {
 			trigger(msg, networkPort);
 		}
 	};
+
+    final Handler<LeaderStatusPort.TerminateBeingLeader> handleTerminateBeingLeader = new Handler<LeaderStatusPort.TerminateBeingLeader>() {
+        @Override
+        public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
+            iAmLeader = false;
+            electionInProgress = false;
+//            higherUtilityNodes.clear();
+//            lowerUtilityNodes.clear();
+            voteTimeoutId = null;
+            heartbeatTimeoutId = null;
+
+            trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, lowerUtilityNodes);
+        }
+    };
 
 	/**
 	 * This class counts the votes. If the node is elected as a leader it will
@@ -237,7 +260,6 @@ public class ElectionLeader extends ComponentDefinition {
 					builder.append(node.getVodAddress().getId() + " ");
 				}
 				Snapshot.setElectionView(self.getAddress(), builder.toString());
-				Snapshot.setLeaderStatus(self.getAddress(), true);
 
 				variableReset();
 				iAmLeader = true;
@@ -249,6 +271,10 @@ public class ElectionLeader extends ComponentDefinition {
 				trigger(timeout, timerPort);
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+
+                Snapshot.setLeaderStatus(self.getAddress(), true, ((MsSelfImpl)self).getPartitionId());
+
+                System.out.println(self.getId() + " " + ((MsSelfImpl)self).getPartitionId() + " I am the leader");
 			}
 		} else {
 			rejected();
@@ -325,7 +351,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private void rejected() {
         iAmLeader = false;
         trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
-        Snapshot.setLeaderStatus(self.getAddress(), false);
+        //Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
 }

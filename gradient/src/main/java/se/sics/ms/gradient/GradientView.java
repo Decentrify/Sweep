@@ -5,8 +5,12 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.PartitionHelper;
 
 
 /**
@@ -89,6 +93,10 @@ public class GradientView {
 		}
 	}
 
+    public void setChanged() {
+        changed = true;
+    }
+
 	/**
 	 * Remove a node from the view.
 	 * 
@@ -120,9 +128,11 @@ public class GradientView {
 		}
 
 		incrementDescriptorAges();
-		VodDescriptor oldestEntry = Collections.max(entries);
+//		VodDescriptor oldestEntry = Collections.max(entries);
+//
+//		return oldestEntry;
 
-		return oldestEntry;
+      return getClosestNodes(1).first();
 	}
 
 	/**
@@ -136,9 +146,13 @@ public class GradientView {
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
-		for (VodDescriptor vodDescriptor : vodDescriptors) {
-			add(vodDescriptor);
-		}
+        if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
+            PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, vodDescriptors);
+        }
+
+        for (VodDescriptor vodDescriptor : vodDescriptors) {
+            add(vodDescriptor);
+        }
 
 		oldEntries.retainAll(entries);
 		if (oldSize == entries.size() && oldEntries.size() > convergenceTest * entries.size()) {
@@ -155,6 +169,10 @@ public class GradientView {
             converged = false;
         }
 	}
+
+    protected void adjustViewToNewPartitions() {
+        PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, entries);
+    }
 
 	/**
 	 * Return the number most preferred nodes for the given vodDescriptor.
@@ -281,15 +299,25 @@ public class GradientView {
 
             if (utilityComparator.compare(o1, o2) == 0) {
                 return 0;
-            } else if (utilityComparator.compare(o1, base) == 0) {
+            }
+
+            if (utilityComparator.compare(o1, base) == 0) {
                 return 1;
-            } else if (utilityComparator.compare(o2, base) == 0) {
+            }
+
+            if (utilityComparator.compare(o2, base) == 0) {
                 return -1;
-            } else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == -1) {
+            }
+
+            if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == -1) {
 				return 1;
-			} else if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == 1 && utilityComparator.compare(o1, o2) == 1) {
+			}
+
+            if (utilityComparator.compare(o1, base) == 1 && utilityComparator.compare(o2, base) == 1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
-			} else if (utilityComparator.compare(o1, base) == -1 && utilityComparator.compare(o2, base) == -1 && utilityComparator.compare(o1, o2) == 1) {
+			}
+
+            if (utilityComparator.compare(o1, base) == -1 && utilityComparator.compare(o2, base) == -1 && utilityComparator.compare(o1, o2) == 1) {
 				return 1;
 			}
 			return -1;

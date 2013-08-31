@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import com.sun.tools.javac.util.Pair;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -39,6 +40,7 @@ import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -104,8 +106,11 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<TimeoutId, IndexEntry> avaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
+    private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
+
+    private long minStoredId = Long.MIN_VALUE;
+    private long maxStoredId = Long.MIN_VALUE;
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -215,6 +220,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
+        subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
     }
 
     /**
@@ -223,6 +229,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchInit> handleInit = new Handler<SearchInit>() {
         public void handle(SearchInit init) {
             self = init.getSelf();
+
             config = init.getConfiguration();
             KeyPairGenerator keyGen;
             try {
@@ -287,6 +294,17 @@ public final class Search extends ComponentDefinition {
             } catch (IOException e) {
                 e.printStackTrace();
                 System.exit(-1);
+            }
+
+            minStoredId = getMinStoredIdFromLucene();
+            maxStoredId = getMaxStoredIdFromLucene();
+
+
+
+            if(minStoredId > maxStoredId) {
+                long temp = minStoredId;
+                minStoredId = maxStoredId;
+                maxStoredId = temp;
             }
         }
     };
@@ -471,7 +489,9 @@ public final class Search extends ComponentDefinition {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
                 for (Id id : event.getIds()) {
                     // TODO use the leader id to search
-                    indexEntries.add(findById(id.getId()));
+                    IndexEntry entry = findById(id.getId());
+                    if(entry != null)
+                        indexEntries.add(entry);
                 }
 
                 trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), networkPort);
@@ -585,10 +605,11 @@ public final class Search extends ComponentDefinition {
 
             IndexEntry newEntry = event.getEntry();
             long id = getNextInsertionId();
+
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
 
-            String signature =  generateSignedHash(newEntry, privateKey);
+            String signature = generateSignedHash(newEntry, privateKey);
             if(signature == null)
                 return;
 
@@ -605,7 +626,7 @@ public final class Search extends ComponentDefinition {
 
             int majoritySize = (int)Math.ceil(viewSize/2) + 1;
 
-            avaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
+            awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
             replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
 
             trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
@@ -617,6 +638,9 @@ public final class Search extends ComponentDefinition {
      * @return a new id for a new {@link IndexEntry}
      */
     private long getNextInsertionId() {
+        if(nextInsertionId == Long.MAX_VALUE - 1)
+            nextInsertionId = Long.MIN_VALUE;
+
         return nextInsertionId++;
     }
 
@@ -759,8 +783,8 @@ public final class Search extends ComponentDefinition {
 
                 long maxStoredId = getMaxStoredId();
 
-                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
-                    return;
+//                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
+//                    return;
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
                 long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
@@ -803,7 +827,10 @@ public final class Search extends ComponentDefinition {
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
 
                 commitRequests.remove(commitId);
-                Snapshot.addIndexEntryId(self.getAddress().getPartitionId(), replicationCount.getEntry().getId());
+
+                int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
+
+                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -854,7 +881,6 @@ public final class Search extends ComponentDefinition {
             ArrayList<IndexEntry> missingEntries = new ArrayList<IndexEntry>();
             try {
                 for(int i=0; i<request.getMissingIds().length; i++) {
-                    //System.out.println(String.format("%s missing %s, but have %s", request.getVodSource().getId(), request.getMissingIds()[i], request.getFutureEntry().getId()));
                     IndexEntry entry = findById(request.getMissingIds()[i]);
                     if(entry != null) missingEntries.add(entry);
                 }
@@ -913,6 +939,8 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderStatusPort.LeaderStatus event) {
             leader = event.isLeader();
+
+
 
             if(!leader) return;
 
@@ -979,7 +1007,7 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result, self.getAddress().getPartitionId());
+            addSearchResponse(result, PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()));
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -996,7 +1024,7 @@ public final class Search extends ComponentDefinition {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
                 trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
-                        0, 0, result), networkPort);
+                        0, 0, result, event.getPartitionId()), networkPort);
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -1051,7 +1079,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            addSearchResponse(event.getResults(), event.getVodSource().getPartitionId());
+            addSearchResponse(event.getResults(), event.getPartitionId());
         }
     };
 
@@ -1073,11 +1101,11 @@ public final class Search extends ComponentDefinition {
         }
 
         searchRequest.addRespondedPartition(partition);
-        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
-            trigger(ct, timerPort);
-            answerSearchRequest();
-        }
+//        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
+//            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+//            trigger(ct, timerPort);
+//            answerSearchRequest();
+//        }
     }
 
     /**
@@ -1088,6 +1116,47 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchTimeout event) {
             answerSearchRequest();
+        }
+    };
+
+
+    /**
+     * Removes IndexEntries that don't belong to your partition after a partition splits into two
+     */
+    final Handler<RemoveEntriesNotFromYourPartition> handleRemoveEntriesNotFromYourPartition = new Handler<RemoveEntriesNotFromYourPartition>() {
+        @Override
+        public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
+            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+            trigger(cancelTimeout, timerPort);
+            indexExchangeTimeout = null;
+            exchangeInProgress = false;
+
+            if(removeEntriesNotFromYourPartition.isPartition())
+                deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
+            else
+                deleteDocumentsWithIdLessThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
+
+            minStoredId = getMinStoredIdFromLucene();
+            maxStoredId = getMaxStoredIdFromLucene();
+
+            ((MsSelfImpl)self).setNumberOfIndexEntries(Math.abs(maxStoredId - minStoredId + 1));
+
+            if(maxStoredId < minStoredId) {
+                long temp = maxStoredId;
+                maxStoredId = minStoredId;
+                minStoredId = temp;
+            }
+
+            nextInsertionId = maxStoredId+1;
+            lowestMissingIndexValue = maxStoredId;
+
+            int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
+
+            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+                    minStoredId);
+            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+                    maxStoredId);
+            Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
         }
     };
 
@@ -1210,6 +1279,43 @@ public final class Search extends ComponentDefinition {
         } else if (indexEntry.getId() > lowestMissingIndexValue) {
             existingEntries.add(indexEntry.getId());
         }
+
+        maxStoredId++;
+
+        //update the counter, so we can check if partitioning is necessary
+        if(leader && ((MsSelfImpl)self).getPartitionId().size() < config.getMaxPartitionIdLength())
+            checkPartitioning();
+    }
+
+    private void checkPartitioning() {
+        long numberOfEntries;
+        if(((MsSelfImpl)self).getPartitionsNumber() == 1)
+            numberOfEntries = Math.abs(maxStoredId - minStoredId);
+        else
+            numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
+
+        if(numberOfEntries < config.getMaxEntriesOnPeer())
+            return;
+
+        int partitionsNumber = self.getDescriptor().getPartitionsNumber();
+        long medianId;
+
+        if(maxStoredId > minStoredId)
+            medianId = (maxStoredId - minStoredId)/2;
+        else {
+            long values = numberOfEntries/2;
+
+            if(Long.MAX_VALUE - 1 - values > minStoredId)
+                medianId = minStoredId + values;
+            else {
+                long thisPart = Long.MAX_VALUE - minStoredId -1;
+                values -= thisPart;
+                medianId = Long.MIN_VALUE + values + 1;
+            }
+        }
+
+        trigger(new PartitionMessage(UUID.nextUUID(), medianId, partitionsNumber), gradientRoutingPort);
+
     }
 
     /**
@@ -1224,7 +1330,7 @@ public final class Search extends ComponentDefinition {
         if (leaderId == null)
             return new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                     d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                    IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                    MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
                     d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), null);
 
         KeyFactory keyFactory;
@@ -1241,7 +1347,7 @@ public final class Search extends ComponentDefinition {
         }
         IndexEntry entry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
                 d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                IndexEntry.Category.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
                 d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         return entry;
@@ -1316,21 +1422,9 @@ public final class Search extends ComponentDefinition {
         if(newEntry.getLeaderId() == null)
             return null;
 
-        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+        //url
+        ByteBuffer dataBuffer = getByteDataFromIndexEntry(newEntry);
 
-        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
-        dataBuffer.putLong(newEntry.getId());
-        dataBuffer.putLong(newEntry.getFileSize());
-        dataBuffer.putLong(newEntry.getUploaded().getTime());
-        dataBuffer.putInt(newEntry.getCategory().ordinal());
-        dataBuffer.put(urlBytes);
-        dataBuffer.put(fileNameBytes);
-        dataBuffer.put(languageBytes);
-        dataBuffer.put(descriptionBytes);
 
         try {
             return generateRSASignature(dataBuffer.array(), privateKey);
@@ -1365,38 +1459,74 @@ public final class Search extends ComponentDefinition {
     }
 
     private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
-        return true;
-        // TODO fix crash if fields are null
-//        if(newEntry.getLeaderId() == null)
-//            return false;
-//
-//        byte[] urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-//        byte[] fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-//        byte[] languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-//        byte[] descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-//
-//        ByteBuffer dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-//                languageBytes.length + descriptionBytes.length);
-//        dataBuffer.putLong(newEntry.getId());
-//        dataBuffer.putLong(newEntry.getFileSize());
-//        dataBuffer.putLong(newEntry.getUploaded().getTime());
-//        dataBuffer.putInt(newEntry.getCategory().ordinal());
-//        dataBuffer.put(urlBytes);
-//        dataBuffer.put(fileNameBytes);
-//        dataBuffer.put(languageBytes);
-//        dataBuffer.put(descriptionBytes);
-//
-//        try {
-//            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
-//        } catch (NoSuchAlgorithmException e) {
-//            logger.error(e.getMessage());
-//        } catch (SignatureException e) {
-//            logger.error(e.getMessage());
-//        } catch (InvalidKeyException e) {
-//            logger.error(e.getMessage());
-//        }
-//
-//        return false;
+        if(newEntry.getLeaderId() == null)
+            return false;
+        ByteBuffer dataBuffer = getByteDataFromIndexEntry(newEntry);
+
+
+        try {
+            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return false;
+    }
+
+    private static ByteBuffer getByteDataFromIndexEntry(IndexEntry newEntry) {
+        //url
+        byte[] urlBytes;
+        if(newEntry.getUrl() != null)
+            urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
+        else
+            urlBytes = new byte[0];
+
+        //filename
+        byte[] fileNameBytes;
+        if(newEntry.getFileName() != null)
+            fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
+        else
+            fileNameBytes = new byte[0];
+
+        //language
+        byte[] languageBytes;
+        if(newEntry.getLanguage() != null)
+            languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
+        else
+            languageBytes = new byte[0];
+
+        //description
+        byte[] descriptionBytes;
+        if(newEntry.getDescription() != null)
+            descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
+        else
+            descriptionBytes = new byte[0];
+
+        ByteBuffer dataBuffer;
+        if(newEntry.getUploaded() != null)
+            dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
+                languageBytes.length + descriptionBytes.length);
+        else
+            dataBuffer = ByteBuffer.allocate(8 * 2 + 4 + urlBytes.length + fileNameBytes.length +
+                    languageBytes.length + descriptionBytes.length);
+        dataBuffer.putLong(newEntry.getId());
+        dataBuffer.putLong(newEntry.getFileSize());
+        if(newEntry.getUploaded() != null)
+            dataBuffer.putLong(newEntry.getUploaded().getTime());
+        dataBuffer.putInt(newEntry.getCategory().ordinal());
+        if(newEntry.getUrl() != null)
+            dataBuffer.put(urlBytes);
+        if(newEntry.getFileName() != null)
+            dataBuffer.put(fileNameBytes);
+        if(newEntry.getLanguage() != null)
+            dataBuffer.put(languageBytes);
+        if(newEntry.getDescription() != null)
+            dataBuffer.put(descriptionBytes);
+        return dataBuffer;
     }
 
     private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
@@ -1417,5 +1547,165 @@ public final class Search extends ComponentDefinition {
                     + Character.digit(s.charAt(i+1), 16));
         }
         return data;
+    }
+
+    /**
+     * Returns min id value stored in Lucene
+     * @return min Id value stored in Lucene
+     */
+    private long getMinStoredIdFromLucene() {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG)));
+
+            if(topDocs.scoreDocs.length == 1) {
+                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
+
+                return createIndexEntry(doc).getId();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Returns max id value stored in Lucene
+     * @return max Id value stored in Lucene
+     */
+    private long getMaxStoredIdFromLucene() {
+        IndexReader reader = null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
+                    Type.LONG, true)));
+
+            if(topDocs.scoreDocs.length == 1) {
+                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
+
+                return createIndexEntry(doc).getId();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Deletes all documents from the index with ids less or equal then id
+     * @param id
+     * @param bottom
+     * @param top
+     * @return
+     */
+    private boolean deleteDocumentsWithIdLessThen(long id, long bottom, long top) {
+        IndexWriter writer=null;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            if(bottom < top) {
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+                writer.deleteDocuments(query);
+                writer.commit();
+                return true;
+            }
+            else {
+                if(id < bottom) {
+                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, Long.MAX_VALUE - 1, true, true);
+                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, id, true, true);
+                    writer.deleteDocuments(query1, query2);
+                }
+                else {
+                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+                    writer.deleteDocuments(query);
+                }
+                writer.commit();
+                return true;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        finally {
+            if (writer != null)
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+        }
+
+        return false;
+    }
+
+    /**
+     * Deletes all documents from the index with ids bigger then id (not including)
+     * @param id
+     * @param bottom
+     * @param top
+     * @return
+     */
+    private boolean deleteDocumentsWithIdMoreThen(long id, long bottom, long top) {
+        IndexWriter writer=null;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            if(bottom < top) {
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
+                writer.deleteDocuments(query);
+                writer.commit();
+                return true;
+            }
+            else {
+                if(id >= top) {
+                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, Long.MAX_VALUE - 1, true, true);
+                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, top, true, true);
+                    writer.deleteDocuments(query1, query2);
+                }
+                else {
+                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
+                    writer.deleteDocuments(query);
+                }
+                writer.commit();
+                return true;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        finally {
+            if (writer != null)
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+        }
+
+        return false;
     }
 }

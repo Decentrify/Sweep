@@ -31,7 +31,8 @@ public class SearchMessageFactory {
         protected SearchMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
             SearchPattern pattern = ApplicationTypesDecoderFactory.readSearchPattern(buffer);
             TimeoutId searchTimeoutId = UserTypesDecoderFactory.readTimeoutId(buffer);
-            return new SearchMessage.Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern);
+            int partitionId = buffer.readInt();
+            return new SearchMessage.Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern, partitionId);
         }
 
     }
@@ -51,8 +52,9 @@ public class SearchMessageFactory {
             int responseNum = UserTypesDecoderFactory.readIntAsOneByte(buffer);
             Collection<IndexEntry> results = ApplicationTypesDecoderFactory.readIndexEntryCollection(buffer);
             TimeoutId searchTimeoutId = UserTypesDecoderFactory.readTimeoutId(buffer);
+            int partitionId = buffer.readInt();
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNum, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNum, results, partitionId);
             } catch (IllegalSearchString ex) {
                 Logger.getLogger(SearchMessageFactory.class.getName()).log(Level.SEVERE, null, ex);
             }

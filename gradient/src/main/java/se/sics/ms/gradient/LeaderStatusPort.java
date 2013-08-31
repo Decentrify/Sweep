@@ -8,6 +8,7 @@ public class LeaderStatusPort extends PortType {
 	{
 		negative(LeaderStatus.class);
 		negative(NodeCrashEvent.class);
+        positive(TerminateBeingLeader.class);
 	}
 
 	/**
@@ -65,4 +66,10 @@ public class LeaderStatusPort extends PortType {
 			return deadNode;
 		}
 	}
+
+    public static class TerminateBeingLeader extends Event {
+        public TerminateBeingLeader() {
+            super();
+        }
+    }
 }

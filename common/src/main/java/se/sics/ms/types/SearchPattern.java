@@ -10,6 +10,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+import se.sics.ms.configuration.MsConfig;
 
 /**
  * Created with IntelliJ IDEA.
@@ -26,7 +27,7 @@ public class SearchPattern implements Serializable {
     private Date minUploadDate;
     private Date maxUploadDate;
     private String language;
-    private IndexEntry.Category category;
+    private MsConfig.Categories category;
     private String descriptionPattern;
 
     /**
@@ -51,7 +52,7 @@ public class SearchPattern implements Serializable {
      *            keywords to match the description text
      */
     public SearchPattern(String fileNamePattern, int minFileSize, int maxFileSize,
-                         Date minUploadDate, Date maxUploadDate, String language, IndexEntry.Category category,
+                         Date minUploadDate, Date maxUploadDate, String language, MsConfig.Categories category,
                          String descriptionPattern) {
         this.fileNamePattern = fileNamePattern;
         this.minFileSize = minFileSize;
@@ -112,7 +113,7 @@ public class SearchPattern implements Serializable {
     /**
      * @return the category
      */
-    public IndexEntry.Category getCategory() {
+    public MsConfig.Categories getCategory() {
         return category;
     }
 

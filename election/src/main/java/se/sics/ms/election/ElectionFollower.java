@@ -9,10 +9,13 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.GradientViewChangePort;
 import se.sics.ms.gradient.LeaderStatusPort;
 import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
@@ -20,8 +23,9 @@ import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.messages.*;
 
-import java.util.Set;
-import java.util.SortedSet;
+import java.util.*;
+
+import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
 /**
  * This class contains functions for those nodes that are directly following a
@@ -83,12 +87,13 @@ public class ElectionFollower extends ComponentDefinition {
         subscribe(handleGradientBroadcast, gradientViewChangePort);
         subscribe(handleLeaderSuspicionResponse, networkPort);
         subscribe(handleRejectionConfirmation, networkPort);
+        subscribe(handleTerminateBeingLeader, leaderStatusPort);
     }
     /**
      * The initialisation handler. Called when the component is created and
      * mainly initiates variables
      */
-    Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
+    final Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
         @Override
         public void handle(ElectionInit init) {
             self = init.getSelf();
@@ -99,7 +104,7 @@ public class ElectionFollower extends ComponentDefinition {
      * QueryLimit handler that will respond to voting requests sent from leader
      * candidates. It checks if that leader candidate is a suitable leader
      */
-    Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
+    final Handler<ElectionMessage.Request> handleVotingRequest = new Handler<ElectionMessage.Request>() {
         @Override
         public void handle(ElectionMessage.Request event) {
             boolean candidateAccepted = true;
@@ -124,6 +129,7 @@ public class ElectionFollower extends ComponentDefinition {
     };
 
     private VodDescriptor getHighestUtilityNode() {
+        //removeNodesFromOtherPartitions();
         VodDescriptor vodDescriptor;
         if (higherUtilityNodes.size() != 0) {
             vodDescriptor = higherUtilityNodes.last();
@@ -135,6 +141,7 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     private VodDescriptor getHighestUtilityNode(VodDescriptor vodDescriptor) {
+        //removeNodesFromOtherPartitions();
         if (higherUtilityNodes.size() != 0) {
             vodDescriptor = utilityComparator.compare(higherUtilityNodes.last(), vodDescriptor) == 1 ? higherUtilityNodes.last() : vodDescriptor;
         } else {
@@ -147,7 +154,7 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * QueryLimit handler receiving gradient view broadcasts, and sets its view accordingly
      */
-    Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
+    final Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
         @Override
         public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
@@ -159,10 +166,13 @@ public class ElectionFollower extends ComponentDefinition {
      * if that node is still a suitable leader and handles the situation
      * accordingly
      */
-    Handler<LeaderViewMessage> handleHeartbeat = new Handler<LeaderViewMessage>() {
+    final Handler<LeaderViewMessage> handleHeartbeat = new Handler<LeaderViewMessage>() {
         @Override
         public void handle(LeaderViewMessage event) {
             VodDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderVodDescriptor());
+
+            if(!highestUtilityNode.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
+                highestUtilityNode = event.getLeaderVodDescriptor();
 
             if (leader == null) {
                 if (event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
@@ -170,7 +180,7 @@ public class ElectionFollower extends ComponentDefinition {
                 } else {
                     rejectLeader(event.getVodSource(), highestUtilityNode);
                 }
-            } else if (event.getLeaderVodDescriptor().equals(highestUtilityNode) == false) {
+            } else if (!event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
                 rejectLeader(event.getVodSource(), highestUtilityNode);
             } else if (event.getLeaderVodDescriptor().equals(leader)) {
                 acceptLeader(leader, event.getVodDescriptors());
@@ -189,7 +199,7 @@ public class ElectionFollower extends ComponentDefinition {
      * in case the local version of the leaver's view is completely outdated,
      * because that could result in valid leaders being rejected
      */
-    Handler<HeartbeatTimeout> handleHeartbeatTimeout = new Handler<HeartbeatTimeout>() {
+    final Handler<HeartbeatTimeout> handleHeartbeatTimeout = new Handler<HeartbeatTimeout>() {
         @Override
         public void handle(HeartbeatTimeout event) {
             if (leaderIsAlive == true) {
@@ -221,7 +231,7 @@ public class ElectionFollower extends ComponentDefinition {
      * The node will reject the leader in case it has been kicked from the
      * leader's view, and is therefore no longer in the voting group
      */
-    Handler<RejectFollowerMessage.Response> handleRejectionConfirmation = new Handler<RejectFollowerMessage.Response>() {
+    final Handler<RejectFollowerMessage.Response> handleRejectionConfirmation = new Handler<RejectFollowerMessage.Response>() {
         @Override
         public void handle(RejectFollowerMessage.Response event) {
             if (event.isNodeInView() == true) {
@@ -239,7 +249,7 @@ public class ElectionFollower extends ComponentDefinition {
      * QueryLimit handler that will respond whether it thinks that the leader is dead or
      * not
      */
-    Handler<LeaderSuspicionMessage.Request> handleLeaderSuspicionRequest = new Handler<LeaderSuspicionMessage.Request>() {
+    final Handler<LeaderSuspicionMessage.Request> handleLeaderSuspicionRequest = new Handler<LeaderSuspicionMessage.Request>() {
         @Override
         public void handle(LeaderSuspicionMessage.Request event) {
             LeaderSuspicionMessage.Response msg;
@@ -259,7 +269,7 @@ public class ElectionFollower extends ComponentDefinition {
      * number of votes are the same as the number of nodes in the leader's view,
      * then it calls upon a vote count
      */
-    Handler<LeaderSuspicionMessage.Response> handleLeaderSuspicionResponse = new Handler<LeaderSuspicionMessage.Response>() {
+    final Handler<LeaderSuspicionMessage.Response> handleLeaderSuspicionResponse = new Handler<LeaderSuspicionMessage.Response>() {
         @Override
         public void handle(LeaderSuspicionMessage.Response event) {
             // TODO Somebody could send fake responses here and make everybody think the leader is dead
@@ -268,7 +278,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
 
             deathMessageCounter++;
-            if (event.isSuspected() == true) {
+            if (event.isSuspected()) {
                 aliveCounter++;
             }
 
@@ -281,7 +291,7 @@ public class ElectionFollower extends ComponentDefinition {
      * QueryLimit handler that listens for DeathTimeout event and will then call for an
      * evaluation of death responses
      */
-    Handler<DeathTimeout> handleDeathTimeout = new Handler<ElectionFollower.DeathTimeout>() {
+    final Handler<DeathTimeout> handleDeathTimeout = new Handler<ElectionFollower.DeathTimeout>() {
         @Override
         public void handle(DeathTimeout event) {
             evaluateDeathResponses();
@@ -291,7 +301,7 @@ public class ElectionFollower extends ComponentDefinition {
      * QueryLimit handler that will set the leader to null in case the other nodes have
      * confirmed the leader to be dead
      */
-    Handler<LeaderDeathAnnouncementMessage> handleLeaderDeathAnnouncement = new Handler<LeaderDeathAnnouncementMessage>() {
+    final Handler<LeaderDeathAnnouncementMessage> handleLeaderDeathAnnouncement = new Handler<LeaderDeathAnnouncementMessage>() {
         @Override
         public void handle(LeaderDeathAnnouncementMessage event) {
             if (leader != null && event.getLeader().getId() == leader.getId()) {
@@ -303,6 +313,22 @@ public class ElectionFollower extends ComponentDefinition {
                 leaderView = null;
                 leaderIsAlive = false;
             }
+        }
+    };
+
+    final Handler<LeaderStatusPort.TerminateBeingLeader> handleTerminateBeingLeader = new Handler<LeaderStatusPort.TerminateBeingLeader>() {
+        @Override
+        public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
+            cancelHeartbeatTimeout();
+
+            leader = null;
+            leaderView = null;
+            leaderIsAlive = false;
+            isConverged = false;
+            //higherUtilityNodes.clear();
+            deathVoteTimeout = null;
+
+            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
         }
     };
 

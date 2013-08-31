@@ -3,6 +3,7 @@ package se.sics.ms.snapshot;
 import se.sics.gvod.address.Address;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 
 /**
@@ -14,11 +15,13 @@ public class PeerInfo {
 	private boolean leader;
 	private String electionView;
 	private String currentView;
+    private LinkedList<Boolean> partitionId;
 
 	public PeerInfo() {
 		this.neighbours = new ArrayList<Address>();
 		this.numIndexEntries = 0;
 		this.leader = false;
+        this.partitionId = new LinkedList<Boolean>();
 	}
 
 	/**
@@ -97,4 +100,16 @@ public class PeerInfo {
 	public synchronized void setCurrentView(String currentView) {
 		this.currentView = currentView;
 	}
+
+    public synchronized LinkedList<Boolean> getPartitionId() {
+        return partitionId;
+    }
+
+    public synchronized void setPartitionId(LinkedList<Boolean> partitionId) {
+        this.partitionId = partitionId;
+    }
+
+    public void setNumIndexEntries(long numIndexEntries) {
+        this.numIndexEntries = numIndexEntries;
+    }
 }

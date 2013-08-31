@@ -1,5 +1,6 @@
 package se.sics.ms.ui;
 
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 
 import javax.swing.*;
@@ -42,7 +43,7 @@ public class AddIndexEntryUi {
                 int selectedCategory = categoryBox.getSelectedIndex();
 
                 IndexEntry entry = new IndexEntry(urlField.getText(), fileNameField.getText(), Long.parseLong(fileSizeField.getText()),
-                        new Date(), languageField.getText(), IndexEntry.Category.values()[selectedCategory], descriptionTextArea.getText());
+                        new Date(), languageField.getText(), MsConfig.Categories.values()[selectedCategory], descriptionTextArea.getText());
 
                 component.addIndexEntry(entry);
             }

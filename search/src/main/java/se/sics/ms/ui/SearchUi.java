@@ -22,13 +22,13 @@ public class SearchUi {
         this.component = component;
         searchResultsList.setModel(model);
 
-//        IndexEntry entry0 = new IndexEntry("http://hp.com/", "Harry Potter 1", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry1 = new IndexEntry("http://hp.com/", "Harry Potter 2", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry2 = new IndexEntry("http://hp.com/", "Harry Potter 3", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry3 = new IndexEntry("http://hp.com/", "Harry Potter 4", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry4 = new IndexEntry("http://hp.com/", "Harry Potter 5", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry5 = new IndexEntry("http://hp.com/", "Harry Potter 6", new Date(), IndexEntry.Category.Books, "English", null, null);
-//        IndexEntry entry6 = new IndexEntry("http://hp.com/", "Harry Potter 7", new Date(), IndexEntry.Category.Books, "English", null, null);
+//        IndexEntry entry0 = new IndexEntry("http://hp.com/", "Harry Potter 1", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry1 = new IndexEntry("http://hp.com/", "Harry Potter 2", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry2 = new IndexEntry("http://hp.com/", "Harry Potter 3", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry3 = new IndexEntry("http://hp.com/", "Harry Potter 4", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry4 = new IndexEntry("http://hp.com/", "Harry Potter 5", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry5 = new IndexEntry("http://hp.com/", "Harry Potter 6", new Date(), IndexEntry.Categories.Books, "English", null, null);
+//        IndexEntry entry6 = new IndexEntry("http://hp.com/", "Harry Potter 7", new Date(), IndexEntry.Categories.Books, "English", null, null);
 //        showSearchResults(new IndexEntry[]{entry0, entry1, entry2, entry3, entry4, entry5, entry6});
 
         searchButton.addActionListener(new ActionListener() {

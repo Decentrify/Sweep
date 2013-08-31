@@ -13,6 +13,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 
 /**
@@ -22,7 +23,7 @@ import se.sics.ms.types.IndexEntry;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-    private IndexEntry entry = new IndexEntry("", "", new Date(), IndexEntry.Category.Books, "", "", "");
+    private IndexEntry entry = new IndexEntry("", "", new Date(), MsConfig.Categories.Books, "", "", "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.

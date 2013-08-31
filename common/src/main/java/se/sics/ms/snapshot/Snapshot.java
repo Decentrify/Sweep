@@ -1,14 +1,13 @@
 package se.sics.ms.snapshot;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import com.sun.tools.javac.util.Pair;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.configuration.MsConfig;
 
 /**
  * Keep track of the system state for evaluation and debugging. Write the
@@ -18,7 +17,8 @@ public class Snapshot {
 	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
-    private static ConcurrentHashMap<Integer, Long> latestIds = new ConcurrentHashMap<Integer, Long>();
+    private static ConcurrentHashMap<Pair<Integer, Integer>, Long> maxIds = new ConcurrentHashMap<Pair<Integer, Integer>, Long>();
+    private static ConcurrentHashMap<Pair<Integer, Integer>, Long> minIds = new ConcurrentHashMap<Pair<Integer, Integer>, Long>();
 	private static ConcurrentSkipListSet<Long> idDuplicates = new ConcurrentSkipListSet<Long>();
     private static int receivedAddRequests = 0;
 	private static int entriesAdded = 0;
@@ -65,6 +65,16 @@ public class Snapshot {
 		peerInfo.incNumIndexEntries();
 	}
 
+    public static void setNumIndexEntries(VodAddress address, long value) {
+        PeerInfo peerInfo = peers.get(address);
+
+        if (peerInfo == null) {
+            return;
+        }
+
+        peerInfo.setNumIndexEntries(value);
+    }
+
 	/**
 	 * Set the neighbors in the snapshot of a peer.
 	 * 
@@ -91,7 +101,7 @@ public class Snapshot {
 	 * @param leader
 	 *            the leader status
 	 */
-	public static void setLeaderStatus(VodAddress address, boolean leader) {
+	public static void setLeaderStatus(VodAddress address, boolean leader, LinkedList<Boolean> partition) {
 		PeerInfo peerInfo = peers.get(address);
 
 		if (leader) {
@@ -102,6 +112,7 @@ public class Snapshot {
 			return;
 		}
 
+        peerInfo.setPartitionId(partition);
 		peerInfo.setLeader(leader);
 	}
 
@@ -144,26 +155,42 @@ public class Snapshot {
 	/**
 	 * Add the last added index id to the snapshot.
 	 *
-     * @param partition
-     *            the partition of the node adding the index
+     * @param categoryPartitionPair
+     *            pair of node's category and partitionId
 	 * @param id
 	 *            the id of the lastest added index value
 	 */
-	public static synchronized void addIndexEntryId(int partition, long id) {
+	public static synchronized void addIndexEntryId(Pair<Integer, Integer> categoryPartitionPair, long id) {
         entriesAdded++;
 
-        Long lastId = latestIds.get(partition);
+        Long lastId = maxIds.get(categoryPartitionPair);
         if (lastId == null) {
             lastId = id;
-            latestIds.put(partition, lastId);
+            maxIds.put(categoryPartitionPair, lastId);
             return;
         }
 
-		if (id <= lastId.longValue()) {
+		if (id <= lastId.longValue() && id >= minIds.get(categoryPartitionPair).longValue()) {
 			idDuplicates.add(id);
 		}
-		latestIds.put(partition, id);
+		maxIds.put(categoryPartitionPair, id);
 	}
+
+    public static synchronized void resetPartitionHighestId(Pair<Integer, Integer> categoryPartitionPair, long id) {
+        maxIds.put(categoryPartitionPair, id);
+    }
+
+    public static synchronized void resetPartitionLowestId(Pair<Integer, Integer> categoryPartitionPair, long id) {
+        minIds.put(categoryPartitionPair, id);
+    }
+
+    public static synchronized void addPartition(Pair<Integer, Integer> categoryPartitionPair) {
+        Long lastId = maxIds.get(categoryPartitionPair);
+        if (lastId == null) {
+            maxIds.put(categoryPartitionPair, Long.MIN_VALUE);
+            minIds.put(categoryPartitionPair, 0L);
+        }
+    }
 
     public static synchronized void incrementReceivedAddRequests() {
         receivedAddRequests++;
@@ -243,7 +270,10 @@ public class Snapshot {
 			if (info.isLeader()) {
 				builder.append(p.getId());
 				builder.append(" is leader of partition ");
-                builder.append(p.getPartitionId());
+                builder.append(info.getPartitionId());
+                builder.append(" for category \"");
+                builder.append(MsConfig.Categories.values()[p.getCategoryId()]);
+                builder.append("\"");
                 builder.append("\n\tIts Gradient view was: ");
 				builder.append(info.getElectionView());
 				builder.append("\n\tIts current view is: ");
@@ -272,22 +302,22 @@ public class Snapshot {
             if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
 				minNumIndexEntries = p.getNumIndexEntries();
-				minPeer = node;
+				//minPeer = node;
 			}
 			if (p.getNumIndexEntries() > maxNumIndexEntries) {
 				maxNumIndexEntries = p.getNumIndexEntries();
-				maxPeer = node;
+				//maxPeer = node;
 			}
 		}
-		builder.append(maxPeer == null ? "None" : maxPeer.getId());
-		builder.append(" is the peer with max num of index entries: ");
-		builder.append(maxNumIndexEntries);
-		builder.append("\n");
-
-		builder.append(minPeer == null ? "None" : minPeer.getId());
-		builder.append(" is the peer with min num of index entries: ");
-		builder.append(minNumIndexEntries);
-		builder.append("\n");
+//		builder.append(maxPeer == null ? "None" : maxPeer.getId()-minPeer.getId()+1);
+//		builder.append(" is the peer with max num of index entries: ");
+//		builder.append(maxNumIndexEntries);
+//		builder.append("\n");
+//
+//		builder.append(minPeer == null ? "None" : minPeer.getId());
+//		builder.append(" is the peer with min num of index entries: ");
+//		builder.append(minNumIndexEntries);
+//		builder.append("\n");
 	}
 
 	/**
@@ -324,9 +354,13 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLatestIds(StringBuilder builder) {
-		builder.append("Latest index id per partition:\n");
-        for (Integer partition : latestIds.keySet()) {
-            builder.append("\tPartition " + partition + ": " + latestIds.get(partition) + "\n");
+		builder.append("Ids on partitions:\n");
+        for (Pair<Integer, Integer> categoryPartitionPair : maxIds.keySet()) {
+            long min = minIds.get(categoryPartitionPair) == null ? 0 : minIds.get(categoryPartitionPair);
+            long max = maxIds.get(categoryPartitionPair) == null ? -1 : maxIds.get(categoryPartitionPair).longValue();
+            builder.append(String.format("\t Category \"%s\". Partition %s. Min: %s Max: %s Total: %s\n",
+                    MsConfig.Categories.values()[categoryPartitionPair.fst], categoryPartitionPair.snd,
+                    min, max, Math.abs(max - min + 1)));
         }
 		builder.append("\n");
 	}

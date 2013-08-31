@@ -49,6 +49,7 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte COMMIT_RESPONSE               = 0x79;
     public static final byte INDEX_HASH_EXCHANGE_REQUEST   = 0x7a;
     public static final byte INDEX_HASH_EXCHANGE_RESPONSE  = 0x7b;
+    public static final byte PARTITIONING_MESSAGE          = 0x7c;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -130,6 +131,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return IndexHashExchangeMessageFactory.Request.fromBuffer(buffer);
             case INDEX_HASH_EXCHANGE_RESPONSE:
                 return IndexHashExchangeMessageFactory.Response.fromBuffer(buffer);
+            case PARTITIONING_MESSAGE:
+                return PartitioningMessageFactory.fromBuffer(buffer);
             default:
                 break;
         }

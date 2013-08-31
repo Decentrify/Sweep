@@ -6,6 +6,7 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
@@ -34,7 +35,7 @@ public class ApplicationTypesDecoderFactory {
         Long fileSize = buffer.readLong();
         Date uploaded =  new Date(buffer.readLong());
         String language = UserTypesDecoderFactory.readStringLength256(buffer);
-        IndexEntry.Category category = IndexEntry.Category.values()[buffer.readInt()];
+        MsConfig.Categories category = MsConfig.Categories.values()[buffer.readInt()];
         String description = UserTypesDecoderFactory.readStringLength65536(buffer);
         String hash = UserTypesDecoderFactory.readStringLength256(buffer);
         String leaderId = UserTypesDecoderFactory.readStringLength65536(buffer);
@@ -138,7 +139,7 @@ public class ApplicationTypesDecoderFactory {
         Date minUploadDate = new Date(buffer.readLong());
         Date maxUploadDate = new Date(buffer.readLong());
         String language = UserTypesDecoderFactory.readStringLength256(buffer);
-        IndexEntry.Category category = IndexEntry.Category.values()[buffer.readInt()];
+        MsConfig.Categories category = MsConfig.Categories.values()[buffer.readInt()];
         String descriptionPattern = UserTypesDecoderFactory.readStringLength65536(buffer);
 
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);

@@ -14,7 +14,6 @@ import se.sics.ms.configuration.MsConfig;
 public class SearchConfiguration
         extends AbstractConfiguration<se.sics.gvod.config.SearchConfiguration> {
 
-    int numPartitions;
     int maxExchangeCount;
     int queryTimeout;
     int addTimeout;
@@ -23,13 +22,14 @@ public class SearchConfiguration
     int hitsPerQuery;
     int recentRequestsGcInterval;
     int maxLeaderIdHistorySize;
+    long maxEntriesOnPeer;
     int maxSearchResults;
     int indexExchangeTimeout;
     int indexExchangeRequestNumber;
+    int maxPartitionIdLength;
 
     public SearchConfiguration() {
         this(
-                MsConfig.SEARCH_NUM_PARTITIONS,
                 MsConfig.SEARCH_MAX_EXCHANGE_COUNT,
                 MsConfig.SEARCH_QUERY_TIMEOUT,
                 MsConfig.SEARCH_ADD_TIMEOUT,
@@ -40,11 +40,12 @@ public class SearchConfiguration
                 MsConfig.MAX_LEADER_ID_HISTORY_SIZE,
                 MsConfig.SEARCH_MAX_SEARCH_RESULTS,
                 MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
-                MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER);
+                MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER,
+                MsConfig.MAX_ENTRIES_ON_PEER,
+                MsConfig.MAX_PARTITION_ID_LENGTH);
     }
 
     /**
-     * @param numPartitions the number of partitions used to balance the load
      * @param maxExchangeCount the maximum number of addresses exchanged in one
      * exchange request
      * @param queryTimeout the amount of time until a search request times out
@@ -62,12 +63,12 @@ public class SearchConfiguration
      *
      */
     public SearchConfiguration(
-            int numPartitions, int maxExchangeCount, int queryTimeout,
+            int maxExchangeCount, int queryTimeout,
             int addTimeout, int replicationTimeout,
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize, int maxSearchResults,
-            int indexExchangeTimeout, int indexExchangeRequestNumber) {
-        this.numPartitions = numPartitions;
+            int indexExchangeTimeout, int indexExchangeRequestNumber,
+            long maxEntriesOnPeer, int maxPartitionIdLength) {
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
@@ -76,16 +77,15 @@ public class SearchConfiguration
         this.hitsPerQuery = hitsPerQuery;
         this.recentRequestsGcInterval = recentRequestsGcInterval;
         this.maxLeaderIdHistorySize = maxLeaderIdHistorySize;
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
         this.maxSearchResults = maxSearchResults;
         this.indexExchangeTimeout = indexExchangeTimeout;
         this.indexExchangeRequestNumber = indexExchangeRequestNumber;
+        this.maxPartitionIdLength = maxPartitionIdLength;
     }
 
     public static SearchConfiguration build() {
         return new SearchConfiguration();
-    }
-    public int getNumPartitions() {
-        return numPartitions;
     }
 
     public int getMaxExchangeCount() {
@@ -120,13 +120,12 @@ public class SearchConfiguration
         return maxLeaderIdHistorySize;
     }
 
-    public int getMaxSearchResults() {
-        return maxSearchResults;
+    public long getMaxEntriesOnPeer() {
+        return maxEntriesOnPeer;
     }
 
-    public SearchConfiguration setNumPartitions(int numPartitions) {
-        this.numPartitions = numPartitions;
-        return this;
+    public int getMaxSearchResults() {
+        return maxSearchResults;
     }
 
     public SearchConfiguration setMaxExchangeCount(int maxExchangeCount) {
@@ -164,6 +163,10 @@ public class SearchConfiguration
         return this;
     }
 
+    public void setMaxEntriesOnPeer(long maxEntriesOnPeer) {
+        this.maxEntriesOnPeer = maxEntriesOnPeer;
+    }
+
     public SearchConfiguration setMaxSearchResults(int maxSearchResults) {
         this.maxSearchResults = maxSearchResults;
         return this;
@@ -175,5 +178,9 @@ public class SearchConfiguration
 
     public int getIndexExchangeRequestNumber() {
         return indexExchangeRequestNumber;
+    }
+
+    public int getMaxPartitionIdLength() {
+        return maxPartitionIdLength;
     }
 }

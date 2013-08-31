@@ -31,9 +31,11 @@ public class SearchMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final SearchPattern pattern;
         private final TimeoutId searchTimeoutId;
+        private final int partitionId;
 
-        public Request(VodAddress source, VodAddress destination,TimeoutId timeoutId, TimeoutId searchTimeoutId, SearchPattern pattern) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, SearchPattern pattern, int partitionId) {
             super(source, destination, timeoutId);
+            this.partitionId = partitionId;
 
             if(pattern == null)
                 throw new NullPointerException("pattern can't be null");
@@ -54,6 +56,10 @@ public class SearchMessage {
             return searchTimeoutId;
         }
 
+        public int getPartitionId() {
+            return partitionId;
+        }
+
         @Override
         public int getSize() {
             return getHeaderSize() + 30; // guess at length of query
@@ -62,7 +68,7 @@ public class SearchMessage {
         @Override
         public RewriteableMsg copy() {
             SearchMessage.Request r = null;
-            r = new Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern);
+            r = new Request(vodSrc, vodDest, timeoutId, searchTimeoutId, pattern, partitionId);
             return r;
         }
 
@@ -71,6 +77,7 @@ public class SearchMessage {
             ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writeSearchPattern(buffer, pattern);
             UserTypesEncoderFactory.writeTimeoutId(buffer, searchTimeoutId);
+            buffer.writeInt(partitionId);
             return buffer;
         }
 
@@ -88,9 +95,11 @@ public class SearchMessage {
         private final int numResponses;
         private final int responseNumber;
         private final TimeoutId searchTimeoutId;
+        private final int partitionId;
         
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, int numResponses, int responseNumber, Collection<IndexEntry> results) throws IllegalSearchString {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, int numResponses, int responseNumber, Collection<IndexEntry> results, int partitionId) throws IllegalSearchString {
             super(source, destination, timeoutId);
+            this.partitionId = partitionId;
 
             if(results == null)
                 throw new NullPointerException("results can't be null");
@@ -117,6 +126,10 @@ public class SearchMessage {
             return searchTimeoutId;
         }
 
+        public int getPartitionId() {
+            return partitionId;
+        }
+
         @Override
         public int getSize() {
             return getHeaderSize()
@@ -128,7 +141,7 @@ public class SearchMessage {
         @Override
         public RewriteableMsg copy() {
             try {
-                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNumber, results);
+                return new SearchMessage.Response(vodSrc, vodDest, timeoutId, searchTimeoutId, numResponses, responseNumber, results, partitionId);
             } catch (IllegalSearchString ex) {
                 // we can swallow the exception because the original object should 
                 // have been correctly constructed.
@@ -145,6 +158,7 @@ public class SearchMessage {
             UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, responseNumber);
             ApplicationTypesEncoderFactory.writeIndexEntryCollection(buffer, results);
             UserTypesEncoderFactory.writeTimeoutId(buffer, searchTimeoutId);
+            buffer.writeInt(partitionId);
             return buffer;
         }
 
