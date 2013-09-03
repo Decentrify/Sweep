@@ -15,6 +15,7 @@ import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.NatNetworkControl;
@@ -42,6 +43,7 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.peer.SearchPeerInit;
 import se.sics.ms.search.UiPort;
+import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.ui.UiComponent;
 import se.sics.ms.ui.UiComponentInit;
 import se.sics.ms.peer.SearchPeer;
@@ -146,6 +148,9 @@ public class SystemMain extends ComponentDefinition {
             PsPortBindResponse pbr1 = new PsPortBindResponse(pb1);
             pb1.setResponse(pbr1);
             trigger(pb1, network.getPositive(NatNetworkControl.class));
+
+            connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class), new MsgDestFilterAddress(myAddr));
+            connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
 
         }
     };
