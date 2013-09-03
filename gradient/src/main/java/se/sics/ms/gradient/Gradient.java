@@ -1,6 +1,5 @@
 package se.sics.ms.gradient;
 
-import com.sun.tools.javac.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.RTTStore;
@@ -27,6 +26,7 @@ import se.sics.ms.messages.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 
 import java.security.PublicKey;

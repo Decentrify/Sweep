@@ -20,7 +20,7 @@ public class IndexExchangeMessageFactory {
         public static IndexExchangeMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (IndexExchangeMessage.Request)
-                    new IndexExchangeMessageFactory.Request().decode(buffer, true);
+                    new IndexExchangeMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -39,7 +39,7 @@ public class IndexExchangeMessageFactory {
         public static IndexExchangeMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (IndexExchangeMessage.Response)
-                    new IndexExchangeMessageFactory.Response().decode(buffer, true);
+                    new IndexExchangeMessageFactory.Response().decode(buffer);
         }
 
         @Override

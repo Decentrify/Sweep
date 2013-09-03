@@ -22,12 +22,12 @@ public class VotingResultMessageFactory extends DirectMsgNettyFactory.Oneway {
     }
 
     public static LeaderViewMessage fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-        return (LeaderViewMessage) new VotingResultMessageFactory().decode(buffer, false);
+        return (LeaderViewMessage) new VotingResultMessageFactory().decode(buffer);
     }
 
     @Override
     protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-        VodDescriptor vodDescriptor = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+        VodDescriptor vodDescriptor = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
         Set<VodDescriptor> view = ApplicationTypesDecoderFactory.readVodDescriptorSet(buffer);
         return new LeaderViewMessage(vodSrc, vodDest, vodDescriptor, view);
     }

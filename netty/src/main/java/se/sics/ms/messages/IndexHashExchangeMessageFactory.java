@@ -16,7 +16,7 @@ public class IndexHashExchangeMessageFactory {
         }
 
         public static IndexHashExchangeMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (IndexHashExchangeMessage.Request) new IndexHashExchangeMessageFactory.Request().decode(buffer, true);
+            return (IndexHashExchangeMessage.Request) new IndexHashExchangeMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -34,7 +34,7 @@ public class IndexHashExchangeMessageFactory {
         }
 
         public static IndexHashExchangeMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (IndexHashExchangeMessage.Response) new IndexHashExchangeMessageFactory.Response().decode(buffer, true);
+            return (IndexHashExchangeMessage.Response) new IndexHashExchangeMessageFactory.Response().decode(buffer);
         }
 
         @Override

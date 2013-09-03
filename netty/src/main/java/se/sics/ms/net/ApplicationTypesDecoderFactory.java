@@ -19,7 +19,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
-import static se.sics.gvod.net.util.UserTypesDecoderFactory.readGVodNodeDescriptor;
+import static se.sics.gvod.net.util.UserTypesDecoderFactory.readVodNodeDescriptor;
 
 /**
  *
@@ -149,7 +149,7 @@ public class ApplicationTypesDecoderFactory {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         Set<VodDescriptor> addrs = new HashSet<VodDescriptor>();
         for (int i = 0; i < len; i++) {
-            addrs.add(readGVodNodeDescriptor(buffer));
+            addrs.add(readVodNodeDescriptor(buffer));
         }
         return addrs;
     }

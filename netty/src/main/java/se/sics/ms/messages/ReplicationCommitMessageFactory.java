@@ -19,7 +19,7 @@ public class ReplicationCommitMessageFactory {
         }
 
         public static ReplicationCommitMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ReplicationCommitMessage.Request) new ReplicationCommitMessageFactory.Request().decode(buffer, true);
+            return (ReplicationCommitMessage.Request) new ReplicationCommitMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -37,7 +37,7 @@ public class ReplicationCommitMessageFactory {
 
         public static ReplicationCommitMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (ReplicationCommitMessage.Response) new ReplicationCommitMessageFactory.Response().decode(buffer, true);
+            return (ReplicationCommitMessage.Response) new ReplicationCommitMessageFactory.Response().decode(buffer);
         }
 
         @Override

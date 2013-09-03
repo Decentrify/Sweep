@@ -20,13 +20,13 @@ public class ElectionMessageFactory {
         }
 
         public static ElectionMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ElectionMessage.Request) new ElectionMessageFactory.Request().decode(buffer, true);
+            return (ElectionMessage.Request) new ElectionMessageFactory.Request().decode(buffer);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
-            VodDescriptor vodDescriptor = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+            VodDescriptor vodDescriptor = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
             return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter, vodDescriptor);
         }
     }
@@ -37,7 +37,7 @@ public class ElectionMessageFactory {
         }
 
         public static ElectionMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (ElectionMessage.Response) new ElectionMessageFactory.Response().decode(buffer, true);
+            return (ElectionMessage.Response) new ElectionMessageFactory.Response().decode(buffer);
         }
 
 
@@ -46,7 +46,7 @@ public class ElectionMessageFactory {
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
-            VodDescriptor highest = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+            VodDescriptor highest = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
             return new ElectionMessage.Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
     }
