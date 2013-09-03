@@ -9,6 +9,7 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
 
