@@ -836,6 +836,7 @@ public final class Search extends ComponentDefinition {
 
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), requestAddId), networkPort);
 
+                replicationTimeoutToAdd.remove(response.getTimeoutId());
                 commitRequests.remove(commitId);
 
                 int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
