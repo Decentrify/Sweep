@@ -235,6 +235,7 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
             UUID shuffleId = (UUID) event.getTimeoutId();
+
             if (outstandingShuffles.containsKey(shuffleId)) {
                 outstandingShuffles.remove(shuffleId);
                 CancelTimeout ct = new CancelTimeout(shuffleId);
@@ -653,6 +654,8 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
             ArrayList<VodDescriptor> nodes = new ArrayList<VodDescriptor>(gradientView.getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
+                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+                trigger(cancelTimeout, timerPort);
                 logger.warn("{} doesn't have enough nodes for index exchange", self.getAddress());
                 return;
             }
@@ -661,6 +664,7 @@ public final class Gradient extends ComponentDefinition {
                 int n = random.nextInt(nodes.size());
                 VodDescriptor node = nodes.get(n);
                 nodes.remove(node);
+
                 trigger(new IndexHashExchangeMessage.Request(self.getAddress(), node.getVodAddress(), event.getTimeoutId(),
                         event.getLowestMissingIndexEntry(), event.getExistingEntries()), networkPort);
             }

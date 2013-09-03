@@ -398,7 +398,9 @@ public final class Search extends ComponentDefinition {
 
             ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
             timeout.setTimeoutEvent(new IndexExchangeTimeout(timeout, self.getId()));
+
             indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
+
             trigger(timeout, timerPort);
             collectedHashes.clear();
 
@@ -451,7 +453,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexHashExchangeMessage.Response event) {
             // Drop old responses
-            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
                 return;
             }
 
@@ -466,6 +468,7 @@ public final class Search extends ComponentDefinition {
                 if (intersection.isEmpty()) {
                     CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
                     trigger(cancelTimeout, timerPort);
+                    indexExchangeTimeout = null;
                     exchangeInProgress = false;
                     return;
                 }
@@ -476,7 +479,14 @@ public final class Search extends ComponentDefinition {
                 }
 
                 VodAddress node = collectedHashes.keySet().iterator().next();
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, indexExchangeTimeout, ids), networkPort);
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, event.getTimeoutId(), ids), networkPort);
+            }
+            else {
+                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+                trigger(cancelTimeout, timerPort);
+                indexExchangeTimeout = null;
+                exchangeInProgress = false;
+                return;
             }
         }
     };
@@ -511,7 +521,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
             // Drop old responses
-            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
                 return;
             }
 
