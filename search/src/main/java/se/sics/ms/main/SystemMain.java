@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
 import org.slf4j.Logger;
@@ -138,7 +139,7 @@ public class SystemMain extends ComponentDefinition {
         public void handle(GetIpResponse event) {
 
             // TODO - how to get my id.
-            int myId = 1123;
+            int myId = (new Random()).nextInt();
             InetAddress localIp = event.getIpAddress();
             myAddr = new Address(localIp, MsConfig.getPort(), myId);
             NettyInit nInit = new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class);
