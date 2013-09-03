@@ -20,12 +20,12 @@ public class RejectLeaderMessageFactory extends DirectMsgNettyFactory.Oneway {
     public static RejectLeaderMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (RejectLeaderMessage)
-                new RejectLeaderMessageFactory().decode(buffer, false);
+                new RejectLeaderMessageFactory().decode(buffer);
     }
 
     @Override
     protected RejectLeaderMessage process(ByteBuf buffer) throws MessageDecodingException {
-        VodDescriptor betterNode = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+        VodDescriptor betterNode = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
         return new RejectLeaderMessage(vodSrc, vodDest,betterNode);
     }
 

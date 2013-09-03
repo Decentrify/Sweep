@@ -4,10 +4,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import com.sun.tools.javac.util.Pair;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.Pair;
 
 /**
  * Keep track of the system state for evaluation and debugging. Write the
@@ -359,7 +359,7 @@ public class Snapshot {
             long min = minIds.get(categoryPartitionPair) == null ? 0 : minIds.get(categoryPartitionPair);
             long max = maxIds.get(categoryPartitionPair) == null ? -1 : maxIds.get(categoryPartitionPair).longValue();
             builder.append(String.format("\t Category \"%s\". Partition %s. Min: %s Max: %s Total: %s\n",
-                    MsConfig.Categories.values()[categoryPartitionPair.fst], categoryPartitionPair.snd,
+                    MsConfig.Categories.values()[categoryPartitionPair.getFirst()], categoryPartitionPair.getSecond(),
                     min, max, Math.abs(max - min + 1)));
         }
 		builder.append("\n");

@@ -24,7 +24,7 @@ public class SearchMessageFactory {
         public static SearchMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (SearchMessage.Request)
-                    new SearchMessageFactory.Request().decode(buffer, true);
+                    new SearchMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -43,7 +43,7 @@ public class SearchMessageFactory {
         }
 
         public static SearchMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (SearchMessage.Response) new SearchMessageFactory.Response().decode(buffer, true);
+            return (SearchMessage.Response) new SearchMessageFactory.Response().decode(buffer);
         }
 
         @Override

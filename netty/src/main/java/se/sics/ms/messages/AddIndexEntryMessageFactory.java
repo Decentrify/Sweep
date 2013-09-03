@@ -20,7 +20,7 @@ public class AddIndexEntryMessageFactory {
         }
 
         public static AddIndexEntryMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (AddIndexEntryMessage.Request) new AddIndexEntryMessageFactory.Request().decode(buffer, true);
+            return (AddIndexEntryMessage.Request) new AddIndexEntryMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -37,7 +37,7 @@ public class AddIndexEntryMessageFactory {
 
         public static AddIndexEntryMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
-            return (AddIndexEntryMessage.Response) new AddIndexEntryMessageFactory.Response().decode(buffer, true);
+            return (AddIndexEntryMessage.Response) new AddIndexEntryMessageFactory.Response().decode(buffer);
         }
 
         @Override

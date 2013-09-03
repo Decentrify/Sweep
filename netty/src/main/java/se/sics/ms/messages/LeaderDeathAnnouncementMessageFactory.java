@@ -16,12 +16,12 @@ public class LeaderDeathAnnouncementMessageFactory extends DirectMsgNettyFactory
     public static LeaderDeathAnnouncementMessage fromBuffer(ByteBuf buffer)
             throws MessageDecodingException {
         return (LeaderDeathAnnouncementMessage)
-                new LeaderDeathAnnouncementMessageFactory().decode(buffer, false);
+                new LeaderDeathAnnouncementMessageFactory().decode(buffer);
     }
 
     @Override
     protected LeaderDeathAnnouncementMessage process(ByteBuf buffer) throws MessageDecodingException {
-        VodDescriptor leader = UserTypesDecoderFactory.readGVodNodeDescriptor(buffer);
+        VodDescriptor leader = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
         return new LeaderDeathAnnouncementMessage(vodSrc, vodDest, leader);
     }
 }

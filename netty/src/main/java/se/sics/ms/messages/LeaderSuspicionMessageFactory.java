@@ -22,7 +22,7 @@ public class LeaderSuspicionMessageFactory {
         public static LeaderSuspicionMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspicionMessage.Request)
-                    new LeaderSuspicionMessageFactory.Request().decode(buffer, true);
+                    new LeaderSuspicionMessageFactory.Request().decode(buffer);
         }
 
 
@@ -41,7 +41,7 @@ public class LeaderSuspicionMessageFactory {
         public static LeaderSuspicionMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (LeaderSuspicionMessage.Response)
-                    new LeaderSuspicionMessageFactory.Response().decode(buffer, true);
+                    new LeaderSuspicionMessageFactory.Response().decode(buffer);
         }
 
 

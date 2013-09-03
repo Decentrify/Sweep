@@ -24,7 +24,7 @@ public class GradientShuffleMessageFactory {
         public static GradientShuffleMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GradientShuffleMessage.Request)
-                    new GradientShuffleMessageFactory.Request().decode(buffer, true);
+                    new GradientShuffleMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -43,7 +43,7 @@ public class GradientShuffleMessageFactory {
         public static GradientShuffleMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (GradientShuffleMessage.Response)
-                    new GradientShuffleMessageFactory.Response().decode(buffer, true);
+                    new GradientShuffleMessageFactory.Response().decode(buffer);
         }
 
         @Override

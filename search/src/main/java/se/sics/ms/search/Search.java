@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import com.sun.tools.javac.util.Pair;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -40,6 +39,7 @@ import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 

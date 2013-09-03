@@ -827,7 +827,7 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        long numberOfEntries = (long) Math.pow(2, 61) - 1;
+        long numberOfEntries = 5L;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
 
         LinkedList<Boolean> list = new LinkedList<Boolean>();

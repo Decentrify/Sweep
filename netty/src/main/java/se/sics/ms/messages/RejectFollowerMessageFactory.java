@@ -21,7 +21,7 @@ public class RejectFollowerMessageFactory {
         public static RejectFollowerMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (RejectFollowerMessage.Request)
-                    new RejectFollowerMessageFactory.Request().decode(buffer, true);
+                    new RejectFollowerMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -40,7 +40,7 @@ public class RejectFollowerMessageFactory {
         public static RejectFollowerMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (RejectFollowerMessage.Response)
-                    new RejectFollowerMessageFactory.Response().decode(buffer, true);
+                    new RejectFollowerMessageFactory.Response().decode(buffer);
         }
 
         @Override

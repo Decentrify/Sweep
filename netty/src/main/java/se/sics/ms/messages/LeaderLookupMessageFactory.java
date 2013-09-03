@@ -20,7 +20,7 @@ public class LeaderLookupMessageFactory {
         }
 
         public static LeaderLookupMessage.Request fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (LeaderLookupMessage.Request) new LeaderLookupMessageFactory.Request().decode(buffer, true);
+            return (LeaderLookupMessage.Request) new LeaderLookupMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -36,13 +36,13 @@ public class LeaderLookupMessageFactory {
         }
 
         public static LeaderLookupMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException {
-            return (LeaderLookupMessage.Response) new LeaderLookupMessageFactory.Response().decode(buffer, true);
+            return (LeaderLookupMessage.Response) new LeaderLookupMessageFactory.Response().decode(buffer);
         }
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean terminated = buffer.readBoolean();
-            List<VodDescriptor> items = UserTypesDecoderFactory.readListGVodNodeDescriptors(buffer);
+            List<VodDescriptor> items = UserTypesDecoderFactory.readListVodNodeDescriptors(buffer);
             return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, terminated, items);
         }
     }

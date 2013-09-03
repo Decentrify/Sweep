@@ -25,7 +25,7 @@ public class RepairMessageFactory {
         public static RepairMessage.Request fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (RepairMessage.Request)
-                    new RepairMessageFactory.Request().decode(buffer, true);
+                    new RepairMessageFactory.Request().decode(buffer);
         }
 
         @Override
@@ -44,7 +44,7 @@ public class RepairMessageFactory {
         public static RepairMessage.Response fromBuffer(ByteBuf buffer)
                 throws MessageDecodingException {
             return (RepairMessage.Response)
-                    new RepairMessageFactory.Response().decode(buffer, true);
+                    new RepairMessageFactory.Response().decode(buffer);
         }
 
         @Override
