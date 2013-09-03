@@ -114,7 +114,6 @@ public final class Search extends ComponentDefinition {
     private long maxStoredId = Long.MIN_VALUE;
 
     private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
-    private int numOfAdds=0;
 
     private class ExchangeRound extends IndividualTimeout {
 
