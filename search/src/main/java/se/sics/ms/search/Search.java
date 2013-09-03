@@ -108,9 +108,12 @@ public final class Search extends ComponentDefinition {
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
     private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
+    private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
 
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
+
+    private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -395,7 +398,9 @@ public final class Search extends ComponentDefinition {
 
             ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
             timeout.setTimeoutEvent(new IndexExchangeTimeout(timeout, self.getId()));
+
             indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
+
             trigger(timeout, timerPort);
             collectedHashes.clear();
 
@@ -448,7 +453,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexHashExchangeMessage.Response event) {
             // Drop old responses
-            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
                 return;
             }
 
@@ -463,6 +468,7 @@ public final class Search extends ComponentDefinition {
                 if (intersection.isEmpty()) {
                     CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
                     trigger(cancelTimeout, timerPort);
+                    indexExchangeTimeout = null;
                     exchangeInProgress = false;
                     return;
                 }
@@ -473,7 +479,14 @@ public final class Search extends ComponentDefinition {
                 }
 
                 VodAddress node = collectedHashes.keySet().iterator().next();
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, indexExchangeTimeout, ids), networkPort);
+                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, event.getTimeoutId(), ids), networkPort);
+            }
+            else {
+                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+                trigger(cancelTimeout, timerPort);
+                indexExchangeTimeout = null;
+                exchangeInProgress = false;
+                return;
             }
         }
     };
@@ -508,7 +521,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexExchangeMessage.Response event) {
             // Drop old responses
-            if (event.getTimeoutId().equals(indexExchangeTimeout) == false) {
+            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
                 return;
             }
 
@@ -577,6 +590,8 @@ public final class Search extends ComponentDefinition {
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
         trigger(timeout, timerPort);
         trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
+
+        timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
     }
 
     /**
@@ -600,6 +615,7 @@ public final class Search extends ComponentDefinition {
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
+
             Snapshot.incrementReceivedAddRequests();
             recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
 
@@ -716,6 +732,7 @@ public final class Search extends ComponentDefinition {
             IndexEntry entryToCommit = replicationCount.getEntry();
             TimeoutId commitTimeout = UUID.nextUUID();
             commitRequests.put(commitTimeout, replicationCount);
+            replicationTimeoutToAdd.put(commitTimeout, response.getTimeoutId());
             replicationRequests.remove(timeout);
 
             ByteBuffer idBuffer = ByteBuffer.allocate(8);
@@ -822,10 +839,15 @@ public final class Search extends ComponentDefinition {
 
             ReplicationCount replicationCount = commitRequests.get(commitId);
             try {
+                TimeoutId requestAddId = replicationTimeoutToAdd.get(response.getTimeoutId());
+                if(requestAddId == null)
+                    return;
+
                 addEntryLocal(replicationCount.getEntry());
 
-                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
+                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), requestAddId), networkPort);
 
+                replicationTimeoutToAdd.remove(response.getTimeoutId());
                 commitRequests.remove(commitId);
 
                 int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
@@ -853,6 +875,10 @@ public final class Search extends ComponentDefinition {
         public void handle(AddIndexEntryMessage.Response event) {
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
+
+            Long timeStarted = timeStoringMap.get(event.getTimeoutId());
+            if(timeStarted != null)
+                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
 
             trigger(new UiAddIndexEntryResponse(true), uiPort);
         }

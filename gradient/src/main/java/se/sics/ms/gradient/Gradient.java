@@ -235,6 +235,7 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientShuffleMessage.Response event) {
             UUID shuffleId = (UUID) event.getTimeoutId();
+
             if (outstandingShuffles.containsKey(shuffleId)) {
                 outstandingShuffles.remove(shuffleId);
                 CancelTimeout ct = new CancelTimeout(shuffleId);
@@ -443,11 +444,6 @@ public final class Gradient extends ComponentDefinition {
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
-            // Random addId used for finding the right partition
-            int addId = random.nextInt(Integer.MAX_VALUE);
-
-            //event.getEntry().setId(addId);
-
             MsConfig.Categories selfCategory = categoryFromCategoryId(self.getAddress().getCategoryId());
             MsConfig.Categories addCategory = event.getEntry().getCategory();
 
@@ -460,7 +456,7 @@ public final class Gradient extends ComponentDefinition {
             //Entry and my overlay in the same category, add to my overlay
             if (addCategory == selfCategory) {
                 if(leader) {
-                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), indexEntryToAdd), networkPort);
+                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
                     return;
                 }
 
@@ -541,7 +537,7 @@ public final class Gradient extends ComponentDefinition {
 
             // Some space left, also return lower nodes
             if (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit) {
-                TreeSet<VodDescriptor> lowerNodes = new TreeSet<VodDescriptor>(gradientView.getHigherUtilityNodes());
+                TreeSet<VodDescriptor> lowerNodes = new TreeSet<VodDescriptor>(gradientView.getLowerUtilityNodes());
                 iterator = lowerNodes.descendingIterator();
                 while (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
                     vodDescriptors.add(iterator.next());
@@ -555,7 +551,7 @@ public final class Gradient extends ComponentDefinition {
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
-            if (openRequests.containsKey(event.getTimeoutId()) == false) {
+            if (!openRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
 
@@ -569,7 +565,6 @@ public final class Gradient extends ComponentDefinition {
             openRequests.remove(event.getTimeoutId());
 
             if (event.isLeader()) {
-
                 VodAddress source = event.getVodSource();
                 Integer numberOfAnswers;
                 if (locatedLeaders.containsKey(source)) {
@@ -653,6 +648,8 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
             ArrayList<VodDescriptor> nodes = new ArrayList<VodDescriptor>(gradientView.getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
+                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+                trigger(cancelTimeout, timerPort);
                 logger.warn("{} doesn't have enough nodes for index exchange", self.getAddress());
                 return;
             }
@@ -661,6 +658,7 @@ public final class Gradient extends ComponentDefinition {
                 int n = random.nextInt(nodes.size());
                 VodDescriptor node = nodes.get(n);
                 nodes.remove(node);
+
                 trigger(new IndexHashExchangeMessage.Request(self.getAddress(), node.getVodAddress(), event.getTimeoutId(),
                         event.getLowestMissingIndexEntry(), event.getExistingEntries()), networkPort);
             }

@@ -25,6 +25,10 @@ public class Snapshot {
     private static int failedAddRequests = 0;
 	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
+    private static long bestTime = Long.MAX_VALUE;
+    private static long worstTime = Long.MIN_VALUE;
+    private static ArrayList<Long> lastTimes = new ArrayList<Long>();
+
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
 	}
@@ -64,6 +68,18 @@ public class Snapshot {
 
 		peerInfo.incNumIndexEntries();
 	}
+
+    public static void reportAddingTime(long time) {
+        if(time < bestTime)
+            bestTime = time;
+
+        if(time > worstTime)
+            worstTime = time;
+
+        if(lastTimes.size() == 100)
+            lastTimes.remove(lastTimes.get(0));
+        lastTimes.add(time);
+    }
 
     public static void setNumIndexEntries(VodAddress address, long value) {
         PeerInfo peerInfo = peers.get(address);
@@ -225,12 +241,26 @@ public class Snapshot {
         reportFailedAddRequests(builder);
         builder.append("\n");
 		reportIdDuplicates(builder);
+        builder.append("\n");
+        reportAddingBestAndWorstTime(builder);
 		builder.append("---------------------------------------------------------------------------------------------\n");
 
 		String str = builder.toString();
 		System.out.println(str);
 		FileIO.append(str, FILENAME);
 	}
+
+    private static void reportAddingBestAndWorstTime(StringBuilder builder) {
+        if(worstTime == Long.MIN_VALUE)
+            return;
+
+        int lastLength = lastTimes.size();
+        long sum=0;
+        for(int i=0; i<lastLength; i++)
+            sum+=lastTimes.get(i);
+
+        builder.append(String.format("Adding index entry time. Average: %s ms; Best: %s ms; Worst: %s ms\n", sum/lastLength, bestTime, worstTime));
+    }
 
     private static void reportFailedAddRequests(StringBuilder builder) {
         builder.append("Total number of failed AddRequests: " + failedAddRequests + "\n");
@@ -339,6 +369,9 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportIdDuplicates(StringBuilder builder) {
+        if(idDuplicates.isEmpty())
+            return;
+
 		builder.append("Duplicated index ids: ");
 		for (Long number : idDuplicates) {
 			builder.append(number);
