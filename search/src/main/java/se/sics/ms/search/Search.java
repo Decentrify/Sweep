@@ -108,9 +108,12 @@ public final class Search extends ComponentDefinition {
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
     private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
+    private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
 
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
+
+    private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -577,6 +580,8 @@ public final class Search extends ComponentDefinition {
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
         trigger(timeout, timerPort);
         trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
+
+        timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
     }
 
     /**
@@ -716,6 +721,7 @@ public final class Search extends ComponentDefinition {
             IndexEntry entryToCommit = replicationCount.getEntry();
             TimeoutId commitTimeout = UUID.nextUUID();
             commitRequests.put(commitTimeout, replicationCount);
+            replicationTimeoutToAdd.put(commitTimeout, response.getTimeoutId());
             replicationRequests.remove(timeout);
 
             ByteBuffer idBuffer = ByteBuffer.allocate(8);
@@ -822,9 +828,13 @@ public final class Search extends ComponentDefinition {
 
             ReplicationCount replicationCount = commitRequests.get(commitId);
             try {
+                TimeoutId requestAddId = replicationTimeoutToAdd.get(response.getTimeoutId());
+                if(requestAddId == null)
+                    return;
+
                 addEntryLocal(replicationCount.getEntry());
 
-                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), response.getTimeoutId()), networkPort);
+                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), requestAddId), networkPort);
 
                 commitRequests.remove(commitId);
 
@@ -853,6 +863,10 @@ public final class Search extends ComponentDefinition {
         public void handle(AddIndexEntryMessage.Response event) {
             CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
             trigger(ct, timerPort);
+
+            Long timeStarted = timeStoringMap.get(event.getTimeoutId());
+            if(timeStarted != null)
+                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
 
             trigger(new UiAddIndexEntryResponse(true), uiPort);
         }

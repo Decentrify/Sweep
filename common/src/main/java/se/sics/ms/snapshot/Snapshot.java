@@ -25,6 +25,9 @@ public class Snapshot {
     private static int failedAddRequests = 0;
 	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
 
+    private static long bestTime = Long.MAX_VALUE;
+    private static long worstTime = Long.MIN_VALUE;
+
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
 	}
@@ -64,6 +67,14 @@ public class Snapshot {
 
 		peerInfo.incNumIndexEntries();
 	}
+
+    public static void reportAddingTime(long time) {
+        if(time < bestTime)
+            bestTime = time;
+
+        if(time > worstTime)
+            worstTime = time;
+    }
 
     public static void setNumIndexEntries(VodAddress address, long value) {
         PeerInfo peerInfo = peers.get(address);
@@ -225,12 +236,21 @@ public class Snapshot {
         reportFailedAddRequests(builder);
         builder.append("\n");
 		reportIdDuplicates(builder);
+        builder.append("\n");
+        reportAddingBestAndWorstTime(builder);
 		builder.append("---------------------------------------------------------------------------------------------\n");
 
 		String str = builder.toString();
 		System.out.println(str);
 		FileIO.append(str, FILENAME);
 	}
+
+    private static void reportAddingBestAndWorstTime(StringBuilder builder) {
+        if(worstTime == Long.MIN_VALUE)
+            return;
+
+        builder.append(String.format("Adding index entry time. Best: %s ms; Worst: %s ms\n", bestTime, worstTime));
+    }
 
     private static void reportFailedAddRequests(StringBuilder builder) {
         builder.append("Total number of failed AddRequests: " + failedAddRequests + "\n");
