@@ -369,6 +369,9 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportIdDuplicates(StringBuilder builder) {
+        if(idDuplicates.isEmpty())
+            return;
+
 		builder.append("Duplicated index ids: ");
 		for (Long number : idDuplicates) {
 			builder.append(number);
