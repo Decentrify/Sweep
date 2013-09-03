@@ -27,6 +27,7 @@ public class Snapshot {
 
     private static long bestTime = Long.MAX_VALUE;
     private static long worstTime = Long.MIN_VALUE;
+    private static ArrayList<Long> lastTimes = new ArrayList<Long>();
 
 	public static void init(int numOfStripes) {
 		FileIO.write("", FILENAME);
@@ -74,6 +75,10 @@ public class Snapshot {
 
         if(time > worstTime)
             worstTime = time;
+
+        if(lastTimes.size() == 100)
+            lastTimes.remove(lastTimes.get(0));
+        lastTimes.add(time);
     }
 
     public static void setNumIndexEntries(VodAddress address, long value) {
@@ -249,7 +254,12 @@ public class Snapshot {
         if(worstTime == Long.MIN_VALUE)
             return;
 
-        builder.append(String.format("Adding index entry time. Best: %s ms; Worst: %s ms\n", bestTime, worstTime));
+        int lastLength = lastTimes.size();
+        long sum=0;
+        for(int i=0; i<lastLength; i++)
+            sum+=lastTimes.get(i);
+
+        builder.append(String.format("Adding index entry time. Average: %s ms; Best: %s ms; Worst: %s ms\n", sum/lastLength, bestTime, worstTime));
     }
 
     private static void reportFailedAddRequests(StringBuilder builder) {
