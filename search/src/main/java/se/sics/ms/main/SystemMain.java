@@ -138,8 +138,7 @@ public class SystemMain extends ComponentDefinition {
         @Override
         public void handle(GetIpResponse event) {
 
-            // TODO - how to get my id.
-            int myId = (new Random()).nextInt();
+            int myId = (new Random(MsConfig.getSeed())).nextInt();
             InetAddress localIp = event.getIpAddress();
             myAddr = new Address(localIp, MsConfig.getPort(), myId);
             NettyInit nInit = new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class);
