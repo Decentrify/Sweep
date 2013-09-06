@@ -675,6 +675,19 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
+            int numberOfPartitions = 0;
+            for (Integer partition : categoryRoutingMap.keySet()) {
+                // Skip local partition
+                if (partition == PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()) &&
+                        category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
+                    continue;
+                }
+
+                numberOfPartitions++;
+            }
+
+            trigger(new NumberOfPartitions(event.getTimeoutId(), numberOfPartitions), gradientRoutingPort);
+
             for (Integer partition : categoryRoutingMap.keySet()) {
                 // Skip local partition
                 if (partition == PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()) &&

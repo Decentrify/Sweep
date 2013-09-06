@@ -109,6 +109,7 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
+    private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
 
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
@@ -224,6 +225,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
+        subscribe(handleNumberOfPartitions, gradientRoutingPort);
     }
 
     /**
@@ -800,9 +802,6 @@ public final class Search extends ComponentDefinition {
 
                 long maxStoredId = getMaxStoredId();
 
-//                if(toCommit.getId() - maxStoredId == config.getNumPartitions())
-//                    return;
-
                 ArrayList<Long> missingIds = new ArrayList<Long>();
                 long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
                 while(currentMissingValue < toCommit.getId()) {
@@ -1004,6 +1003,16 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    final Handler<NumberOfPartitions> handleNumberOfPartitions = new Handler<NumberOfPartitions>() {
+        @Override
+        public void handle(NumberOfPartitions numberOfPartitions) {
+            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfPartitions());
+            Snapshot.addSearchRequestStartedTime(numberOfPartitions.getTimeoutId(), (new Date()).getTime(),
+                    numberOfPartitions.getNumberOfPartitions());
+
+        }
+    };
+
     /**
      * Send a search request for a given search pattern to one node in each
      * partition except the local partition.
@@ -1033,7 +1042,8 @@ public final class Search extends ComponentDefinition {
 
         try {
             ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result, PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()));
+            addSearchResponse(result, PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()),
+                    searchRequest.getTimeoutId());
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -1105,7 +1115,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            addSearchResponse(event.getResults(), event.getPartitionId());
+            addSearchResponse(event.getResults(), event.getPartitionId(), event.getSearchTimeoutId());
         }
     };
 
@@ -1115,7 +1125,7 @@ public final class Search extends ComponentDefinition {
      * @param entries the entries to be added
      * @param partition the partition from which the entries originate from
      */
-    private void addSearchResponse(Collection<IndexEntry> entries, int partition) {
+    private void addSearchResponse(Collection<IndexEntry> entries, int partition, TimeoutId requestId) {
         if (searchRequest.hasResponded(partition)) {
             return;
         }
@@ -1127,11 +1137,17 @@ public final class Search extends ComponentDefinition {
         }
 
         searchRequest.addRespondedPartition(partition);
-//        if (searchRequest.getNumberOfRespondedPartitions() == config.getNumPartitions()) {
-//            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
-//            trigger(ct, timerPort);
-//            answerSearchRequest();
-//        }
+
+        Integer numOfPartitions = searchPartitionsNumber.get(requestId);
+        if(numOfPartitions == null)
+            return;
+
+        if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
+            Snapshot.logSearch(requestId, (new Date()).getTime(), numOfPartitions);
+            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+            trigger(ct, timerPort);
+            answerSearchRequest();
+        }
     }
 
     /**
@@ -1141,6 +1157,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
         @Override
         public void handle(SearchTimeout event) {
+            Snapshot.logSearch(event.getTimeoutId(), (new Date()).getTime(), searchRequest.getNumberOfRespondedPartitions());
             answerSearchRequest();
         }
     };
