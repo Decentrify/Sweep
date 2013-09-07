@@ -538,7 +538,7 @@ public final class Gradient extends ComponentDefinition {
             // Some space left, also return lower nodes
             if (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit) {
                 TreeSet<VodDescriptor> lowerNodes = new TreeSet<VodDescriptor>(gradientView.getLowerUtilityNodes());
-                iterator = lowerNodes.descendingIterator();
+                iterator = lowerNodes.iterator();
                 while (vodDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
                     vodDescriptors.add(iterator.next());
                 }
