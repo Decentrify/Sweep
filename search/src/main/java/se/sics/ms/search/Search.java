@@ -115,6 +115,7 @@ public final class Search extends ComponentDefinition {
     private long maxStoredId = Long.MIN_VALUE;
 
     private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
+    private static HashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new HashMap<TimeoutId, Pair<Long, Integer>>();
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -1007,8 +1008,8 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(NumberOfPartitions numberOfPartitions) {
             searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfPartitions());
-            Snapshot.addSearchRequestStartedTime(numberOfPartitions.getTimeoutId(), (new Date()).getTime(),
-                    numberOfPartitions.getNumberOfPartitions());
+            searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
+                    numberOfPartitions.getNumberOfPartitions()));
         }
     };
 
@@ -1134,11 +1135,27 @@ public final class Search extends ComponentDefinition {
             return;
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
-            Snapshot.logSearch(requestId, (new Date()).getTime(), numOfPartitions);
+            logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
             CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
             trigger(ct, timerPort);
             answerSearchRequest();
         }
+    }
+
+    private void logSearchTimeResults(TimeoutId requestId, long timeCompleted, Integer numOfPartitions) {
+        Pair<Long, Integer> searchIssued = searchRequestStarted.get(requestId);
+        if(searchIssued == null)
+            return;
+
+        if(searchIssued.getSecond() != numOfPartitions) {
+            logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
+                    config.getQueryTimeout(), numOfPartitions, searchIssued.getSecond()));
+            return;
+        }
+
+
+        logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
+                timeCompleted - searchIssued.getFirst(), numOfPartitions, searchIssued.getSecond()));
     }
 
     /**
@@ -1148,7 +1165,8 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
         @Override
         public void handle(SearchTimeout event) {
-            Snapshot.logSearch(event.getTimeoutId(), (new Date()).getTime(), searchRequest.getNumberOfRespondedPartitions());
+            logSearchTimeResults(event.getTimeoutId(), System.currentTimeMillis(),
+                    searchRequest.getNumberOfRespondedPartitions());
             answerSearchRequest();
         }
     };

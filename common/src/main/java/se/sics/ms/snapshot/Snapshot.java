@@ -25,7 +25,6 @@ public class Snapshot {
 	private static int entriesAdded = 0;
     private static int failedAddRequests = 0;
 	private static ConcurrentSkipListSet<VodAddress> oldLeaders = new ConcurrentSkipListSet<VodAddress>();
-    private static ConcurrentHashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new ConcurrentHashMap<TimeoutId, Pair<Long, Integer>>();
 
     private static long bestTime = Long.MAX_VALUE;
     private static long worstTime = Long.MIN_VALUE;
@@ -91,25 +90,6 @@ public class Snapshot {
         }
 
         peerInfo.setNumIndexEntries(value);
-    }
-
-    public static void addSearchRequestStartedTime(TimeoutId requestId, long time, int requestsNumber) {
-        searchRequestStarted.put(requestId, new Pair<Long, Integer>(time, requestsNumber));
-    }
-
-    public static void logSearch(TimeoutId timeoutId, long time, int requestNumber) {
-        Pair<Long, Integer> searchIssued = searchRequestStarted.get(timeoutId);
-        if(searchIssued == null)
-            return;
-
-        if(searchIssued.getSecond() != requestNumber) {
-            System.out.println(String.format("SearchResult %s 2c %s out of %s", timeoutId, requestNumber, searchIssued.getSecond()));
-            return;
-        }
-
-
-        System.out.println(String.format("SearchResult %s %sms %s out of %s", timeoutId, time - searchIssued.getFirst(),
-                requestNumber, searchIssued.getSecond()));
     }
 
 	/**
