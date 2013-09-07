@@ -273,8 +273,6 @@ public class ElectionLeader extends ComponentDefinition {
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
                 Snapshot.setLeaderStatus(self.getAddress(), true, ((MsSelfImpl)self).getPartitionId());
-
-                System.out.println(self.getId() + " " + ((MsSelfImpl)self).getPartitionId() + " I am the leader");
 			}
 		} else {
 			rejected();

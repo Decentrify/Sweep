@@ -4,11 +4,13 @@ import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
 
