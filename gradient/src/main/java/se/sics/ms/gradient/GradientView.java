@@ -204,7 +204,7 @@ public class GradientView {
         }
 
         while (set.size() > number) {
-            set.remove(set.first());
+            set.remove(set.last());
         }
 
 		return set;
