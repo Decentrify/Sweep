@@ -880,6 +880,8 @@ public final class Search extends ComponentDefinition {
             if(timeStarted != null)
                 Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
 
+            timeStoringMap.remove(event.getTimeoutId());
+
             trigger(new UiAddIndexEntryResponse(true), uiPort);
         }
     };
@@ -1147,15 +1149,14 @@ public final class Search extends ComponentDefinition {
         if(searchIssued == null)
             return;
 
-        if(searchIssued.getSecond() != numOfPartitions) {
+        if(searchIssued.getSecond() != numOfPartitions)
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
                     config.getQueryTimeout(), numOfPartitions, searchIssued.getSecond()));
-            return;
-        }
-
-
-        logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
+        else
+            logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
                 timeCompleted - searchIssued.getFirst(), numOfPartitions, searchIssued.getSecond()));
+
+        searchRequestStarted.remove(requestId);
     }
 
     /**
