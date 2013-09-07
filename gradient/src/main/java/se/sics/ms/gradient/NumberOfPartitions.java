@@ -2,6 +2,7 @@ package se.sics.ms.gradient;
 
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
+import se.sics.ms.types.SearchPattern;
 
 /**
  * Created with IntelliJ IDEA.

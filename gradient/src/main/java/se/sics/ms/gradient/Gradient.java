@@ -675,23 +675,16 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
-            int numberOfPartitions = 0;
-            for (Integer partition : categoryRoutingMap.keySet()) {
-                // Skip local partition
-                if (partition == PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()) &&
-                        category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
-                    continue;
-                }
-
-                numberOfPartitions++;
-            }
-
-            trigger(new NumberOfPartitions(event.getTimeoutId(), numberOfPartitions), gradientRoutingPort);
+            trigger(new NumberOfPartitions(event.getTimeoutId(), categoryRoutingMap.keySet().size()), gradientRoutingPort);
 
             for (Integer partition : categoryRoutingMap.keySet()) {
-                // Skip local partition
+                // if your partition, hit only self
                 if (partition == PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()) &&
                         category == categoryFromCategoryId(self.getAddress().getCategoryId())) {
+                    trigger(new SearchMessage.Request(self.getAddress(), self.getAddress(),
+                            event.getTimeoutId(), event.getTimeoutId(), event.getPattern(),
+                            partition), networkPort);
+
                     continue;
                 }
 
@@ -718,7 +711,7 @@ public final class Gradient extends ComponentDefinition {
                     trigger(scheduleTimeout, timerPort);
                     trigger(new SearchMessage.Request(self.getAddress(), vodDescriptor.getVodAddress(),
                             scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
-                            PartitionHelper.LinkedListPartitionToInt(vodDescriptor.getPartitionId())), networkPort);
+                            partition), networkPort);
 
                     shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
                     vodDescriptor.setConnected(true);
@@ -733,7 +726,9 @@ public final class Gradient extends ComponentDefinition {
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
 
-            long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            Long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
+            if(timeStarted == null)
+                return;
             long rtt = System.currentTimeMillis() - timeStarted;
             RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
             updateLatestRtts(rtt);

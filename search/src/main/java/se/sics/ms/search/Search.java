@@ -1009,7 +1009,6 @@ public final class Search extends ComponentDefinition {
             searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfPartitions());
             Snapshot.addSearchRequestStartedTime(numberOfPartitions.getTimeoutId(), (new Date()).getTime(),
                     numberOfPartitions.getNumberOfPartitions());
-
         }
     };
 
@@ -1039,14 +1038,6 @@ public final class Search extends ComponentDefinition {
         trigger(rst, timerPort);
 
         trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
-
-        try {
-            ArrayList<IndexEntry> result = searchLocal(index, pattern, config.getHitsPerQuery());
-            addSearchResponse(result, PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId()),
-                    searchRequest.getTimeoutId());
-        } catch (IOException e) {
-            java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
-        }
     }
 
     /**
