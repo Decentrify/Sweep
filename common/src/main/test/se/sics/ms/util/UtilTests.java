@@ -6,6 +6,7 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.types.PartitionId;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -41,6 +42,7 @@ public class UtilTests {
         vodAddress = new VodAddress(address, VodConfig.SYSTEM_OVERLAY_ID);
         vodDescriptor = new VodDescriptor(vodAddress);
         self = new MsSelfImpl(vodAddress);
+        self.setOverlayId(67108864);
     }
 
     @AfterClass
@@ -57,28 +59,26 @@ public class UtilTests {
 
     @Test
     public void determineYourPartitionTest() {
-        LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-        partitionId.addFirst(false);
+        int partitionId = 0;
 
-        boolean partition1 = PartitionHelper.determineYourNewPartitionSubId(1, partitionId, true);
+        boolean partition1 = PartitionHelper.determineYourNewPartitionSubId(1,
+                new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, partitionId));
         assert (partition1);
 
-        boolean partition2 = PartitionHelper.determineYourNewPartitionSubId(2, partitionId, true);
+        boolean partition2 = PartitionHelper.determineYourNewPartitionSubId(2,
+                new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, partitionId));
         assert (!partition2);
 
     }
 
     @Test
     public void determineVodDescriptorPartitionTest() {
-        LinkedList<Boolean> partitionId = new LinkedList<Boolean>();
-        partitionId.addFirst(false);
+        PartitionId partitionId = new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0);
+        PartitionId newPartitionId = new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1);
 
-        LinkedList<Boolean> newPartitionId = new LinkedList<Boolean>();
-        newPartitionId.addFirst(true);
+        PartitionHelper.setPartitionId(vodDescriptor.getVodAddress(), partitionId);
 
-        vodDescriptor.setPartitionId(partitionId);
-
-        LinkedList<Boolean> partition = PartitionHelper.determineVodDescriptorPartition(vodDescriptor, true, 1);
+        PartitionId partition = PartitionHelper.determineVodDescriptorPartition(vodDescriptor, true, 1);
 
         assert(partition.equals(newPartitionId));
 
@@ -86,25 +86,27 @@ public class UtilTests {
 
     @Test
     public void adjustDescriptorsToNewPartitionIdTest() {
-        LinkedList<Boolean> selfPartitionId = new LinkedList<Boolean>();
-        selfPartitionId.add(true);
+        PartitionId selfPartition = new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE,
+                1, 1);
 
-        self.setPartitionsNumber(2);
-        self.setPartitionId(selfPartitionId);
-
-        vodDescriptor.setPartitionId(selfPartitionId);
-        vodDescriptor = new VodDescriptor(vodAddress);
+        int overlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(selfPartition.getPartitioningType(),
+                selfPartition.getPartitionIdDepth(), selfPartition.getPartitionId(), 0);
+        self.setOverlayId(overlayId);
 
         Address address1 = new Address(inetAddress, 58027, 126);
         VodAddress vodAddress1 = new VodAddress(address1, VodConfig.SYSTEM_OVERLAY_ID);
         VodDescriptor vodDescriptor1 = new VodDescriptor(vodAddress1);
-        vodDescriptor1.setPartitionId(selfPartitionId);
+        PartitionHelper.setPartitionId(vodDescriptor1.getVodAddress(), selfPartition);
 
         ArrayList<VodDescriptor> descriptors = new ArrayList<VodDescriptor>();
         descriptors.add(vodDescriptor);
         descriptors.add(vodDescriptor1);
 
-        PartitionHelper.adjustDescriptorsToNewPartitionId(self, descriptors);
+        VodAddress selfAddress = self.getAddress();
+
+        PartitionId partitionIdToAdjustTo = new PartitionId(selfAddress.getPartitioningType(),
+                selfAddress.getPartitionIdDepth(), selfAddress.getPartitionId());
+        PartitionHelper.adjustDescriptorsToNewPartitionId(partitionIdToAdjustTo, descriptors);
 
         assert (descriptors.size() == 1);
         assert (descriptors.get(0).equals(vodDescriptor));

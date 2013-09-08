@@ -24,6 +24,7 @@ import se.sics.ms.messages.RejectFollowerMessage;
 import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.types.PartitionId;
 
 import java.util.*;
 
@@ -228,8 +229,10 @@ public class ElectionLeader extends ComponentDefinition {
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
-            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, lowerUtilityNodes);
+            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
+                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
+            adjustDescriptorsToNewPartitionId(myPartitionId, lowerUtilityNodes);
         }
     };
 
@@ -272,7 +275,9 @@ public class ElectionLeader extends ComponentDefinition {
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-                Snapshot.setLeaderStatus(self.getAddress(), true, ((MsSelfImpl)self).getPartitionId());
+                PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
+                        self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+                Snapshot.setLeaderStatus(self.getAddress(), true, myPartitionId.getAsLinkedList());
 			}
 		} else {
 			rejected();

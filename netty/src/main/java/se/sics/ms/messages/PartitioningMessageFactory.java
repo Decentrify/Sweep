@@ -3,6 +3,7 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 
@@ -26,6 +27,7 @@ public class PartitioningMessageFactory extends DirectMsgNettyFactory.Oneway {
         long middleEntryId = buffer.readLong();
         TimeoutId requestId = UserTypesDecoderFactory.readTimeoutId(buffer);
         int partitionsNumber = buffer.readInt();
-        return new PartitioningMessage(vodSrc, vodDest, requestId, middleEntryId, partitionsNumber);
+        return new PartitioningMessage(vodSrc, vodDest, requestId, middleEntryId,
+                VodAddress.PartitioningType.values()[partitionsNumber]);
     }
 }
