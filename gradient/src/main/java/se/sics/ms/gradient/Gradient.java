@@ -859,8 +859,6 @@ public final class Gradient extends ComponentDefinition {
                     1, partitionId, selfCategory);
 
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
-
-            clearViewForNewOverlay(partitionSubId);
         }
         else {
             int newPartitionId = self.getAddress().getPartitionId() | ((partitionSubId ? 1 : 0) << self.getAddress().getPartitionIdDepth());
@@ -868,38 +866,25 @@ public final class Gradient extends ComponentDefinition {
 
             if(increment) {
                 int newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                        1, newPartitionId, selfCategory);
+                        self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
                 ((MsSelfImpl) self).setOverlayId(newOverlayId);
             }
             else {
                 int newOverlayId;
                 if(partitionsNumber == VodAddress.PartitioningType.ONCE_BEFORE)
                     newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
-                        1, newPartitionId, selfCategory);
+                            self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
                 else
                     newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                             1, newPartitionId, selfCategory);
                 ((MsSelfImpl) self).setOverlayId(newOverlayId);
             }
-
-            clearViewForNewOverlay(partitionSubId);
         }
 
         int partitionId = self.getAddress().getPartitionId();
 
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId));
         return partitionSubId;
-    }
-
-    private void clearViewForNewOverlay(boolean partitionSubId) {
-        VodDescriptor[] view = gradientView.getAll().toArray(new VodDescriptor[gradientView.getAll().size()]);
-
-        for(VodDescriptor descriptor : view) {
-            int nodeId = descriptor.getId();
-            boolean partition = (nodeId & 1) == 0;
-            if(partition != partitionSubId)
-                gradientView.remove(descriptor.getVodAddress());
-        }
     }
 
     private MsConfig.Categories categoryFromCategoryId(int categoryId) {

@@ -48,7 +48,7 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 100000;
+    public static final long MAX_ENTRIES_ON_PEER = 5;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
