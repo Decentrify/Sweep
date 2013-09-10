@@ -57,8 +57,9 @@ public class PartitionHelper {
      * Set's new new partitionId for address
      * @param address
      * @param partitionId
+     * @return a copy of the updated VodAddress object
      */
-    public static void setPartitionId(VodAddress address, PartitionId partitionId) {
+    public static VodAddress updatePartitionId(VodAddress address, PartitionId partitionId) {
         if(address == null)
             throw new IllegalArgumentException("address can't be null");
         if(partitionId == null)
@@ -67,7 +68,8 @@ public class PartitionHelper {
         int categoryId = address.getCategoryId();
         int newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(partitionId.getPartitioningType(),
                 partitionId.getPartitionIdDepth(), partitionId.getPartitionId(), categoryId);
-        address.setOverlayId(newOverlayId);
+//        address.setOverlayId(newOverlayId);
+        return new VodAddress(address.getPeerAddress(), newOverlayId, address.getNat(), address.getParents());
     }
 
     /**
@@ -89,7 +91,7 @@ public class PartitionHelper {
                 PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, 1);
 
-                setPartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
             }
         }
         else {
@@ -99,7 +101,7 @@ public class PartitionHelper {
                 PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, bitsToCheck);
 
-                setPartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
             }
         }
 
@@ -161,7 +163,7 @@ public class PartitionHelper {
                 if(partitionSubId) {
                     PartitionId descriptorsPartitionId = new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE,
                             1, 1);
-                    setPartitionId(nextAddress, descriptorsPartitionId);
+                    updatePartitionId(nextAddress, descriptorsPartitionId);
                     oldBucketIterator.remove();
                     bucket.add(next);
                 }
@@ -183,7 +185,7 @@ public class PartitionHelper {
                     new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
                             nextAddress.getPartitionId()));
 
-            setPartitionId(nextAddress, new PartitionId(VodAddress.PartitioningType.MANY_BEFORE,
+            updatePartitionId(nextAddress, new PartitionId(VodAddress.PartitioningType.MANY_BEFORE,
                     partitionSubId ? nextAddress.getPartitionId() | (1 << nextAddress.getPartitionIdDepth()) :
             nextAddress.getPartitionIdDepth(), nextAddress.getPartitionIdDepth() + 1));
 

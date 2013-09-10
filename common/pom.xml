@@ -10,9 +10,7 @@
     <artifactId>ms-common</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-
     <name>ms-common</name>
-    <url>http://maven.apache.org</url>
 
     <dependencies>
         <dependency>
@@ -38,8 +36,6 @@
             <version>${nattraverser.version}</version>
             <scope>compile</scope>
         </dependency>
-
-
         <dependency>
             <groupId>se.sics</groupId>
             <artifactId>ip-as-distances</artifactId>

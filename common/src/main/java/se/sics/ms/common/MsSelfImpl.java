@@ -8,13 +8,14 @@ import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.VodAddress;
 
 import java.net.InetAddress;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
  * @author: Steffen Grohsschmiedt
  */
 public class MsSelfImpl extends SelfImpl {
-    private long numberOfIndexEntries = 0;
+    private static AtomicLong numberOfIndexEntries = new AtomicLong();
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
@@ -28,15 +29,15 @@ public class MsSelfImpl extends SelfImpl {
     public VodDescriptor getDescriptor() {
         int age = 0;
         return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
-                numberOfIndexEntries);
+                MsSelfImpl.numberOfIndexEntries.get());
     }
 
     public void setNumberOfIndexEntries(long numberOfIndexEntries) {
-        this.numberOfIndexEntries = numberOfIndexEntries;
+        MsSelfImpl.numberOfIndexEntries.set(numberOfIndexEntries); 
     }
 
     public void incrementNumberOfIndexEntries() {
-        numberOfIndexEntries++;
+        MsSelfImpl.numberOfIndexEntries.incrementAndGet();
     }
 
 
