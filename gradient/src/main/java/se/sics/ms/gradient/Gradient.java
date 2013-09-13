@@ -366,7 +366,12 @@ public final class Gradient extends ComponentDefinition {
 
             incrementRoutingTableAge();
 //            addRoutingTableEntries(sample);
-            addRoutingTableEntries(updatedSample);
+            if ((self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE))
+                addRoutingTableEntries(updatedSample);
+            else {
+                updatedSample = sample;
+                addRoutingTableEntries(updatedSample);
+            }
 
             // Remove all samples from other partitions
 //            Iterator<VodDescriptor> iterator = sample.iterator();
