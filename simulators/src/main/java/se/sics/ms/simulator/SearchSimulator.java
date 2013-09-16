@@ -30,6 +30,7 @@ import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
+import se.sics.ms.util.PartitionHelper;
 
 public final class SearchSimulator extends ComponentDefinition {
 
@@ -223,7 +224,8 @@ public final class SearchSimulator extends ComponentDefinition {
         MsConfig.Categories[] values = MsConfig.Categories.values();
         int categoryId = (int) (Math.random() * values.length);
 
-        Self self = new MsSelfImpl(new VodAddress(address, VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, values[categoryId].ordinal())));
+        Self self = new MsSelfImpl(new VodAddress(address, 
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, values[categoryId].ordinal())));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));

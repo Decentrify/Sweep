@@ -37,6 +37,7 @@ import se.sics.ms.types.IndexEntry;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 
 /**
  *
@@ -817,7 +818,8 @@ public class EncodingDecodingTest {
         int depth = 3;
         int partitionId = 4;
         int categoryId = (int) Math.pow(2, 16) - 2;
-        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodAddress.encodePartitionDataAndCategoryIdAsInt(type,
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), 
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(type,
                 depth, partitionId, categoryId), nat);
         assert vodAddress.getCategoryId() == categoryId;
         assert vodAddress.getPartitionId() == partitionId;

@@ -14,6 +14,8 @@ import java.util.*;
  * Time: 2:18 PM
  */
 public class PartitionHelper {
+    
+    
     /**
      * Returns next bit of the partitionId after partitioning is performed
      * @param yourNodeId node id
@@ -66,9 +68,8 @@ public class PartitionHelper {
             throw new IllegalArgumentException("partitionId can't be null");
 
         int categoryId = address.getCategoryId();
-        int newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(partitionId.getPartitioningType(),
+        int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(partitionId.getPartitioningType(),
                 partitionId.getPartitionIdDepth(), partitionId.getPartitionId(), categoryId);
-//        address.setOverlayId(newOverlayId);
         return new VodAddress(address.getPeerAddress(), newOverlayId, address.getNat(), address.getParents());
     }
 
@@ -199,4 +200,37 @@ public class PartitionHelper {
         }
 
     }
+    
+//    public static int encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType partitioningType, 
+//            int partitionIdDepth, int partitionId, int categoryId) {
+//        if(partitionIdDepth > 15 || partitionIdDepth < 1)
+//            throw new IllegalArgumentException("partitionIdDepth must be between 1 and 15");
+//        if(partitionId > 1023 || partitionId < 0)
+//            throw new IllegalArgumentException("partitionId must be between 0 and 1023");
+//        if(categoryId > 65535 || categoryId < 0)
+//            throw new IllegalArgumentException("categoryId must be between 0 and 65535");
+//
+//        int result = partitioningType.ordinal() << 30;
+//        result = result | (partitionIdDepth << 21);
+//        result = result | (partitionId << 12);
+//        result = result | categoryId;
+//
+//        return result;
+//    }   
+    public static int encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType partitioningType, 
+            int partitionIdDepth, int partitionId, int categoryId) {
+        if(partitionIdDepth > 15 || partitionIdDepth < 1)
+            throw new IllegalArgumentException("partitionIdDepth must be between 1 and 15");
+        if(partitionId > 1023 || partitionId < 0)
+            throw new IllegalArgumentException("partitionId must be between 0 and 1023");
+        if(categoryId > 65535 || categoryId < 0)
+            throw new IllegalArgumentException("categoryId must be between 0 and 65535");
+
+        int result = partitioningType.ordinal() << 30;
+        result = result | (partitionIdDepth << 26);
+        result = result | (partitionId << 16);
+        result = result | categoryId;
+
+        return result;
+    }        
 }

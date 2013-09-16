@@ -811,12 +811,15 @@ public final class Gradient extends ComponentDefinition {
             }
 
             for (VodDescriptor node : gradientView.getLowerUtilityNodes()) {
-                trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), partitionMessage.getRequestId(), partitionMessage.getMedianId(), partitionMessage.getPartitionsNumber()), networkPort);
+                trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), 
+                        partitionMessage.getRequestId(), partitionMessage.getMedianId(), 
+                        partitionMessage.getPartitionsNumber()), networkPort);
             }
 
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
-            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitionMessage.getPartitionsNumber(), true);
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(
+                    partitionMessage.getPartitionsNumber(), true);
             gradientView.adjustViewToNewPartitions();
             trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
         }
@@ -861,25 +864,28 @@ public final class Gradient extends ComponentDefinition {
             int partitionId = (partitionSubId ? 1 : 0);
 
             int selfCategory = self.getAddress().getCategoryId();
-            int newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
                     1, partitionId, selfCategory);
 
+            // TODO - all existing VodAddresses in Sets, Maps, etc are now invalid. 
+            // Do we replace them or what do we do with them?
+            
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         } else {
             int newPartitionId = self.getAddress().getPartitionId() | ((partitionSubId ? 1 : 0) << self.getAddress().getPartitionIdDepth());
             int selfCategory = self.getAddress().getCategoryId();
 
             if (increment) {
-                int newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+                int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                         self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
                 ((MsSelfImpl) self).setOverlayId(newOverlayId);
             } else {
                 int newOverlayId;
                 if (partitionsNumber == VodAddress.PartitioningType.ONCE_BEFORE) {
-                    newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+                    newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
                             self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
                 } else {
-                    newOverlayId = VodAddress.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+                    newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                             1, newPartitionId, selfCategory);
                 }
                 ((MsSelfImpl) self).setOverlayId(newOverlayId);

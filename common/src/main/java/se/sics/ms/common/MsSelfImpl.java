@@ -40,5 +40,8 @@ public class MsSelfImpl extends SelfImpl {
         MsSelfImpl.numberOfIndexEntries.incrementAndGet();
     }
 
+    public void setOverlayId(int overlayId) {
+        this.overlayId = overlayId;
+    }
 
 }
