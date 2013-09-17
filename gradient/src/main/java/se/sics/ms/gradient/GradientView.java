@@ -10,6 +10,7 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.types.PartitionId;
 import se.sics.ms.util.PartitionHelper;
 
 
@@ -146,8 +147,11 @@ public class GradientView {
         Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
-        if(((MsSelfImpl)self).getPartitionsNumber() != 1) {
-            PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, vodDescriptors);
+        if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
+
+            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
+                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, vodDescriptors);
         }
 
         for (VodDescriptor vodDescriptor : vodDescriptors) {
@@ -171,7 +175,9 @@ public class GradientView {
 	}
 
     protected void adjustViewToNewPartitions() {
-        PartitionHelper.adjustDescriptorsToNewPartitionId((MsSelfImpl)self, entries);
+        PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
+                self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+        PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, entries);
     }
 
 	/**

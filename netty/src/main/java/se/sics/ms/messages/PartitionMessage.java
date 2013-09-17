@@ -1,5 +1,6 @@
 package se.sics.ms.messages;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 
@@ -12,10 +13,10 @@ import se.sics.kompics.Event;
 public class PartitionMessage extends Event {
     private final TimeoutId requestId;
     private final long medianId;
-    private final int partitionsNumber;
+    private final VodAddress.PartitioningType partitionsNumber;
 
 
-    public PartitionMessage(TimeoutId requestId, long medianId, int partitionsNumber) {
+    public PartitionMessage(TimeoutId requestId, long medianId, VodAddress.PartitioningType partitionsNumber) {
         this.requestId = requestId;
         this.medianId = medianId;
         this.partitionsNumber = partitionsNumber;
@@ -29,7 +30,7 @@ public class PartitionMessage extends Event {
         return medianId;
     }
 
-    public int getPartitionsNumber() {
+    public VodAddress.PartitioningType getPartitionsNumber() {
         return partitionsNumber;
     }
 }

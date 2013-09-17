@@ -850,7 +850,7 @@ public final class Search extends ComponentDefinition {
                 replicationTimeoutToAdd.remove(response.getTimeoutId());
                 commitRequests.remove(commitId);
 
-                int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
+                int partitionId = self.getAddress().getPartitionId();
 
                 Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
@@ -1203,7 +1203,7 @@ public final class Search extends ComponentDefinition {
             nextInsertionId = maxStoredId+1;
             lowestMissingIndexValue = maxStoredId;
 
-            int partitionId = PartitionHelper.LinkedListPartitionToInt(((MsSelfImpl)self).getPartitionId());
+            int partitionId = self.getAddress().getPartitionId();
 
             Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
                     minStoredId);
@@ -1336,13 +1336,13 @@ public final class Search extends ComponentDefinition {
         maxStoredId++;
 
         //update the counter, so we can check if partitioning is necessary
-        if(leader && ((MsSelfImpl)self).getPartitionId().size() < config.getMaxPartitionIdLength())
+        if(leader && self.getAddress().getPartitionIdDepth() < config.getMaxPartitionIdLength())
             checkPartitioning();
     }
 
     private void checkPartitioning() {
         long numberOfEntries;
-        if(((MsSelfImpl)self).getPartitionsNumber() == 1)
+        if(self.getAddress().getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE)
             numberOfEntries = Math.abs(maxStoredId - minStoredId);
         else
             numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
@@ -1350,7 +1350,7 @@ public final class Search extends ComponentDefinition {
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
-        int partitionsNumber = self.getDescriptor().getPartitionsNumber();
+        VodAddress.PartitioningType partitionsNumber = self.getAddress().getPartitioningType();
         long medianId;
 
         if(maxStoredId > minStoredId)

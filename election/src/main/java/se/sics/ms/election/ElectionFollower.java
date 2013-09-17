@@ -22,6 +22,7 @@ import se.sics.ms.gradient.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.UtilityComparator;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.messages.*;
+import se.sics.ms.types.PartitionId;
 
 import java.util.*;
 
@@ -171,7 +172,9 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderViewMessage event) {
             VodDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderVodDescriptor());
 
-            if(!highestUtilityNode.getPartitionId().equals(((MsSelfImpl)self).getPartitionId()))
+            if(highestUtilityNode.getVodAddress().getPartitionId() != self.getAddress().getPartitionId()
+                    || highestUtilityNode.getVodAddress().getPartitionIdDepth() != self.getAddress().getPartitionIdDepth()
+                    || highestUtilityNode.getVodAddress().getPartitioningType() != self.getAddress().getPartitioningType())
                 highestUtilityNode = event.getLeaderVodDescriptor();
 
             if (leader == null) {
@@ -328,7 +331,10 @@ public class ElectionFollower extends ComponentDefinition {
             //higherUtilityNodes.clear();
             deathVoteTimeout = null;
 
-            adjustDescriptorsToNewPartitionId((MsSelfImpl)self, higherUtilityNodes);
+            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
+                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+
+            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
         }
     };
 

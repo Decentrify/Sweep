@@ -37,6 +37,7 @@ import se.sics.ms.types.IndexEntry;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 
 /**
  *
@@ -813,10 +814,17 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        int partitionId = (int) Math.pow(2, 16) - 1;
+        VodAddress.PartitioningType type = VodAddress.PartitioningType.ONCE_BEFORE;
+        int depth = 3;
+        int partitionId = 4;
         int categoryId = (int) Math.pow(2, 16) - 2;
-        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodAddress.encodePartitionAndCategoryIdAsInt(partitionId, categoryId), nat);
+        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), 
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(type,
+                depth, partitionId, categoryId), nat);
         assert vodAddress.getCategoryId() == categoryId;
+        assert vodAddress.getPartitionId() == partitionId;
+        assert vodAddress.getPartitionIdDepth() == depth;
+        assert vodAddress.getPartitioningType() == type;
     }
 
     @Test
@@ -830,14 +838,7 @@ public class EncodingDecodingTest {
         long numberOfEntries = 5L;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        LinkedList<Boolean> list = new LinkedList<Boolean>();
-        list.add(false);
-        list.add(false);
-        list.add(true);
-        list.add(false);
-
-
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries, 1, list);
+        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries);
 
         List<VodDescriptor> items = new ArrayList<VodDescriptor>();
         items.add(vodDescriptor);
@@ -848,7 +849,6 @@ public class EncodingDecodingTest {
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
             assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
-            assert (response.getVodDescriptors().get(0).getPartitionId().equals(list));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -906,41 +906,11 @@ public class EncodingDecodingTest {
     }
 
     @Test
-    public void NumberOfPartitions() {
-        int number = 100;
-        InetAddress address = null;
-        try {
-            address = InetAddress.getByName("192.168.0.1");
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, number);
-
-        List<VodDescriptor> items = new ArrayList<VodDescriptor>();
-        items.add(vodDescriptor);
-        LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), false, items);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
-
-            assert (response.getVodDescriptors().get(0).getPartitionsNumber() == number);
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
-    @Test
     public void PartitioningMessage() {
 
         long middleEntryId = 1L;
         TimeoutId requestId = UUID.nextUUID();
-        int partitionsNumber = 1;
+        VodAddress.PartitioningType partitionsNumber = VodAddress.PartitioningType.NEVER_BEFORE;
 
         PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, requestId, middleEntryId, partitionsNumber);
         try {
