@@ -18,8 +18,18 @@ public class SearchUi {
 
     private static DefaultListModel model = new DefaultListModel();
 
+
+    public JPanel root;
+    private JCheckBox videoCheckBox;
+    private JCheckBox musicCheckBox;
+    private JCheckBox booksCheckBox;
+    private JButton searchButton;
+    private JTextField searchField;
+    private JList searchResultsList;
+    
     public SearchUi(final UiComponent component) {
         this.component = component;
+        
         searchResultsList.setModel(model);
 
 //        IndexEntry entry0 = new IndexEntry("http://hp.com/", "Harry Potter 1", new Date(), IndexEntry.Categories.Books, "English", null, null);
@@ -41,13 +51,6 @@ public class SearchUi {
         });
     }
 
-    public JPanel root;
-    private JCheckBox videoCheckBox;
-    private JCheckBox musicCheckBox;
-    private JCheckBox booksCheckBox;
-    private JButton searchButton;
-    private JTextField searchField;
-    private JList searchResultsList;
 
     public void showSearchResults(final IndexEntry[] results) {
         SwingUtilities.invokeLater(new Runnable() {

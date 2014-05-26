@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.util.ToVodAddr;
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -23,6 +24,7 @@ import se.sics.gvod.net.NatNetworkControl;
 import se.sics.gvod.net.NettyInit;
 import se.sics.gvod.net.NettyNetwork;
 import se.sics.gvod.net.Transport;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
@@ -148,9 +150,11 @@ public class SystemMain extends ComponentDefinition {
             PsPortBindResponse pbr1 = new PsPortBindResponse(pb1);
             pb1.setResponse(pbr1);
             trigger(pb1, network.getPositive(NatNetworkControl.class));
+            
 
             connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class), new MsgDestFilterAddress(myAddr));
-            connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
+            connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class), 
+                    new IndividualTimeout.IndividualTimeoutFilter(myId));
 
         }
     };
