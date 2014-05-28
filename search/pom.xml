@@ -52,9 +52,7 @@
             <artifactId>lucene-analyzers-common</artifactId>
             <version>4.2.0</version>
         </dependency>
-
-        
-        <!--        <dependency>
+<!--        <dependency>
             <groupId>se.sics.kompics.basic</groupId>
             <artifactId>kompics-component-jetty-web-server</artifactId>
             <version>${kompics.version}</version>
@@ -102,7 +100,6 @@
             </plugin>
         </plugins>
     </build>
-
     <repositories>
         <repository>
             <id>sics-release</id>
