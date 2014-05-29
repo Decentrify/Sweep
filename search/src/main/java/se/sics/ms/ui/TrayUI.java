@@ -51,7 +51,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
                 createGui();
             }
         });
-
+        
     }
 
     private void createGui() {
