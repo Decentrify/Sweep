@@ -33,6 +33,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-proxy</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>se.kth.ms</groupId>
@@ -74,11 +79,6 @@
             <version>2.5</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.glassfish.web</groupId>
-            <artifactId>javax.servlet.jsp</artifactId>
-            <version>${glassfish.javax.version}</version>
-        </dependency>
 
     </dependencies>
 

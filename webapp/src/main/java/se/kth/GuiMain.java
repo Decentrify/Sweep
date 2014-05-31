@@ -49,6 +49,7 @@ import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.ui.UiComponent;
 import se.sics.ms.ui.UiComponentInit;
 import se.sics.ms.peer.SearchPeer;
+import se.sics.ms.web.WebService;
 
 public class GuiMain extends ComponentDefinition {
 
@@ -156,9 +157,17 @@ public class GuiMain extends ComponentDefinition {
                     new IndividualTimeout.IndividualTimeoutFilter(myId));
 
             
+            // Start the Dropwizard REST Services used by AngularJS
+            try {
+                new WebService().run(new String[]{"server"});
+            } catch (Exception ex) {
+                java.util.logging.Logger.getLogger(GuiMain.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
+            // Start the AngularJS webapp
             new Thread(new AngularJSWebApp()).start();
 
+            
         }
     };
     public Handler<Fault> handleFault =

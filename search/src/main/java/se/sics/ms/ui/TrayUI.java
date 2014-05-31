@@ -13,6 +13,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.util.logging.Level;
+import se.sics.gvod.config.VodConfig;
 
 /**
  * Created with IntelliJ IDEA. User: kazarindn Date: 8/7/13 Time: 1:05 PM
@@ -51,7 +54,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
                 createGui();
             }
         });
-        
+
     }
 
     private void createGui() {
@@ -67,24 +70,29 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
         popup.add(addEntry);
         popup.add(exitItem);
         this.setPopupMenu(popup);
-    
+
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (!SwingUtilities.isRightMouseButton(e)) {
-                    searchFrame.setVisible(true);
+//                    searchFrame.setVisible(true);
+                    String url = "http://localhost:9999/";
+                    try {
+                        java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+                    } catch (IOException ex) {
+                        java.util.logging.Logger.getLogger(TrayUI.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
         }
         );
-        
+
         try {
             SystemTray.getSystemTray().add(this);
         } catch (AWTException e) {
             e.printStackTrace();
         }
 
-    
     }
 
     private ActionListener getSearchAction() {

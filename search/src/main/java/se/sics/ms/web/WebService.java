@@ -23,9 +23,9 @@ import javax.ws.rs.core.MediaType;
  * @author jdowling
  */
 public class WebService extends Application<Configuration> {
-    public static void main(String[] args) throws Exception {
-        new WebService().run(new String[]{"server"});
-    }
+//    public static void main(String[] args) throws Exception {
+//        new WebService().run(new String[]{"server"});
+//    }
 
     @Override
     public void initialize(Bootstrap<Configuration> bootstrap) {
