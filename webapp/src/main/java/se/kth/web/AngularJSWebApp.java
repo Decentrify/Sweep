@@ -30,6 +30,7 @@ public class AngularJSWebApp implements Runnable
         if (webPort == null || webPort.isEmpty()) {
             webPort = "9999";
         }
+        webPort = "9999";
         Server server = new Server(Integer.valueOf(webPort));
 
         WebAppContext webapp = new WebAppContext();

@@ -10,7 +10,7 @@
     </welcome-file-list>
 
     <!-- Configure a proxy to the back-end services -->
-    <servlet>
+<!--    <servlet>
         <servlet-name>proxy</servlet-name>
         <servlet-class>org.eclipse.jetty.servlets.ProxyServlet$Transparent</servlet-class>
         <init-param>
@@ -22,8 +22,8 @@
             <param-value>/api</param-value>
         </init-param>
         <load-on-startup>1</load-on-startup>
-        <!--async-supported>true</async-supported-->
-    </servlet>
+        async-supported>true</async-supported
+    </servlet>-->
 
     <!-- Make the proxy handle requests to /api/* -->
     <servlet-mapping>

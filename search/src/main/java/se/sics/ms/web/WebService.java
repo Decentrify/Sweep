@@ -7,7 +7,6 @@
 package se.sics.ms.web;
 
 import io.dropwizard.Application;
-import java.util.concurrent.atomic.AtomicLong;
 import io.dropwizard.Configuration;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
@@ -23,9 +22,6 @@ import javax.ws.rs.core.MediaType;
  * @author jdowling
  */
 public class WebService extends Application<Configuration> {
-//    public static void main(String[] args) throws Exception {
-//        new WebService().run(new String[]{"server"});
-//    }
 
     @Override
     public void initialize(Bootstrap<Configuration> bootstrap) {
