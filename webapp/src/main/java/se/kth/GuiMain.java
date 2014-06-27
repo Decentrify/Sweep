@@ -196,7 +196,7 @@ public class GuiMain extends ComponentDefinition {
     public static void main(String[] args) throws IOException {
 
         int cores = Runtime.getRuntime().availableProcessors();
-        int numWorkers = Math.max(1, cores - 1);
+        int numWorkers = Math.max(1, cores - 2);
 
         System.setProperty("java.net.preferIPv4Stack", "true");
         try {

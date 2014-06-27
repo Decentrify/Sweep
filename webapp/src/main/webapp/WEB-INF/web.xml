@@ -22,13 +22,13 @@
             <param-value>/api</param-value>
         </init-param>
         <load-on-startup>1</load-on-startup>
-        async-supported>true</async-supported
-    </servlet>-->
+        <async-supported>true</async-supported>
+    </servlet>
 
-    <!-- Make the proxy handle requests to /api/* -->
+     Make the proxy handle requests to /api/* 
     <servlet-mapping>
         <servlet-name>proxy</servlet-name>
         <url-pattern>/api/*</url-pattern>
-    </servlet-mapping>
+    </servlet-mapping>-->
 
 </web-app>

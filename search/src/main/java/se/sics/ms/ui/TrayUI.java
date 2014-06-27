@@ -22,6 +22,7 @@ import se.sics.gvod.config.VodConfig;
  */
 public class TrayUI extends TrayIcon implements PropertyChangeListener {
 
+    public static final String WEB_PORT = "8080";
     private static final Logger logger = LoggerFactory.getLogger(TrayUI.class);
 
     private final UiComponent component;
@@ -76,7 +77,7 @@ public class TrayUI extends TrayIcon implements PropertyChangeListener {
             public void mouseClicked(MouseEvent e) {
                 if (!SwingUtilities.isRightMouseButton(e)) {
 //                    searchFrame.setVisible(true);
-                    String url = "http://localhost:9999/";
+                    String url = "http://localhost:" + WEB_PORT + "/";
                     try {
                         java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
                     } catch (IOException ex) {

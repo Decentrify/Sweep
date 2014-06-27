@@ -4,6 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.webapp.WebAppContext;
+import se.sics.ms.ui.TrayUI;
 
 /**
  * This class launches the web application in an embedded Jetty container.
@@ -12,7 +13,6 @@ import org.eclipse.jetty.webapp.WebAppContext;
  */
 public class AngularJSWebApp implements Runnable 
 {
-
     private boolean success = true;
     
     public AngularJSWebApp() {
@@ -28,9 +28,8 @@ public class AngularJSWebApp implements Runnable
         // Look for that variable and default to 8080 if it isn't there.
         String webPort = System.getenv("PORT");
         if (webPort == null || webPort.isEmpty()) {
-            webPort = "9999";
+            webPort = TrayUI.WEB_PORT;
         }
-        webPort = "9999";
         Server server = new Server(Integer.valueOf(webPort));
 
         WebAppContext webapp = new WebAppContext();
@@ -41,6 +40,8 @@ public class AngularJSWebApp implements Runnable
         server.setHandler(webapp);
         try {
             server.start();
+            Logger.getLogger(AngularJSWebApp.class.getName()).log(Level.INFO, 
+                    "Web Application listening at http://localhost:{0}", webPort);
         } catch (Exception ex) {
             Logger.getLogger(AngularJSWebApp.class.getName()).log(Level.SEVERE, null, ex);
             success = false;
