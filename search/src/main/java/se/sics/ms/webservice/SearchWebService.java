@@ -52,6 +52,7 @@ public class SearchWebService extends Application<Configuration> implements Sear
     static long TIMEOUT = 5;
 
     static String REQUEST_TIMED_OUT_MSG = "Request timed out";
+    static String REQUEST_INTERRUPTED_MSG = "Request interupted";
 
     static boolean addIndexSuccess = false;
     static ArrayList<SearchIndexResultJSON> searchIndexResults;
@@ -98,50 +99,61 @@ public class SearchWebService extends Application<Configuration> implements Sear
             StatusResponseJSON result = new StatusResponseJSON(StatusResponseJSON.ERROR_STRING, null);
             try
             {
-                requestMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS);
-
-                String reason = validateAddIndexRequest(addRequest);
-
-                if(reason == null)
+                if(requestMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS))
                 {
-                    IndexEntry entry = new IndexEntry(
-                            addRequest.getUrl(),
-                            addRequest.getFileName(),
-                            addRequest.getFileSize(),
-                            new Date(),
-                            addRequest.getLanguage(),
-                            addRequest.getCategory(),
-                            addRequest.getDescription());
+                    String reason = validateAddIndexRequest(addRequest);
 
-                    search.addIndexEntry(entry);
-
-                    try
+                    if(reason == null)
                     {
-                        isWaitForResultInProgress = true;
-                        waitForResultMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS);
+                        IndexEntry entry = new IndexEntry(
+                                addRequest.getUrl(),
+                                addRequest.getFileName(),
+                                addRequest.getFileSize(),
+                                new Date(),
+                                addRequest.getLanguage(),
+                                addRequest.getCategory(),
+                                addRequest.getDescription());
 
-                        if(addIndexSuccess)
-                            result.setStatus(StatusResponseJSON.SUCCESS_STRING);
-                        else
-                            result.setReason("Unknown reason");
+                        search.addIndexEntry(entry);
+
+                        try
+                        {
+                            isWaitForResultInProgress = true;
+                            if(waitForResultMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS))
+                            {
+                                if(addIndexSuccess)
+                                    result.setStatus(StatusResponseJSON.SUCCESS_STRING);
+                                else
+                                    result.setReason("Unknown reason");
+                            }
+                            else
+                            {
+                                result.setReason(REQUEST_TIMED_OUT_MSG);
+                            }
+                        }
+                        catch (InterruptedException ex)
+                        {
+                            Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
+
+                            result.setReason(REQUEST_INTERRUPTED_MSG);
+                        }
+                        finally
+                        {
+                            isWaitForResultInProgress = false;
+                        }
                     }
-                    catch (InterruptedException ex)
+                    else
                     {
-                        Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
-                        isWaitForResultInProgress = false;
-                        result.setReason(REQUEST_TIMED_OUT_MSG);
+                        result.setReason(reason);
                     }
+                    requestMutex.release();
                 }
-                else
-                {
-                    result.setReason(reason);
-                }
-                requestMutex.release();
             }
             catch (InterruptedException ex)
             {
                 Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
-                result.setReason(REQUEST_TIMED_OUT_MSG);
+
+                result.setReason(REQUEST_INTERRUPTED_MSG);
             }
 
             if(result.getStatus().equalsIgnoreCase(StatusResponseJSON.SUCCESS_STRING))
@@ -158,44 +170,50 @@ public class SearchWebService extends Application<Configuration> implements Sear
         @PUT
         public Response search(SearchIndexRequestJSON searchRequest) {
 
-            Object res;
+            Object res = new StatusResponseJSON(StatusResponseJSON.ERROR_STRING, REQUEST_TIMED_OUT_MSG);
 
             try
             {
-                requestMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS);
-
-                searchIndexResults = null;
-
-                search.search(new SearchPattern(
-                        searchRequest.getFileNamePattern(),
-                        searchRequest.getMinFileSize(),
-                        searchRequest.getMaxFileSize(),
-                        searchRequest.getMinUploadDate(),
-                        searchRequest.getMaxUploadDate(),
-                        searchRequest.getLanguage(),
-                        searchRequest.getCategory(),
-                        searchRequest.getDescriptionPattern()));
-
-                try
+                if(requestMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS))
                 {
-                    isWaitForResultInProgress = true;
-                    waitForResultMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS);
-                    res = searchIndexResults;
-                }
-                catch (InterruptedException ex)
-                {
-                    Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
-                    isWaitForResultInProgress = false;
 
-                    res = new StatusResponseJSON(StatusResponseJSON.ERROR_STRING, REQUEST_TIMED_OUT_MSG);
-                }
+                    searchIndexResults = null;
 
-                requestMutex.release();
+                    search.search(new SearchPattern(
+                            searchRequest.getFileNamePattern(),
+                            searchRequest.getMinFileSize(),
+                            searchRequest.getMaxFileSize(),
+                            searchRequest.getMinUploadDate(),
+                            searchRequest.getMaxUploadDate(),
+                            searchRequest.getLanguage(),
+                            searchRequest.getCategory(),
+                            searchRequest.getDescriptionPattern()));
+
+                    try
+                    {
+                        isWaitForResultInProgress = true;
+                        if(waitForResultMutex.tryAcquire(TIMEOUT, TimeUnit.SECONDS))
+                            res = searchIndexResults;
+                    }
+                    catch (InterruptedException ex)
+                    {
+                        Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
+
+                        ((StatusResponseJSON)res).setStatus(REQUEST_INTERRUPTED_MSG);
+
+                    }
+                    finally
+                    {
+                        isWaitForResultInProgress = false;
+                    }
+                    requestMutex.release();
+                }
             }
             catch (InterruptedException ex)
             {
                 Logger.getLogger(SearchWebService.class.getName()).log(Level.SEVERE, null, ex);
-                res = new StatusResponseJSON(StatusResponseJSON.ERROR_STRING, REQUEST_TIMED_OUT_MSG);
+
+                ((StatusResponseJSON)res).setStatus(REQUEST_INTERRUPTED_MSG);
             }
 
             if((res instanceof StatusResponseJSON) &&
@@ -212,7 +230,6 @@ public class SearchWebService extends Application<Configuration> implements Sear
         if(isWaitForResultInProgress)
         {
             searchIndexResults = convertToSearchIndexResultJSON(results);
-            isWaitForResultInProgress = false;
             waitForResultMutex.release();
         }
     }
@@ -223,7 +240,6 @@ public class SearchWebService extends Application<Configuration> implements Sear
         if(isWaitForResultInProgress)
         {
             addIndexSuccess = true;
-            isWaitForResultInProgress = false;
             waitForResultMutex.release();
         }
     }
@@ -234,7 +250,6 @@ public class SearchWebService extends Application<Configuration> implements Sear
         if(isWaitForResultInProgress)
         {
             addIndexSuccess = false;
-            isWaitForResultInProgress = false;
             waitForResultMutex.release();
         }
     }
