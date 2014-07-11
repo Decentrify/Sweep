@@ -136,7 +136,14 @@ public class SearchPattern implements Serializable {
             StringTokenizer st = new StringTokenizer(fileNamePattern);
             BooleanQuery query = new BooleanQuery();
             while (st.hasMoreTokens()) {
-                query.add(new WildcardQuery(new Term(IndexEntry.FILE_NAME, "*" + st.nextToken() + "*")), BooleanClause.Occur.SHOULD);
+                String token = st.nextToken();
+                /*
+                * It is very important to lower case the pattern, without it the
+                * search would fail if the string has upper case letters. The
+                * lower case letters will also do case insenstive search.
+                */
+                String pattern =  "*" + token.toLowerCase() + "*";
+                query.add(new WildcardQuery(new Term(IndexEntry.FILE_NAME, pattern)), BooleanClause.Occur.SHOULD);
             }
 
             booleanQuery.add(query, BooleanClause.Occur.MUST);
