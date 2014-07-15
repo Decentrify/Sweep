@@ -147,14 +147,7 @@ public final class Gradient extends ComponentDefinition {
             random = new Random(init.getConfiguration().getSeed());
             gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
             routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<VodDescriptor>>>();
-            /******
-            /*TODO: To make the system work with a single node only.
-            * Will be changed later when testing on single node is complete.
-            * Single node is always made leader.
-            * Make leader = false later.
-            */
-            leader = true;
-            /******/
+            leader = false;
             latestRtts = new long[config.getLatestRttStoreLimit()];
             partitionRequestList = new ArrayList<TimeoutId>();
 
@@ -689,17 +682,10 @@ public final class Gradient extends ComponentDefinition {
     };
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
-        public void handle(GradientRoutingPort.SearchRequest event) {            
+        public void handle(GradientRoutingPort.SearchRequest event) {
             MsConfig.Categories category = event.getPattern().getCategory();
             Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
 
-            /******
-            /*TODO: To make the system work with a single node only.
-            * Will be changed later when testing on single node is complete.
-            * The request is not forwarded to other nodes in other partitions.
-            * Uncomment the code block later.
-            */
-            /*
             if (categoryRoutingMap == null) {
                 return;
             }
@@ -746,17 +732,6 @@ public final class Gradient extends ComponentDefinition {
                     vodDescriptor.setConnected(true);
                 }
             }
-            ******/
-        
-        /******
-        /*TODO: To make the system work with a single node only.
-        * Will be changed later when testing on single node is complete.
-        * Request to handled locally.
-        * Remove this statement later.
-        */            
-        trigger(new SearchMessage.Request(self.getAddress(), self.getAddress(),
-                event.getTimeoutId(), event.getTimeoutId(), event.getPattern(),
-                self.getAddress().getPartitionId()), networkPort);            
         }
     };
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {

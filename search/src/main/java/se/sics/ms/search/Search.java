@@ -79,15 +79,7 @@ public final class Search extends ComponentDefinition {
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private Self self;
     private SearchConfiguration config;
-    
-    /******
-    /*TODO: To make the system work with a single node only.
-    * Will be changed later when testing on single node is complete.
-    * Single node is always made leader.
-    * Make leader=false later.
-    */
-    private boolean leader = true;
-    /******/    
+    private boolean leader;
     // The last lowest missing index value
     private long lowestMissingIndexValue;
     // Set of existing entries higher than the lowestMissingIndexValue
@@ -656,34 +648,7 @@ public final class Search extends ComponentDefinition {
             awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
             replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
 
-            /******
-            /*TODO: To make the system work with a single node only.
-            * Will be changed later when testing on single node is complete.
-            * Two phase commit start ignored.
-            * Uncomment the statement below later.
-            */
-            //trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
-            /******/
-            
-            /******
-            /*TODO: To make the system work with a single node only.
-            * Will be changed later when testing on single node is complete.
-            * Result of successful two phase commit done manually.
-            * Remove all these statements later.
-            */
-            TimeoutId commitId = UUID.nextUUID();            
-            ReplicationCount replicationCount = replicationRequests.get(response.getTimeoutId());
-            try {
-                addEntryLocal(replicationCount.getEntry());
-            } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), commitId), networkPort);
-
-            commitRequests.remove(commitId);   
-            replicationRequests.remove(response.getTimeoutId());            
-            /******/
+            trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
 
         }
     };
@@ -1166,23 +1131,17 @@ public final class Search extends ComponentDefinition {
         }
 
         searchRequest.addRespondedPartition(partition);
-        /******
-        /*TODO: To make the system work with a single node only.
-        * Will be changed later when testing on single node is complete.
-        * When a single result is fetched, we give the result back to application.
-        * Code below is commented to achieve this effect.
-        */
-        /* Integer numOfPartitions = searchPartitionsNumber.get(requestId);
+
+        Integer numOfPartitions = searchPartitionsNumber.get(requestId);
         if(numOfPartitions == null)
             return;
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
-            //logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);*/
-        /******/
+            logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
             CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
             trigger(ct, timerPort);
             answerSearchRequest();
-        //}
+        }
     }
 
     private void logSearchTimeResults(TimeoutId requestId, long timeCompleted, Integer numOfPartitions) {

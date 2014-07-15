@@ -56,4 +56,3 @@ lib
 
 # log files
 *.log*
-/webapp/target/
