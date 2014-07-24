@@ -17,7 +17,8 @@
         <module>netty</module>
         <module>webapp</module>
     <module>simulators</module>
-  </modules>
+        <module>ms-webservice</module>
+    </modules>
 
     <properties>
         <java.compiler.version>1.7</java.compiler.version>
