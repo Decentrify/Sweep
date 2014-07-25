@@ -29,6 +29,7 @@ public class ApplicationTypesDecoderFactory {
 
     public static IndexEntry readIndexEntry(ByteBuf buffer)
             throws MessageDecodingException {
+        String gId = UserTypesDecoderFactory.readStringLength256(buffer);
         Long id = buffer.readLong();
         String url = UserTypesDecoderFactory.readStringLength256(buffer);
         String fileName = UserTypesDecoderFactory.readStringLength256(buffer);
@@ -40,7 +41,7 @@ public class ApplicationTypesDecoderFactory {
         String hash = UserTypesDecoderFactory.readStringLength256(buffer);
         String leaderId = UserTypesDecoderFactory.readStringLength65536(buffer);
         if (leaderId == null)
-            return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, null);
+            return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, null);
 
         KeyFactory keyFactory;
         PublicKey pub = null;
@@ -55,7 +56,7 @@ public class ApplicationTypesDecoderFactory {
             e.printStackTrace();
         }
 
-        return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
+        return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
     }
 
     public static Collection<IndexEntry> readIndexEntryCollection(ByteBuf buffer) throws MessageDecodingException {

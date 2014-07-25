@@ -268,6 +268,7 @@ public class SearchWebService extends Application<Configuration> implements Sear
         for(IndexEntry entry: indexList)
         {
             SearchIndexResultJSON convertedEntry = new SearchIndexResultJSON(
+                    "",
                     entry.getUrl(),
                     entry.getFileName(),
                     entry.getFileSize(),

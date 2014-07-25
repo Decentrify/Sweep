@@ -15,6 +15,7 @@ import se.sics.ms.configuration.MsConfig;
  * @author alidar
  */
 public class SearchIndexResultJSON {
+    private String globalId;
     private String url;
     private String fileName;
     private long fileSize;
@@ -23,7 +24,8 @@ public class SearchIndexResultJSON {
     private MsConfig.Categories category;
     private String description;
 
-    public SearchIndexResultJSON(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
+    public SearchIndexResultJSON(String globalId, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
+        this.globalId = globalId;
         this.url = url;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -32,6 +34,17 @@ public class SearchIndexResultJSON {
         this.category = category;
         this.description = description;
     }
+
+    /**
+     * @return the globalId
+     */
+    public String getGlobalId() { return globalId; };
+
+    /**
+     * @param globalId the globalId to set
+     */
+    public void setGlobalId(String globalId) { this.globalId = globalId; }
+
     /**
      * @return the url
      */

@@ -627,6 +627,7 @@ public final class Search extends ComponentDefinition {
 
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
+            newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
 
             String signature = generateSignedHash(newEntry, privateKey);
             if(signature == null)
@@ -1273,6 +1274,7 @@ public final class Search extends ComponentDefinition {
      */
     private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
         Document doc = new Document();
+        doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
         doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
         doc.add(new StoredField(IndexEntry.URL, entry.getUrl()));
         doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
@@ -1373,7 +1375,8 @@ public final class Search extends ComponentDefinition {
 
 private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     {
-        IndexEntry indexEntry = new IndexEntry(Long.valueOf(d.get(IndexEntry.ID)),
+        IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
+                    Long.valueOf(d.get(IndexEntry.ID)),
                     d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
                     MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
                     d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
