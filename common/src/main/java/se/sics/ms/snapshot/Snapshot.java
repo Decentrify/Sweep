@@ -420,4 +420,33 @@ public class Snapshot {
 			builder.append("\n");
 		}
 	}
+
+
+    /**
+     * Update the node information in the list.
+     *
+     * @param
+     */
+    public static void updateInfo(VodAddress address){
+
+        VodAddress requiredVodAddress  = null;
+
+        for(VodAddress peerAddress : peers.keySet() ){
+            if(peerAddress.getId() == address.getId()){
+                requiredVodAddress = peerAddress;
+                break;
+            }
+        }
+
+        if(requiredVodAddress == null)
+            return;
+
+        // Remove the existing entry from the map.
+        PeerInfo requiredPeerInfo = peers.get(requiredVodAddress);
+        peers.remove(requiredVodAddress);
+
+        // add the updated entries in the map.
+        peers.put(address,requiredPeerInfo);
+
+    }
 }

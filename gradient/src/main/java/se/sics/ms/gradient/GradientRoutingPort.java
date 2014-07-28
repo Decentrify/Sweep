@@ -1,11 +1,15 @@
 package se.sics.ms.gradient;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 import se.sics.ms.messages.PartitionMessage;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
+
+import java.util.EventListenerProxy;
 
 public class GradientRoutingPort extends PortType {
 	{
@@ -20,7 +24,49 @@ public class GradientRoutingPort extends PortType {
         negative(PartitionMessage.class);
         positive(RemoveEntriesNotFromYourPartition.class);
         positive(NumberOfPartitions.class);
+        // Pull Based Partitioning.
+        negative(CheckPartitionRequirement.class);
+        // Two Phase Commit Partitioning Messages.
+        negative(ApplyPartitioningUpdate.class);
+        negative(LeaderGroupInformation.Request.class);
+        positive(LeaderGroupInformation.Response.class);
+
 	}
+
+    /**
+     * Event containing simply the address of the node who's partitioning needs to be checked and performed.
+     */
+    public static class CheckPartitionRequirement extends Event{
+
+        private final VodAddress destinationAddress;
+
+        public CheckPartitionRequirement(VodAddress destinationAddress){
+            this.destinationAddress  = destinationAddress;
+        }
+
+        public VodAddress getDestinationAddress() {
+            return destinationAddress;
+        }
+
+    }
+
+    /**
+     * Inform the gradient about the partitioning update and let it handle it.
+     */
+    public static class ApplyPartitioningUpdate extends Event{
+
+        private final PartitionHelper.PartitionInfo partitionUpdate;
+
+        public ApplyPartitioningUpdate(PartitionHelper.PartitionInfo partitionInfo){
+            this.partitionUpdate =partitionInfo;
+        }
+
+        public PartitionHelper.PartitionInfo getPartitionUpdate(){
+            return this.partitionUpdate;
+        }
+
+    }
+
 
     public static class AddIndexEntryRequest extends Event {
         private final IndexEntry entry;

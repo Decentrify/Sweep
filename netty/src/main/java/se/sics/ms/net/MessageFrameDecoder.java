@@ -49,7 +49,12 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte COMMIT_RESPONSE               = 0x79;
     public static final byte INDEX_HASH_EXCHANGE_REQUEST   = 0x7a;
     public static final byte INDEX_HASH_EXCHANGE_RESPONSE  = 0x7b;
-    public static final byte PARTITIONING_MESSAGE          = 0x7c;
+    public static final byte PARTITION_PREPARE_REQUEST     = 0x7c;
+    public static final byte PARTITION_PREPARE_RESPONSE    = 0x7d;
+    public static final byte PARTITION_COMMIT_REQUEST      = 0x7e;
+    public static final byte PARTITION_COMMIT_RESPONSE     = 0x7f;
+
+    public static final byte DELAYED_PARTITIONING_MESSAGE  = -0x1;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -131,8 +136,16 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return IndexHashExchangeMessageFactory.Request.fromBuffer(buffer);
             case INDEX_HASH_EXCHANGE_RESPONSE:
                 return IndexHashExchangeMessageFactory.Response.fromBuffer(buffer);
-            case PARTITIONING_MESSAGE:
-                return PartitioningMessageFactory.fromBuffer(buffer);
+            case DELAYED_PARTITIONING_MESSAGE:
+                return DelayedPartitioningMessageFactory.fromBuffer(buffer);
+            case PARTITION_PREPARE_REQUEST:
+                return PartitionPrepareMessageFactory.Request.fromBuffer(buffer);
+            case PARTITION_PREPARE_RESPONSE:
+                return PartitionPrepareMessageFactory.Response.fromBuffer(buffer);
+            case PARTITION_COMMIT_REQUEST:
+                return PartitionCommitMessageFactory.Request.fromBuffer(buffer);
+            case PARTITION_COMMIT_RESPONSE:
+                return PartitionCommitMessageFactory.Response.fromBuffer(buffer);
             default:
                 break;
         }

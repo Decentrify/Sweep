@@ -111,11 +111,18 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
 
+    private HashMap<PartitionHelper.PartitionInfo,TimeoutId> partitionUpdatePendingCommit = new HashMap<>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
     private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
     private static HashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new HashMap<TimeoutId, Pair<Long, Integer>>();
+    private TimeoutId partitionRequestId;
+    private boolean partitionInProgress = false;
+    private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<>();
+    private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<>();
+
+    private static final int LEADER_GROUP_SIZE = 4;
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -227,6 +234,14 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
+        subscribe(partitionPrepareTimeoutHandler, timerPort);
+        subscribe(handlerPartitionPrepareRequest, networkPort);
+        subscribe(handlerPartitionPrepareResponse, networkPort);
+        subscribe(handlePartitionCommitTimeout, timerPort);
+        subscribe(handlerPartitionCommitRequest, networkPort);
+        subscribe(handlerPartitionCommitResponse, networkPort);
+        subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
+        subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
     }
 
     /**
@@ -420,7 +435,15 @@ public final class Search extends ComponentDefinition {
     final Handler<IndexHashExchangeMessage.Request> handleIndexHashExchangeRequest = new Handler<IndexHashExchangeMessage.Request>() {
         @Override
         public void handle(IndexHashExchangeMessage.Request event) {
+
             try {
+                //FIXME(Abhi): Check of the node is lagging behind.
+                //FIXME: Pull this code in the generic control message exchange.
+                if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
+                    // Let gradient handle it.
+                    trigger(new GradientRoutingPort.CheckPartitionRequirement(event.getVodSource()), gradientRoutingPort);
+                }
+
                 List<IndexHash> hashes = new ArrayList<IndexHash>();
 
                 // Search for entries the inquirer is missing
@@ -1201,8 +1224,10 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
+            /** TODO: Need to test the clearing of the entries map, as it may contain not received entries and then interfere in case node migrates to other partition, by treating the entry as already added.
+             **/
             nextInsertionId = maxStoredId+1;
-            lowestMissingIndexValue = maxStoredId;
+            lowestMissingIndexValue = maxStoredId+1;
 
             int partitionId = self.getAddress().getPartitionId();
 
@@ -1311,6 +1336,8 @@ public final class Search extends ComponentDefinition {
     private void addEntryLocal(IndexEntry indexEntry) throws IOException {
         if (indexEntry.getId() < lowestMissingIndexValue
                 || existingEntries.contains(indexEntry.getId())) {
+
+            logger.warn(" Duplicate Index Entry Addition ....  ");
             return;
         }
 
@@ -1344,10 +1371,9 @@ public final class Search extends ComponentDefinition {
 
     private void checkPartitioning() {
         long numberOfEntries;
-        if(self.getAddress().getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE)
-            numberOfEntries = Math.abs(maxStoredId - minStoredId);
-        else
-            numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
+        // Created Uniform mechanism to calculate the number of entries.
+        //TODO: The max and min stored id mechanism is a little buggy and needs to be corrected.
+        numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
 
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
@@ -1355,8 +1381,9 @@ public final class Search extends ComponentDefinition {
         VodAddress.PartitioningType partitionsNumber = self.getAddress().getPartitioningType();
         long medianId;
 
-        if(maxStoredId > minStoredId)
+        if(maxStoredId > minStoredId){
             medianId = (maxStoredId - minStoredId)/2;
+        }
         else {
             long values = numberOfEntries/2;
 
@@ -1369,9 +1396,271 @@ public final class Search extends ComponentDefinition {
             }
         }
 
-        trigger(new PartitionMessage(UUID.nextUUID(), medianId, partitionsNumber), gradientRoutingPort);
+        // Avoid start of partitioning in case if one is already going on.
+        if(!partitionInProgress)
+            trigger(new LeaderGroupInformation.Request((minStoredId + medianId) , partitionsNumber, LEADER_GROUP_SIZE), gradientRoutingPort);
 
     }
+
+
+
+    Handler<LeaderGroupInformation.Response> handlerLeaderGroupInformationResponse = new Handler<LeaderGroupInformation.Response>(){
+
+        @Override
+        public void handle(LeaderGroupInformation.Response event) {
+
+            // TODO: Can be used to check if the responses are from the same sources as the requested ones ?
+            List<VodAddress> leaderGroupAddresses = event.getLeaderGroupAddress();
+
+            // Not enough nodes to continue.
+            if(leaderGroupAddresses.size() < LEADER_GROUP_SIZE){
+                return;
+            }
+
+
+            partitionRequestId = UUID.nextUUID();                   // The request Id to be associated with the partition request.
+            TimeoutId timeoutId = UUID.nextUUID();                // The id represents the current round id against which the responses will be checked for filtering.
+            partitionInProgress = true;                             // Start the partitioning round.
+
+            PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(event.getMedianId(), partitionRequestId, event.getPartitioningType());
+
+            // Send the partition requests to the leader group.
+            for(VodAddress destinationAddress : leaderGroupAddresses){
+                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,timeoutId, partitionInfo);
+                trigger(partitionPrepareRequest, networkPort);
+            }
+
+            // Set the timeout for the responses.
+            // TODO: Add the timeout entry in the config for the update.
+            ScheduleTimeout st = new ScheduleTimeout(100*1000);
+            PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st,self.getId(),partitionInfo);
+
+            st.setTimeoutEvent(pt);
+            st.getTimeoutEvent().setTimeoutId(timeoutId);
+            trigger(st, timerPort);
+
+            // Create a replication object to track responses.
+            PartitionReplicationCount count = new PartitionReplicationCount(LEADER_GROUP_SIZE,partitionInfo);
+            partitionPrepareReplicationCountMap.put(timeoutId, count);
+        }
+    };
+
+
+    /**
+     * Partition not successful, reset the information.
+     *
+     */
+    Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>(){
+
+        @Override
+        public void handle(PartitionPrepareMessage.Timeout event) {
+
+            logger.info(" _Abhi: Partition Timeout Occured, Simply Stop the partitioning.");
+            partitionInProgress = false;
+            partitionPrepareReplicationCountMap.remove(event.getTimeoutId());
+
+        }
+    };
+
+
+    /**
+     * Handler for the PartitionPrepareRequest.
+     */
+    Handler<PartitionPrepareMessage.Request> handlerPartitionPrepareRequest = new Handler<PartitionPrepareMessage.Request>(){
+
+        @Override
+        public void handle(PartitionPrepareMessage.Request event) {
+
+            logger.info("_Abhi: Received the information from the leader regarding the partition. LeaderId: " + event.getVodSource().getId());
+
+            // Step1: TODO: Verification of data needs to be implemented.
+
+            // Step2: Trigger the response for this request, which should be directly handled by the search component.
+            PartitionPrepareMessage.Response response = new PartitionPrepareMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getPartitionInfo().getRequestId());
+            trigger(response, networkPort);
+
+
+            // Step3: Add this to the map of pending partition updates.
+            PartitionHelper.PartitionInfo receivedPartitionInfo = event.getPartitionInfo();
+            TimeoutId timeoutId  = UUID.nextUUID();
+            partitionUpdatePendingCommit.put(receivedPartitionInfo,timeoutId);
+
+
+            // Step4: Add timeout for this message.
+            ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+            PartitionCommitTimeout pct = new PartitionCommitTimeout(st,self.getId(), event.getPartitionInfo());
+            st.setTimeoutEvent(pct);
+            st.getTimeoutEvent().setTimeoutId(timeoutId);
+            trigger(st, timerPort);
+        }
+    };
+
+
+
+    Handler<PartitionCommitTimeout> handlePartitionCommitTimeout = new Handler<PartitionCommitTimeout>(){
+
+        @Override
+        public void handle(PartitionCommitTimeout event) {
+
+            logger.warn("(PartitionCommitTimeout): Didn't receive any information regarding commit so removing it from the list.");
+            partitionUpdatePendingCommit.remove(event.getPartitionInfo());
+        }
+    };
+
+
+
+    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>(){
+
+        @Override
+        public void handle(PartitionPrepareMessage.Response event) {
+
+            // Step1: Filter the responses based on id's passed.
+            TimeoutId receivedTimeoutId = event.getTimeoutId();
+            PartitionReplicationCount count  =  partitionPrepareReplicationCountMap.get(receivedTimeoutId);
+
+            if(partitionInProgress && count !=null){
+
+                if(count.incrementAndCheckResponse(event.getVodSource())){
+
+                    // Received the required responses. Start the commit phase.
+                    logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
+                    List<VodAddress> leaderGroupAddress = count.getLeaderGroupNodesAddress();
+
+
+                    // Cancel the prepare phase timeout as all the replies have been received.
+                    CancelTimeout ct = new CancelTimeout(receivedTimeoutId);
+                    trigger(ct, timerPort);
+
+                    // Create a commit timeout.
+                    TimeoutId commitTimeoutId = UUID.nextUUID();
+                    ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+                    PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), count.getPartitionInfo());
+                    st.setTimeoutEvent(pt);
+                    st.getTimeoutEvent().setTimeoutId(commitTimeoutId);
+
+                    // Send the nodes commit messages with the commit timeoutid.
+                    for(VodAddress dest : leaderGroupAddress){
+                        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest , commitTimeoutId , count.getPartitionInfo().getRequestId());
+                        trigger(partitionCommitRequest, networkPort);
+                    }
+
+                    // Create a timeout for the responses. or Do we have to ?
+                    // TODO: Not sure if this is required.
+
+                    // Remove the data from the prepare map, to avoid handling of unnecessary messages.
+                    partitionPrepareReplicationCountMap.remove(receivedTimeoutId);
+                    count.resetLeaderGroupNodesAddress();
+
+                    // Insert the data in the commit map.
+                    partitionCommitReplicationCountMap.put(commitTimeoutId, count);         // Changing here to the committimeout id, not sure why it was running earlier.
+
+                }
+            }
+        }
+    };
+
+
+    /**
+     * Commit Phase Timeout Handler.
+     */
+    Handler<PartitionCommitMessage.Timeout> handlerPartitionCommitTimeoutMessage = new Handler<PartitionCommitMessage.Timeout>(){
+
+        @Override
+        public void handle(PartitionCommitMessage.Timeout event) {
+
+            // Reset the partition flags
+            logger.warn("Partition Commit Timeout Called at the leader");
+            partitionInProgress = false;
+            TimeoutId timeoutId = event.getTimeoutId();
+            partitionCommitReplicationCountMap.remove(timeoutId);
+
+        }
+    };
+
+    /**
+     * Handler for the partition update commit.
+     *
+     */
+    Handler<PartitionCommitMessage.Request> handlerPartitionCommitRequest = new Handler<PartitionCommitMessage.Request>(){
+
+        @Override
+        public void handle(PartitionCommitMessage.Request event) {
+
+            // Step1: Cancel the timeout as received the message on time.
+
+            TimeoutId receivedPartitionRequestId = event.getPartitionRequestId();
+            TimeoutId cancelTimeoutId = null;
+            PartitionHelper.PartitionInfo partitionUpdate = null;
+
+            for(PartitionHelper.PartitionInfo partitionInfo : partitionUpdatePendingCommit.keySet()){
+
+                if(partitionInfo.getRequestId().equals(receivedPartitionRequestId)){
+                    partitionUpdate = partitionInfo;
+                    break;
+                }
+            }
+
+            // No partition update entry present.
+            if(partitionUpdate == null){
+                logger.warn(" Delayed Partition Message or False Partition Received by the Node.");
+                System.exit(1);
+                return;
+            }
+
+            // If found, then cancel the timer.
+            cancelTimeoutId = partitionUpdatePendingCommit.get(partitionUpdate);
+            CancelTimeout cancelTimeout = new CancelTimeout(cancelTimeoutId);
+            trigger(cancelTimeout, timerPort);
+
+
+            // Apply the partition update.
+            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdate), gradientRoutingPort);
+            partitionUpdatePendingCommit.remove(partitionUpdate);               // Remove the partition update from the pending map.
+
+            // Send a  conformation to the leader.
+            PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId() , event.getPartitionRequestId());
+            trigger(partitionCommitResponse, networkPort);
+        }
+    };
+
+
+    /**
+     * Partition Commit Responses.
+     */
+    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponse = new Handler<PartitionCommitMessage.Response>(){
+        @Override
+        public void handle(PartitionCommitMessage.Response event) {
+
+            // Filter responses based on current round.
+            TimeoutId receivedTimeoutId = event.getTimeoutId();
+            PartitionReplicationCount partitionReplicationCount = partitionCommitReplicationCountMap.get(receivedTimeoutId);
+
+            if (partitionInProgress && partitionReplicationCount != null){
+
+                logger.warn("{PartitionCommitMessage.Response} received from the nodes at the Leader");
+
+                // Partitioning complete ( Reset the partitioning parameters. )
+                partitionInProgress = false;
+                leader = false;                     // FIXME: Added a temporary fix to check the rapid calling of partitioning.
+                partitionCommitReplicationCountMap.remove(event.getTimeoutId());
+
+                // Cancel the commit timeout.
+                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+                trigger(ct,timerPort);
+
+                // Inform the gradient about the partitioning.
+                trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionReplicationCount.getPartitionInfo()), gradientRoutingPort);
+                logger.info("_Abhi : Partitioning complete at the leader side  ... ");
+            }
+
+            else{
+
+            }
+
+        }
+    };
+
+
 
 private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     {

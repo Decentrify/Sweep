@@ -6,11 +6,14 @@ import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.messages.PartitioningMessage;
 import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -19,6 +22,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
+import static se.sics.gvod.net.util.UserTypesDecoderFactory.readUnsignedIntAsTwoBytes;
 import static se.sics.gvod.net.util.UserTypesDecoderFactory.readVodNodeDescriptor;
 
 /**
@@ -154,4 +158,40 @@ public class ApplicationTypesDecoderFactory {
         }
         return addrs;
     }
+
+
+    /**
+     * Required for decoding the partition update sequence.
+     *
+     * @param buffer
+     * @return
+     * @throws MessageDecodingException
+     */
+    public static LinkedList<PartitionHelper.PartitionInfo> readPartitionUpdateSequence(ByteBuf buffer) throws MessageDecodingException {
+
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+        for(int i = 0; i < len; i++){
+            partitionUpdates.add(readPartitionUpdate(buffer));
+        }
+        return partitionUpdates;
+    }
+
+    /**
+     * Required for decoding a single partition update during the two phase partition commit.
+     * <i> Sequence should be same as of encoding. </i>
+     *
+     * @param buffer
+     * @return
+     * @throws MessageDecodingException
+     */
+    public static PartitionHelper.PartitionInfo readPartitionUpdate(ByteBuf buffer) throws MessageDecodingException {
+
+        long middleEntryId = buffer.readLong();
+        TimeoutId requestId = UserTypesDecoderFactory.readTimeoutId(buffer);
+        int partitionsNumber = buffer.readInt();
+
+        return new PartitionHelper.PartitionInfo(middleEntryId, requestId , VodAddress.PartitioningType.values()[partitionsNumber]);
+    }
+
 }

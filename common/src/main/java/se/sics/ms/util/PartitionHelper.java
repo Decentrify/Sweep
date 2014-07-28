@@ -2,6 +2,7 @@ package se.sics.ms.util;
 
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.types.PartitionId;
 
@@ -232,6 +233,56 @@ public class PartitionHelper {
         result = result | categoryId;
 
         return result;
-    }        
+    }
+
+
+    /**
+     * Partition Information stored in the class.
+     */
+    public static class PartitionInfo{
+
+        private long medianId;
+        private TimeoutId requestId;
+        private VodAddress.PartitioningType partitioningType;
+
+        public PartitionInfo(long medianId, TimeoutId requestId, VodAddress.PartitioningType partitioningType){
+            this.medianId = medianId;
+            this.partitioningType = partitioningType;
+            this.requestId = requestId;
+        }
+
+        public long getMedianId(){
+            return this.medianId;
+        }
+
+        public VodAddress.PartitioningType getPartitioningTypeInfo(){
+            return this.partitioningType;
+        }
+
+        public TimeoutId getRequestId(){
+            return this.requestId;
+        }
+
+        public void setRequestId(TimeoutId timeoutId){
+            this.requestId = requestId;
+        }
+
+        // TODO: Missing entry for the equals and hashcode method.
+
+        @Override
+        public boolean equals(Object obj) {
+            if(obj instanceof PartitionInfo){
+                PartitionInfo other = (PartitionInfo)obj;
+                if(other.requestId.equals(requestId))
+                    return true;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return requestId.hashCode();
+        }
+    }
     
 }

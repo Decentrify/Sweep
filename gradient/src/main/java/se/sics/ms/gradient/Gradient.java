@@ -1,5 +1,6 @@
 package se.sics.ms.gradient;
 
+//import com.sun.xml.internal.bind.v2.TODO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.RTTStore;
@@ -62,6 +63,10 @@ public final class Gradient extends ComponentDefinition {
     private long[] latestRtts;
     // This is a routing table maintaining a a list of descriptors for each category and its partitions.
     private Map<MsConfig.Categories, Map<Integer, HashSet<VodDescriptor>>> routingTable;
+
+    private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
+    private static final int HISTORY_LENGTH = 5;
+
     Comparator<VodDescriptor> peerConnectivityComparator = new Comparator<VodDescriptor>() {
         @Override
         public int compare(VodDescriptor t0, VodDescriptor t1) {
@@ -132,8 +137,10 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchRequestTimeout, timerPort);
         subscribe(handleViewSizeRequest, gradientRoutingPort);
-        subscribe(handlePartitionMessage, gradientRoutingPort);
-        subscribe(handlePartitioningMessage, networkPort);
+        subscribe(checkPartitioningRequirementHandler, gradientRoutingPort);
+        subscribe(handlePartitioningUpdate, gradientRoutingPort);
+        subscribe(delayedPartitioningMessageHandler, networkPort);
+        subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
     }
     /**
      * Initialize the state of the component.
@@ -150,6 +157,7 @@ public final class Gradient extends ComponentDefinition {
             leader = false;
             latestRtts = new long[config.getLatestRttStoreLimit()];
             partitionRequestList = new ArrayList<TimeoutId>();
+            partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
@@ -664,9 +672,7 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
             ArrayList<VodDescriptor> nodes = new ArrayList<VodDescriptor>(gradientView.getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
-                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
-                trigger(cancelTimeout, timerPort);
-                logger.warn("{} doesn't have enough nodes for index exchange", self.getAddress());
+                logger.warn(" {}: Not enough nodes to perform Index Hash Exchange." + self.getAddress().getId());
                 return;
             }
 
@@ -799,60 +805,65 @@ public final class Gradient extends ComponentDefinition {
             trigger(new ViewSizeMessage.Response(request.getTimeoutId(), request.getNewEntry(), gradientView.getSize(), request.getSource()), gradientRoutingPort);
         }
     };
-    /**
-     * Sends partitioning message down over the gradient
-     */
-    final Handler<PartitionMessage> handlePartitionMessage = new Handler<PartitionMessage>() {
+
+    Handler<LeaderGroupInformation.Request> handleLeaderGroupInformationRequest = new Handler<LeaderGroupInformation.Request>() {
         @Override
-        public void handle(PartitionMessage partitionMessage) {
-            //don't partition if view isn't full
-            if (gradientView.getAll().size() < config.getViewSize()) {
+        public void handle(LeaderGroupInformation.Request event) {
+
+            logger.debug(" Partitioning Protocol Initiated at Leader ... " + self.getAddress().getId());
+            int leaderGroupSize = event.getLeaderGroupSize();
+            NavigableSet<VodDescriptor> lowerUtilityNodes = ((NavigableSet)gradientView.getLowerUtilityNodes()).descendingSet();
+            List<VodAddress> leaderGroupAddresses = new ArrayList<>();
+
+            // If gradient not full or not enough nodes in leader group.
+            // Ideally the second condition should never be called expect if the view size is less than leader group size.
+            if((gradientView.getAll().size() < config.getViewSize())|| (lowerUtilityNodes.size() < leaderGroupSize)){
+                trigger(new LeaderGroupInformation.Response(event.getMedianId(),event.getPartitioningType(), leaderGroupAddresses), gradientRoutingPort);
                 return;
             }
 
-            for (VodDescriptor node : gradientView.getLowerUtilityNodes()) {
-                trigger(new PartitioningMessage(self.getAddress(), node.getVodAddress(), 
-                        partitionMessage.getRequestId(), partitionMessage.getMedianId(), 
-                        partitionMessage.getPartitionsNumber()), networkPort);
+            int i=0;
+            for(VodDescriptor desc : lowerUtilityNodes){
+
+                if(i == leaderGroupSize)
+                    break;
+                leaderGroupAddresses.add(desc.getVodAddress());
+                i++;
             }
-
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
-            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(
-                    partitionMessage.getPartitionsNumber(), true);
-            gradientView.adjustViewToNewPartitions();
-            trigger(new RemoveEntriesNotFromYourPartition(partition, partitionMessage.getMedianId()), gradientRoutingPort);
+            trigger(new LeaderGroupInformation.Response(event.getMedianId(), event.getPartitioningType(), leaderGroupAddresses), gradientRoutingPort);
         }
     };
+
     /**
      * Broadcast partitioning message down over the gradient
      */
-    final Handler<PartitioningMessage> handlePartitioningMessage = new Handler<PartitioningMessage>() {
-        @Override
-        public void handle(PartitioningMessage partitioningMessage) {
-            if (partitionRequestList.contains(partitioningMessage.getRequestId())) {
-                return;
-            }
+//    final Handler<PartitioningMessage> handlePartitioningMessage = new Handler<PartitioningMessage>() {
+//        @Override
+//        public void handle(PartitioningMessage partitioningMessage) {
+//            if (partitionRequestList.contains(partitioningMessage.getRequestId())) {
+//                return;
+//            }
+//
+//            //Store the request id
+//            if (partitionRequestList.size() > config.getMaxPartitionHistorySize()) {
+//                partitionRequestList.remove(partitionRequestList.get(0));
+//            }
+//            partitionRequestList.add(partitioningMessage.getRequestId());
+//
+//            for (VodDescriptor node : gradientView.getLowerUtilityNodes()) {
+//                trigger(new PartitioningMessage(partitioningMessage.getVodSource(), node.getVodAddress(), partitioningMessage.getRequestId(), partitioningMessage.getMiddleEntryId(), partitioningMessage.getPartitionsNumber()), networkPort);
+//            }
+//
+//            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+//
+//            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber(), false);
+//            gradientView.adjustViewToNewPartitions();
+//            trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
+//        }
+//    };
 
-            //Store the request id
-            if (partitionRequestList.size() > config.getMaxPartitionHistorySize()) {
-                partitionRequestList.remove(partitionRequestList.get(0));
-            }
-            partitionRequestList.add(partitioningMessage.getRequestId());
 
-            for (VodDescriptor node : gradientView.getLowerUtilityNodes()) {
-                trigger(new PartitioningMessage(partitioningMessage.getVodSource(), node.getVodAddress(), partitioningMessage.getRequestId(), partitioningMessage.getMiddleEntryId(), partitioningMessage.getPartitionsNumber()), networkPort);
-            }
-
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
-            boolean partition = determineYourPartitionAndUpdatePartitionsNumber(partitioningMessage.getPartitionsNumber(), false);
-            gradientView.adjustViewToNewPartitions();
-            trigger(new RemoveEntriesNotFromYourPartition(partition, partitioningMessage.getMiddleEntryId()), gradientRoutingPort);
-        }
-    };
-
-    private boolean determineYourPartitionAndUpdatePartitionsNumber(VodAddress.PartitioningType partitionsNumber, boolean increment) {
+    private boolean determineYourPartitionAndUpdatePartitionsNumberUpdated(VodAddress.PartitioningType partitionsNumber) {
         int nodeId = self.getId();
 
         PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getAddress().getPartitionIdDepth(),
@@ -867,36 +878,27 @@ public final class Gradient extends ComponentDefinition {
             int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
                     1, partitionId, selfCategory);
 
-            // TODO - all existing VodAddresses in Sets, Maps, etc are now invalid. 
+            // TODO - all existing VodAddresses in Sets, Maps, etc are now invalid.
             // Do we replace them or what do we do with them?
-            
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
+
         } else {
             int newPartitionId = self.getAddress().getPartitionId() | ((partitionSubId ? 1 : 0) << self.getAddress().getPartitionIdDepth());
             int selfCategory = self.getAddress().getCategoryId();
 
-            if (increment) {
-                int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                        self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
-                ((MsSelfImpl) self).setOverlayId(newOverlayId);
-            } else {
-                int newOverlayId;
-                if (partitionsNumber == VodAddress.PartitioningType.ONCE_BEFORE) {
-                    newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
-                            self.getAddress().getPartitionIdDepth(), newPartitionId, selfCategory);
-                } else {
-                    newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                            1, newPartitionId, selfCategory);
-                }
-                ((MsSelfImpl) self).setOverlayId(newOverlayId);
-            }
+            // Incrementing partitioning depth in the overlayId.
+            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+                    self.getAddress().getPartitionIdDepth()+1, newPartitionId, selfCategory);
+            ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
 
         int partitionId = self.getAddress().getPartitionId();
-
+        Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId));
         return partitionSubId;
     }
+
+
 
     private MsConfig.Categories categoryFromCategoryId(int categoryId) {
         return MsConfig.Categories.values()[categoryId];
@@ -978,4 +980,135 @@ public final class Gradient extends ComponentDefinition {
 
         return entries.get(entries.size() - 1);
     }
+
+
+    /**
+     * Handler called to check if the node communicating with this node are not lagging behind in terms of partitioning & if so
+     * then bring them up to date by sending the updates in sequence.
+     */
+
+    private Handler<GradientRoutingPort.CheckPartitionRequirement> checkPartitioningRequirementHandler = new Handler<GradientRoutingPort.CheckPartitionRequirement>() {
+        @Override
+        public void handle(GradientRoutingPort.CheckPartitionRequirement event) {
+
+            VodAddress destinationAddress = event.getDestinationAddress();
+
+            boolean isOnePartition = self.getAddress().getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
+            boolean toSendPartitioningMessage = false;
+
+            // for ONE_BEFORE
+            if(isOnePartition){
+                if(destinationAddress.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE){
+                    toSendPartitioningMessage = true;
+                }
+                // TODO: Other case in which the entry received can have more partitions. We are ignoring them for now.
+            }
+
+            // for MANY_BEFORE.
+            else {
+
+                int myDepth = self.getAddress().getPartitionIdDepth();
+                if (destinationAddress.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+                    if (myDepth <= (HISTORY_LENGTH-1)) {
+                        toSendPartitioningMessage = true;
+                    }
+                }
+                else {
+                    // TODO (Abhi): Test this condition.
+                    int receivedNodeDepth = destinationAddress.getPartitionIdDepth();
+                    if ((myDepth - receivedNodeDepth) <= (HISTORY_LENGTH) && (myDepth - receivedNodeDepth) > 0) {
+                        toSendPartitioningMessage = true;
+                    }
+                }
+            }
+
+            /** Send the whole linked list to the user. **/
+            if(toSendPartitioningMessage){
+                trigger(new DelayedPartitioningMessage(self.getAddress(), destinationAddress, partitionHistory), networkPort);
+            }
+        }
+    };
+
+
+    /**
+     * Apply the partition messages in the same order as received.
+     */
+    Handler<DelayedPartitioningMessage> delayedPartitioningMessageHandler = new Handler<DelayedPartitioningMessage>(){
+
+        @Override
+        public void handle(DelayedPartitioningMessage event) {
+
+            LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = event.getPartitionHistory();
+            applyPartitioningUpdate(partitionUpdates);
+        }
+    };
+
+
+    /**
+     * Received the partition request as part of two phase commit.
+     */
+    Handler<GradientRoutingPort.ApplyPartitioningUpdate> handlePartitioningUpdate = new Handler<GradientRoutingPort.ApplyPartitioningUpdate>(){
+
+        @Override
+        public void handle(GradientRoutingPort.ApplyPartitioningUpdate event) {
+
+            boolean applied = false;
+            for(PartitionHelper.PartitionInfo alreadyAppliedPartitionUpdates : partitionHistory){
+
+               if(alreadyAppliedPartitionUpdates.getRequestId().equals(event.getPartitionUpdate().getRequestId())){
+                   applied = true;
+                   break;
+               }
+            }
+
+            if(applied){
+                logger.warn(" PartitioningUpdate already applied ... ");
+                return;
+            }
+
+            // Else, apply the update.
+            // It will ensure that no duplicacy because of the constant control message pull mechanism as partitioning could flow from there also because being received from here.
+            LinkedList<PartitionHelper.PartitionInfo> partitionUpdate = new LinkedList<>();
+            partitionUpdate.add(event.getPartitionUpdate());
+            applyPartitioningUpdate(partitionUpdate);
+
+        }
+    };
+
+
+    /**
+     * Apply the partitioning updates received.
+     */
+    public void applyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionUpdates){
+
+        for(PartitionHelper.PartitionInfo update : partitionUpdates){
+
+            boolean duplicateFound = false;
+            for(PartitionHelper.PartitionInfo partitionInfo : partitionHistory){
+                if(partitionInfo.getRequestId().getId() == update.getRequestId().getId()){
+                    duplicateFound = true;
+                    break;
+                }
+            }
+
+            if(duplicateFound)
+                continue;
+
+            if(partitionHistory.size() >= HISTORY_LENGTH){
+                partitionHistory.removeFirst();
+            }
+
+            // Store the update in the history.
+            partitionHistory.addLast(update);
+
+            // Now apply the update.
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+            // Leader boolean simply sends true down the message in case of leader node, as it was implemented like this way before, not sure why.
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumberUpdated(update.getPartitioningTypeInfo());
+            gradientView.adjustViewToNewPartitions();
+
+            trigger(new RemoveEntriesNotFromYourPartition(partition, update.getMedianId()), gradientRoutingPort);
+        }
+    }
+
 }

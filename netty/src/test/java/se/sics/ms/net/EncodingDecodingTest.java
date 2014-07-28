@@ -7,6 +7,7 @@ package se.sics.ms.net;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -929,4 +930,121 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
+
+
+    // FIXME: Complete the Implementation of Test Cases.
+
+    @Test
+    public void PartitionPrepareRequestTest(){
+
+        long middleEntry = 1L;
+        TimeoutId requestId = UUID.nextUUID();
+        TimeoutId roundId = UUID.nextUUID();
+
+        VodAddress.PartitioningType partitioningType = VodAddress.PartitioningType.NEVER_BEFORE;
+
+        PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(middleEntry, requestId, partitioningType);
+        PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(gSrc,gDest,roundId,partitionInfo);
+
+        try{
+
+            ByteBuf buffer = partitionPrepareRequest.toByteArray();
+            opCodeCorrect(buffer, partitionPrepareRequest);
+            PartitionPrepareMessage.Request partitionPrepareRequestDecoded = PartitionPrepareMessageFactory.Request.fromBuffer(buffer);
+
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getMedianId() == middleEntry);
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getRequestId().equals(requestId));
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getPartitioningTypeInfo() == partitioningType);
+
+
+        } catch (MessageEncodingException e) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, e);
+            assert (false);
+        } catch (MessageDecodingException e) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, e);
+            assert (false);
+        }
+
+
+    }
+
+    @Test
+    public void PartitionPrepareResponseTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionPrepareMessage.Response partitionPrepareResponse = new PartitionPrepareMessage.Response(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionPrepareResponse.toByteArray();
+            opCodeCorrect(byteBuffer, partitionPrepareResponse);
+            PartitionPrepareMessage.Response partitionPrepareResponseDecoded = PartitionPrepareMessageFactory.Response.fromBuffer(byteBuffer);
+
+            assert(partitionPrepareResponseDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionPrepareResponseDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    @Test
+    public void PartitionCommitRequestTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionCommitRequest.toByteArray();
+            opCodeCorrect(byteBuffer, partitionCommitRequest);
+            PartitionCommitMessage.Request partitionCommitRequestDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+
+            assert(partitionCommitRequestDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionCommitRequestDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+
+    @Test
+    public void PartitionCommitResponseTest(){
+
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionCommitResponse.toByteArray();
+            opCodeCorrect(byteBuffer, partitionCommitResponse);
+            PartitionCommitMessage.Request partitionCommitResponseDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+
+            assert(partitionCommitResponseDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionCommitResponseDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+
+
 }

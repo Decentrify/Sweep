@@ -61,6 +61,6 @@ public class PartitioningMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public byte getOpcode() {
-        return MessageFrameDecoder.PARTITIONING_MESSAGE;
+        return MessageFrameDecoder.DELAYED_PARTITIONING_MESSAGE;
     }
 }

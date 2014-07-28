@@ -13,9 +13,11 @@ import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Set;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
@@ -129,5 +131,37 @@ public class ApplicationTypesEncoderFactory {
         for (VodDescriptor node : nodeDescriptors) {
             writeVodNodeDescriptor(buffer, node);
         }
+    }
+
+
+    /**
+     * Encoding for the partitioning update sequence.
+     * @param buffer
+     * @param partitionUpdatesSequence
+     * @throws MessageEncodingException
+     */
+    public static void writeDelayedPartitionInfo(ByteBuf buffer, LinkedList<PartitionHelper.PartitionInfo> partitionUpdatesSequence) throws MessageEncodingException {
+
+        if(partitionUpdatesSequence == null){
+            writeUnsignedintAsOneByte(buffer,0);
+            return;
+        }
+        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer,partitionUpdatesSequence.size());
+        for(PartitionHelper.PartitionInfo partitionUpdate:  partitionUpdatesSequence){
+            writePartitionUpdate(buffer, partitionUpdate);
+        }
+
+    }
+
+    /**
+     * Encoding required for writing partitioning update to the buffer.
+     * @param buffer
+     * @param partitionUpdate
+     * @throws MessageEncodingException
+     */
+    public static void writePartitionUpdate(ByteBuf buffer, PartitionHelper.PartitionInfo partitionUpdate) throws MessageEncodingException {
+        buffer.writeLong(partitionUpdate.getMedianId());
+        UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdate.getRequestId());
+        buffer.writeInt(partitionUpdate.getPartitioningTypeInfo().ordinal());
     }
 }
