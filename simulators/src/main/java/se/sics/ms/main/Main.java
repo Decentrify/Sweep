@@ -46,10 +46,6 @@ public class Main {
      * @throws IOException in case the configuration file couldn't be created
      */
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("usage: <prog>");
-            System.exit(0);
-        }
         MsConfig.init(args);
         Configuration config = new Configuration();
         config.store();

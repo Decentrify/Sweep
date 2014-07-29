@@ -220,12 +220,8 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Address address = new Address(ip, 9999, (int) id);
 
-
-        MsConfig.Categories[] values = MsConfig.Categories.values();
-        int categoryId = (int) (Math.random() * values.length);
-
         Self self = new MsSelfImpl(new VodAddress(address, 
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, values[categoryId].ordinal())));
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, MsConfig.Categories.Video.ordinal())));
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
