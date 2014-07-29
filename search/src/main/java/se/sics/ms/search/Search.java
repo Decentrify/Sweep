@@ -507,13 +507,6 @@ public final class Search extends ComponentDefinition {
                 VodAddress node = collectedHashes.keySet().iterator().next();
                 trigger(new IndexExchangeMessage.Request(self.getAddress(), node, event.getTimeoutId(), ids), networkPort);
             }
-            else {
-                CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
-                trigger(cancelTimeout, timerPort);
-                indexExchangeTimeout = null;
-                exchangeInProgress = false;
-                return;
-            }
         }
     };
 
