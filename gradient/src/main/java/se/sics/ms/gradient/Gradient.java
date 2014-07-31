@@ -394,6 +394,9 @@ public final class Gradient extends ComponentDefinition {
                 }
             }
 
+            //Merge croupier sample to have quicker convergence of gradient
+            gradientView.merge(updatedSample);
+
             // Shuffle with one sample from our partition
 //            if (sample.size() > 0) {
 //                int n = random.nextInt(sample.size());
@@ -493,6 +496,17 @@ public final class Gradient extends ComponentDefinition {
 
                 NavigableSet<VodDescriptor> startNodes = new TreeSet<VodDescriptor>(utilityComparator);
                 startNodes.addAll(gradientView.getAll());
+
+                //Also add nodes from croupier sample to have more chances of getting higher utility nodes, this works
+                //as a finger table to random nodes
+                Map<Integer, HashSet<VodDescriptor>> croupierPartitions = routingTable.get(selfCategory);
+                if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
+                    HashSet<VodDescriptor> croupierNodes =  croupierPartitions.get(self.getAddress().getPartitionId());
+                    if(croupierNodes != null && !croupierNodes.isEmpty()) {
+                        startNodes.addAll(croupierNodes);
+                    }
+                }
+
                 // Higher utility nodes are further away in the sorted set
                 Iterator<VodDescriptor> iterator = startNodes.descendingIterator();
 
