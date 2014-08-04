@@ -106,7 +106,7 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
+    //private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
@@ -662,7 +662,7 @@ public final class Search extends ComponentDefinition {
 
             int majoritySize = (int)Math.ceil(viewSize/2) + 1;
 
-            awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
+            //awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
             replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
 
             trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
@@ -687,11 +687,19 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
         @Override
         public void handle(AddIndexTimeout event) {
+
+            timeStoringMap.remove(event.getTimeoutId());
+
             if (event.reachedRetryLimit()) {
                 Snapshot.incrementFailedddRequests();
                 logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
             } else {
+
+                //If prepare phase was started but no response received, then replicationRequests will have left
+                // over data
+                replicationRequests.remove(event.getTimeoutId());
+
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
                 rst.setTimeoutEvent(event);
@@ -742,12 +750,12 @@ public final class Search extends ComponentDefinition {
         public void handle(ReplicationPrepareCommitMessage.Response response) {
             TimeoutId timeout = response.getTimeoutId();
 
-            CancelTimeout ct = new CancelTimeout(timeout);
-            trigger(ct, timerPort);
-
             ReplicationCount replicationCount = replicationRequests.get(timeout);
             if(replicationCount == null  || !replicationCount.incrementAndCheckReceived())
                 return;
+
+            CancelTimeout ct = new CancelTimeout(timeout);
+            trigger(ct, timerPort);
 
             IndexEntry entryToCommit = replicationCount.getEntry();
             TimeoutId commitTimeout = UUID.nextUUID();
@@ -856,7 +864,7 @@ public final class Search extends ComponentDefinition {
 
             ReplicationCount replicationCount = commitRequests.get(commitId);
             try {
-                TimeoutId requestAddId = replicationTimeoutToAdd.get(response.getTimeoutId());
+                TimeoutId requestAddId = replicationTimeoutToAdd.get(commitId);
                 if(requestAddId == null)
                     return;
 
@@ -864,7 +872,7 @@ public final class Search extends ComponentDefinition {
 
                 trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), requestAddId), networkPort);
 
-                replicationTimeoutToAdd.remove(response.getTimeoutId());
+                replicationTimeoutToAdd.remove(commitId);
                 commitRequests.remove(commitId);
 
                 int partitionId = self.getAddress().getPartitionId();
@@ -879,8 +887,10 @@ public final class Search extends ComponentDefinition {
     final Handler<CommitTimeout> handleCommitTimeout = new Handler<CommitTimeout>() {
         @Override
         public void handle(CommitTimeout commitTimeout) {
-            if(commitRequests.containsKey(commitTimeout.getTimeoutId()))
+            if(commitRequests.containsKey(commitTimeout.getTimeoutId())) {
                 commitRequests.remove(commitTimeout.getTimeoutId());
+                replicationTimeoutToAdd.remove(commitTimeout.getTimeoutId());
+            }
         }
     };
 
