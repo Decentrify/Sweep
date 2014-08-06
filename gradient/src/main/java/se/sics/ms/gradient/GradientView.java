@@ -192,7 +192,6 @@ public class GradientView {
 	protected SortedSet<VodDescriptor> getExchangeDescriptors(VodDescriptor vodDescriptor, int number) {
 		SortedSet<VodDescriptor> set = getClosestNodes(vodDescriptor, number);
 
-        set.add(self.getDescriptor());
         set.remove(vodDescriptor);
 
         try {
@@ -209,9 +208,14 @@ public class GradientView {
             throw error;
         }
 
-        while (set.size() > number) {
+        //number - 1 because the source node will be later later
+        while (set.size() > (number - 1)) {
             set.remove(set.first());
         }
+
+        //as part of the protocol, the source node should also be added in the set, otherwise
+        // message will be discarded on the receiving node
+        set.add(self.getDescriptor());
 
 		return set;
 	}
