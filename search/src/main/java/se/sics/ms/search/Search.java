@@ -15,6 +15,7 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
@@ -72,6 +73,7 @@ public final class Search extends ComponentDefinition {
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
+    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);

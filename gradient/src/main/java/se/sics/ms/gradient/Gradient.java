@@ -3,6 +3,7 @@ package se.sics.ms.gradient;
 //import com.sun.xml.internal.bind.v2.TODO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
@@ -47,6 +48,7 @@ public final class Gradient extends ComponentDefinition {
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
+    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
@@ -141,6 +143,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handlePartitioningUpdate, gradientRoutingPort);
         subscribe(delayedPartitioningMessageHandler, networkPort);
         subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
+        subscribe(handleFailureDetector, fdPort);
     }
     /**
      * Initialize the state of the component.
@@ -164,6 +167,57 @@ public final class Gradient extends ComponentDefinition {
             trigger(rst, timerPort);
         }
     };
+
+    private void removeNodeFromRoutingTable(VodAddress nodeToRemove)
+    {
+        MsConfig.Categories category = categoryFromCategoryId(nodeToRemove.getCategoryId());
+        Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
+        Set<VodDescriptor> bucket = categoryRoutingMap.get(nodeToRemove.getPartitionId());
+
+        Iterator<VodDescriptor> i = bucket.iterator();
+        while (i.hasNext()) {
+            VodDescriptor descriptor = i.next();
+
+            if(descriptor.getVodAddress().equals(nodeToRemove)) {
+                i.remove();
+                break;
+            }
+        }
+    }
+
+    private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
+
+        for(VodAddress suspectedNode: nodesToRemove) {
+
+            removeNodeFromLocalState(suspectedNode);
+        }
+    }
+    private void removeNodeFromLocalState(VodAddress nodeAddress)
+    {
+        //remove suspected node from gradient view
+        gradientView.remove(nodeAddress);
+
+        //remove suspected node from routing table
+        removeNodeFromRoutingTable(nodeAddress);
+
+        //remove suspected nodes from rtt store
+        RTTStore.removeSamples(nodeAddress.getId(), nodeAddress);
+    }
+
+    private void publishUnresponsiveNode(VodAddress nodeAddress)
+    {
+        trigger(new FailureDetectorPort.FailureDetectorEvent(nodeAddress), fdPort);
+    }
+
+    final Handler<FailureDetectorPort.FailureDetectorEvent> handleFailureDetector = new Handler<FailureDetectorPort.FailureDetectorEvent>() {
+
+        @Override
+        public void handle(FailureDetectorPort.FailureDetectorEvent event) {
+            removeNodesFromLocalState(event.getSuspectedNodes());
+        }
+    };
+
+
     /**
      * Initiate a identifier exchange every round.
      */
@@ -330,9 +384,8 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
-            gradientView.remove(deadNode);
+            publishUnresponsiveNode(deadNode);
             shuffleTimes.remove(event.getTimeoutId().getId());
-            RTTStore.removeSamples(deadNode.getId(), deadNode);
         }
     };
     /**
@@ -466,8 +519,8 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(NodeCrashEvent event) {
             VodAddress deadNode = event.getDeadNode();
-            gradientView.remove(deadNode);
-            RTTStore.removeSamples(deadNode.getId(), deadNode);
+
+            publishUnresponsiveNode(deadNode);
         }
     };
     private IndexEntry indexEntryToAdd;
@@ -553,16 +606,8 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
+            publishUnresponsiveNode(unresponsiveNode.getVodAddress());
             logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
-            if (indexEntryToAdd.getCategory() == categoryFromCategoryId(self.getAddress().getCategoryId())) {
-                gradientView.remove(unresponsiveNode.getVodAddress());
-            } else {
-                MsConfig.Categories category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
-                Map<Integer, HashSet<VodDescriptor>> partitions = routingTable.get(category);
-                HashSet<VodDescriptor> bucket = partitions.get(unresponsiveNode.getVodAddress().getPartitionId());
-                bucket.remove(unresponsiveNode);
-            }
-            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
         }
     };
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
@@ -773,13 +818,9 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
             VodDescriptor unresponsiveNode = event.getVodDescriptor();
-            MsConfig.Categories category = categoryFromCategoryId(unresponsiveNode.getVodAddress().getCategoryId());
-            Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-            Set<VodDescriptor> bucket = categoryRoutingMap.get(unresponsiveNode.getVodAddress().getPartitionId());
-            bucket.remove(event.getVodDescriptor());
 
             shuffleTimes.remove(event.getTimeoutId().getId());
-            RTTStore.removeSamples(unresponsiveNode.getId(), unresponsiveNode.getVodAddress());
+            publishUnresponsiveNode(unresponsiveNode.getVodAddress());
         }
     };
     /**

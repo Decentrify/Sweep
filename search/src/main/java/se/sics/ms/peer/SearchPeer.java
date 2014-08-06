@@ -1,5 +1,6 @@
 package se.sics.ms.peer;
 
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
@@ -34,6 +35,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
+    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
     private Self self;
     private SearchConfiguration searchConfiguration;
@@ -86,6 +88,12 @@ public final class SearchPeer extends ComponentDefinition {
 
 
         connect(internalUiPort, search.getPositive(UiPort.class));
+
+        connect(search.getNegative(FailureDetectorPort.class), fdPort);
+        connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
+        connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
+        connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
+
 
         subscribe(handleInit, control);
         subscribe(searchRequestHandler, externalUiPort);

@@ -2,9 +2,12 @@ package se.sics.ms.election;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.co.FailureDetectorPort;
+import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
@@ -41,8 +44,9 @@ public class ElectionLeader extends ComponentDefinition {
 
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
+    Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 	Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
-	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
@@ -83,6 +87,7 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleGradientBroadcast, gradientViewChangePort);
 		subscribe(handleRejectedFollower, networkPort);
         subscribe(handleTerminateBeingLeader, leaderStatusPort);
+        subscribe(handleFailureDetector, fdPort);
 	}
 
 	/**
@@ -357,4 +362,36 @@ public class ElectionLeader extends ComponentDefinition {
         //Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
+
+    private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
+        for(VodAddress suspectedNode: nodesToRemove) {
+            removeNodeFromLocalState(suspectedNode);
+        }
+    }
+
+    private void removeNodeFromLocalState(VodAddress nodeAddress) {
+        removeNodeFromCollection(nodeAddress, lowerUtilityNodes);
+        removeNodeFromCollection(nodeAddress, higherUtilityNodes);
+    }
+
+    private void removeNodeFromCollection(VodAddress nodeAddress, Collection<VodDescriptor> collection) {
+
+        Iterator<VodDescriptor> i = collection.iterator();
+        while (i.hasNext()) {
+            VodDescriptor descriptor = i.next();
+
+            if(descriptor.getVodAddress().equals(nodeAddress)) {
+                i.remove();
+                break;
+            }
+        }
+    }
+
+    final Handler<FailureDetectorPort.FailureDetectorEvent> handleFailureDetector = new Handler<FailureDetectorPort.FailureDetectorEvent>() {
+
+        @Override
+        public void handle(FailureDetectorPort.FailureDetectorEvent event) {
+            removeNodesFromLocalState(event.getSuspectedNodes());
+        }
+    };
 }
