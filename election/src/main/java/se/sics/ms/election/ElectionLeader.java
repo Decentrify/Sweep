@@ -155,6 +155,11 @@ public class ElectionLeader extends ComponentDefinition {
 				if (event.isConvereged() == true) {
 					convergedNodesCounter++;
 				}
+                else{
+//                    if(self.getId() == 319791623){
+//                        logger.info(" _ISSUE: Node Not Converged == " + event.getVodSource().getId());
+//                    }
+                }
 			}
 
 			// Count the votes if all votes have returned

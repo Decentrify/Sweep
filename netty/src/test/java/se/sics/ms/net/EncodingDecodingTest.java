@@ -906,31 +906,6 @@ public class EncodingDecodingTest {
         }
     }
 
-    @Test
-    public void PartitioningMessage() {
-
-        long middleEntryId = 1L;
-        TimeoutId requestId = UUID.nextUUID();
-        VodAddress.PartitioningType partitionsNumber = VodAddress.PartitioningType.NEVER_BEFORE;
-
-        PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, requestId, middleEntryId, partitionsNumber);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            PartitioningMessage response = PartitioningMessageFactory.fromBuffer(buffer);
-
-            assert (response.getMiddleEntryId() == middleEntryId);
-            assert (response.getPartitionsNumber() == partitionsNumber);
-            assert (response.getRequestId().equals(requestId));
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
-            assert (false);
-        }
-    }
-
 
     // FIXME: Complete the Implementation of Test Cases.
 

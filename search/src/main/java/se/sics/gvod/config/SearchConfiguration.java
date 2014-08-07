@@ -27,6 +27,16 @@ public class SearchConfiguration
     int indexExchangeTimeout;
     int indexExchangeRequestNumber;
     int maxPartitionIdLength;
+    int controlExchangeTimePeriod;
+    int delayedPartitioningRequestTimeout;
+    int controlMessageEnumSize;
+    int leaderGroupSize;
+    int partitionPrepareTimeout;
+    int partitionCommitRequestTimeout;
+    int partitionCommitTimeout;
+
+
+    //TODO: Add the entries regarding the control messages in the system.
 
     public SearchConfiguration() {
         this(
@@ -42,7 +52,14 @@ public class SearchConfiguration
                 MsConfig.SEARCH_INDEX_EXCHANGE_TIMEOUT,
                 MsConfig.SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER,
                 MsConfig.MAX_ENTRIES_ON_PEER,
-                MsConfig.MAX_PARTITION_ID_LENGTH);
+                MsConfig.MAX_PARTITION_ID_LENGTH,
+                MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD,
+                MsConfig.DELAYED_PARTITIONING_REQUEST_TIMEOUT,
+                MsConfig.LEADER_GROUP_SIZE,
+                MsConfig.PARTITION_PREPARE_TIMEOUT,
+                MsConfig.PARTITION_COMMIT_REQUEST_TIMEOUT,
+                MsConfig.PARTITION_COMMIT_TIMEOUT,
+                MsConfig.CONTROL_MESSAGE_ENUM_SIZE);
     }
 
     /**
@@ -68,7 +85,11 @@ public class SearchConfiguration
             int retryCount, int hitsPerQuery, int recentRequestsGcInterval,
             int maxLeaderIdHistorySize, int maxSearchResults,
             int indexExchangeTimeout, int indexExchangeRequestNumber,
-            long maxEntriesOnPeer, int maxPartitionIdLength) {
+            long maxEntriesOnPeer, int maxPartitionIdLength,
+            int controlExchangeTimePeriod, int delayedPartitioningRequestTimeout,
+            int leaderGroupSize, int partitionPrepareTimeout,
+            int partitionCommitRequestTimeout, int partitionCommitTimeout,
+            int controlMessageEnumSize) {
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
@@ -82,6 +103,13 @@ public class SearchConfiguration
         this.indexExchangeTimeout = indexExchangeTimeout;
         this.indexExchangeRequestNumber = indexExchangeRequestNumber;
         this.maxPartitionIdLength = maxPartitionIdLength;
+        this.controlExchangeTimePeriod = controlExchangeTimePeriod;
+        this.delayedPartitioningRequestTimeout = delayedPartitioningRequestTimeout;
+        this.leaderGroupSize = leaderGroupSize;
+        this.partitionPrepareTimeout = partitionPrepareTimeout;
+        this.partitionCommitRequestTimeout = partitionCommitRequestTimeout;
+        this.partitionCommitTimeout = partitionCommitTimeout;
+        this.controlMessageEnumSize = controlMessageEnumSize;
     }
 
     public static SearchConfiguration build() {
@@ -120,6 +148,34 @@ public class SearchConfiguration
         return maxLeaderIdHistorySize;
     }
 
+    public int getLeaderGroupSize() {
+        return leaderGroupSize;
+    }
+
+    public int getPartitionPrepareTimeout() {
+        return partitionPrepareTimeout;
+    }
+
+    public int getPartitionCommitRequestTimeout() {
+        return partitionCommitRequestTimeout;
+    }
+
+    public int getPartitionCommitTimeout() {
+        return partitionCommitTimeout;
+    }
+
+    public int getDelayedPartitioningRequestTimeout() {
+        return delayedPartitioningRequestTimeout;
+    }
+
+    public int getControlMessageEnumSize(){
+        return this.controlMessageEnumSize;
+    }
+
+    public int getControlExchangeTimePeriod(){
+        return this.controlExchangeTimePeriod;
+    }
+
     public long getMaxEntriesOnPeer() {
         return maxEntriesOnPeer;
     }
@@ -127,6 +183,8 @@ public class SearchConfiguration
     public int getMaxSearchResults() {
         return maxSearchResults;
     }
+
+
 
     public SearchConfiguration setMaxExchangeCount(int maxExchangeCount) {
         this.maxExchangeCount = maxExchangeCount;

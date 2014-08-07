@@ -6,6 +6,7 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.types.PartitionId;
 
+import java.security.PublicKey;
 import java.util.*;
 
 /**
@@ -86,6 +87,9 @@ public class PartitionHelper {
         if(descriptors == null)
             return;
 
+        List<VodDescriptor> updatedSample = new ArrayList<>();
+
+
         //this method has to be called after the partitionsNumber is already incremented
         boolean isFirstPartition = partitionId.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
         if(isFirstPartition) {
@@ -93,7 +97,9 @@ public class PartitionHelper {
                 PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, 1);
 
-                updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                VodAddress a = updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                updatedSample.add(new VodDescriptor(a, descriptor.getUtility(),
+                        descriptor.getAge(), descriptor.getMtu(), descriptor.getNumberOfIndexEntries()));
             }
         }
         else {
@@ -103,9 +109,14 @@ public class PartitionHelper {
                 PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
                         isFirstPartition, bitsToCheck);
 
-                updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                VodAddress a = updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
+                updatedSample.add(new VodDescriptor(a, descriptor.getUtility(),
+                        descriptor.getAge(), descriptor.getMtu(), descriptor.getNumberOfIndexEntries()));
             }
         }
+
+        descriptors.clear();
+        descriptors.addAll(updatedSample);
 
         Iterator<VodDescriptor> iterator = descriptors.iterator();
         while (iterator.hasNext()) {
@@ -165,9 +176,9 @@ public class PartitionHelper {
                 if(partitionSubId) {
                     PartitionId descriptorsPartitionId = new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE,
                             1, 1);
-                    updatePartitionId(nextAddress, descriptorsPartitionId);
+                    VodAddress a = updatePartitionId(nextAddress, descriptorsPartitionId);
                     oldBucketIterator.remove();
-                    bucket.add(next);
+                    bucket.add(new VodDescriptor(a, next.getUtility(),next.getAge(), next.getMtu(), next.getNumberOfIndexEntries()));
                 }
             }
 
@@ -187,7 +198,7 @@ public class PartitionHelper {
                     new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
                             nextAddress.getPartitionId()));
 
-            updatePartitionId(nextAddress, new PartitionId(VodAddress.PartitioningType.MANY_BEFORE,
+            VodAddress a = updatePartitionId(nextAddress, new PartitionId(VodAddress.PartitioningType.MANY_BEFORE,
                     partitionSubId ? nextAddress.getPartitionId() | (1 << nextAddress.getPartitionIdDepth()) :
             nextAddress.getPartitionIdDepth(), nextAddress.getPartitionIdDepth() + 1));
 
@@ -196,7 +207,7 @@ public class PartitionHelper {
             //move to a new bucket all with first "true"
             if(isOne) {
                 oldBucketIterator.remove();
-                bucket.add(next);
+                bucket.add(new VodDescriptor(a, next.getUtility(),next.getAge(), next.getMtu(), next.getNumberOfIndexEntries()));
             }
         }
 
@@ -244,11 +255,20 @@ public class PartitionHelper {
         private long medianId;
         private TimeoutId requestId;
         private VodAddress.PartitioningType partitioningType;
+        private String hash;
+        private PublicKey key;
 
         public PartitionInfo(long medianId, TimeoutId requestId, VodAddress.PartitioningType partitioningType){
             this.medianId = medianId;
             this.partitioningType = partitioningType;
             this.requestId = requestId;
+        }
+
+
+        public PartitionInfo(long medianId, TimeoutId requestId, VodAddress.PartitioningType partitioningType, String hash, PublicKey key){
+            this(medianId,requestId,partitioningType);
+            this.hash = hash;
+            this.key = key;
         }
 
         public long getMedianId(){
@@ -263,11 +283,40 @@ public class PartitionHelper {
             return this.requestId;
         }
 
-        public void setRequestId(TimeoutId timeoutId){
-            this.requestId = requestId;
+        /**
+         * Hash of the Partition Information.
+         * @return
+         */
+        public String getHash(){
+            return this.hash;
         }
 
-        // TODO: Missing entry for the equals and hashcode method.
+        /**
+         * Returns the public key of the leader that initiated the partition.
+         * @return
+         */
+        public PublicKey getKey(){
+            return this.key;
+        }
+
+
+        /**
+         * Set the hash value for the object.
+         * @param hash
+         */
+        public void setHash(String hash){
+            this.hash = hash;
+        }
+
+        /**
+         * Sets the public key for the object.
+         * @param key
+         */
+        public void setKey(PublicKey key){
+            this.key = key;
+        }
+
+        // TODO: Missing entry for the equals and #-code method.
 
         @Override
         public boolean equals(Object obj) {
@@ -279,10 +328,67 @@ public class PartitionHelper {
             return false;
         }
 
+        // FIXME: Correct the hashCode generation mechanism.
         @Override
         public int hashCode() {
             return requestId.hashCode();
         }
     }
+
+
+    /**
+     * Contains the hash information regarding the partitioning update.
+     * @author babbarshaer
+     */
+    public static class PartitionInfoHash {
+
+        TimeoutId partitionRequestId;
+        String hash;
+
+        public PartitionInfoHash (TimeoutId partitionRequestId, String hash){
+            this.partitionRequestId = partitionRequestId;
+            this.hash = hash;
+        }
+
+        /**
+         * Convenience Constructor.
+         * @param partitionInfo
+         */
+        public PartitionInfoHash(PartitionInfo partitionInfo){
+
+            this.partitionRequestId = partitionInfo.getRequestId();
+            this.hash = partitionInfo.getHash();
+        }
+
+
+        public TimeoutId getPartitionRequestId(){
+            return this.partitionRequestId;
+        }
+
+        public String getHash(){
+            return this.hash;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            PartitionInfoHash that = (PartitionInfoHash) o;
+
+            if (!hash.equals(that.hash)) return false;
+            if (!partitionRequestId.equals(that.partitionRequestId)) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = partitionRequestId.hashCode();
+            result = 31 * result + hash.hashCode();
+            return result;
+        }
+    }
+
     
 }

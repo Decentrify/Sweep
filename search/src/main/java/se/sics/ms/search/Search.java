@@ -1,5 +1,7 @@
 package se.sics.ms.search;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
@@ -17,6 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.msgs.MessageDecodingException;
+import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
@@ -29,6 +33,10 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.control.ControlBase;
+import se.sics.ms.control.ControlMessageHelper;
+import se.sics.ms.control.ControlMessageResponseTypeEnum;
+import se.sics.ms.control.PartitionControlResponse;
 import se.sics.ms.gradient.*;
 import se.sics.ms.peer.SimulationEventsPort;
 import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
@@ -36,10 +44,7 @@ import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.messages.*;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
@@ -124,11 +129,26 @@ public final class Search extends ComponentDefinition {
     private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<>();
     private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<>();
 
-    private static final int LEADER_GROUP_SIZE = 4;
+    private TimeoutId controlMessageExchangeRoundId;
+    private Map<VodAddress,TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<>();
+    private Map<VodAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<>();
+    private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<>();
+    private int controlMessageResponseCount =0;
+    private static final int CONTROL_MESSAGE_ENUM_SIZE= 1;
+    private boolean partitionUpdateFetchInProgress = false;
+    private TimeoutId currentPartitionInfoFetchRound;
 
     private class ExchangeRound extends IndividualTimeout {
 
         public ExchangeRound(SchedulePeriodicTimeout request, int id) {
+            super(request, id);
+        }
+    }
+
+    // Control Message Exchange Round.
+    private class ControlMessageExchangeRound extends IndividualTimeout{
+
+        public ControlMessageExchangeRound(SchedulePeriodicTimeout request, int id) {
             super(request, id);
         }
     }
@@ -236,6 +256,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
+        // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
         subscribe(handlerPartitionPrepareResponse, networkPort);
@@ -244,6 +265,18 @@ public final class Search extends ComponentDefinition {
         subscribe(handlerPartitionCommitResponse, networkPort);
         subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
+        // Generic Control message exchange mechanism
+        subscribe(handlerControlMessageExchangeRound, timerPort);
+        subscribe(handlerControlMessageRequest, networkPort);
+        subscribe(handlerCheckPartitionUpdateResponse, gradientRoutingPort);
+        subscribe(handlerControlMessageResponse, networkPort);
+        subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
+        subscribe(handlerCheckPartitionInfoResponse, gradientRoutingPort);
+        subscribe(delayedPartitioningTimeoutHandler, timerPort);
+        subscribe(delayedPartitioningResponseHandler, networkPort);
+
+
+
     }
 
     /**
@@ -306,6 +339,10 @@ public final class Search extends ComponentDefinition {
             // TODO move time to own config instead of using the gradient period
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
             rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
+            trigger(rst, timerPort);
+
+            rst = new SchedulePeriodicTimeout(config.getControlExchangeTimePeriod(), config.getControlExchangeTimePeriod());
+            rst.setTimeoutEvent(new ControlMessageExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
 
             // Can't open the index before committing a writer once
@@ -404,6 +441,381 @@ public final class Search extends ComponentDefinition {
     private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
+
+    /**
+     * Initiate the control message exchange in the system.
+     */
+    Handler<ControlMessageExchangeRound> handlerControlMessageExchangeRound = new Handler<ControlMessageExchangeRound>() {
+        @Override
+        public void handle(ControlMessageExchangeRound event) {
+
+            logger.debug(" Initiated the Periodic Exchange ... ");
+
+            //Clear the previous rounds data to avoid clash in the responses.
+            cleanControlMessageResponseData();
+
+            //Trigger the new exchange round.
+            controlMessageExchangeRoundId = UUID.nextUUID();
+            trigger(new GradientRoutingPort.InitiateControlMessageExchangeRound(controlMessageExchangeRoundId, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
+        }
+    };
+
+
+    /**
+     * Control Message Request Received.
+     */
+    Handler<ControlMessage.Request> handlerControlMessageRequest = new Handler<ControlMessage.Request>(){
+        @Override
+        public void handle(ControlMessage.Request event) {
+
+            logger.debug(" Received the Control Message Request at: " + self.getId());
+
+            // Check if already entry present and reset the contents.
+            if(peerControlMessageResponseMap.get(event.getVodSource().getId())!= null)
+                peerControlMessageResponseMap.get(event.getVodSource().getId()).reset();
+
+            // Else create a fresh entry, with number of responses to keep track of.
+            else
+                peerControlMessageResponseMap.put(event.getVodSource(), new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
+
+            // Update the latest request id from the peer control message from the map.
+            peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
+
+            // For now only trigger partitioning check update.
+            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
+        }
+    };
+
+
+    /**
+     * Received the partitioning updates from the gradient component.
+     */
+    Handler<CheckPartitionInfoHashUpdate.Response> handlerCheckPartitionUpdateResponse = new Handler<CheckPartitionInfoHashUpdate.Response>(){
+
+        @Override
+        public void handle(CheckPartitionInfoHashUpdate.Response event) {
+
+            try{
+
+                logger.debug(" Check Partitioning response received  ... ");
+
+                TimeoutId roundIdReceived = event.getRoundId();
+                TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
+
+                // Perform initial checks to avoid old responses.
+                if(currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
+                    return;
+                }
+
+                // Update the peer control response map to add the new entry.
+                PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress());
+                if(controlMessageResponse == null){
+                    logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
+                    return;
+                }
+
+                // Fetch the buffer to write and append the information in it.
+                ByteBuf buf = controlMessageResponse.getBuffer();
+                ControlMessageEncoderFactory.encodePartitioningUpdateHashesSequence(buf, event.getControlMessageEnum() , event.getPartitionUpdateHashes());
+
+                // encansuplate it into a separate method.
+                if(controlMessageResponse.addAndCheckStatus()){
+
+                    // Construct the response object and trigger it back to the user.
+                    logger.debug(" Ready To Send back Control Message to the Requestor .. ");
+
+                    // Send the data back to the user.
+                    trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
+
+                    // TODO: Some kind of timeout mechanism needs to be there because there might be some issue with the components and hence they don't reply on time.
+
+                    // Clean the data at the user end also.
+                    cleanControlRequestMessageData(event.getSourceAddress());
+                }
+            }
+
+            catch (MessageEncodingException e) {
+                // If the exception is thrown it means that encoding was not successful for some reason and we will return after raising a flag ...
+                logger.error(" Encoding Failed ... Please Check ... ");
+                e.printStackTrace();
+                // Clean the data at the user end also.
+                cleanControlRequestMessageData(event.getSourceAddress());
+            }
+        }
+    };
+
+
+    /**
+     * Simply remove the data in the maps belonging to the address id for the
+     * @param sourceAddress
+     */
+    public void cleanControlRequestMessageData(VodAddress sourceAddress){
+
+        logger.debug(" Clean Control Message Data Called at : " + self.getId());
+        peerControlMessageAddressRequestIdMap.remove(sourceAddress);
+        peerControlMessageResponseMap.remove(sourceAddress);
+
+    }
+
+    /**
+     * Control Message Response containing important information.
+     */
+    Handler<ControlMessage.Response> handlerControlMessageResponse = new Handler<ControlMessage.Response>(){
+        @Override
+        public void handle(ControlMessage.Response event) {
+
+            //Step1: Filter the old responses.
+            if (!controlMessageExchangeRoundId.equals(event.getRoundId()))
+                return;
+
+            // Create an instance of ByteBuf to read the data received.
+            ByteBuf buffer = Unpooled.wrappedBuffer(event.getBytes());
+
+            try{
+
+                int numOfIterations = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
+
+                // Check if more control messages available in the buffer.
+                while (numOfIterations > 0) {
+
+                    // Read the Control Message Enum from the message.
+                    ControlMessageEnum controlMessageEnum = ControlMessageDecoderFactory.getControlMessageEnum(buffer);
+
+                    // Based on the control message enum received, update the control response map.
+                    switch(controlMessageEnum){
+
+                        case NO_PARTITION_UPDATE:
+                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.NO_PARTITION_UPDATE, event.getVodSource(), buffer, controlMessageResponseHolderMap);
+                            break;
+
+                        case PARTITION_UPDATE:
+                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.PARTITION_UPDATE, event.getVodSource(), buffer, controlMessageResponseHolderMap);
+                            break;
+
+                        case REJOIN:
+                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.REJOIN, event.getVodSource(), buffer, controlMessageResponseHolderMap);
+                            break;
+
+                        case LEADER_UPDATE:
+                            //Leader Update entry will go here.
+
+                        default:
+                            logger.error(" Enum Not Recognized ... ");
+                            break;
+                    }
+
+                    // Handles iterations within a response.
+                    numOfIterations -=1;
+                }
+
+                // Handles multiple responses.
+                controlMessageResponseCount ++;
+
+                if(controlMessageResponseCount >= config.getIndexExchangeRequestNumber()){
+
+                    // Perform the checks and comparison on the responses received from the nodes.
+                    performControlMessageResponseMatching();
+
+                    // Perform the cleaning of the data after this.
+                    cleanControlMessageResponseData();
+                }
+            }
+
+            catch (MessageDecodingException e) {
+                logger.error(" Message Decodation Failed at :" + self.getAddress().getId());
+                cleanControlMessageResponseData();
+            }
+        }
+
+    };
+
+
+    /**
+     * Once all the messages for a round are received, then perform the matching.
+     */
+    private void performControlMessageResponseMatching(){
+
+        logger.debug("Start with the PeerControl Response Matching at: " + self.getId());
+
+        // Iterate over the keyset and handle specific cases based on your methodology.
+        for(Map.Entry<ControlMessageResponseTypeEnum , List<? extends ControlBase>> entry : controlMessageResponseHolderMap.entrySet()){
+
+            switch(entry.getKey()){
+
+                case PARTITION_UPDATE_RESPONSE:{
+                    logger.debug(" Started with handling of the Partition Update Response ");
+                    performPartitionUpdateMatching((List<PartitionControlResponse>)entry.getValue());
+                    break;
+                }
+
+                case LEADER_UPDATE_RESPONSE:{
+                    logger.debug(" Handle Leader Update Response .. ");
+                    break;
+                }
+            }
+        }
+    }
+
+
+    /**
+     * Extract the partition updates who's hashes match but sequence should not be violated.
+     *
+     * @param partitionControlResponses
+     */
+    private void performPartitionUpdateMatching(List<PartitionControlResponse> partitionControlResponses){
+
+        Iterator<PartitionControlResponse> iterator = partitionControlResponses.iterator();
+
+        List<TimeoutId> finalPartitionUpdates = new ArrayList<TimeoutId>();
+        boolean mismatchFound = false;
+        boolean first = true;
+
+        ControlMessageEnum baseControlMessageEnum =null;
+        List<PartitionHelper.PartitionInfoHash> basePartitioningUpdateHashes =null;
+
+        while(iterator.hasNext()){
+
+            PartitionControlResponse pcr = iterator.next();
+
+            if(first){
+                // Set the base matching structure.
+                baseControlMessageEnum = pcr.getControlMessageEnum();
+                basePartitioningUpdateHashes = pcr.getPartitionUpdateHashes();
+                first = false;
+                continue;
+            }
+
+            // Simply match with the base one.
+            if(baseControlMessageEnum != pcr.getControlMessageEnum() || !(basePartitioningUpdateHashes.size() > 0)){
+               mismatchFound = true;
+               break;
+            }
+
+            else{
+
+                // Check the list of partitioning updates.
+                List<PartitionHelper.PartitionInfoHash> currentPartitioningUpdateHashes = pcr.getPartitionUpdateHashes();
+                int minimumLength = (basePartitioningUpdateHashes.size() < currentPartitioningUpdateHashes.size()) ? basePartitioningUpdateHashes.size() : currentPartitioningUpdateHashes.size();
+
+                int i=0;
+                while(i < minimumLength){
+                    if(!basePartitioningUpdateHashes.get(i).equals(currentPartitioningUpdateHashes.get(i)))
+                        break;
+                    i++;
+                }
+
+                // If mismatch found and loop didn't run completely.
+                if(i < minimumLength){
+                    // Remove the unmatched part.
+                    basePartitioningUpdateHashes.subList(i, basePartitioningUpdateHashes.size()).clear();
+                }
+            }
+        }
+
+        if(mismatchFound || !(basePartitioningUpdateHashes.size()>0)){
+           logger.debug("No Common Update Found For Now ... ");
+            return;
+        }
+
+
+        logger.debug("Common Partition Update Found at Node: " + self.getId());
+
+        for(PartitionHelper.PartitionInfoHash infoHash : basePartitioningUpdateHashes){
+            finalPartitionUpdates.add(infoHash.getPartitionRequestId());
+        }
+
+        // Here we have to start a new flow with a different timrout id to fetch the updates from any random node and put it as current
+        Random random = new Random();
+        // request for the updates from any random node.
+        VodAddress randomPeerAddress = partitionControlResponses.get(random.nextInt(partitionControlResponses.size())).getSourceAddress();
+
+
+        // TODO: Move the timeout in the search config file.
+        TimeoutId timeoutId = UUID.nextUUID();
+        ScheduleTimeout st = new ScheduleTimeout(config.getDelayedPartitioningRequestTimeout());
+        DelayedPartitioningMessage.Timeout delayedPartitioningTimeout = new DelayedPartitioningMessage.Timeout(st, self.getId());
+        st.setTimeoutEvent(delayedPartitioningTimeout);
+        st.getTimeoutEvent().setTimeoutId(timeoutId);
+
+        currentPartitionInfoFetchRound = timeoutId;
+        partitionUpdateFetchInProgress = true;
+
+        // Trigger the new updates.
+        trigger(new DelayedPartitioningMessage.Request(self.getAddress(), randomPeerAddress, timeoutId, finalPartitionUpdates), networkPort);
+
+    }
+
+
+    /**
+     * Received Request for the Partitioning Updates.
+     */
+    Handler<DelayedPartitioningMessage.Request> handlerDelayedPartitioningMessageRequest = new Handler<DelayedPartitioningMessage.Request>(){
+
+        @Override
+        public void handle(DelayedPartitioningMessage.Request event) {
+
+            logger.debug (" Delayed Partitioning Message Request Received from: " + event.getSource().getId()) ;
+            trigger(new CheckPartitionInfo.Request(event.getTimeoutId(),event.getVodSource(),event.getPartitionRequestIds()), gradientRoutingPort);     // Let gradient Handle the request.
+
+        }
+    };
+
+    /**
+     * Partition Info Response Received.
+     */
+    Handler<CheckPartitionInfo.Response> handlerCheckPartitionInfoResponse = new Handler<CheckPartitionInfo.Response>(){
+
+        @Override
+        public void handle(CheckPartitionInfo.Response event) {
+            trigger(new DelayedPartitioningMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), event.getPartitionUpdates()), networkPort);
+        }
+    };
+
+
+    /**
+     * Apply the partitioning updates to the local.
+     */
+    Handler<DelayedPartitioningMessage.Response> delayedPartitioningResponseHandler = new Handler<DelayedPartitioningMessage.Response>(){
+
+        @Override
+        public void handle(DelayedPartitioningMessage.Response event) {
+
+            if(!partitionUpdateFetchInProgress || !event.getTimeoutId().equals(currentPartitionInfoFetchRound))
+                return;
+
+            // Simply apply the partitioning update and handle the duplicacy.
+            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(event.getPartitionHistory()), gradientRoutingPort);
+        }
+    };
+
+
+
+    /**
+     * Handler for the Delayed Partitioning Timeout.
+     */
+    Handler<DelayedPartitioningMessage.Timeout> delayedPartitioningTimeoutHandler = new Handler<DelayedPartitioningMessage.Timeout>(){
+
+        @Override
+        public void handle(DelayedPartitioningMessage.Timeout event) {
+
+            //Reset the partitionUpdateInProgress.
+            // Can also set the current partitioning round to a no timeout object.
+            partitionUpdateFetchInProgress = false;
+        }
+    };
+
+
+    /**
+     * After the exchange round is complete or aborted, clean the response data held from precious round.
+     */
+    private void cleanControlMessageResponseData(){
+
+        //reset the count variable and the map.
+        controlMessageResponseCount =0;
+        controlMessageResponseHolderMap.clear();
+    }
+
+
     /**
      * Issue an index exchange with another node.
      */
@@ -439,12 +851,6 @@ public final class Search extends ComponentDefinition {
         public void handle(IndexHashExchangeMessage.Request event) {
 
             try {
-                //FIXME(Abhi): Check of the node is lagging behind.
-                //FIXME: Pull this code in the generic control message exchange.
-                if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
-                    // Let gradient handle it.
-                    trigger(new GradientRoutingPort.CheckPartitionRequirement(event.getVodSource()), gradientRoutingPort);
-                }
 
                 List<IndexHash> hashes = new ArrayList<IndexHash>();
 
@@ -567,7 +973,7 @@ public final class Search extends ComponentDefinition {
     final Handler<IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<IndexExchangeTimeout>() {
         @Override
         public void handle(IndexExchangeTimeout event) {
-            logger.info(self.getId() + " index exchange timed out");
+            logger.debug(self.getId() + " index exchange timed out");
             indexExchangeTimeout = null;
             exchangeInProgress = false;
         }
@@ -628,7 +1034,7 @@ public final class Search extends ComponentDefinition {
     final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
         @Override
         public void handle(AddIndexEntryMessage.Request event) {
-            if (!leader) {
+            if (!leader || partitionInProgress) {
                 return;
             }
 
@@ -716,6 +1122,7 @@ public final class Search extends ComponentDefinition {
     final Handler<ReplicationPrepareCommitMessage.Request> handlePrepareCommit = new Handler<ReplicationPrepareCommitMessage.Request>() {
         @Override
         public void handle(ReplicationPrepareCommitMessage.Request request) {
+
             IndexEntry entry = request.getEntry();
             if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
@@ -1213,10 +1620,15 @@ public final class Search extends ComponentDefinition {
             indexExchangeTimeout = null;
             exchangeInProgress = false;
 
-            if(removeEntriesNotFromYourPartition.isPartition())
+            if(removeEntriesNotFromYourPartition.isPartition()){
                 deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
-            else
+                deleteHigherExistingEntries(removeEntriesNotFromYourPartition.getMiddleId(), existingEntries, false);
+            }
+
+            else{
                 deleteDocumentsWithIdLessThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
+                deleteLowerExistingEntries(removeEntriesNotFromYourPartition.getMiddleId(), existingEntries, true);
+            }
 
             minStoredId = getMinStoredIdFromLucene();
             maxStoredId = getMaxStoredIdFromLucene();
@@ -1229,10 +1641,8 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
-            /** TODO: Need to test the clearing of the entries map, as it may contain not received entries and then interfere in case node migrates to other partition, by treating the entry as already added.
-             **/
             nextInsertionId = maxStoredId+1;
-            lowestMissingIndexValue = maxStoredId+1;
+            lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId+1;
 
             int partitionId = self.getAddress().getPartitionId();
 
@@ -1241,8 +1651,63 @@ public final class Search extends ComponentDefinition {
             Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
                     maxStoredId);
             Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
+
+            // It will ensure that the values of last missing index entries and other values are not getting updated.
+            partitionInProgress = false;
         }
     };
+
+
+    /**
+     * Modify the existingEntries set to remove the entries lower than mediaId.
+     * @param medianId
+     * @param existingEntries
+     * @param including
+     */
+    private void deleteLowerExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including){
+
+        Iterator<Long> iterator = existingEntries.iterator();
+
+        while(iterator.hasNext()){
+            Long currEntry = iterator.next();
+
+            if(including){
+                if(currEntry.compareTo(medianId) <=0)
+                    iterator.remove();
+            }
+
+            else{
+                if(currEntry.compareTo(medianId) <0)
+                    iterator.remove();
+            }
+        }
+    }
+
+    /**
+     * Modify the exstingEntries set to remove the entries higher than median Id.
+     * @param medianId
+     * @param existingEntries
+     * @param including
+     */
+    private void deleteHigherExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including){
+
+        Iterator<Long> iterator = existingEntries.iterator();
+
+        while(iterator.hasNext()){
+            Long currEntry = iterator.next();
+
+            if(including){
+                if(currEntry.compareTo(medianId) >=0)
+                    iterator.remove();
+            }
+
+            else{
+                if(currEntry.compareTo(medianId) >0)
+                    iterator.remove();
+            }
+        }
+    }
+
 
     /**
      * Add the given {@link IndexEntry}s to the given Lucene directory
@@ -1342,7 +1807,7 @@ public final class Search extends ComponentDefinition {
         if (indexEntry.getId() < lowestMissingIndexValue
                 || existingEntries.contains(indexEntry.getId())) {
 
-            logger.warn(" Duplicate Index Entry Addition ....  ");
+            logger.warn("Trying to add duplicate IndexEntry at Node: " + self.getId() + " Index Entry Id: " + indexEntry.getId());
             return;
         }
 
@@ -1402,13 +1867,19 @@ public final class Search extends ComponentDefinition {
         }
 
         // Avoid start of partitioning in case if one is already going on.
-        if(!partitionInProgress)
-            trigger(new LeaderGroupInformation.Request((minStoredId + medianId) , partitionsNumber, LEADER_GROUP_SIZE), gradientRoutingPort);
+        if(!partitionInProgress){
+
+            logger.info(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId +" and MaxStoreId: " + maxStoredId);
+            partitionInProgress = true;
+            trigger(new LeaderGroupInformation.Request((minStoredId + medianId) , partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
+        }
+
 
     }
 
-
-
+    /**
+     * Leader Group Information for the Two Phase Commit.
+     */
     Handler<LeaderGroupInformation.Response> handlerLeaderGroupInformationResponse = new Handler<LeaderGroupInformation.Response>(){
 
         @Override
@@ -1418,16 +1889,25 @@ public final class Search extends ComponentDefinition {
             List<VodAddress> leaderGroupAddresses = event.getLeaderGroupAddress();
 
             // Not enough nodes to continue.
-            if(leaderGroupAddresses.size() < LEADER_GROUP_SIZE){
+            if(leaderGroupAddresses.size() < config.getLeaderGroupSize()){
+                logger.warn(" Not enough nodes to start the two phase commit.");
+                partitionInProgress = false;
                 return;
             }
 
 
-            partitionRequestId = UUID.nextUUID();                   // The request Id to be associated with the partition request.
-            TimeoutId timeoutId = UUID.nextUUID();                // The id represents the current round id against which the responses will be checked for filtering.
-            partitionInProgress = true;                             // Start the partitioning round.
+            partitionRequestId = UUID.nextUUID();                    // The request Id to be associated with the partition request.
+            TimeoutId timeoutId = UUID.nextUUID();                  // The id represents the current round id against which the responses will be checked for filtering.
 
             PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(event.getMedianId(), partitionRequestId, event.getPartitioningType());
+            partitionInfo.setKey(publicKey);
+
+            // Generate the hash information of the partition info for security purposes.
+            String signedHash = generatePartitionInfoSignedHash(partitionInfo, privateKey);
+            if(signedHash == null){
+                logger.error(" Signed Hash for the Two Phase Commit Is not getting generated.");
+            }
+            partitionInfo.setHash(signedHash);
 
             // Send the partition requests to the leader group.
             for(VodAddress destinationAddress : leaderGroupAddresses){
@@ -1437,7 +1917,7 @@ public final class Search extends ComponentDefinition {
 
             // Set the timeout for the responses.
             // TODO: Add the timeout entry in the config for the update.
-            ScheduleTimeout st = new ScheduleTimeout(100*1000);
+            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
             PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st,self.getId(),partitionInfo);
 
             st.setTimeoutEvent(pt);
@@ -1445,10 +1925,12 @@ public final class Search extends ComponentDefinition {
             trigger(st, timerPort);
 
             // Create a replication object to track responses.
-            PartitionReplicationCount count = new PartitionReplicationCount(LEADER_GROUP_SIZE,partitionInfo);
+            PartitionReplicationCount count = new PartitionReplicationCount(config.getLeaderGroupSize(),partitionInfo);
             partitionPrepareReplicationCountMap.put(timeoutId, count);
         }
     };
+
+
 
 
     /**
@@ -1460,7 +1942,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(PartitionPrepareMessage.Timeout event) {
 
-            logger.info(" _Abhi: Partition Timeout Occured, Simply Stop the partitioning.");
+            logger.warn(" Partition Timeout Occured. ");
             partitionInProgress = false;
             partitionPrepareReplicationCountMap.remove(event.getTimeoutId());
 
@@ -1476,9 +1958,16 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(PartitionPrepareMessage.Request event) {
 
-            logger.info("_Abhi: Received the information from the leader regarding the partition. LeaderId: " + event.getVodSource().getId());
 
-            // Step1: TODO: Verification of data needs to be implemented.
+            // Step1: Verify that the data is from the leader only.
+            if(!isPartitionUpdateValid(event.getPartitionInfo()) || !leaderIds.contains(event.getPartitionInfo().getKey())){
+                logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
+                return;
+            }
+
+            if(!partitionOrderValid(event.getVodSource()))
+                return;
+
 
             // Step2: Trigger the response for this request, which should be directly handled by the search component.
             PartitionPrepareMessage.Response response = new PartitionPrepareMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getPartitionInfo().getRequestId());
@@ -1492,7 +1981,7 @@ public final class Search extends ComponentDefinition {
 
 
             // Step4: Add timeout for this message.
-            ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
             PartitionCommitTimeout pct = new PartitionCommitTimeout(st,self.getId(), event.getPartitionInfo());
             st.setTimeoutEvent(pct);
             st.getTimeoutEvent().setTimeoutId(timeoutId);
@@ -1500,6 +1989,18 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
+    /**
+     * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
+     * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
+     *
+     * DO NOT REMOVE THIS. (Handles a rare fault case prevention).
+     * @param partitionInfo
+     * @return applyPartitioningUpdate.
+     */
+    private boolean partitionOrderValid(VodAddress source) {
+        return (source.getPartitioningType() == self.getAddress().getPartitioningType() && source.getPartitionIdDepth() == self.getAddress().getPartitionIdDepth());
+    }
 
 
     Handler<PartitionCommitTimeout> handlePartitionCommitTimeout = new Handler<PartitionCommitTimeout>(){
@@ -1538,7 +2039,7 @@ public final class Search extends ComponentDefinition {
 
                     // Create a commit timeout.
                     TimeoutId commitTimeoutId = UUID.nextUUID();
-                    ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+                    ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
                     PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), count.getPartitionInfo());
                     st.setTimeoutEvent(pt);
                     st.getTimeoutEvent().setTimeoutId(commitTimeoutId);
@@ -1576,8 +2077,7 @@ public final class Search extends ComponentDefinition {
             // Reset the partition flags
             logger.warn("Partition Commit Timeout Called at the leader");
             partitionInProgress = false;
-            TimeoutId timeoutId = event.getTimeoutId();
-            partitionCommitReplicationCountMap.remove(timeoutId);
+            partitionCommitReplicationCountMap.remove(event.getTimeoutId());
 
         }
     };
@@ -1608,7 +2108,6 @@ public final class Search extends ComponentDefinition {
             // No partition update entry present.
             if(partitionUpdate == null){
                 logger.warn(" Delayed Partition Message or False Partition Received by the Node.");
-                System.exit(1);
                 return;
             }
 
@@ -1618,8 +2117,11 @@ public final class Search extends ComponentDefinition {
             trigger(cancelTimeout, timerPort);
 
 
+            LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
+            partitionUpdates.add(partitionUpdate);
+
             // Apply the partition update.
-            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdate), gradientRoutingPort);
+            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdates), gradientRoutingPort);
             partitionUpdatePendingCommit.remove(partitionUpdate);               // Remove the partition update from the pending map.
 
             // Send a  conformation to the leader.
@@ -1645,21 +2147,23 @@ public final class Search extends ComponentDefinition {
                 logger.warn("{PartitionCommitMessage.Response} received from the nodes at the Leader");
 
                 // Partitioning complete ( Reset the partitioning parameters. )
-                partitionInProgress = false;
-                leader = false;                     // FIXME: Added a temporary fix to check the rapid calling of partitioning.
-                partitionCommitReplicationCountMap.remove(event.getTimeoutId());
+//                partitionInProgress = false;
+                // Reset the partitionInProgress when removed entries from your partition.
+
+                leader = false;
+                partitionCommitReplicationCountMap.remove(receivedTimeoutId);
 
                 // Cancel the commit timeout.
                 CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
                 trigger(ct,timerPort);
 
+                logger.debug("Partitioning complete at the leader : " + self.getId());
+
+                LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+                partitionUpdates.add(partitionReplicationCount.getPartitionInfo());
+
                 // Inform the gradient about the partitioning.
-                trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionReplicationCount.getPartitionInfo()), gradientRoutingPort);
-                logger.info("_Abhi : Partitioning complete at the leader side  ... ");
-            }
-
-            else{
-
+                trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdates), gradientRoutingPort);
             }
 
         }
@@ -1804,6 +2308,47 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
         return null;
     }
 
+
+    /**
+     * Generates the SHA-1 Hash Of the partition update and sign with private key.
+     * @param partitionInfo
+     * @param privateKey
+     * @return signed hash
+     */
+    private String generatePartitionInfoSignedHash(PartitionHelper.PartitionInfo partitionInfo, PrivateKey privateKey) {
+
+        if(partitionInfo.getKey() == null)
+            return null;
+
+        // generate the byte array from the partitioning data.
+        ByteBuffer byteBuffer = getByteDataFromPartitionInfo(partitionInfo);
+
+        // sign the array and return the signed hash value.
+        try {
+            return generateRSASignature(byteBuffer.array(), privateKey);
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Generate the SHA-1 String.
+     * TODO: For more efficiency don't convert it to string as it becomes greater than 256bytes and encoding mechanism fails for index hash exchange.
+     * FIXME: Change the encoding hash mechanism.
+     * @param data
+     * @param privateKey
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeyException
+     * @throws SignatureException
+     */
     private static String generateRSASignature(byte[] data, PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
         MessageDigest digest = MessageDigest.getInstance("SHA-1");
         String sha1 = byteArray2Hex(digest.digest(data));
@@ -1841,6 +2386,34 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
         return false;
     }
+
+
+    /**
+     * Verify if the partition update is received from the leader itself only.
+     * @param partitionUpdate
+     * @return
+     */
+    private static boolean isPartitionUpdateValid(PartitionHelper.PartitionInfo partitionUpdate){
+
+        if(partitionUpdate.getKey() == null)
+            return false;
+
+        ByteBuffer dataBuffer = getByteDataFromPartitionInfo(partitionUpdate);
+
+        try {
+            return verifyRSASignature(dataBuffer.array(), partitionUpdate.getKey(), partitionUpdate.getHash());
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return false;
+
+    }
+
 
     private static ByteBuffer getByteDataFromIndexEntry(IndexEntry newEntry) {
         //url
@@ -1892,6 +2465,29 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
         if(newEntry.getDescription() != null)
             dataBuffer.put(descriptionBytes);
         return dataBuffer;
+    }
+
+    /**
+     * Converts the partitioning update in byte array.
+     * @param paritionInfo
+     * @return partitionInfo byte array.
+     */
+    private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo){
+
+        // Decide on a specific order.
+        ByteBuffer buffer = ByteBuffer.allocate(8+ (2*4));
+
+        // Start filling the buffer with information.
+        buffer.putLong(partitionInfo.getMedianId());
+        if(partitionInfo.getRequestId() instanceof NoTimeoutId)
+            buffer.putInt(-1);
+        else
+            buffer.putInt(partitionInfo.getRequestId().getId());
+
+        buffer.putInt(partitionInfo.getPartitioningTypeInfo().ordinal());
+
+
+        return buffer;
     }
 
     private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {

@@ -48,9 +48,21 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 5;
+    public static final long MAX_ENTRIES_ON_PEER = 10;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
     public static final int MAX_PARTITION_ID_LENGTH = 16;
+
+    // Generic control exchange message.
+    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 30*1000;
+    public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 2*1000;
+    public static final int CONTROL_MESSAGE_ENUM_SIZE = 1;
+
+    // Two phase commit timeout.
+    public static final int LEADER_GROUP_SIZE = 4;
+    public static final int PARTITION_PREPARE_TIMEOUT=10*1000;
+    public static final int PARTITION_COMMIT_REQUEST_TIMEOUT=5*1000;
+    public static final int PARTITION_COMMIT_TIMEOUT= 5*1000;
+
 
     protected MsConfig(String[] args) throws IOException {
         super(args);

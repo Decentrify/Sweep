@@ -9,7 +9,7 @@ import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.PartitionHelper;
 
-import java.util.EventListenerProxy;
+import java.util.LinkedList;
 
 public class GradientRoutingPort extends PortType {
 	{
@@ -24,44 +24,56 @@ public class GradientRoutingPort extends PortType {
         negative(PartitionMessage.class);
         positive(RemoveEntriesNotFromYourPartition.class);
         positive(NumberOfPartitions.class);
-        // Pull Based Partitioning.
-        negative(CheckPartitionRequirement.class);
+
         // Two Phase Commit Partitioning Messages.
         negative(ApplyPartitioningUpdate.class);
         negative(LeaderGroupInformation.Request.class);
         positive(LeaderGroupInformation.Response.class);
 
+        // Generic Pull Based Control Message Exchange.
+        negative(InitiateControlMessageExchangeRound.class);
+        negative(CheckPartitionInfoHashUpdate.Request.class);
+        positive(CheckPartitionInfoHashUpdate.Response.class);
+
+        negative(CheckPartitionInfo.Request.class);
+        positive(CheckPartitionInfo.Response.class);
 	}
 
+
     /**
-     * Event containing simply the address of the node who's partitioning needs to be checked and performed.
+     * Simply inform the gradient component to begin the control message exchange.
      */
-    public static class CheckPartitionRequirement extends Event{
+    public static class InitiateControlMessageExchangeRound extends Event{
+        private TimeoutId roundId;
+        private int controlMessageExchangeNumber;
 
-        private final VodAddress destinationAddress;
-
-        public CheckPartitionRequirement(VodAddress destinationAddress){
-            this.destinationAddress  = destinationAddress;
+        public InitiateControlMessageExchangeRound(TimeoutId roundId , int controlMessageExchangeNumber){
+            this.roundId = roundId;
+            this.controlMessageExchangeNumber = controlMessageExchangeNumber;
         }
 
-        public VodAddress getDestinationAddress() {
-            return destinationAddress;
+        public TimeoutId getRoundId(){
+            return this.roundId;
         }
 
+        public int getControlMessageExchangeNumber(){
+            return this.controlMessageExchangeNumber;
+        }
     }
+
 
     /**
      * Inform the gradient about the partitioning update and let it handle it.
      */
     public static class ApplyPartitioningUpdate extends Event{
 
-        private final PartitionHelper.PartitionInfo partitionUpdate;
+        private final LinkedList<PartitionHelper.PartitionInfo> partitionUpdate;
 
-        public ApplyPartitioningUpdate(PartitionHelper.PartitionInfo partitionInfo){
+        public ApplyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionInfo){
             this.partitionUpdate =partitionInfo;
         }
 
-        public PartitionHelper.PartitionInfo getPartitionUpdate(){
+        public LinkedList<PartitionHelper.PartitionInfo> getPartitionUpdates (){
             return this.partitionUpdate;
         }
 

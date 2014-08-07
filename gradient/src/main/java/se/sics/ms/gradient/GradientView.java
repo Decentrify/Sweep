@@ -70,17 +70,37 @@ public class GradientView {
 
         int oldSize = entries.size();
 
-        if (mapping.containsKey(vodDescriptor.getVodAddress())) {
-            VodDescriptor currentVodDescriptor = mapping.get(vodDescriptor.getVodAddress());
-            if (currentVodDescriptor.equals(vodDescriptor) && utilityComparator.compare(currentVodDescriptor, vodDescriptor) == 0) {
+        VodDescriptor currDescriptor = null;
+
+        for(VodDescriptor descriptor : entries){
+            if(descriptor.equals(vodDescriptor)){
+                currDescriptor = descriptor;
+                break;
+            }
+        }
+
+        if(currDescriptor != null){
+            if(currDescriptor.equals(vodDescriptor) && utilityComparator.compare(currDescriptor,vodDescriptor) ==0)
                 return;
-            } else {
-                entries.remove(currentVodDescriptor);
+            else{
+                entries.remove(currDescriptor);
                 changed = true;
             }
         }
 
-        mapping.put(vodDescriptor.getVodAddress(), vodDescriptor);
+
+
+//        if (mapping.containsKey(vodDescriptor.getVodAddress())) {
+//            VodDescriptor currentVodDescriptor = mapping.get(vodDescriptor.getVodAddress());
+//            if (currentVodDescriptor.equals(vodDescriptor) && utilityComparator.compare(currentVodDescriptor, vodDescriptor) == 0) {
+//                return;
+//            } else {
+//                entries.remove(currentVodDescriptor);
+//                changed = true;
+//            }
+//        }
+
+//        mapping.put(vodDescriptor.getVodAddress(), vodDescriptor);
         entries.add(vodDescriptor);
 
         if (!changed) {
@@ -106,7 +126,15 @@ public class GradientView {
 	 */
 	protected void remove(VodAddress address) {
         int oldSize = entries.size();
-        VodDescriptor toRemove = mapping.remove(address);
+//        VodDescriptor toRemove = mapping.remove(address);
+        VodDescriptor toRemove = null;
+
+        for(VodDescriptor descriptor:  entries){
+            if(descriptor.getVodAddress().equals(address)){
+                toRemove = descriptor;
+                break;
+            }
+        }
 
         if (toRemove == null) {
             return;
