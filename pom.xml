@@ -11,7 +11,7 @@
     <dependencies>
         <dependency>
             <groupId>se.kth.co</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>g-common</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
