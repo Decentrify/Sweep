@@ -177,15 +177,19 @@ public final class Gradient extends ComponentDefinition {
     {
         MsConfig.Categories category = categoryFromCategoryId(nodeToRemove.getCategoryId());
         Map<Integer, HashSet<VodDescriptor>> categoryRoutingMap = routingTable.get(category);
-        Set<VodDescriptor> bucket = categoryRoutingMap.get(nodeToRemove.getPartitionId());
+        if(categoryRoutingMap != null) {
+            Set<VodDescriptor> bucket = categoryRoutingMap.get(nodeToRemove.getPartitionId());
 
-        Iterator<VodDescriptor> i = bucket.iterator();
-        while (i.hasNext()) {
-            VodDescriptor descriptor = i.next();
+            if (bucket != null) {
+                Iterator<VodDescriptor> i = bucket.iterator();
+                while (i.hasNext()) {
+                    VodDescriptor descriptor = i.next();
 
-            if(descriptor.getVodAddress().equals(nodeToRemove)) {
-                i.remove();
-                break;
+                    if (descriptor.getVodAddress().equals(nodeToRemove)) {
+                        i.remove();
+                        break;
+                    }
+                }
             }
         }
     }
