@@ -229,6 +229,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
+        subscribe(handleGradientIndexHashExchangeResponse, gradientRoutingPort);
         subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
@@ -336,8 +337,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
-            // TODO move time to own config instead of using the gradient period
-            rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
+            rst = new SchedulePeriodicTimeout(config.getIndexExchangePeriod(), config.getIndexExchangePeriod());
             rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
 
@@ -438,6 +438,8 @@ public final class Search extends ComponentDefinition {
 
     private boolean exchangeInProgress = false;
     private TimeoutId indexExchangeTimeout;
+    private HashSet<VodAddress> nodesSelectedForIndexHashExchange = new HashSet<>();
+    private HashSet<VodAddress> nodesRespondedInIndexHashExchange = new HashSet<>();
     private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
@@ -835,6 +837,8 @@ public final class Search extends ComponentDefinition {
 
             trigger(timeout, timerPort);
             collectedHashes.clear();
+            nodesSelectedForIndexHashExchange.clear();
+            nodesRespondedInIndexHashExchange.clear();
 
             Long[] existing = existingEntries.toArray(new Long[existingEntries.size()]);
             trigger(new GradientRoutingPort.IndexHashExchangeRequest(lowestMissingIndexValue, existing,
@@ -883,6 +887,14 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    final Handler<GradientRoutingPort.IndexHashExchangeResponse> handleGradientIndexHashExchangeResponse = new Handler<GradientRoutingPort.IndexHashExchangeResponse>() {
+        @Override
+        public void handle(GradientRoutingPort.IndexHashExchangeResponse indexHashExchangeResponse) {
+
+            nodesSelectedForIndexHashExchange = indexHashExchangeResponse.getNodesSelectedForExchange();
+        }
+    };
+
     final Handler<IndexHashExchangeMessage.Response> handleIndexHashExchangeResponse = new Handler<IndexHashExchangeMessage.Response>() {
         @Override
         public void handle(IndexHashExchangeMessage.Response event) {
@@ -890,6 +902,8 @@ public final class Search extends ComponentDefinition {
             if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
                 return;
             }
+
+            nodesRespondedInIndexHashExchange.add(event.getVodSource());
 
             // TODO we somehow need to check here that the answer is from the correct node
             collectedHashes.put(event.getVodSource(), event.getHashes());
@@ -976,8 +990,26 @@ public final class Search extends ComponentDefinition {
             logger.debug(self.getId() + " index exchange timed out");
             indexExchangeTimeout = null;
             exchangeInProgress = false;
+
+            publishUnresponsiveNodeDuringHashExchange();
         }
     };
+
+    private void publishUnresponsiveNodeDuringHashExchange() {
+        //to get nodes that didn't respond during index hash exchange
+        HashSet<VodAddress> unresponsiveNodes = new HashSet<>(nodesSelectedForIndexHashExchange);
+        unresponsiveNodes.removeAll(nodesRespondedInIndexHashExchange);
+
+        trigger(new FailureDetectorPort.FailureDetectorEvent(self.getAddress()), fdPort);
+
+        for(VodAddress node: unresponsiveNodes) {
+            publishUnresponsiveNode(node);
+        }
+    }
+
+    private void publishUnresponsiveNode(VodAddress nodeAddress) {
+        trigger(new FailureDetectorPort.FailureDetectorEvent(nodeAddress), fdPort);
+    }
 
     /**
      * Add index entries for the simulator.

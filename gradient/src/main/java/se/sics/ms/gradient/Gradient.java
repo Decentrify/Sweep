@@ -756,14 +756,20 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
+            HashSet<VodAddress> nodesSelectedForExchange = new HashSet<>();
+
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
                 VodDescriptor node = nodes.get(n);
                 nodes.remove(node);
 
+                nodesSelectedForExchange.add(node.getVodAddress());
+
                 trigger(new IndexHashExchangeMessage.Request(self.getAddress(), node.getVodAddress(), event.getTimeoutId(),
                         event.getLowestMissingIndexEntry(), event.getExistingEntries()), networkPort);
             }
+
+            trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
         }
     };
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {

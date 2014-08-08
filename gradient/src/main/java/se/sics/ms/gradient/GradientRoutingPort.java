@@ -9,12 +9,15 @@ import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.PartitionHelper;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 public class GradientRoutingPort extends PortType {
 	{
 		negative(AddIndexEntryRequest.class);
         negative(IndexHashExchangeRequest.class);
+        positive(IndexHashExchangeResponse.class);
         negative(SearchRequest.class);
         negative(ReplicationPrepareCommitRequest.class);
         negative(ReplicationCommit.class);
@@ -126,6 +129,24 @@ public class GradientRoutingPort extends PortType {
 
         public int getNumberOfRequests() {
             return numberOfRequests;
+        }
+    }
+
+    public static class IndexHashExchangeResponse extends Event {
+
+        private HashSet<VodAddress> nodesSelectedForExchange;
+
+        public IndexHashExchangeResponse(Collection<VodAddress> nodes)
+        {
+            setNodesSelectedForExchange(new HashSet<>(nodes));
+        }
+
+        public HashSet<VodAddress> getNodesSelectedForExchange() {
+            return nodesSelectedForExchange;
+        }
+
+        public void setNodesSelectedForExchange(HashSet<VodAddress> nodesSelectedForExchange) {
+            this.nodesSelectedForExchange = nodesSelectedForExchange;
         }
     }
 

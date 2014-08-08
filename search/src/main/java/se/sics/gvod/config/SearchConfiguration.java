@@ -34,6 +34,7 @@ public class SearchConfiguration
     int partitionPrepareTimeout;
     int partitionCommitRequestTimeout;
     int partitionCommitTimeout;
+    int indexExchangePeriod;
 
 
     //TODO: Add the entries regarding the control messages in the system.
@@ -59,7 +60,8 @@ public class SearchConfiguration
                 MsConfig.PARTITION_PREPARE_TIMEOUT,
                 MsConfig.PARTITION_COMMIT_REQUEST_TIMEOUT,
                 MsConfig.PARTITION_COMMIT_TIMEOUT,
-                MsConfig.CONTROL_MESSAGE_ENUM_SIZE);
+                MsConfig.CONTROL_MESSAGE_ENUM_SIZE,
+                MsConfig.INDEX_EXCHANGE_PERIOD);
     }
 
     /**
@@ -89,7 +91,7 @@ public class SearchConfiguration
             int controlExchangeTimePeriod, int delayedPartitioningRequestTimeout,
             int leaderGroupSize, int partitionPrepareTimeout,
             int partitionCommitRequestTimeout, int partitionCommitTimeout,
-            int controlMessageEnumSize) {
+            int controlMessageEnumSize, int indexExchangePeriod) {
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
@@ -110,6 +112,7 @@ public class SearchConfiguration
         this.partitionCommitRequestTimeout = partitionCommitRequestTimeout;
         this.partitionCommitTimeout = partitionCommitTimeout;
         this.controlMessageEnumSize = controlMessageEnumSize;
+        this.indexExchangePeriod = indexExchangePeriod;
     }
 
     public static SearchConfiguration build() {
@@ -184,6 +187,7 @@ public class SearchConfiguration
         return maxSearchResults;
     }
 
+    public int getIndexExchangePeriod() { return indexExchangePeriod; }
 
 
     public SearchConfiguration setMaxExchangeCount(int maxExchangeCount) {
