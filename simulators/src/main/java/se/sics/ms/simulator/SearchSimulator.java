@@ -1,6 +1,8 @@
 package se.sics.ms.simulator;
 
 import org.xml.sax.SAXException;
+import se.sics.co.FailureDetectorComponent;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.*;
@@ -211,6 +213,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private VodAddress bootstrappingNode;
     private final void createAndStartNewPeer(long id) {
         Component peer = create(SearchPeer.class);
+        Component fd = create(FailureDetectorComponent.class);
         InetAddress ip = null;
         try {
             ip = InetAddress.getLocalHost();
@@ -225,6 +228,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
+        connect(fd.getPositive(FailureDetectorPort.class), peer.getNegative(FailureDetectorPort.class));
 
         trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode), peer.getControl());
 
