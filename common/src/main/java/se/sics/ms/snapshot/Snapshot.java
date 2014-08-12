@@ -221,6 +221,7 @@ public class Snapshot {
 	 * Create a report.
 	 */
 	public static void report() {
+
 		StringBuilder builder = new StringBuilder();
 		builder.append("current time: " + counter++ + "\n");
 		reportNetworkState(builder);

@@ -3,7 +3,7 @@ package se.sics.ms.peer;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.*;
 import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.croupier.CroupierPort;
@@ -122,13 +122,13 @@ public final class SearchPeer extends ComponentDefinition {
                     StunClientConfiguration.build(),
                     ParentMakerConfiguration.build(), true), natTraversal.control());
 
-            LinkedList<VodDescriptor> descs = new LinkedList<VodDescriptor>();
+            LinkedList<SearchDescriptor> descs = new LinkedList<SearchDescriptor>();
             if (init.getBootstrappingNode() != null) {
-                final VodDescriptor descr = new VodDescriptor(init.getBootstrappingNode());
+                final SearchDescriptor descr = new SearchDescriptor(init.getBootstrappingNode());
                 descs.add(descr);
             }
 
-            trigger(new CroupierJoin(descs), croupier.getPositive(CroupierPort.class));
+            trigger(new CroupierJoin(SearchDescriptor.toVodDescriptorList(descs)), croupier.getPositive(CroupierPort.class));
             trigger(new SearchInit(self, searchConfiguration), search.getControl());
         }
     };

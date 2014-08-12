@@ -1,10 +1,10 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.types.PartitionId;
+import se.sics.ms.types.SearchDescriptor;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -35,13 +35,13 @@ public class PartitionHelper {
     }
 
     /**
-     * Returns new partition id for VodDescriptor
+     * Returns new partition id for SearchDescriptor
      * @param descriptor
      * @param isFirstPartition
      * @param bitsToCheck
      * @return
      */
-    public static PartitionId determineVodDescriptorPartition(VodDescriptor descriptor, boolean isFirstPartition,
+    public static PartitionId determineSearchDescriptorPartition(SearchDescriptor descriptor, boolean isFirstPartition,
                                                                       int bitsToCheck) {
         if(descriptor == null)
             throw new IllegalArgumentException("descriptor can't be null");
@@ -81,44 +81,42 @@ public class PartitionHelper {
      * @param partitionId
      * @param descriptors
      */
-    public static void adjustDescriptorsToNewPartitionId(PartitionId partitionId, Collection<VodDescriptor> descriptors) {
+    public static void adjustDescriptorsToNewPartitionId(PartitionId partitionId, Collection<SearchDescriptor> descriptors) {
         if(partitionId == null)
             throw new IllegalArgumentException("partitionId can't be null");
         if(descriptors == null)
             return;
 
-        List<VodDescriptor> updatedSample = new ArrayList<>();
+        List<SearchDescriptor> updatedSample = new ArrayList<>();
 
 
         //this method has to be called after the partitionsNumber is already incremented
         boolean isFirstPartition = partitionId.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
         if(isFirstPartition) {
-            for(VodDescriptor descriptor : descriptors) {
-                PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
+            for(SearchDescriptor descriptor : descriptors) {
+                PartitionId descriptorPartitionId = determineSearchDescriptorPartition(descriptor,
                         isFirstPartition, 1);
 
                 VodAddress a = updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
-                updatedSample.add(new VodDescriptor(a, descriptor.getUtility(),
-                        descriptor.getAge(), descriptor.getMtu(), descriptor.getNumberOfIndexEntries()));
+                updatedSample.add(new SearchDescriptor(a, descriptor));
             }
         }
         else {
             int bitsToCheck = partitionId.getPartitionIdDepth();
 
-            for(VodDescriptor descriptor : descriptors) {
-                PartitionId descriptorPartitionId = determineVodDescriptorPartition(descriptor,
+            for(SearchDescriptor descriptor : descriptors) {
+                PartitionId descriptorPartitionId = determineSearchDescriptorPartition(descriptor,
                         isFirstPartition, bitsToCheck);
 
                 VodAddress a = updatePartitionId(descriptor.getVodAddress(), descriptorPartitionId);
-                updatedSample.add(new VodDescriptor(a, descriptor.getUtility(),
-                        descriptor.getAge(), descriptor.getMtu(), descriptor.getNumberOfIndexEntries()));
+                updatedSample.add(new SearchDescriptor(a, descriptor));
             }
         }
 
         descriptors.clear();
         descriptors.addAll(updatedSample);
 
-        Iterator<VodDescriptor> iterator = descriptors.iterator();
+        Iterator<SearchDescriptor> iterator = descriptors.iterator();
         while (iterator.hasNext()) {
             VodAddress next = iterator.next().getVodAddress();
             if(next.getPartitionId() != partitionId.getPartitionId()
@@ -152,7 +150,7 @@ public class PartitionHelper {
      * @param bucket bucket for new partition id
      */
     public static void updateBucketsInRoutingTable(PartitionId newPartitionId, Map<Integer,
-            HashSet<VodDescriptor>> categoryRoutingMap, HashSet<VodDescriptor> bucket) {
+            HashSet<SearchDescriptor>> categoryRoutingMap, HashSet<SearchDescriptor> bucket) {
         if(newPartitionId == null)
             throw new IllegalArgumentException("newPartitionId can't be null");
 
@@ -161,13 +159,13 @@ public class PartitionHelper {
 
         //if first split
         if(newPartitionId.getPartitionIdDepth() == 1) {
-            HashSet<VodDescriptor> oldBucket = categoryRoutingMap.get(0);
+            HashSet<SearchDescriptor> oldBucket = categoryRoutingMap.get(0);
             if(oldBucket == null)
                 return;
 
-            Iterator<VodDescriptor> oldBucketIterator = oldBucket.iterator();
+            Iterator<SearchDescriptor> oldBucketIterator = oldBucket.iterator();
             while(oldBucketIterator.hasNext()) {
-                VodDescriptor next = oldBucketIterator.next();
+                SearchDescriptor next = oldBucketIterator.next();
                 VodAddress nextAddress = next.getVodAddress();
                 boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
                         new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
@@ -178,7 +176,7 @@ public class PartitionHelper {
                             1, 1);
                     VodAddress a = updatePartitionId(nextAddress, descriptorsPartitionId);
                     oldBucketIterator.remove();
-                    bucket.add(new VodDescriptor(a, next.getUtility(),next.getAge(), next.getMtu(), next.getNumberOfIndexEntries()));
+                    bucket.add(new SearchDescriptor(a, next));
                 }
             }
 
@@ -186,13 +184,13 @@ public class PartitionHelper {
         }
 
         int oldPartitionId = newPartitionId.getPartitionId() & (0 << newPartitionId.getPartitionIdDepth()-1);
-        HashSet<VodDescriptor> oldBucket = categoryRoutingMap.get(oldPartitionId);
+        HashSet<SearchDescriptor> oldBucket = categoryRoutingMap.get(oldPartitionId);
         if(oldBucket == null)
             return;
 
-        Iterator<VodDescriptor> oldBucketIterator = oldBucket.iterator();
+        Iterator<SearchDescriptor> oldBucketIterator = oldBucket.iterator();
         while(oldBucketIterator.hasNext()) {
-            VodDescriptor next = oldBucketIterator.next();
+            SearchDescriptor next = oldBucketIterator.next();
             VodAddress nextAddress = next.getVodAddress();
             boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
                     new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
@@ -207,7 +205,7 @@ public class PartitionHelper {
             //move to a new bucket all with first "true"
             if(isOne) {
                 oldBucketIterator.remove();
-                bucket.add(new VodDescriptor(a, next.getUtility(),next.getAge(), next.getMtu(), next.getNumberOfIndexEntries()));
+                bucket.add(new SearchDescriptor(a, next));
             }
         }
 

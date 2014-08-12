@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
@@ -21,11 +21,11 @@ import se.sics.ms.util.PartitionHelper;
  */
 public class GradientView {
     private static final Logger logger = LoggerFactory.getLogger(GradientView.class);
-    private TreeMap<VodAddress, VodDescriptor> mapping;
-	private TreeSet<VodDescriptor> entries;
+    private TreeMap<VodAddress, SearchDescriptor> mapping;
+	private TreeSet<SearchDescriptor> entries;
 	private Self self;
 	private int size;
-	private final Comparator<VodDescriptor> preferenceComparator;
+	private final Comparator<SearchDescriptor> preferenceComparator;
     private final int convergenceTestRounds;
     private int currentConvergedRounds;
 	private boolean converged, changed;
@@ -44,9 +44,9 @@ public class GradientView {
      *            the number of rounds the convergenceTest needs to be satisfied for the view to be converged
 	 */
 	public GradientView(Self self, int size, double convergenceTest, int convergenceTestRounds) {
-        this.preferenceComparator = new PreferenceComparator(self.getDescriptor());
-        this.mapping = new TreeMap<VodAddress, VodDescriptor>();
-		this.entries = new TreeSet<VodDescriptor>(utilityComparator);
+        this.preferenceComparator = new PreferenceComparator(new SearchDescriptor(self.getDescriptor()));
+        this.mapping = new TreeMap<VodAddress, SearchDescriptor>();
+		this.entries = new TreeSet<SearchDescriptor>(utilityComparator);
 		this.self = self;
 		this.size = size;
 		this.converged = false;
@@ -59,28 +59,28 @@ public class GradientView {
 	 * Add a new node to the view and drop the least preferred one if the view
 	 * is full.
 	 * 
-	 * @param vodDescriptor
-	 *            the vodDescriptor to be added
+	 * @param searchDescriptor
+	 *            the searchDescriptor to be added
 	 */
-	protected void add(VodDescriptor vodDescriptor) {
-        if (vodDescriptor.getVodAddress().equals(self.getAddress())) {
+	protected void add(SearchDescriptor searchDescriptor) {
+        if (searchDescriptor.getVodAddress().equals(self.getAddress())) {
             logger.warn("{} tried to add itself to its GradientView", self.getAddress());
             return;
         }
 
         int oldSize = entries.size();
 
-        VodDescriptor currDescriptor = null;
+        SearchDescriptor currDescriptor = null;
 
-        for(VodDescriptor descriptor : entries){
-            if(descriptor.equals(vodDescriptor)){
+        for(SearchDescriptor descriptor : entries){
+            if(descriptor.equals(searchDescriptor)){
                 currDescriptor = descriptor;
                 break;
             }
         }
 
         if(currDescriptor != null){
-            if(currDescriptor.equals(vodDescriptor) && utilityComparator.compare(currDescriptor,vodDescriptor) ==0)
+            if(currDescriptor.equals(searchDescriptor) && utilityComparator.compare(currDescriptor,searchDescriptor) ==0)
                 return;
             else{
                 entries.remove(currDescriptor);
@@ -90,26 +90,26 @@ public class GradientView {
 
 
 
-//        if (mapping.containsKey(vodDescriptor.getVodAddress())) {
-//            VodDescriptor currentVodDescriptor = mapping.get(vodDescriptor.getVodAddress());
-//            if (currentVodDescriptor.equals(vodDescriptor) && utilityComparator.compare(currentVodDescriptor, vodDescriptor) == 0) {
+//        if (mapping.containsKey(searchDescriptor.getVodAddress())) {
+//            SearchDescriptor currentSearchDescriptor = mapping.get(searchDescriptor.getVodAddress());
+//            if (currentSearchDescriptor.equals(searchDescriptor) && utilityComparator.compare(currentSearchDescriptor, searchDescriptor) == 0) {
 //                return;
 //            } else {
-//                entries.remove(currentVodDescriptor);
+//                entries.remove(currentSearchDescriptor);
 //                changed = true;
 //            }
 //        }
 
-//        mapping.put(vodDescriptor.getVodAddress(), vodDescriptor);
-        entries.add(vodDescriptor);
+//        mapping.put(searchDescriptor.getVodAddress(), searchDescriptor);
+        entries.add(searchDescriptor);
 
         if (!changed) {
             changed = !(oldSize == entries.size());
         }
 
 		if (entries.size() > size) {
-			SortedSet<VodDescriptor> set = getClosestNodes(size + 1);
-            VodDescriptor leastPreferred = set.first();
+			SortedSet<SearchDescriptor> set = getClosestNodes(size + 1);
+            SearchDescriptor leastPreferred = set.first();
 			remove(leastPreferred.getVodAddress());
 		}
 	}
@@ -126,10 +126,10 @@ public class GradientView {
 	 */
 	protected void remove(VodAddress address) {
         int oldSize = entries.size();
-//        VodDescriptor toRemove = mapping.remove(address);
-        VodDescriptor toRemove = null;
+//        SearchDescriptor toRemove = mapping.remove(address);
+        SearchDescriptor toRemove = null;
 
-        for(VodDescriptor descriptor:  entries){
+        for(SearchDescriptor descriptor:  entries){
             if(descriptor.getVodAddress().equals(address)){
                 toRemove = descriptor;
                 break;
@@ -151,13 +151,13 @@ public class GradientView {
 	 * 
 	 * @return the address of the node with the oldest age
 	 */
-	protected VodDescriptor selectPeerToShuffleWith() {
+	protected SearchDescriptor selectPeerToShuffleWith() {
 		if (entries.isEmpty()) {
 			return null;
 		}
 
 		incrementDescriptorAges();
-//		VodDescriptor oldestEntry = Collections.max(entries);
+//		SearchDescriptor oldestEntry = Collections.max(entries);
 //
 //		return oldestEntry;
 
@@ -168,22 +168,22 @@ public class GradientView {
 	 * Merge a collection of nodes in the view and drop the least preferred
 	 * nodes if the size limit is reached.
 	 * 
-	 * @param vodDescriptors
+	 * @param searchDescriptors
 	 *            the nodes to be merged
 	 */
-	protected void merge(Collection<VodDescriptor> vodDescriptors) {
-        Collection<VodDescriptor> oldEntries = (Collection<VodDescriptor>) entries.clone();
+	protected void merge(Collection<SearchDescriptor> searchDescriptors) {
+        Collection<SearchDescriptor> oldEntries = (Collection<SearchDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
         if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
             PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
                     self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
-            PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, vodDescriptors);
+            PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, searchDescriptors);
         }
 
-        for (VodDescriptor vodDescriptor : vodDescriptors) {
-            add(vodDescriptor);
+        for (SearchDescriptor searchDescriptor : searchDescriptors) {
+            add(searchDescriptor);
         }
 
 		oldEntries.retainAll(entries);
@@ -209,26 +209,26 @@ public class GradientView {
     }
 
 	/**
-	 * Return the number most preferred nodes for the given vodDescriptor.
+	 * Return the number most preferred nodes for the given searchDescriptor.
 	 * 
-	 * @param vodDescriptor
-	 *            the vodDescriptor to compare with
+	 * @param searchDescriptor
+	 *            the searchDescriptor to compare with
 	 * @param number
 	 *            the maximum number of entries to return
 	 * @return a collection of the most preferred nodes
 	 */
-	protected SortedSet<VodDescriptor> getExchangeDescriptors(VodDescriptor vodDescriptor, int number) {
-		SortedSet<VodDescriptor> set = getClosestNodes(vodDescriptor, number);
+	protected SortedSet<SearchDescriptor> getExchangeDescriptors(SearchDescriptor searchDescriptor, int number) {
+		SortedSet<SearchDescriptor> set = getClosestNodes(searchDescriptor, number);
 
-        set.remove(vodDescriptor);
+        set.remove(searchDescriptor);
 
         try {
-            assert !set.contains(vodDescriptor);
+            assert !set.contains(searchDescriptor);
         } catch (AssertionError e) {
             StringBuilder builder = new StringBuilder();
-            builder.append(self.getAddress().toString() + " should not include vodDescriptor of the exchange partner " + vodDescriptor.toString());
+            builder.append(self.getAddress().toString() + " should not include searchDescriptor of the exchange partner " + searchDescriptor.toString());
             builder.append("\n exchange set content:");
-            for (VodDescriptor a : set) {
+            for (SearchDescriptor a : set) {
                 builder.append("\n" + a.toString());
             }
             AssertionError error = new AssertionError(builder);
@@ -243,7 +243,7 @@ public class GradientView {
 
         //as part of the protocol, the source node should also be added in the set, otherwise
         // message will be discarded on the receiving node
-        set.add(self.getDescriptor());
+        set.add(new SearchDescriptor(self.getDescriptor()));
 
 		return set;
 	}
@@ -251,21 +251,21 @@ public class GradientView {
 	/**
 	 * @return all nodes with a higher preference value than self in ascending order
 	 */
-	protected SortedSet<VodDescriptor> getHigherUtilityNodes() {
-		return entries.tailSet(self.getDescriptor());
+	protected SortedSet<SearchDescriptor> getHigherUtilityNodes() {
+		return entries.tailSet(new SearchDescriptor(self.getDescriptor()));
 	}
 
 	/**
 	 * @return all nodes with a lower preference value than self in ascending order
 	 */
-	protected SortedSet<VodDescriptor> getLowerUtilityNodes() {
-		return entries.headSet(self.getDescriptor());
+	protected SortedSet<SearchDescriptor> getLowerUtilityNodes() {
+		return entries.headSet(new SearchDescriptor(self.getDescriptor()));
 	}
 
 	/**
 	 * @return a list of all entries in the view
 	 */
-	protected SortedSet<VodDescriptor> getAll() {
+	protected SortedSet<SearchDescriptor> getAll() {
 		return entries;
 	}
 
@@ -304,7 +304,7 @@ public class GradientView {
     @Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		for (VodDescriptor node : entries) {
+		for (SearchDescriptor node : entries) {
 			builder.append(node.getVodAddress().getId() + " ");
 		}
 		return builder.toString();
@@ -314,7 +314,7 @@ public class GradientView {
 	 * Increment the age of all descriptors in the view
 	 */
 	private void incrementDescriptorAges() {
-		for (VodDescriptor descriptor : entries) {
+		for (SearchDescriptor descriptor : entries) {
 			descriptor.incrementAndGetAge();
 		}
 	}
@@ -324,16 +324,16 @@ public class GradientView {
 	 * closer to the base are the best once. Closer nodes are preferred to nodes
 	 * further away.
 	 */
-	private class PreferenceComparator implements Comparator<VodDescriptor> {
-		private VodDescriptor base;
+	private class PreferenceComparator implements Comparator<SearchDescriptor> {
+		private SearchDescriptor base;
 
-		public PreferenceComparator(VodDescriptor base) {
+		public PreferenceComparator(SearchDescriptor base) {
 			super();
 			this.base = base;
 		}
 
 		@Override
-		public int compare(VodDescriptor o1, VodDescriptor o2) {
+		public int compare(SearchDescriptor o1, SearchDescriptor o2) {
 
             if (utilityComparator.compare(o1, o2) == 0) {
                 return 0;
@@ -369,7 +369,7 @@ public class GradientView {
 	 *            the maximum number of nodes to return
 	 * @return a sorted list of the closest nodes to self
 	 */
-	private SortedSet<VodDescriptor> getClosestNodes(int number) {
+	private SortedSet<SearchDescriptor> getClosestNodes(int number) {
 		return getClosestNodes(number, preferenceComparator);
 	}
 
@@ -382,7 +382,7 @@ public class GradientView {
 	 *            the maximum number of nodes to return
 	 * @return a sorted list of the closest nodes to the given address
 	 */
-	private SortedSet<VodDescriptor> getClosestNodes(VodDescriptor address, int number) {
+	private SortedSet<SearchDescriptor> getClosestNodes(SearchDescriptor address, int number) {
 		return getClosestNodes(number, new PreferenceComparator(address));
 	}
 
@@ -395,8 +395,8 @@ public class GradientView {
 	 *            the comparator to use
 	 * @return a sorted list of the closest nodes to the given address
 	 */
-	private SortedSet<VodDescriptor> getClosestNodes(int number, Comparator<VodDescriptor> c) {
-		SortedSet<VodDescriptor> set = new TreeSet<VodDescriptor>(c);
+	private SortedSet<SearchDescriptor> getClosestNodes(int number, Comparator<SearchDescriptor> c) {
+		SortedSet<SearchDescriptor> set = new TreeSet<SearchDescriptor>(c);
         set.addAll(getAll());
         while (set.size() > number) {
             set.remove(set.first());

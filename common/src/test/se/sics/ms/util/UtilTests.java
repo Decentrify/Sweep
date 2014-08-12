@@ -2,7 +2,7 @@ package se.sics.ms.util;
 
 import org.junit.*;
 import se.sics.gvod.address.Address;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
@@ -22,7 +22,7 @@ public class UtilTests {
     private static InetAddress inetAddress = null;
     private static Address address;
     private static VodAddress vodAddress;
-    private static VodDescriptor vodDescriptor;
+    private static SearchDescriptor searchDescriptor;
     private static MsSelfImpl self;
 
 
@@ -40,7 +40,7 @@ public class UtilTests {
         }
         address = new Address(inetAddress, 58027, 125);
         vodAddress = new VodAddress(address, VodConfig.SYSTEM_OVERLAY_ID);
-        vodDescriptor = new VodDescriptor(vodAddress);
+        searchDescriptor = new SearchDescriptor(vodAddress);
         self = new MsSelfImpl(vodAddress);
         self.setOverlayId(67108864);
     }
@@ -72,13 +72,13 @@ public class UtilTests {
     }
 
     @Test
-    public void determineVodDescriptorPartitionTest() {
+    public void determineSearchDescriptorPartitionTest() {
         PartitionId partitionId = new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0);
         PartitionId newPartitionId = new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1);
 
-        PartitionHelper.setPartitionId(vodDescriptor.getVodAddress(), partitionId);
+        PartitionHelper.setPartitionId(searchDescriptor.getVodAddress(), partitionId);
 
-        PartitionId partition = PartitionHelper.determineVodDescriptorPartition(vodDescriptor, true, 1);
+        PartitionId partition = PartitionHelper.determineSearchDescriptorPartition(searchDescriptor, true, 1);
 
         assert(partition.equals(newPartitionId));
 
@@ -95,12 +95,12 @@ public class UtilTests {
 
         Address address1 = new Address(inetAddress, 58027, 126);
         VodAddress vodAddress1 = new VodAddress(address1, VodConfig.SYSTEM_OVERLAY_ID);
-        VodDescriptor vodDescriptor1 = new VodDescriptor(vodAddress1);
-        PartitionHelper.setPartitionId(vodDescriptor1.getVodAddress(), selfPartition);
+        SearchDescriptor searchDescriptor1 = new SearchDescriptor(vodAddress1);
+        PartitionHelper.setPartitionId(descriptorList.getVodAddress(), selfPartition);
 
-        ArrayList<VodDescriptor> descriptors = new ArrayList<VodDescriptor>();
-        descriptors.add(vodDescriptor);
-        descriptors.add(vodDescriptor1);
+        ArrayList<SearchDescriptor> descriptors = new ArrayList<SearchDescriptor>();
+        descriptors.add(searchDescriptor);
+        descriptors.add(descriptorList);
 
         VodAddress selfAddress = self.getAddress();
 
@@ -109,6 +109,6 @@ public class UtilTests {
         PartitionHelper.adjustDescriptorsToNewPartitionId(partitionIdToAdjustTo, descriptors);
 
         assert (descriptors.size() == 1);
-        assert (descriptors.get(0).equals(vodDescriptor));
+        assert (descriptors.get(0).equals(searchDescriptor));
     }
 }

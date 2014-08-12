@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
@@ -46,9 +46,9 @@ public class ElectionFollower extends ComponentDefinition {
 
     private ElectionConfiguration config;
     private Self self;
-    private VodDescriptor leader;
-    private SortedSet<VodDescriptor> higherUtilityNodes;
-    private Set<VodDescriptor> leaderView;
+    private SearchDescriptor leader;
+    private SortedSet<SearchDescriptor> higherUtilityNodes;
+    private Set<SearchDescriptor> leaderView;
     private boolean leaderIsAlive, isConverged;
     private TimeoutId heartBeatTimeoutId, deathVoteTimeout;
     private int aliveCounter, deathMessageCounter;
@@ -111,7 +111,7 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(ElectionMessage.Request event) {
             boolean candidateAccepted = true;
-            VodDescriptor highestUtilityNode = getHighestUtilityNode();
+            SearchDescriptor highestUtilityNode = getHighestUtilityNode();
 
             // Don't vote yes unless the source has the highest utility
             if (utilityComparator.compare(highestUtilityNode, event.getLeaderCandidateDescriptor()) == 1) {
@@ -131,27 +131,27 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
 
-    private VodDescriptor getHighestUtilityNode() {
+    private SearchDescriptor getHighestUtilityNode() {
         //removeNodesFromOtherPartitions();
-        VodDescriptor vodDescriptor;
+        SearchDescriptor searchDescriptor;
         if (higherUtilityNodes.size() != 0) {
-            vodDescriptor = higherUtilityNodes.last();
+            searchDescriptor = higherUtilityNodes.last();
         } else {
-            vodDescriptor = self.getDescriptor();
+            searchDescriptor = new SearchDescriptor(self.getDescriptor());
         }
 
-        return  vodDescriptor;
+        return  searchDescriptor;
     }
 
-    private VodDescriptor getHighestUtilityNode(VodDescriptor vodDescriptor) {
+    private SearchDescriptor getHighestUtilityNode(SearchDescriptor searchDescriptor) {
         //removeNodesFromOtherPartitions();
         if (higherUtilityNodes.size() != 0) {
-            vodDescriptor = utilityComparator.compare(higherUtilityNodes.last(), vodDescriptor) == 1 ? higherUtilityNodes.last() : vodDescriptor;
+            searchDescriptor = utilityComparator.compare(higherUtilityNodes.last(), searchDescriptor) == 1 ? higherUtilityNodes.last() : searchDescriptor;
         } else {
-            vodDescriptor = self.getDescriptor();
+            searchDescriptor = new SearchDescriptor(self.getDescriptor());
         }
 
-        return  vodDescriptor;
+        return  searchDescriptor;
     }
 
     /**
@@ -161,7 +161,7 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
-            higherUtilityNodes = event.getHigherUtilityNodes(self.getDescriptor());
+            higherUtilityNodes = event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor()));
         }
     };
     /**
@@ -172,26 +172,26 @@ public class ElectionFollower extends ComponentDefinition {
     final Handler<LeaderViewMessage> handleHeartbeat = new Handler<LeaderViewMessage>() {
         @Override
         public void handle(LeaderViewMessage event) {
-            VodDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderVodDescriptor());
+            SearchDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderSearchDescriptor());
 
             if(highestUtilityNode.getVodAddress().getPartitionId() != self.getAddress().getPartitionId()
                     || highestUtilityNode.getVodAddress().getPartitionIdDepth() != self.getAddress().getPartitionIdDepth()
                     || highestUtilityNode.getVodAddress().getPartitioningType() != self.getAddress().getPartitioningType())
-                highestUtilityNode = event.getLeaderVodDescriptor();
+                highestUtilityNode = event.getLeaderSearchDescriptor();
 
             if (leader == null) {
-                if (event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
-                    acceptLeader(event.getLeaderVodDescriptor(), event.getVodDescriptors());
+                if (event.getLeaderSearchDescriptor().equals(highestUtilityNode)) {
+                    acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors());
                 } else {
                     rejectLeader(event.getVodSource(), highestUtilityNode);
                 }
-            } else if (!event.getLeaderVodDescriptor().equals(highestUtilityNode)) {
+            } else if (!event.getLeaderSearchDescriptor().equals(highestUtilityNode)) {
                 rejectLeader(event.getVodSource(), highestUtilityNode);
-            } else if (event.getLeaderVodDescriptor().equals(leader)) {
-                acceptLeader(leader, event.getVodDescriptors());
+            } else if (event.getLeaderSearchDescriptor().equals(leader)) {
+                acceptLeader(leader, event.getSearchDescriptors());
             } else {
                 rejectLeader(leader.getVodAddress(), highestUtilityNode);
-                acceptLeader(event.getLeaderVodDescriptor(), event.getVodDescriptors());
+                acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors());
             }
         }
     };
@@ -218,7 +218,7 @@ public class ElectionFollower extends ComponentDefinition {
                 timeout.setTimeoutEvent(new DeathTimeout(timeout, self.getId()));
                 deathVoteTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
-                for (VodDescriptor addr : leaderView) {
+                for (SearchDescriptor addr : leaderView) {
                     LeaderSuspicionMessage.Request msg = new LeaderSuspicionMessage.Request(
                             self.getAddress(),
                             addr.getVodAddress(),
@@ -356,8 +356,8 @@ public class ElectionFollower extends ComponentDefinition {
                 && deathMessageCounter >= leaderView.size() * config.getDeathVoteMajorityPercentage()
                 && aliveCounter < Math.ceil((float) leaderView.size() * config.getLeaderDeathMajorityPercentage())) {
 
-            for (VodDescriptor vodDescriptor : leaderView) {
-                LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(self.getAddress(), vodDescriptor.getVodAddress(), leader);
+            for (SearchDescriptor searchDescriptor : leaderView) {
+                LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(self.getAddress(), searchDescriptor.getVodAddress(), leader);
                 trigger(msg, networkPort);
             }
 
@@ -403,7 +403,7 @@ public class ElectionFollower extends ComponentDefinition {
      * @param node the leader's Address
      * @param view the leader's current view
      */
-    private void acceptLeader(VodDescriptor node, Set<VodDescriptor> view) {
+    private void acceptLeader(SearchDescriptor node, Set<SearchDescriptor> view) {
         leaderIsAlive = true;
         leader = node;
         leaderView = view;
@@ -418,7 +418,7 @@ public class ElectionFollower extends ComponentDefinition {
      * @param node the leader's address
      * @param betterNode the better node's descriptor
      */
-    private void rejectLeader(VodAddress node, VodDescriptor betterNode) {
+    private void rejectLeader(VodAddress node, SearchDescriptor betterNode) {
         leader = null;
         leaderView = null;
         leaderIsAlive = false;
@@ -440,10 +440,10 @@ public class ElectionFollower extends ComponentDefinition {
         removeNodeFromCollection(nodeAddress, higherUtilityNodes);
     }
 
-    private void removeNodeFromCollection(VodAddress nodeAddress, Collection<VodDescriptor> collection) {
-        Iterator<VodDescriptor> i = collection.iterator();
+    private void removeNodeFromCollection(VodAddress nodeAddress, Collection<SearchDescriptor> collection) {
+        Iterator<SearchDescriptor> i = collection.iterator();
         while (i.hasNext()) {
-            VodDescriptor descriptor = i.next();
+            SearchDescriptor descriptor = i.next();
 
             if(descriptor.getVodAddress().equals(nodeAddress)) {
                 i.remove();

@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -19,21 +19,21 @@ import java.util.Set;
  * Time: 10:48 AM
  */
 public class LeaderViewMessage extends DirectMsgNetty.Oneway {
-    private final VodDescriptor leaderVodDescriptor;
-    private final Set<VodDescriptor> vodDescriptors;
+    private final SearchDescriptor leaderSearchDescriptor;
+    private final Set<SearchDescriptor> searchDescriptors;
 
-    public LeaderViewMessage(VodAddress source, VodAddress destination, VodDescriptor leaderVodDescriptor, Set<VodDescriptor> vodDescriptors) {
+    public LeaderViewMessage(VodAddress source, VodAddress destination, SearchDescriptor leaderSearchDescriptor, Set<SearchDescriptor> searchDescriptors) {
         super(source, destination);
-        this.vodDescriptors = vodDescriptors;
-        this.leaderVodDescriptor = leaderVodDescriptor;
+        this.searchDescriptors = searchDescriptors;
+        this.leaderSearchDescriptor = leaderSearchDescriptor;
     }
 
-    public VodDescriptor getLeaderVodDescriptor() {
-        return leaderVodDescriptor;
+    public SearchDescriptor getLeaderSearchDescriptor() {
+        return leaderSearchDescriptor;
     }
 
-    public Set<VodDescriptor> getVodDescriptors() {
-        return vodDescriptors;
+    public Set<SearchDescriptor> getSearchDescriptors() {
+        return searchDescriptors;
     }
 
     @Override
@@ -43,14 +43,14 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new LeaderViewMessage(vodSrc, vodDest, leaderVodDescriptor, vodDescriptors);
+        return new LeaderViewMessage(vodSrc, vodDest, leaderSearchDescriptor, searchDescriptors);
     }
 
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, leaderVodDescriptor);
-        ApplicationTypesEncoderFactory.writeVodDescriptorSet(buffer, vodDescriptors);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(leaderSearchDescriptor));
+        ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, searchDescriptors);
         return buffer;
     }
 

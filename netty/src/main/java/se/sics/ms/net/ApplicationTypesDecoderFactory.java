@@ -3,7 +3,7 @@ package se.sics.ms.net;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.base64.Base64Decoder;
 import org.apache.commons.codec.binary.Base64;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
@@ -151,11 +151,11 @@ public class ApplicationTypesDecoderFactory {
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
     }
 
-    public static Set<VodDescriptor> readVodDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
+    public static Set<SearchDescriptor> readSearchDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        Set<VodDescriptor> addrs = new HashSet<VodDescriptor>();
+        Set<SearchDescriptor> addrs = new HashSet<SearchDescriptor>();
         for (int i = 0; i < len; i++) {
-            addrs.add(readVodNodeDescriptor(buffer));
+            addrs.add(new SearchDescriptor(readVodNodeDescriptor(buffer)));
         }
         return addrs;
     }

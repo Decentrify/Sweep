@@ -1,7 +1,7 @@
 package se.sics.ms.gradient;
 
 import java.util.SortedSet;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 
@@ -18,7 +18,7 @@ public class GradientViewChangePort extends PortType {
 	 */
 	public static class GradientViewChanged extends Event {
 		private final boolean isConverged;
-		private final SortedSet<VodDescriptor> gradientView;
+		private final SortedSet<SearchDescriptor> gradientView;
 
 		/**
 		 * Default constructor
@@ -28,7 +28,7 @@ public class GradientViewChangePort extends PortType {
 		 * @param gradientView
 		 *            the current view of the gradient
 		 */
-		public GradientViewChanged(boolean isConverged, SortedSet<VodDescriptor> gradientView) {
+		public GradientViewChanged(boolean isConverged, SortedSet<SearchDescriptor> gradientView) {
 			super();
 			this.isConverged = isConverged;
 			this.gradientView = gradientView;
@@ -48,7 +48,7 @@ public class GradientViewChangePort extends PortType {
          *
          * @return all nodes in the view
          */
-        public SortedSet<VodDescriptor> getGradientView() {
+        public SortedSet<SearchDescriptor> getGradientView() {
             return gradientView;
         }
 
@@ -57,8 +57,8 @@ public class GradientViewChangePort extends PortType {
          *
          * @return all nodes with a higher preference value than the given descriptor in ascending order
          */
-        public SortedSet<VodDescriptor> getHigherUtilityNodes(VodDescriptor vodDescriptor) {
-            return gradientView.tailSet(vodDescriptor);
+        public SortedSet<SearchDescriptor> getHigherUtilityNodes(SearchDescriptor searchDescriptor) {
+            return gradientView.tailSet(searchDescriptor);
         }
 
         /**
@@ -66,8 +66,8 @@ public class GradientViewChangePort extends PortType {
          *
          * @return all nodes with a lower preference value than the given descriptor in ascending order
          */
-        public SortedSet<VodDescriptor> getLowerUtilityNodes(VodDescriptor vodDescriptor) {
-            return gradientView.headSet(vodDescriptor);
+        public SortedSet<SearchDescriptor> getLowerUtilityNodes(SearchDescriptor searchDescriptor) {
+            return gradientView.headSet(searchDescriptor);
         }
 	}
 }

@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -16,15 +16,15 @@ import se.sics.ms.net.MessageFrameDecoder;
  * Time: 12:32 PM
  */
 public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
-    private final VodDescriptor leader;
+    private final SearchDescriptor leader;
 
     /**
      * Creates a new LeaderAnnouncementMsg
      * @param source
      * @param destination
-     * @param leader VodDescriptor of the leader
+     * @param leader SearchDescriptor of the leader
      */
-    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, VodDescriptor leader) {
+    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, SearchDescriptor leader) {
         super(source, destination);
 
         if(leader == null)
@@ -37,7 +37,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
      * Returns the leader
      * @return leader's VodAddress
      */
-    public VodDescriptor getLeader() {
+    public SearchDescriptor getLeader() {
         return leader;
     }
 
@@ -54,7 +54,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, leader);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(leader));
         return buffer;
     }
 

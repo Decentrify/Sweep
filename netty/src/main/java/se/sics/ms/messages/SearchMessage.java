@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
@@ -173,19 +173,19 @@ public class SearchMessage {
      * Timeout for active {@link se.sics.ms.messages.SearchMessage.Request}s.
      */
     public static class RequestTimeout extends IndividualTimeout {
-        private final VodDescriptor vodDescriptor;
+        private final SearchDescriptor searchDescriptor;
 
         /**
          * @param request
          *            the ScheduleTimeout that holds the Timeout
          */
-        public RequestTimeout(ScheduleTimeout request, int id, VodDescriptor vodDescriptor) {
+        public RequestTimeout(ScheduleTimeout request, int id, SearchDescriptor searchDescriptor) {
             super(request, id);
-            this.vodDescriptor = vodDescriptor;
+            this.searchDescriptor = searchDescriptor;
         }
 
-        public VodDescriptor getVodDescriptor() {
-            return vodDescriptor;
+        public SearchDescriptor getSearchDescriptor() {
+            return searchDescriptor;
         }
     }
 }

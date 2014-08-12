@@ -1,6 +1,6 @@
 package se.sics.ms.gradient;
 
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import java.util.Comparator;
 
 /**
@@ -8,10 +8,10 @@ import java.util.Comparator;
  * Utility function: NatType (open/closed) - Number of index entries - Node id
  * @author: Steffen Grohsschmiedt
  */
-public class UtilityComparator implements Comparator<VodDescriptor> {
+public class UtilityComparator implements Comparator<SearchDescriptor> {
 
     @Override
-    public int compare(VodDescriptor o1, VodDescriptor o2) {
+    public int compare(SearchDescriptor o1, SearchDescriptor o2) {
         if(o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {
             if(o1.getVodAddress().isOpen())
                 return -1;
