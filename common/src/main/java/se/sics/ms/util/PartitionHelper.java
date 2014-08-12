@@ -197,8 +197,9 @@ public class PartitionHelper {
                             nextAddress.getPartitionId()));
 
             VodAddress a = updatePartitionId(nextAddress, new PartitionId(VodAddress.PartitioningType.MANY_BEFORE,
+                    nextAddress.getPartitionIdDepth() + 1,
                     partitionSubId ? nextAddress.getPartitionId() | (1 << nextAddress.getPartitionIdDepth()) :
-            nextAddress.getPartitionIdDepth(), nextAddress.getPartitionIdDepth() + 1));
+                    nextAddress.getPartitionIdDepth()));
 
 
             boolean isOne = ((nextAddress.getPartitionId() & (1 << nextAddress.getPartitionIdDepth()-1)) == 1);
