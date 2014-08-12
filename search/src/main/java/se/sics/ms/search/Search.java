@@ -213,7 +213,7 @@ public final class Search extends ComponentDefinition {
          * @return true if the number of retries exceeded the limit
          */
         public boolean reachedRetryLimit() {
-            return numberOfRetries > retryLimit;
+            return numberOfRetries == retryLimit;
         }
 
         /**
