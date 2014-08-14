@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
+import se.sics.ms.gradient.LeaderInfoUpdate;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -242,9 +243,7 @@ public class ElectionFollower extends ComponentDefinition {
             if (event.isNodeInView() == true) {
                 leaderIsAlive = true;
             } else {
-                leader = null;
-                leaderView = null;
-                leaderIsAlive = false;
+                resetLeader();
 
                 cancelHeartbeatTimeout();
             }
@@ -314,9 +313,7 @@ public class ElectionFollower extends ComponentDefinition {
                 cancelHeartbeatTimeout();
                 trigger(new NodeCrashEvent(leader.getVodAddress()), leaderStatusPort);
 
-                leader = null;
-                leaderView = null;
-                leaderIsAlive = false;
+                resetLeader();
             }
         }
     };
@@ -326,9 +323,7 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
             cancelHeartbeatTimeout();
 
-            leader = null;
-            leaderView = null;
-            leaderIsAlive = false;
+            resetLeader();
             isConverged = false;
             //higherUtilityNodes.clear();
             deathVoteTimeout = null;
@@ -362,8 +357,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
 
             trigger(new NodeCrashEvent(leader.getVodAddress()), leaderStatusPort);
-            leader = null;
-            leaderView = null;
+            resetLeader();
         } else { // The leader MIGHT be alive
             leaderIsAlive = true;
             scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
@@ -410,6 +404,8 @@ public class ElectionFollower extends ComponentDefinition {
 
         cancelHeartbeatTimeout();
         scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
+
+        trigger(new LeaderInfoUpdate(leader.getVodAddress()), leaderStatusPort);
     }
 
     /**
@@ -419,9 +415,7 @@ public class ElectionFollower extends ComponentDefinition {
      * @param betterNode the better node's descriptor
      */
     private void rejectLeader(VodAddress node, SearchDescriptor betterNode) {
-        leader = null;
-        leaderView = null;
-        leaderIsAlive = false;
+        resetLeader();
 
         // Cancel old timeouts
         cancelHeartbeatTimeout();
@@ -459,4 +453,13 @@ public class ElectionFollower extends ComponentDefinition {
             removeNodesFromLocalState(event.getSuspectedNodes());
         }
     };
+
+    void resetLeader() {
+
+        leader = null;
+        leaderView = null;
+        leaderIsAlive = false;
+
+        trigger(new LeaderInfoUpdate(null), leaderStatusPort);
+    }
 }

@@ -59,6 +59,7 @@ public final class Gradient extends ComponentDefinition {
     private UtilityComparator utilityComparator = new UtilityComparator();
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
+    private VodAddress leaderAddress;
     private Map<Integer, Long> shuffleTimes = new HashMap<Integer, Long>();
     private ArrayList<TimeoutId> partitionRequestList;
     int latestRttRingBufferPointer = 0;
@@ -128,6 +129,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleNodeCrash, leaderStatusPort);
+        subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handlePublicKeyMessage, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
@@ -146,7 +148,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
         subscribe(handleFailureDetector, fdPort);
 		subscribe(handlerControlMessageExchangeInitiation, gradientRoutingPort);
-        subscribe(handlerCheckPartitioningUpdate, gradientRoutingPort);
+        subscribe(handlerControlMessageInternalRequest, gradientRoutingPort);
         subscribe(handlerCheckPartitioningInfoRequest, gradientRoutingPort);
 
     }
@@ -163,6 +165,7 @@ public final class Gradient extends ComponentDefinition {
             gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
             routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>>();
             leader = false;
+            leaderAddress = null;
             latestRtts = new long[config.getLatestRttStoreLimit()];
             partitionRequestList = new ArrayList<TimeoutId>();
             partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
@@ -556,30 +559,39 @@ public final class Gradient extends ComponentDefinition {
             if (addCategory == selfCategory) {
                 if (leader) {
                     trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
-                    return;
                 }
 
-                NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
-                startNodes.addAll(gradientView.getAll());
+                //if we have direct pointer to the leader
+                else if(leaderAddress != null) {
+                    //sendLeaderLookupRequest(new SearchDescriptor(leaderAddress));
+                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
+                }
 
-                //Also add nodes from croupier sample to have more chances of getting higher utility nodes, this works
-                //as a finger table to random nodes
-                Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
-                if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
-                    HashSet<SearchDescriptor> croupierNodes =  croupierPartitions.get(self.getAddress().getPartitionId());
-                    if(croupierNodes != null && !croupierNodes.isEmpty()) {
-                        startNodes.addAll(croupierNodes);
+                else
+                {
+                    NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
+                    startNodes.addAll(gradientView.getAll());
+
+                    //Also add nodes from croupier sample to have more chances of getting higher utility nodes, this works
+                    //as a finger table to random nodes
+                    Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
+                    if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
+                        HashSet<SearchDescriptor> croupierNodes =  croupierPartitions.get(self.getAddress().getPartitionId());
+                        if(croupierNodes != null && !croupierNodes.isEmpty()) {
+                            startNodes.addAll(croupierNodes);
+                        }
+                    }
+
+                    // Higher utility nodes are further away in the sorted set
+                    Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
+
+                    for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+                        SearchDescriptor node = iterator.next();
+                        sendLeaderLookupRequest(node);
                     }
                 }
-
-                // Higher utility nodes are further away in the sorted set
-                Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
-
-                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
-                    SearchDescriptor node = iterator.next();
-                    sendLeaderLookupRequest(node);
-                }
-            } else {
+            }
+            else {
                 Map<Integer, HashSet<SearchDescriptor>> partitions = routingTable.get(addCategory);
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
@@ -777,7 +789,6 @@ public final class Gradient extends ComponentDefinition {
             if (categoryRoutingMap == null) {
                 return;
             }
-
             trigger(new NumberOfPartitions(event.getTimeoutId(), categoryRoutingMap.keySet().size()), gradientRoutingPort);
 
             for (Integer partition : categoryRoutingMap.keySet()) {
@@ -1108,34 +1119,56 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
+    Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>(){
+        @Override
+        public void handle(ControlMessageInternal.Request event) {
+
+            if(event instanceof  CheckPartitionInfoHashUpdate.Request)
+                handleCheckPartitionInternalControlMessage((CheckPartitionInfoHashUpdate.Request)event);
+            else if(event instanceof  CheckLeaderInfoUpdate.Request)
+                handleCheckLeaderInfoInternalControlMessage((CheckLeaderInfoUpdate.Request) event);
+        }
+    };
+
+    private void handleCheckLeaderInfoInternalControlMessage(CheckLeaderInfoUpdate.Request event) {
+
+        // Check for the partitioning updates and return it back.
+        logger.debug("Check Leader Update Received.");
+
+        trigger(new CheckLeaderInfoUpdate.Response(event.getRoundId(), event.getSourceAddress(),
+                leader ? self.getAddress() : leaderAddress), gradientRoutingPort);
+    }
+
+    Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
+        @Override
+        public void handle(LeaderInfoUpdate leaderInfoUpdate) {
+            leaderAddress = leaderInfoUpdate.getLeaderAddress();
+        }
+    };
 
     /**
      * Request To check if the source address is behind in terms of partitioning updates.
      */
-    Handler<CheckPartitionInfoHashUpdate.Request> handlerCheckPartitioningUpdate = new Handler<CheckPartitionInfoHashUpdate.Request>(){
-        @Override
-        public void handle(CheckPartitionInfoHashUpdate.Request event) {
+    private void handleCheckPartitionInternalControlMessage(CheckPartitionInfoHashUpdate.Request event) {
 
-            // Check for the partitioning updates and return it back.
-            logger.debug("Check Partitioning Update Received.");
+        // Check for the partitioning updates and return it back.
+        logger.debug("Check Partitioning Update Received.");
 
-            LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<>();
-            ControlMessageEnum controlMessageEnum;
+        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<>();
+        ControlMessageEnum controlMessageEnum;
 
-            // Check for the responses when you have atleast partitioned yourself.
-            if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
+        // Check for the responses when you have atleast partitioned yourself.
+        if (self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
-                controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getSourceAddress(), partitionUpdateHashes);
-            }
-            else{
-                // Send empty partition update as you have not partitioned.
-                controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
-            }
-
-            // Trigger the partitioning update.
-            trigger(new CheckPartitionInfoHashUpdate.Response(event.getRoundId(),event.getSourceAddress(), partitionUpdateHashes, controlMessageEnum), gradientRoutingPort);
+            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getSourceAddress(), partitionUpdateHashes);
+        } else {
+            // Send empty partition update as you have not partitioned.
+            controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
         }
-    };
+
+        // Trigger the partitioning update.
+        trigger(new CheckPartitionInfoHashUpdate.Response(event.getRoundId(), event.getSourceAddress(), partitionUpdateHashes, controlMessageEnum), gradientRoutingPort);
+    }
 
 
     /**

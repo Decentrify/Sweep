@@ -33,10 +33,7 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.control.ControlBase;
-import se.sics.ms.control.ControlMessageHelper;
-import se.sics.ms.control.ControlMessageResponseTypeEnum;
-import se.sics.ms.control.PartitionControlResponse;
+import se.sics.ms.control.*;
 import se.sics.ms.gradient.*;
 import se.sics.ms.peer.SimulationEventsPort;
 import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
@@ -269,7 +266,7 @@ public final class Search extends ComponentDefinition {
         // Generic Control message exchange mechanism
         subscribe(handlerControlMessageExchangeRound, timerPort);
         subscribe(handlerControlMessageRequest, networkPort);
-        subscribe(handlerCheckPartitionUpdateResponse, gradientRoutingPort);
+        subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
         subscribe(handlerCheckPartitionInfoResponse, gradientRoutingPort);
@@ -483,8 +480,9 @@ public final class Search extends ComponentDefinition {
             // Update the latest request id from the peer control message from the map.
             peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
 
-            // For now only trigger partitioning check update.
+            // Request info from the gradient component
             trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
+            trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
         }
     };
 
@@ -492,14 +490,12 @@ public final class Search extends ComponentDefinition {
     /**
      * Received the partitioning updates from the gradient component.
      */
-    Handler<CheckPartitionInfoHashUpdate.Response> handlerCheckPartitionUpdateResponse = new Handler<CheckPartitionInfoHashUpdate.Response>(){
+    Handler<ControlMessageInternal.Response> handlerControlMessageInternalResponse = new Handler<ControlMessageInternal.Response>(){
 
         @Override
-        public void handle(CheckPartitionInfoHashUpdate.Response event) {
+        public void handle(ControlMessageInternal.Response event) {
 
             try{
-
-                logger.debug(" Check Partitioning response received  ... ");
 
                 TimeoutId roundIdReceived = event.getRoundId();
                 TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
@@ -516,9 +512,9 @@ public final class Search extends ComponentDefinition {
                     return;
                 }
 
-                // Fetch the buffer to write and append the information in it.
                 ByteBuf buf = controlMessageResponse.getBuffer();
-                ControlMessageEncoderFactory.encodePartitioningUpdateHashesSequence(buf, event.getControlMessageEnum() , event.getPartitionUpdateHashes());
+                // Fetch the buffer to write and append the information in it.
+                ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event);
 
                 // encansuplate it into a separate method.
                 if(controlMessageResponse.addAndCheckStatus()){
@@ -580,31 +576,10 @@ public final class Search extends ComponentDefinition {
                 // Check if more control messages available in the buffer.
                 while (numOfIterations > 0) {
 
-                    // Read the Control Message Enum from the message.
-                    ControlMessageEnum controlMessageEnum = ControlMessageDecoderFactory.getControlMessageEnum(buffer);
+                    ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
 
-                    // Based on the control message enum received, update the control response map.
-                    switch(controlMessageEnum){
-
-                        case NO_PARTITION_UPDATE:
-                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.NO_PARTITION_UPDATE, event.getVodSource(), buffer, controlMessageResponseHolderMap);
-                            break;
-
-                        case PARTITION_UPDATE:
-                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.PARTITION_UPDATE, event.getVodSource(), buffer, controlMessageResponseHolderMap);
-                            break;
-
-                        case REJOIN:
-                            ControlMessageHelper.addPartitioningHashUpdate(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE, ControlMessageEnum.REJOIN, event.getVodSource(), buffer, controlMessageResponseHolderMap);
-                            break;
-
-                        case LEADER_UPDATE:
-                            //Leader Update entry will go here.
-
-                        default:
-                            logger.error(" Enum Not Recognized ... ");
-                            break;
-                    }
+                    if(controlMessageInternalResponse != null)
+                        ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
 
                     // Handles iterations within a response.
                     numOfIterations -=1;
@@ -652,10 +627,48 @@ public final class Search extends ComponentDefinition {
 
                 case LEADER_UPDATE_RESPONSE:{
                     logger.debug(" Handle Leader Update Response .. ");
+                    performLeaderUpdateMatching((List<LeaderInfoControlResponse>)entry.getValue());
                     break;
                 }
             }
         }
+    }
+
+
+    private void performLeaderUpdateMatching(List<LeaderInfoControlResponse> leaderControlResponses) {
+
+        VodAddress newLeader = null;
+        boolean isFirst = true;
+        //agree to a leader only if all received responses have leader as null or
+        // points to the same exact same leader.
+        boolean hasAgreedLeader = true;
+
+        for(LeaderInfoControlResponse leaderInfo : leaderControlResponses) {
+
+            VodAddress currentLeader = leaderInfo.getLeaderAddress();
+
+            if(isFirst) {
+                newLeader = currentLeader;
+                isFirst = false;
+            }
+            else {
+
+                if((currentLeader != null && newLeader == null) ||
+                        (newLeader != null && currentLeader == null)) {
+                    hasAgreedLeader = false;
+                    break;
+                }
+                else if(currentLeader != null && newLeader != null) {
+                    if (newLeader.equals(currentLeader) == false) {
+                        hasAgreedLeader = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if(hasAgreedLeader)
+            trigger(new LeaderInfoUpdate(newLeader), leaderStatusPort);
     }
 
 

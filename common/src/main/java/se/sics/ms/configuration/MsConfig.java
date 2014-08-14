@@ -58,7 +58,7 @@ public class MsConfig extends VodConfig {
     // Generic control exchange message.
     public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 30*1000;
     public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 2*1000;
-    public static final int CONTROL_MESSAGE_ENUM_SIZE = 1;
+    public static final int CONTROL_MESSAGE_ENUM_SIZE = 2;
 
     // Two phase commit timeout.
     public static final int LEADER_GROUP_SIZE = 4;

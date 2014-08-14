@@ -3,7 +3,9 @@ package se.sics.ms.control;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.ms.gradient.ControlMessageEnum;
+import se.sics.ms.messages.ControlMessage;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.util.PartitionHelper;
 
@@ -17,23 +19,6 @@ import java.util.Map;
  * Created by babbarshaer on 2014-08-03.
  */
 public class ControlMessageHelper {
-
-
-
-    public static void addPartitioningHashUpdate(ControlMessageResponseTypeEnum controlMessageResponseTypeEnum, ControlMessageEnum controlMessageEnum , VodAddress sourceAddress , ByteBuf buffer, Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap) throws MessageDecodingException {
-
-        // Fetch the list of partition hashes from the application decoder factory.
-        List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes;
-        partitionUpdateHashes = ApplicationTypesDecoderFactory.readPartitionUpdateHashSequence(buffer);
-
-        // Create a specific object.
-        PartitionControlResponse partitionControl = new PartitionControlResponse(controlMessageResponseTypeEnum, controlMessageEnum, partitionUpdateHashes, sourceAddress);
-
-        // Update the list of objects in the final map.
-        updateTheControlMessageResponseHolderMap(partitionControl, controlMessageResponseHolderMap);
-    }
-
-
     /**
      * A generic method to simply update the control response holder map with appropriate object.
      *
@@ -50,7 +35,4 @@ public class ControlMessageHelper {
 
         controlMessageResponseHolderMap.put(controlResponse.getControlMessageResponseTypeEnum(), listControl);
     }
-
-
-
 }

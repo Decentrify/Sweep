@@ -35,8 +35,8 @@ public class GradientRoutingPort extends PortType {
 
         // Generic Pull Based Control Message Exchange.
         negative(InitiateControlMessageExchangeRound.class);
-        negative(CheckPartitionInfoHashUpdate.Request.class);
-        positive(CheckPartitionInfoHashUpdate.Response.class);
+        negative(ControlMessageInternal.Request.class);
+        positive(ControlMessageInternal.Response.class);
 
         negative(CheckPartitionInfo.Request.class);
         positive(CheckPartitionInfo.Response.class);

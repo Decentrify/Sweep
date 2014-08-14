@@ -36,9 +36,9 @@ public class PartitionControlResponse extends ControlBase{
         return sourceAddress != null ? sourceAddress.hashCode() : 0;
     }
 
-    public PartitionControlResponse(ControlMessageResponseTypeEnum controlMessageResponseTypeEnum , ControlMessageEnum controlMessageEnum , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes , VodAddress sourceAddress){
+    public PartitionControlResponse(ControlMessageEnum controlMessageEnum , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes , VodAddress sourceAddress){
 
-        super(controlMessageResponseTypeEnum);
+        super(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE);
         this.controlMessageEnum = controlMessageEnum;
         this.partitionUpdateHashes = partitionUpdateHashes;
         this.sourceAddress = sourceAddress;

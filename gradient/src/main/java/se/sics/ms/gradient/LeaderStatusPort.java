@@ -8,6 +8,8 @@ public class LeaderStatusPort extends PortType {
 	{
 		negative(LeaderStatus.class);
 		negative(NodeCrashEvent.class);
+        negative(LeaderInfoUpdate.class);
+        positive(LeaderInfoUpdate.class);
         positive(TerminateBeingLeader.class);
 	}
 

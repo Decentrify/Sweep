@@ -1,13 +1,12 @@
 package se.sics.ms.gradient;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.util.PartitionHelper;
 
-import java.nio.ByteBuffer;
 import java.util.LinkedList;
 
 /**
@@ -18,24 +17,6 @@ import java.util.LinkedList;
  */
 public class ControlMessageEncoderFactory {
 
-
-    public static void encodePartitioningUpdateSequence(ByteBuf buffer , ControlMessageEnum controlMessageEnum, LinkedList<PartitionHelper.PartitionInfo> partitionUpdates) throws MessageEncodingException {
-
-
-            // Create an expandable buffer and encode the control message enum in it.
-            buffer.writeInt(controlMessageEnum.ordinal());
-
-            if(controlMessageEnum == ControlMessageEnum.REJOIN || controlMessageEnum == ControlMessageEnum.NO_PARTITION_UPDATE)
-                UserTypesEncoderFactory.writeUnsignedintAsOneByte(buffer, 0);
-
-            else {
-                // Update the method and make it more uniform because of multiple check it is becoming a problem.
-                // TODO: Improvement after Test Run.
-                ApplicationTypesEncoderFactory.writeDelayedPartitionInfo(buffer, partitionUpdates);
-            }
-
-    }
-
     /**
      * Encode the PartitionHashes in the ByteBuf passed.
      * @param buffer
@@ -43,12 +24,35 @@ public class ControlMessageEncoderFactory {
      * @param partitionUpdateHashes
      * @throws MessageEncodingException
      */
-    public static void encodePartitioningUpdateHashesSequence(ByteBuf buffer, ControlMessageEnum controlMessageEnum , LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) throws MessageEncodingException {
+    private static void encodePartitioningUpdateHashesSequence(ByteBuf buffer, ControlMessageEnum controlMessageEnum , LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) throws MessageEncodingException {
 
         // Create an expandable buffer and encode the control message enum in it.
         buffer.writeInt(controlMessageEnum.ordinal());
         ApplicationTypesEncoderFactory.writePartitionUpdateHashSequence(buffer, partitionUpdateHashes);
     }
 
+    private static void encodeLeaderUpdate(ByteBuf buffer, VodAddress leader) throws MessageEncodingException {
 
+        buffer.writeInt(ControlMessageEnum.LEADER_UPDATE.ordinal());
+        if(leader != null) {
+            //to indicate that leader info is available in the encoded message
+            buffer.writeBoolean(true);
+            UserTypesEncoderFactory.writeVodAddress(buffer, leader);
+        }
+        else {
+            buffer.writeBoolean(false);
+        }
+    }
+
+    public static void encodeControlMessageInternal(ByteBuf buf, ControlMessageInternal.Response message) throws MessageEncodingException {
+
+        if(message instanceof CheckPartitionInfoHashUpdate.Response) {
+            CheckPartitionInfoHashUpdate.Response event = (CheckPartitionInfoHashUpdate.Response)message;
+            ControlMessageEncoderFactory.encodePartitioningUpdateHashesSequence(buf, event.getControlMessageEnum() , event.getPartitionUpdateHashes());
+        }
+        else if(message instanceof CheckLeaderInfoUpdate.Response) {
+            CheckLeaderInfoUpdate.Response event = (CheckLeaderInfoUpdate.Response)message;
+            ControlMessageEncoderFactory.encodeLeaderUpdate(buf, event.getLeader());
+        }
+    }
 }
