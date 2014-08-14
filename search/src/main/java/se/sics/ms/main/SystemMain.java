@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.SelfImpl;
 import se.sics.gvod.common.util.ToVodAddr;
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -24,7 +23,6 @@ import se.sics.gvod.net.NatNetworkControl;
 import se.sics.gvod.net.NettyInit;
 import se.sics.gvod.net.NettyNetwork;
 import se.sics.gvod.net.Transport;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
@@ -44,12 +42,12 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.peer.SearchPeerInit;
-import se.sics.ms.search.UiPort;
+import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.ui.UiComponent;
 import se.sics.ms.ui.UiComponentInit;
-import se.sics.ms.peer.SearchPeer;
+import se.sics.ms.search.SearchPeer;
 
 public class SystemMain extends ComponentDefinition {
 

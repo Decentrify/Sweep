@@ -1,10 +1,9 @@
 package se.sics.ms.control;
 
 import se.sics.gvod.net.VodAddress;
-import se.sics.ms.gradient.ControlMessageEnum;
+import se.sics.ms.gradient.control.ControlMessageEnum;
 import se.sics.ms.util.PartitionHelper;
 
-import java.util.LinkedList;
 import java.util.List;
 
 /**

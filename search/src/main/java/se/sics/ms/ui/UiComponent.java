@@ -6,7 +6,11 @@ import se.sics.gvod.common.Self;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
-import se.sics.ms.search.*;
+import se.sics.ms.events.UiAddIndexEntryRequest;
+import se.sics.ms.events.UiAddIndexEntryResponse;
+import se.sics.ms.events.UiSearchRequest;
+import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 
