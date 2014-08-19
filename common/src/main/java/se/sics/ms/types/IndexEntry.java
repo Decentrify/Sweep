@@ -12,6 +12,7 @@ import java.util.Date;
 public class IndexEntry implements Serializable {
 	private static final long serialVersionUID = -1043774025075199568L;
 
+    public static final String GLOBAL_ID = "gid";
 	public static final String ID = "id";
 	public static final String URL = "url";
 	public static final String FILE_NAME = "file_name";
@@ -23,6 +24,7 @@ public class IndexEntry implements Serializable {
 	public static final String HASH = "hash";
 	public static final String LEADER_ID = "leader_id";
 
+    private String globalId;
 	private Long id;
 	private String url;
 	private String fileName;
@@ -33,6 +35,10 @@ public class IndexEntry implements Serializable {
 	private String description;
 	private String hash;
 	private PublicKey leaderId;
+
+    public String getGlobalId() { return globalId; }
+
+    public void setGlobalId(String globalId) { this.globalId = globalId; }
 
 	public Long getId() {
 		return id;
@@ -117,7 +123,7 @@ public class IndexEntry implements Serializable {
 
 	@Override
 	public String toString() {
-		return "IndexEntry [indexId=" + id + ", url=" + url + ", fileName=" + fileName
+		return "IndexEntry [indexId=" + id + ",globalId=" + globalId + ", url=" + url + ", fileName=" + fileName
 				+ ", fileSize=" + fileSize + ", uploaded=" + uploaded + ", language=" + language
 				+ ", category=" + category + ", description=" + description + ", hash=" + hash
 				+ ", leaderId=" + leaderId + "]";
@@ -142,6 +148,7 @@ public class IndexEntry implements Serializable {
         this.category = category;
         this.description = description;
 
+        this.globalId = "";
         this.id = Long.MIN_VALUE;
         this.leaderId = null;
     }
@@ -159,7 +166,8 @@ public class IndexEntry implements Serializable {
      * @param hash
      * @param leaderId
      */
-    public IndexEntry(long id, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description, String hash, PublicKey leaderId) {
+    public IndexEntry(String globalId, long id, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description, String hash, PublicKey leaderId) {
+        this.globalId = globalId;
         this.id = id;
         this.url = url;
         this.fileName = fileName;
@@ -200,9 +208,10 @@ public class IndexEntry implements Serializable {
      * @param hash
      * @param leaderId
      */
-    public IndexEntry(long indexId, String url, String fileName, MsConfig.Categories category,
+    public IndexEntry(String globalId, long indexId, String url, String fileName, MsConfig.Categories category,
                       String description, String hash, PublicKey leaderId) {
         super();
+        this.globalId = globalId;
         this.id = indexId;
         this.url = url;
         this.fileName = fileName;
@@ -225,6 +234,7 @@ public class IndexEntry implements Serializable {
         if (!description.equals(that.description)) return false;
         if (!fileName.equals(that.fileName)) return false;
         if (hash != null ? !hash.equals(that.hash) : that.hash != null) return false;
+        if (globalId != null ? !globalId.equals(that.globalId) : that.globalId != null) return false;
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;

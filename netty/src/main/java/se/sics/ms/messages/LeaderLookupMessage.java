@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.VodConfig;
@@ -55,12 +55,12 @@ public class LeaderLookupMessage {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final boolean leader;
-        private final List<VodDescriptor> vodDescriptors;
+        private final List<SearchDescriptor> searchDescriptors;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, List<VodDescriptor> vodDescriptors) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, List<SearchDescriptor> searchDescriptors) {
             super(source, destination, timeoutId);
             this.leader = leader;
-            this.vodDescriptors = vodDescriptors;
+            this.searchDescriptors = searchDescriptors;
         }
 
         @Override
@@ -73,20 +73,20 @@ public class LeaderLookupMessage {
             return leader;
         }
 
-        public List<VodDescriptor> getVodDescriptors() {
-            return vodDescriptors;
+        public List<SearchDescriptor> getSearchDescriptors() {
+            return searchDescriptors;
         }
 
         @Override
         public RewriteableMsg copy() {
-            return  new Response(vodSrc, vodDest, timeoutId, leader, vodDescriptors);
+            return  new Response(vodSrc, vodDest, timeoutId, leader, searchDescriptors);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeBoolean(leader);
-            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, vodDescriptors);
+            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, SearchDescriptor.toVodDescriptorList(searchDescriptors));
             return buffer;
         }
 

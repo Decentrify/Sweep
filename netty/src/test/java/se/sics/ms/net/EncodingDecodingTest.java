@@ -7,6 +7,7 @@ package se.sics.ms.net;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -19,7 +20,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import se.sics.gvod.common.msgs.*;
 import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.BaseCommandLineConfig;
 import se.sics.gvod.net.Nat;
 import se.sics.gvod.address.Address;
@@ -57,8 +58,8 @@ public class EncodingDecodingTest {
     private static HPMechanism hpMechanism = HPMechanism.PRP_PRC;
     private static HPRole hpRole = HPRole.PRC_RESPONDER;
     private static Nat nat;
-    private static VodDescriptor nodeDescriptor;
-    private static List<VodDescriptor> descriptors = new ArrayList<VodDescriptor>();
+    private static SearchDescriptor nodeDescriptor;
+    private static List<SearchDescriptor> descriptors = new ArrayList<SearchDescriptor>();
     private static byte[] availableChunks = new byte[2031];
     private static byte[][] availablePieces = new byte[52][19];
     private PublicKey publicKey;
@@ -83,8 +84,7 @@ public class EncodingDecodingTest {
         inetDest = new InetSocketAddress(self, 65535);
         gSrc = new VodAddress(src, VodConfig.SYSTEM_OVERLAY_ID);
         gDest = new VodAddress(dest, VodConfig.SYSTEM_OVERLAY_ID);
-        nodeDescriptor = new VodDescriptor(gSrc, utility,
-                age, BaseCommandLineConfig.DEFAULT_MTU);
+        nodeDescriptor = new SearchDescriptor(gSrc, age);
         descriptors.add(nodeDescriptor);
         nat = new Nat(Nat.Type.NAT,
                 Nat.MappingPolicy.HOST_DEPENDENT,
@@ -288,7 +288,7 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionRequest() {
         int counter = 1;
-        VodDescriptor self = new VodDescriptor(gSrc);
+        SearchDescriptor self = new SearchDescriptor(gSrc);
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter, self);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -320,8 +320,8 @@ public class EncodingDecodingTest {
             e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
-        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, vodDescriptor);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, searchDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -330,7 +330,7 @@ public class EncodingDecodingTest {
             assert (response.isConvereged() == converged);
             assert (response.getVoteId() == voteId);
             assert (response.isVote() == vote);
-            assert (response.getHighestUtilityNode().equals(vodDescriptor));
+            assert (response.getHighestUtilityNode().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -351,16 +351,16 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
-        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
-        set.add(vodDescriptor);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        set.add(searchDescriptor);
 
         GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), set);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             GradientShuffleMessage.Request request = GradientShuffleMessageFactory.Request.fromBuffer(buffer);
-            assert (request.getVodDescriptors().iterator().next().equals(vodDescriptor));
+            assert (request.getSearchDescriptors().iterator().next().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -381,9 +381,9 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
-        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
-        set.add(vodDescriptor);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        set.add(searchDescriptor);
 
         GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), set);
         try {
@@ -391,7 +391,7 @@ public class EncodingDecodingTest {
             opCodeCorrect(buffer, msg);
             GradientShuffleMessage.Response response =
                     GradientShuffleMessageFactory.Response.fromBuffer(buffer);
-            assert (response.getVodDescriptors().iterator().next().equals(vodDescriptor));
+            assert (response.getSearchDescriptors().iterator().next().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -411,14 +411,14 @@ public class EncodingDecodingTest {
             e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
 
-        LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, vodDescriptor);
+        LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, searchDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderDeathAnnouncementMessage response = LeaderDeathAnnouncementMessageFactory.fromBuffer(buffer);
-            assert (response.getLeader().equals(vodDescriptor));
+            assert (response.getLeader().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -502,13 +502,13 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        VodDescriptor leaderVodDescriptor = new VodDescriptor(gSrc);
+        SearchDescriptor leaderSearchDescriptor = new SearchDescriptor(gSrc);
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
-        Set<VodDescriptor> set = new HashSet<VodDescriptor>();
-        set.add(vodDescriptor);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        set.add(searchDescriptor);
 
-        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderVodDescriptor, set);
+        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderSearchDescriptor, set);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -516,8 +516,8 @@ public class EncodingDecodingTest {
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
-            assert (response.getLeaderVodDescriptor().equals(leaderVodDescriptor));
-            assert (response.getVodDescriptors().iterator().next().equals(vodDescriptor));
+            assert (response.getLeaderSearchDescriptor().equals(leaderSearchDescriptor));
+            assert (response.getSearchDescriptors().iterator().next().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -583,9 +583,9 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
 
-        RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, vodDescriptor);
+        RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, searchDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
@@ -594,7 +594,7 @@ public class EncodingDecodingTest {
 
             assert (response.getVodDestination().equals(gDest));
             assert (response.getVodSource().equals(gSrc));
-            assert (response.getBetterLeader().equals(vodDescriptor));
+            assert (response.getBetterLeader().equals(searchDescriptor));
 
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
@@ -632,10 +632,10 @@ public class EncodingDecodingTest {
         boolean terminated = false;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress);
 
-        List<VodDescriptor> items = new ArrayList<VodDescriptor>();
-        items.add(vodDescriptor);
+        List<SearchDescriptor> items = new ArrayList<SearchDescriptor>();
+        items.add(searchDescriptor);
         LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), terminated, items);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -643,7 +643,7 @@ public class EncodingDecodingTest {
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
             assert terminated == response.isLeader();
-            assert (response.getVodDescriptors().get(0).equals(vodDescriptor));
+            assert (response.getSearchDescriptors().get(0).equals(searchDescriptor));
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -681,7 +681,7 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
 
-        IndexEntry entry = new IndexEntry(1, url, fileName, size, time, language, MsConfig.Categories.Music, description, hash, publicKey);
+        IndexEntry entry = new IndexEntry("", 1, url, fileName, size, time, language, MsConfig.Categories.Music, description, hash, publicKey);
         Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         indexEntries.add(entry);
         RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), indexEntries);
@@ -827,6 +827,8 @@ public class EncodingDecodingTest {
         assert vodAddress.getPartitioningType() == type;
     }
 
+    /* Number of entries in Search Descriptor is not used anywhere, that field is now removed.
+     * So this test is not valid anymore.
     @Test
     public void NumberOfEntries() {
         InetAddress address = null;
@@ -838,17 +840,17 @@ public class EncodingDecodingTest {
         long numberOfEntries = 5L;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
 
-        VodDescriptor vodDescriptor = new VodDescriptor(vodAddress, numberOfEntries);
+        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress, numberOfEntries);
 
-        List<VodDescriptor> items = new ArrayList<VodDescriptor>();
-        items.add(vodDescriptor);
+        List<SearchDescriptor> items = new ArrayList<SearchDescriptor>();
+        items.add(searchDescriptor);
         LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), false, items);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);
             LeaderLookupMessage.Response response = LeaderLookupMessageFactory.Response.fromBuffer(buffer);
 
-            assert (response.getVodDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
+            assert (response.getSearchDescriptors().get(0).getNumberOfIndexEntries() == numberOfEntries);
         } catch (MessageDecodingException ex) {
             Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
             assert (false);
@@ -857,7 +859,7 @@ public class EncodingDecodingTest {
             assert (false);
         }
     }
-
+*/
     @Test
     public void IndexHashExchangeRequest() {
         long oldestMissingIndexValue = 1L;
@@ -905,28 +907,120 @@ public class EncodingDecodingTest {
         }
     }
 
+
+    // FIXME: Complete the Implementation of Test Cases.
+
     @Test
-    public void PartitioningMessage() {
+    public void PartitionPrepareRequestTest(){
 
-        long middleEntryId = 1L;
+        long middleEntry = 1L;
         TimeoutId requestId = UUID.nextUUID();
-        VodAddress.PartitioningType partitionsNumber = VodAddress.PartitioningType.NEVER_BEFORE;
+        TimeoutId roundId = UUID.nextUUID();
 
-        PartitioningMessage msg = new PartitioningMessage(gSrc, gDest, requestId, middleEntryId, partitionsNumber);
-        try {
-            ByteBuf buffer = msg.toByteArray();
-            opCodeCorrect(buffer, msg);
-            PartitioningMessage response = PartitioningMessageFactory.fromBuffer(buffer);
+        VodAddress.PartitioningType partitioningType = VodAddress.PartitioningType.NEVER_BEFORE;
 
-            assert (response.getMiddleEntryId() == middleEntryId);
-            assert (response.getPartitionsNumber() == partitionsNumber);
-            assert (response.getRequestId().equals(requestId));
-        } catch (MessageDecodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+        PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(middleEntry, requestId, partitioningType);
+        PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(gSrc,gDest,roundId,partitionInfo);
+
+        try{
+
+            ByteBuf buffer = partitionPrepareRequest.toByteArray();
+            opCodeCorrect(buffer, partitionPrepareRequest);
+            PartitionPrepareMessage.Request partitionPrepareRequestDecoded = PartitionPrepareMessageFactory.Request.fromBuffer(buffer);
+
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getMedianId() == middleEntry);
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getRequestId().equals(requestId));
+            assert(partitionPrepareRequestDecoded.getPartitionInfo().getPartitioningTypeInfo() == partitioningType);
+
+
+        } catch (MessageEncodingException e) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, e);
             assert (false);
-        } catch (MessageEncodingException ex) {
-            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (MessageDecodingException e) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, e);
             assert (false);
         }
+
+
     }
+
+    @Test
+    public void PartitionPrepareResponseTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionPrepareMessage.Response partitionPrepareResponse = new PartitionPrepareMessage.Response(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionPrepareResponse.toByteArray();
+            opCodeCorrect(byteBuffer, partitionPrepareResponse);
+            PartitionPrepareMessage.Response partitionPrepareResponseDecoded = PartitionPrepareMessageFactory.Response.fromBuffer(byteBuffer);
+
+            assert(partitionPrepareResponseDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionPrepareResponseDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    @Test
+    public void PartitionCommitRequestTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionCommitRequest.toByteArray();
+            opCodeCorrect(byteBuffer, partitionCommitRequest);
+            PartitionCommitMessage.Request partitionCommitRequestDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+
+            assert(partitionCommitRequestDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionCommitRequestDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+
+    @Test
+    public void PartitionCommitResponseTest(){
+
+
+        TimeoutId roundId = UUID.nextUUID();
+        TimeoutId requestId = UUID.nextUUID();
+
+        PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(gSrc,gDest,roundId , requestId);
+
+        try {
+            ByteBuf byteBuffer = partitionCommitResponse.toByteArray();
+            opCodeCorrect(byteBuffer, partitionCommitResponse);
+            PartitionCommitMessage.Request partitionCommitResponseDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+
+            assert(partitionCommitResponseDecoded.getPartitionRequestId().equals(requestId));
+            assert(partitionCommitResponseDecoded.getTimeoutId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+
+
 }

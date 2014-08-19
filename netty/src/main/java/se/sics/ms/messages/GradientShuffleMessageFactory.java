@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -29,8 +29,8 @@ public class GradientShuffleMessageFactory {
 
         @Override
         protected GradientShuffleMessage.Request process(ByteBuf buffer) throws MessageDecodingException {
-            Set<VodDescriptor> vodDescriptors = ApplicationTypesDecoderFactory.readVodDescriptorSet(buffer);
-            return new GradientShuffleMessage.Request(vodSrc, vodDest, timeoutId, vodDescriptors);
+            Set<SearchDescriptor> searchDescriptors = ApplicationTypesDecoderFactory.readSearchDescriptorSet(buffer);
+            return new GradientShuffleMessage.Request(vodSrc, vodDest, timeoutId, searchDescriptors);
         }
 
     }
@@ -48,8 +48,8 @@ public class GradientShuffleMessageFactory {
 
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-            Set<VodDescriptor> vodDescriptors = ApplicationTypesDecoderFactory.readVodDescriptorSet(buffer);
-            return new GradientShuffleMessage.Response(vodSrc, vodDest, timeoutId, vodDescriptors);
+            Set<SearchDescriptor> searchDescriptors = ApplicationTypesDecoderFactory.readSearchDescriptorSet(buffer);
+            return new GradientShuffleMessage.Response(vodSrc, vodDest, timeoutId, searchDescriptors);
         }
     }
 }

@@ -88,7 +88,7 @@ public class ReplicationPrepareCommitMessage {
 
         @Override
         public byte getOpcode() {
-            return MessageFrameDecoder.PREPAIR_COMMIT_REQUEST;
+            return MessageFrameDecoder.PREPAIR_COMMIT_RESPONSE;
         }
     }
 }

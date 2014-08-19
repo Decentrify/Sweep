@@ -45,9 +45,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
 
         VodConfig.init(new String[0]);
 
-        Component p2pSimulator = create(P2pSimulator.class);
-        Component simulator = create(SearchSimulator.class);
-
 //        CroupierConfiguration croupierConfig =
 //                (CroupierConfiguration) AbstractConfiguration.load(CroupierConfiguration.class);
         CroupierConfiguration croupierConfig = CroupierConfiguration.build()
@@ -55,20 +52,18 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 .setRtoRetries(2)
                 .setRtoScale(1.0d);
 
+        Component p2pSimulator = create(P2pSimulator.class, new P2pSimulatorInit(simulatorScheduler,
+                scenario, new KingLatencyMap(croupierConfig.getSeed())));
+        Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
+                croupierConfig,
+                GradientConfiguration.build(),
+                SearchConfiguration.build(),
+                ElectionConfiguration.build()));
+
         // connect
         connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
         connect(simulator.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
         connect(simulator.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
-
-        trigger(new SimulatorInit(
-                croupierConfig,
-                GradientConfiguration.build(),
-                SearchConfiguration.build(),
-                ElectionConfiguration.build()), simulator.getControl());
-
-        trigger(new P2pSimulatorInit(simulatorScheduler,
-                scenario, new KingLatencyMap(croupierConfig.getSeed())),
-                p2pSimulator.getControl());
     
     }
 }

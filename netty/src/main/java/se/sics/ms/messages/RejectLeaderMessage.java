@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -16,9 +16,9 @@ import se.sics.ms.net.MessageFrameDecoder;
  * Time: 12:26 PM
  */
 public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
-    private final VodDescriptor betterLeader;
+    private final SearchDescriptor betterLeader;
 
-    public RejectLeaderMessage(VodAddress source, VodAddress destination, VodDescriptor betterLeader) {
+    public RejectLeaderMessage(VodAddress source, VodAddress destination, SearchDescriptor betterLeader) {
         super(source, destination);
 
         if(betterLeader == null)
@@ -27,7 +27,7 @@ public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
         this.betterLeader = betterLeader;
     }
 
-    public VodDescriptor getBetterLeader() {
+    public SearchDescriptor getBetterLeader() {
         return betterLeader;
     }
 
@@ -44,7 +44,7 @@ public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, betterLeader);
+        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(betterLeader));
         return buffer;
     }
 

@@ -2,9 +2,11 @@ package se.sics.ms.election;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
+import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
@@ -13,11 +15,10 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
-import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.gradient.GradientViewChangePort;
-import se.sics.ms.gradient.LeaderStatusPort;
-import se.sics.ms.gradient.LeaderStatusPort.LeaderStatus;
-import se.sics.ms.gradient.UtilityComparator;
+import se.sics.ms.gradient.ports.GradientViewChangePort;
+import se.sics.ms.gradient.ports.LeaderStatusPort;
+import se.sics.ms.gradient.ports.LeaderStatusPort.LeaderStatus;
+import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.messages.ElectionMessage;
 import se.sics.ms.messages.LeaderViewMessage;
 import se.sics.ms.messages.RejectFollowerMessage;
@@ -41,15 +42,16 @@ public class ElectionLeader extends ComponentDefinition {
 
 	Positive<Timer> timerPort = positive(Timer.class);
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
+    Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 	Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
-	Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
 	private int yesVotes, totalVotes, electionCounter, convergedNodesCounter;
 	private boolean electionInProgress, iAmLeader;
 	private Self self;
-	private SortedSet<VodDescriptor> lowerUtilityNodes, higherUtilityNodes;
+	private SortedSet<SearchDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
     private final UtilityComparator utilityComparator = new UtilityComparator();
 
@@ -74,8 +76,8 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Default constructor that initiates all the event subscriptions to
 	 * handlers
 	 */
-	public ElectionLeader() {
-		subscribe(handleInit, control);
+    public ElectionLeader(ElectionInit<ElectionLeader> init) {
+        doInit(init);
 		subscribe(handleHeartbeats, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
 		subscribe(handleVotingResponse, networkPort);
@@ -83,22 +85,20 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleGradientBroadcast, gradientViewChangePort);
 		subscribe(handleRejectedFollower, networkPort);
         subscribe(handleTerminateBeingLeader, leaderStatusPort);
+        subscribe(handleFailureDetector, fdPort);
 	}
 
 	/**
 	 * The initialisation handler. It is called when the component is loaded and
 	 * will initiate variables
 	 */
-	final Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
-		@Override
-		public void handle(ElectionInit init) {
-			self = init.getSelf();
-			config = init.getConfig();
+    public void doInit(ElectionInit init) {
+        self = init.getSelf();
+        config = init.getConfig();
 
-			iAmLeader = false;
-			electionInProgress = false;
-		}
-	};
+        iAmLeader = false;
+        electionInProgress = false;
+    }
 
 	/**
 	 * Handler for the periodic Gradient views that are being sent. It checks if the
@@ -108,15 +108,15 @@ public class ElectionLeader extends ComponentDefinition {
 	final Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
 		@Override
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
-			higherUtilityNodes = event.getHigherUtilityNodes(self.getDescriptor());
-			lowerUtilityNodes = event.getLowerUtilityNodes(self.getDescriptor());
+			higherUtilityNodes = event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor()));
+			lowerUtilityNodes = event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor()));
 
 			// Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
-			for (VodDescriptor node : higherUtilityNodes) {
+			for (SearchDescriptor node : higherUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
 			}
-			for (VodDescriptor node : lowerUtilityNodes) {
+			for (SearchDescriptor node : lowerUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
 			}
 			Snapshot.setCurrentView(self.getAddress(), builder.toString());
@@ -150,6 +150,11 @@ public class ElectionLeader extends ComponentDefinition {
 				if (event.isConvereged() == true) {
 					convergedNodesCounter++;
 				}
+                else{
+//                    if(self.getId() == 319791623){
+//                        logger.info(" _ISSUE: Node Not Converged == " + event.getVodSource().getId());
+//                    }
+                }
 			}
 
 			// Count the votes if all votes have returned
@@ -189,7 +194,8 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(RejectLeaderMessage event) {
             // TODO we need to check if the rejection is valid e.g. check the given better node
-            if (utilityComparator.compare(self.getDescriptor(), event.getBetterLeader()) == 1) {
+            if (utilityComparator.compare(new SearchDescriptor(self.getDescriptor()),
+                    event.getBetterLeader()) == 1) {
                 return;
             }
 			rejected();
@@ -205,8 +211,8 @@ public class ElectionLeader extends ComponentDefinition {
 		public void handle(RejectFollowerMessage.Request event) {
 			boolean sourceIsInView = false;
 
-            for (VodDescriptor vodDescriptor : lowerUtilityNodes) {
-                if (vodDescriptor.getVodAddress().equals(event.getVodSource())) {
+            for (SearchDescriptor searchDescriptor : lowerUtilityNodes) {
+                if (searchDescriptor.getVodAddress().equals(event.getVodSource())) {
                     sourceIsInView = true;
                     break;
                 }
@@ -259,7 +265,7 @@ public class ElectionLeader extends ComponentDefinition {
 			if (iAmLeader == false) {
 				// Create view for Snapshot
 				StringBuilder builder = new StringBuilder();
-				for (VodDescriptor node : lowerUtilityNodes) {
+				for (SearchDescriptor node : lowerUtilityNodes) {
 					builder.append(node.getVodAddress().getId() + " ");
 				}
 				Snapshot.setElectionView(self.getAddress(), builder.toString());
@@ -301,8 +307,9 @@ public class ElectionLeader extends ComponentDefinition {
 		ElectionMessage.Request vote;
 
 		// Broadcasts the vote requests to the nodes in the view
-		for (VodDescriptor receiver : lowerUtilityNodes) {
-			vote = new ElectionMessage.Request(self.getAddress(), receiver.getVodAddress(), voteTimeoutId, electionCounter, self.getDescriptor());
+		for (SearchDescriptor receiver : lowerUtilityNodes) {
+			vote = new ElectionMessage.Request(self.getAddress(), receiver.getVodAddress(), voteTimeoutId,
+                    electionCounter, new SearchDescriptor(self.getDescriptor()));
 			trigger(vote, networkPort);
 		}
 
@@ -316,9 +323,10 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void sendLeaderView() {
 		// Broadcasts the leader's current view to it's followers
-		for (VodDescriptor receiver : lowerUtilityNodes) {
+		for (SearchDescriptor receiver : lowerUtilityNodes) {
             // TODO don't send the view every time
-            LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver.getVodAddress(), self.getDescriptor(), lowerUtilityNodes);
+            LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver.getVodAddress(),
+                    new SearchDescriptor(self.getDescriptor()), lowerUtilityNodes);
 			trigger(msg, networkPort);
 		}
 	}
@@ -357,4 +365,36 @@ public class ElectionLeader extends ComponentDefinition {
         //Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
+
+    private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
+        for(VodAddress suspectedNode: nodesToRemove) {
+            removeNodeFromLocalState(suspectedNode);
+        }
+    }
+
+    private void removeNodeFromLocalState(VodAddress nodeAddress) {
+        removeNodeFromCollection(nodeAddress, lowerUtilityNodes);
+        removeNodeFromCollection(nodeAddress, higherUtilityNodes);
+    }
+
+    private void removeNodeFromCollection(VodAddress nodeAddress, Collection<SearchDescriptor> collection) {
+
+        Iterator<SearchDescriptor> i = collection.iterator();
+        while (i.hasNext()) {
+            SearchDescriptor descriptor = i.next();
+
+            if(descriptor.getVodAddress().equals(nodeAddress)) {
+                i.remove();
+                break;
+            }
+        }
+    }
+
+    final Handler<FailureDetectorPort.FailureDetectorEvent> handleFailureDetector = new Handler<FailureDetectorPort.FailureDetectorEvent>() {
+
+        @Override
+        public void handle(FailureDetectorPort.FailureDetectorEvent event) {
+            removeNodesFromLocalState(event.getSuspectedNodes());
+        }
+    };
 }

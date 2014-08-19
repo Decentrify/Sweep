@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -42,7 +42,7 @@ public class LeaderLookupMessageFactory {
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean terminated = buffer.readBoolean();
-            List<VodDescriptor> items = UserTypesDecoderFactory.readListVodNodeDescriptors(buffer);
+            List<SearchDescriptor> items = SearchDescriptor.toSearchDescriptorList(UserTypesDecoderFactory.readListVodNodeDescriptors(buffer));
             return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, terminated, items);
         }
     }

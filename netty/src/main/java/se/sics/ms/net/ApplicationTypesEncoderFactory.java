@@ -5,17 +5,21 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import static se.sics.gvod.net.util.UserTypesEncoderFactory.*;
@@ -120,14 +124,103 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength65536(buffer, pattern.getDescriptionPattern());
     }
 
-    public static void writeVodDescriptorSet(ByteBuf buffer, Set<VodDescriptor> nodeDescriptors) throws MessageEncodingException {
+    public static void writeSearchDescriptorSet(ByteBuf buffer, Set<SearchDescriptor> nodeDescriptors) throws MessageEncodingException {
         if (nodeDescriptors == null) {
             UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, 0);
             return;
         }
         writeUnsignedintAsTwoBytes(buffer, nodeDescriptors.size());
-        for (VodDescriptor node : nodeDescriptors) {
-            writeVodNodeDescriptor(buffer, node);
+        for (SearchDescriptor node : nodeDescriptors) {
+            writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(node));
         }
     }
+
+
+    /**
+     * Encoding for the partitioning update sequence.
+     * @param buffer
+     * @param partitionUpdatesSequence
+     * @throws MessageEncodingException
+     */
+    public static void writeDelayedPartitionInfo(ByteBuf buffer, LinkedList<PartitionHelper.PartitionInfo> partitionUpdatesSequence) throws MessageEncodingException {
+
+        if(partitionUpdatesSequence == null){
+            writeUnsignedintAsTwoBytes(buffer,0);
+            return;
+        }
+        writeUnsignedintAsTwoBytes(buffer,partitionUpdatesSequence.size());
+        for(PartitionHelper.PartitionInfo partitionUpdate:  partitionUpdatesSequence){
+            writePartitionUpdate(buffer, partitionUpdate);
+        }
+
+    }
+
+    /**
+     * Encoding required for writing partitioning update to the buffer.
+     * @param buffer
+     * @param partitionUpdate
+     * @throws MessageEncodingException
+     */
+    public static void writePartitionUpdate(ByteBuf buffer, PartitionHelper.PartitionInfo partitionUpdate) throws MessageEncodingException {
+
+        buffer.writeLong(partitionUpdate.getMedianId());
+        UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdate.getRequestId());
+        buffer.writeInt(partitionUpdate.getPartitioningTypeInfo().ordinal());
+
+        // Added support for the hash string of the Partition Update.
+        writeStringLength256(buffer, partitionUpdate.getHash());
+        if(partitionUpdate.getKey() == null)
+            writeStringLength65536(buffer, new String());
+        else
+            writeStringLength65536(buffer, new BASE64Encoder().encode(partitionUpdate.getKey().getEncoded()));
+    }
+
+
+    public static void writePartitionRequestIds(ByteBuf buffer, List<TimeoutId> partitionRequestIds) throws MessageEncodingException {
+
+        if(partitionRequestIds == null){
+            UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, 0);
+            return;
+        }
+
+        UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, partitionRequestIds.size());
+        for(TimeoutId partitionRequestId : partitionRequestIds)
+            UserTypesEncoderFactory.writeTimeoutId(buffer,partitionRequestId);
+    }
+
+
+
+    /**
+     * Encode the PartitionUpdateHashSequence.
+     * @param buffer
+     * @param partitionUpdatesHash
+     * @throws MessageEncodingException
+     */
+
+    public static void writePartitionUpdateHashSequence(ByteBuf buffer, LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdatesHash) throws MessageEncodingException {
+
+        if(partitionUpdatesHash == null){
+            writeUnsignedintAsTwoBytes(buffer,0);
+            return;
+        }
+        writeUnsignedintAsTwoBytes(buffer,partitionUpdatesHash.size());
+
+        for(PartitionHelper.PartitionInfoHash partitionUpdateHash:  partitionUpdatesHash){
+            writePartitionUpdateHash(buffer, partitionUpdateHash);
+        }
+
+    }
+
+    /**
+     * Encode the PartitionInfoHash Object.
+     * @param buffer
+     * @param partitionUpdateHash
+     */
+    private static void writePartitionUpdateHash(ByteBuf buffer, PartitionHelper.PartitionInfoHash partitionUpdateHash) throws MessageEncodingException {
+
+        UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdateHash.getPartitionRequestId());
+        UserTypesEncoderFactory.writeStringLength65536(buffer, partitionUpdateHash.getHash());
+    }
+
+
 }

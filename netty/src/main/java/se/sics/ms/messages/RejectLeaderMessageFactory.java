@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
@@ -25,7 +25,7 @@ public class RejectLeaderMessageFactory extends DirectMsgNettyFactory.Oneway {
 
     @Override
     protected RejectLeaderMessage process(ByteBuf buffer) throws MessageDecodingException {
-        VodDescriptor betterNode = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
+        SearchDescriptor betterNode = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
         return new RejectLeaderMessage(vodSrc, vodDest,betterNode);
     }
 

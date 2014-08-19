@@ -1,6 +1,8 @@
 package se.sics.ms.simulator;
 
 import org.xml.sax.SAXException;
+import se.sics.co.FailureDetectorComponent;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.*;
@@ -13,10 +15,10 @@ import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.peer.SimulationEventsPort;
-import se.sics.ms.peer.SimulationEventsPort.AddIndexSimulated;
-import se.sics.ms.peer.SearchPeer;
-import se.sics.ms.peer.SearchPeerInit;
+import se.sics.ms.ports.SimulationEventsPort;
+import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
+import se.sics.ms.search.SearchPeer;
+import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
@@ -53,12 +55,21 @@ public final class SearchSimulator extends ComponentDefinition {
     static String[] objects = {"computer", "java", "video"};
     Random r = new Random(System.currentTimeMillis());
 
-    public SearchSimulator() {
+    public SearchSimulator(SearchSimulatorInit init) {
         peers = new HashMap<Long, Component>();
         peersAddress = new HashMap<Long, VodAddress>();
         ringNodes = new ConsistentHashtable<Long>();
 
-        subscribe(handleInit, control);
+        peers.clear();
+
+        croupierConfiguration = init.getCroupierConfiguration();
+        searchConfiguration = init.getSearchConfiguration();
+        gradientConfiguration = init.getGradientConfiguration();
+        electionConfiguration = init.getElectionConfiguration();
+
+        identifierSpaceSize = croupierConfiguration.getRto();
+
+        subscribe(handleStart, control);
         subscribe(handleGenerateReport, timer);
         subscribe(handlePeerJoin, simulator);
         subscribe(handlePeerFail, simulator);
@@ -68,18 +79,9 @@ public final class SearchSimulator extends ComponentDefinition {
         subscribe(handleSearch, simulator);
     }
 
-    Handler<SimulatorInit> handleInit = new Handler<SimulatorInit>() {
+    Handler<Start> handleStart = new Handler<Start>() {
         @Override
-        public void handle(SimulatorInit init) {
-            peers.clear();
-
-            croupierConfiguration = init.getCroupierConfiguration();
-            searchConfiguration = init.getSearchConfiguration();
-            gradientConfiguration = init.getGradientConfiguration();
-            electionConfiguration = init.getElectionConfiguration();
-
-            identifierSpaceSize = croupierConfiguration.getRto();
-
+        public void handle(Start init) {
             // generate periodic report
             int snapshotPeriod = Configuration.SNAPSHOT_PERIOD;
             SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod,
@@ -210,7 +212,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
     private VodAddress bootstrappingNode;
     private final void createAndStartNewPeer(long id) {
-        Component peer = create(SearchPeer.class);
+
         InetAddress ip = null;
         try {
             ip = InetAddress.getLocalHost();
@@ -220,21 +222,19 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Address address = new Address(ip, 9999, (int) id);
 
-
-        MsConfig.Categories[] values = MsConfig.Categories.values();
-        int categoryId = (int) (Math.random() * values.length);
-
         Self self = new MsSelfImpl(new VodAddress(address, 
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, values[categoryId].ordinal())));
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, MsConfig.Categories.Video.ordinal())));
 
+        Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode));
+        Component fd = create(FailureDetectorComponent.class, Init.NONE);
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
-
-        trigger(new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode), peer.getControl());
+        connect(fd.getPositive(FailureDetectorPort.class), peer.getNegative(FailureDetectorPort.class));
 
         bootstrappingNode = self.getAddress();
 
-        trigger(new Start(), peer.getControl());
+        trigger(Start.event, peer.getControl());
+        trigger(Start.event, fd.getControl());
         peers.put(id, peer);
         peersAddress.put(id, self.getAddress());
 

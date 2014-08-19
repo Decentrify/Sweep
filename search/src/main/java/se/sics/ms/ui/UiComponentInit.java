@@ -9,7 +9,7 @@ import se.sics.kompics.Init;
  * Date: 8/7/13
  * Time: 12:41 PM
  */
-public class UiComponentInit extends Init {
+public class UiComponentInit extends Init<UiComponent> {
     private final Self peerSelf;
 
     public UiComponentInit(Self peerSelf) {

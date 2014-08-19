@@ -17,17 +17,36 @@
     <url>http://maven.apache.org</url>
 
     <dependencies>
-        <dependency>
+    <dependency>
+        <groupId>com.sun.jersey</groupId>
+        <artifactId>jersey-json</artifactId>
+        <version>1.18.1</version>
+    </dependency> 
+<!--        <dependency>
             <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-core</artifactId>
+            <artifactId>dropwizard-core</artifactId>               
             <version>0.7.0</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>logback-classic</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                </exclusion>               
+                <exclusion>
+                    <artifactId>logback-core</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                </exclusion>
+                <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>log4j-over-slf4j</artifactId>
+                </exclusion>
+                
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.dropwizard</groupId>
             <artifactId>dropwizard-jetty</artifactId>
             <version>0.7.0</version>
-        </dependency>
-        
+        </dependency>-->
         <dependency>
             <groupId>se.sics.p2p.experiments</groupId>
             <artifactId>p2p-simulator</artifactId>

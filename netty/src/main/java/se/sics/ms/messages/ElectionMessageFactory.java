@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
@@ -26,8 +26,8 @@ public class ElectionMessageFactory {
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
-            VodDescriptor vodDescriptor = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
-            return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter, vodDescriptor);
+            SearchDescriptor searchDescriptor = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
+            return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter, searchDescriptor);
         }
     }
 
@@ -46,7 +46,7 @@ public class ElectionMessageFactory {
             int voteId = buffer.readInt();
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
-            VodDescriptor highest = UserTypesDecoderFactory.readVodNodeDescriptor(buffer);
+            SearchDescriptor highest = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
             return new ElectionMessage.Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
     }

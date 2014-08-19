@@ -2,6 +2,7 @@ package se.sics.ms.main;
 
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.scenarios.GradualPartitioningScenario;
 import se.sics.ms.scenarios.Scenario;
 import se.sics.ms.scenarios.Scenario2;
 import se.sics.ms.simulator.SearchSimulationMain;
@@ -46,15 +47,11 @@ public class Main {
      * @throws IOException in case the configuration file couldn't be created
      */
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("usage: <prog>");
-            System.exit(0);
-        }
         MsConfig.init(args);
         Configuration config = new Configuration();
         config.store();
 
-        Scenario scenario = new Scenario2();
+        Scenario scenario = new GradualPartitioningScenario();
         scenario.setSeed(MsConfig.getSeed());
         scenario.getScenario().simulateThreaded(SearchSimulationMain.class);
     }

@@ -1,16 +1,21 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.base64.Base64Decoder;
 import org.apache.commons.codec.binary.Base64;
-import se.sics.gvod.common.VodDescriptor;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.configuration.MsConfig;
+//import se.sics.ms.messages.PartitioningMessage;
 import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.IndexHash;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
+import sun.misc.BASE64Decoder;
 
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -19,7 +24,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
-import static se.sics.gvod.net.util.UserTypesDecoderFactory.readVodNodeDescriptor;
+import static se.sics.gvod.net.util.UserTypesDecoderFactory.*;
 
 /**
  *
@@ -29,6 +34,7 @@ public class ApplicationTypesDecoderFactory {
 
     public static IndexEntry readIndexEntry(ByteBuf buffer)
             throws MessageDecodingException {
+        String gId = UserTypesDecoderFactory.readStringLength256(buffer);
         Long id = buffer.readLong();
         String url = UserTypesDecoderFactory.readStringLength256(buffer);
         String fileName = UserTypesDecoderFactory.readStringLength256(buffer);
@@ -40,7 +46,7 @@ public class ApplicationTypesDecoderFactory {
         String hash = UserTypesDecoderFactory.readStringLength256(buffer);
         String leaderId = UserTypesDecoderFactory.readStringLength65536(buffer);
         if (leaderId == null)
-            return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, null);
+            return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, null);
 
         KeyFactory keyFactory;
         PublicKey pub = null;
@@ -55,7 +61,7 @@ public class ApplicationTypesDecoderFactory {
             e.printStackTrace();
         }
 
-        return new IndexEntry(id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
+        return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
     }
 
     public static Collection<IndexEntry> readIndexEntryCollection(ByteBuf buffer) throws MessageDecodingException {
@@ -145,12 +151,118 @@ public class ApplicationTypesDecoderFactory {
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
     }
 
-    public static Set<VodDescriptor> readVodDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
+    public static Set<SearchDescriptor> readSearchDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        Set<VodDescriptor> addrs = new HashSet<VodDescriptor>();
+        Set<SearchDescriptor> addrs = new HashSet<SearchDescriptor>();
         for (int i = 0; i < len; i++) {
-            addrs.add(readVodNodeDescriptor(buffer));
+            addrs.add(new SearchDescriptor(readVodNodeDescriptor(buffer)));
         }
         return addrs;
     }
+
+
+    /**
+     * Required for decoding the partition update sequence.
+     *
+     * @param buffer
+     * @return
+     * @throws MessageDecodingException
+     */
+    public static LinkedList<PartitionHelper.PartitionInfo> readPartitionUpdateSequence(ByteBuf buffer) throws MessageDecodingException {
+
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+        for(int i = 0; i < len; i++){
+            partitionUpdates.add(readPartitionUpdate(buffer));
+        }
+        return partitionUpdates;
+    }
+
+    /**
+     *
+     * @param buffer
+     * @return list of partition request ids.
+     * @throws MessageDecodingException
+     */
+    public static List<TimeoutId> readPartitionUpdateRequestId(ByteBuf buffer) throws MessageDecodingException {
+
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+        List<TimeoutId> partitionRequestIds = new ArrayList<>();
+
+        for(int i =0 ; i< len ; i++){
+            partitionRequestIds.add(UserTypesDecoderFactory.readTimeoutId(buffer));
+        }
+
+        return partitionRequestIds;
+    }
+
+    /**
+     * Required for decoding a single partition update during the two phase partition commit.
+     * <i> Sequence should be same as of encoding. </i>
+     *
+     * @param buffer
+     * @return
+     * @throws MessageDecodingException
+     */
+    public static PartitionHelper.PartitionInfo readPartitionUpdate(ByteBuf buffer) throws MessageDecodingException {
+
+        long middleEntryId = buffer.readLong();
+        TimeoutId requestId = UserTypesDecoderFactory.readTimeoutId(buffer);
+        int partitionsNumber = buffer.readInt();
+
+        // Added decoding support for the hash and public key of the leader.
+
+        String hash = readStringLength256(buffer);
+        String stringKey = readStringLength65536(buffer);
+        if (stringKey == null)
+            return new PartitionHelper.PartitionInfo(middleEntryId, requestId, VodAddress.PartitioningType.values()[partitionsNumber], hash, null);
+
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(stringKey.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();
+        }
+
+        return new PartitionHelper.PartitionInfo(middleEntryId, requestId, VodAddress.PartitioningType.values()[partitionsNumber], hash, pub);
+    }
+
+
+    /**
+     * Read the partition info hash sequence.
+     * @param buffer
+     * @return PartitionInfoHash Sequence.
+     * @throws MessageDecodingException
+     */
+    public static LinkedList<PartitionHelper.PartitionInfoHash> readPartitionUpdateHashSequence(ByteBuf buffer) throws MessageDecodingException {
+
+        int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
+
+        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdates = new LinkedList<>();
+        for(int i = 0; i < len; i++){
+            partitionUpdates.add(readPartitionUpdateHash(buffer));
+        }
+        return partitionUpdates;
+    }
+
+
+    /**
+     * Read the partition info hash object.
+     * @param buffer
+     * @return
+     * @throws MessageDecodingException
+     */
+    public static PartitionHelper.PartitionInfoHash readPartitionUpdateHash(ByteBuf buffer) throws MessageDecodingException {
+
+        TimeoutId partitionUpdateId = UserTypesDecoderFactory.readTimeoutId(buffer);
+        String hash = UserTypesDecoderFactory.readStringLength65536(buffer);
+        return new PartitionHelper.PartitionInfoHash(partitionUpdateId, hash);
+    }
+
 }
