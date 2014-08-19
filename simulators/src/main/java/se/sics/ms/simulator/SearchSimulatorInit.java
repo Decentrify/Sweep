@@ -6,14 +6,14 @@ import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
 
-public final class SimulatorInit extends Init {
+public final class SearchSimulatorInit extends Init<SearchSimulator> {
 	private final CroupierConfiguration croupierConfiguration;
 	private final GradientConfiguration gradientConfiguration;
 	private final SearchConfiguration searchConfiguration;
 	private final ElectionConfiguration electionConfiguration;
 
-	public SimulatorInit(CroupierConfiguration croupierConfiguration, GradientConfiguration gradientConfiguration,
-			SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration) {
+	public SearchSimulatorInit(CroupierConfiguration croupierConfiguration, GradientConfiguration gradientConfiguration,
+                               SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration) {
 		super();
 		this.croupierConfiguration = croupierConfiguration;
 		this.gradientConfiguration = gradientConfiguration;

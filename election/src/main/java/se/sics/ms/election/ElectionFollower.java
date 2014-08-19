@@ -79,8 +79,8 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * Default constructor that subscribes certain handlers to ports
      */
-    public ElectionFollower() {
-        subscribe(handleInit, control);
+    public ElectionFollower(ElectionInit<ElectionFollower> init) {
+        doInit(init);
         subscribe(handleDeathTimeout, timerPort);
         subscribe(handleLeaderDeathAnnouncement, networkPort);
         subscribe(handleHeartbeat, networkPort);
@@ -91,18 +91,16 @@ public class ElectionFollower extends ComponentDefinition {
         subscribe(handleLeaderSuspicionResponse, networkPort);
         subscribe(handleRejectionConfirmation, networkPort);
         subscribe(handleTerminateBeingLeader, leaderStatusPort);
+        subscribe(handleFailureDetector, fdPort);
     }
     /**
      * The initialisation handler. Called when the component is created and
      * mainly initiates variables
      */
-    final Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
-        @Override
-        public void handle(ElectionInit init) {
-            self = init.getSelf();
-            config = init.getConfig();
-        }
-    };
+    public void doInit(ElectionInit init) {
+        self = init.getSelf();
+        config = init.getConfig();
+    }
     /**
      * QueryLimit handler that will respond to voting requests sent from leader
      * candidates. It checks if that leader candidate is a suitable leader
@@ -434,13 +432,16 @@ public class ElectionFollower extends ComponentDefinition {
     }
 
     private void removeNodeFromCollection(VodAddress nodeAddress, Collection<SearchDescriptor> collection) {
-        Iterator<SearchDescriptor> i = collection.iterator();
-        while (i.hasNext()) {
-            SearchDescriptor descriptor = i.next();
 
-            if(descriptor.getVodAddress().equals(nodeAddress)) {
-                i.remove();
-                break;
+        if(collection != null) {
+            Iterator<SearchDescriptor> i = collection.iterator();
+            while (i.hasNext()) {
+                SearchDescriptor descriptor = i.next();
+
+                if (descriptor.getVodAddress().equals(nodeAddress)) {
+                    i.remove();
+                    break;
+                }
             }
         }
     }

@@ -76,8 +76,8 @@ public class ElectionLeader extends ComponentDefinition {
 	 * Default constructor that initiates all the event subscriptions to
 	 * handlers
 	 */
-	public ElectionLeader() {
-		subscribe(handleInit, control);
+    public ElectionLeader(ElectionInit<ElectionLeader> init) {
+        doInit(init);
 		subscribe(handleHeartbeats, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
 		subscribe(handleVotingResponse, networkPort);
@@ -92,16 +92,13 @@ public class ElectionLeader extends ComponentDefinition {
 	 * The initialisation handler. It is called when the component is loaded and
 	 * will initiate variables
 	 */
-	final Handler<ElectionInit> handleInit = new Handler<ElectionInit>() {
-		@Override
-		public void handle(ElectionInit init) {
-			self = init.getSelf();
-			config = init.getConfig();
+    public void doInit(ElectionInit init) {
+        self = init.getSelf();
+        config = init.getConfig();
 
-			iAmLeader = false;
-			electionInProgress = false;
-		}
-	};
+        iAmLeader = false;
+        electionInProgress = false;
+    }
 
 	/**
 	 * Handler for the periodic Gradient views that are being sent. It checks if the

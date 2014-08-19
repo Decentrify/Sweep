@@ -27,10 +27,7 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
+import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
@@ -234,8 +231,9 @@ public final class Search extends ComponentDefinition {
         }
     }
 
-    public Search() {
-        subscribe(handleInit, control);
+    public Search(SearchInit init) {
+        doInit(init);
+        subscribe(handleStart, control);
         subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
@@ -293,89 +291,96 @@ public final class Search extends ComponentDefinition {
     /**
      * Initialize the component.
      */
-    final Handler<SearchInit> handleInit = new Handler<SearchInit>() {
-        public void handle(SearchInit init) {
-            self = init.getSelf();
+    private void doInit(SearchInit init) {
 
-            config = init.getConfiguration();
-            KeyPairGenerator keyGen;
+        self = init.getSelf();
+
+        config = init.getConfiguration();
+        KeyPairGenerator keyGen;
+        try {
+            keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(1024);
+            final KeyPair key = keyGen.generateKeyPair();
+            privateKey = key.getPrivate();
+            publicKey = key.getPublic();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
+        replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
+        nextInsertionId = 0;
+        lowestMissingIndexValue = 0;
+        commitRequests = new HashMap<TimeoutId, ReplicationCount>();
+        existingEntries = new TreeSet<Long>();
+        gapTimeouts = new HashMap<Long, UUID>();
+
+        if (PERSISTENT_INDEX) {
+            File file = new File("resources/index_" + self.getId());
             try {
-                keyGen = KeyPairGenerator.getInstance("RSA");
-                keyGen.initialize(1024);
-                final KeyPair key = keyGen.generateKeyPair();
-                privateKey = key.getPrivate();
-                publicKey = key.getPublic();
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
+                index = FSDirectory.open(file);
+            } catch (IOException e1) {
+                // TODO proper exception handling
+                e1.printStackTrace();
+                System.exit(-1);
             }
 
-            replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
-            nextInsertionId = 0;
-            lowestMissingIndexValue = 0;
-            commitRequests = new HashMap<TimeoutId, ReplicationCount>();
-            existingEntries = new TreeSet<Long>();
-            gapTimeouts = new HashMap<Long, UUID>();
-
-            if (PERSISTENT_INDEX) {
-                File file = new File("resources/index_" + self.getId());
+            if (file.exists()) {
                 try {
-                    index = FSDirectory.open(file);
-                } catch (IOException e1) {
-                    // TODO proper exception handling
-                    e1.printStackTrace();
+                    initializeIndexCaches();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
                     System.exit(-1);
                 }
-
-                if (file.exists()) {
-                    try {
-                        initializeIndexCaches();
-                    } catch (IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                        System.exit(-1);
-                    }
-                }
-            } else {
-                index = new RAMDirectory();
             }
+        } else {
+            index = new RAMDirectory();
+        }
 
-            recentRequests = new HashMap<TimeoutId, Long>();
-            // Garbage collect the data structure
+        recentRequests = new HashMap<TimeoutId, Long>();
+
+        // Can't open the index before committing a writer once
+        IndexWriter writer;
+        try {
+            writer = new IndexWriter(index, indexWriterConfig);
+            writer.commit();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+
+        minStoredId = getMinStoredIdFromLucene();
+        maxStoredId = getMaxStoredIdFromLucene();
+
+        if(minStoredId > maxStoredId) {
+            long temp = minStoredId;
+            minStoredId = maxStoredId;
+            maxStoredId = temp;
+        }
+
+    }
+
+    /**
+     * Initialize the component.
+     */
+    final Handler<Start> handleStart = new Handler<Start>() {
+        public void handle(Start init) {
+
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
             rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(config.getIndexExchangePeriod(), config.getIndexExchangePeriod());
+            // TODO move time to own config instead of using the gradient period
+            rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
             rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(config.getControlExchangeTimePeriod(), config.getControlExchangeTimePeriod());
+            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new ControlMessageExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
-
-            // Can't open the index before committing a writer once
-            IndexWriter writer;
-            try {
-                writer = new IndexWriter(index, indexWriterConfig);
-                writer.commit();
-                writer.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                System.exit(-1);
-            }
-
-            minStoredId = getMinStoredIdFromLucene();
-            maxStoredId = getMaxStoredIdFromLucene();
-
-
-
-            if(minStoredId > maxStoredId) {
-                long temp = minStoredId;
-                minStoredId = maxStoredId;
-                maxStoredId = temp;
-            }
         }
     };
 
@@ -2023,8 +2028,11 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!partitionOrderValid(event.getVodSource()))
+            if(!partitionOrderValid(event.getVodSource())) {
+
+                logger.error("_ABHI:  MY ID:" + self.getId());
                 return;
+            }
 
 
             // Step2: Trigger the response for this request, which should be directly handled by the search component.

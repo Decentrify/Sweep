@@ -3,6 +3,7 @@ package se.sics.ms.search;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.net.VodAddress;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -50,96 +51,100 @@ public final class SearchPeer extends ComponentDefinition {
     private Self self;
     private SearchConfiguration searchConfiguration;
 
-    public SearchPeer() {
-        natTraversal = create(NatTraverser.class);
-        croupier = create(Croupier.class);
-        gradient = create(Gradient.class);
-        search = create(Search.class);
-        electionLeader = create(ElectionLeader.class);
-        electionFollower = create(ElectionFollower.class);
+    private CroupierConfiguration croupierConfiguration;
+    private GradientConfiguration gradientConfiguration;
+    private ElectionConfiguration electionConfiguration;
+    private VodAddress bootstapingNode;
 
-        connect(network, natTraversal.getNegative(VodNetwork.class));
+    public SearchPeer(SearchPeerInit init) {
 
-        connect(natTraversal.getPositive(VodNetwork.class),
-                gradient.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                croupier.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                search.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                electionLeader.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                electionFollower.getNegative(VodNetwork.class));
+        self = init.getSelf();
+        croupierConfiguration = init.getCroupierConfiguration();
+        gradientConfiguration = init.getGradientConfiguration();
+        electionConfiguration = init.getElectionConfiguration();
+        searchConfiguration = init.getSearchConfiguration();
+        bootstapingNode = init.getBootstrappingNode();
 
-        connect(timer, natTraversal.getNegative(Timer.class));
-        connect(timer, search.getNegative(Timer.class));
-        connect(timer, croupier.getNegative(Timer.class));
-        connect(timer, gradient.getNegative(Timer.class));
-        connect(timer, electionLeader.getNegative(Timer.class));
-        connect(timer, electionFollower.getNegative(Timer.class));
-
-        connect(croupier.getPositive(PeerSamplePort.class),
-                gradient.getNegative(PeerSamplePort.class));
-        connect(indexPort, search.getNegative(SimulationEventsPort.class));
-        connect(gradient.getNegative(PublicKeyPort.class),
-                search.getPositive(PublicKeyPort.class));
-        connect(gradient.getNegative(GradientViewChangePort.class),
-                electionLeader.getPositive(GradientViewChangePort.class));
-        connect(gradient.getNegative(GradientViewChangePort.class),
-                electionFollower.getPositive(GradientViewChangePort.class));
-        connect(electionLeader.getNegative(LeaderStatusPort.class),
-                gradient.getPositive(LeaderStatusPort.class));
-        connect(electionLeader.getNegative(LeaderStatusPort.class),
-                search.getPositive(LeaderStatusPort.class));
-        connect(electionFollower.getNegative(LeaderStatusPort.class),
-                gradient.getPositive(LeaderStatusPort.class));
-        connect(gradient.getPositive(GradientRoutingPort.class),
-                search.getNegative(GradientRoutingPort.class));
-
-
-        connect(internalUiPort, search.getPositive(UiPort.class));
-
-        connect(search.getNegative(FailureDetectorPort.class), fdPort);
-        connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
-        connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
-        connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
-
-
-        subscribe(handleInit, control);
+        subscribe(handleStart, control);
         subscribe(searchRequestHandler, externalUiPort);
-        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryRequestHandler, externalUiPort);
-        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
-    }
-    Handler<SearchPeerInit> handleInit = new Handler<SearchPeerInit>() {
-        @Override
-        public void handle(final SearchPeerInit init) {
-            self = init.getSelf();
-            CroupierConfiguration croupierConfiguration = init.getCroupierConfiguration();
-            GradientConfiguration gradientConfiguration = init.getGradientConfiguration();
-            ElectionConfiguration electionConfiguration = init.getElectionConfiguration();
-            searchConfiguration = init.getSearchConfiguration();
 
-            trigger(new ElectionInit(self, electionConfiguration), electionLeader.getControl());
-            trigger(new ElectionInit(self, electionConfiguration), electionFollower.getControl());
-            trigger(new GradientInit(self, gradientConfiguration), gradient.getControl());
-            trigger(new CroupierInit(self, croupierConfiguration), croupier.getControl());
-            trigger(new NatTraverserInit(self, new HashSet<Address>(), croupierConfiguration.getSeed(), NatTraverserConfiguration.build(),
-                    HpClientConfiguration.build(),
-                    RendezvousServerConfiguration.build().
-                    setSessionExpirationTime(30 * 1000),
-                    StunServerConfiguration.build(),
-                    StunClientConfiguration.build(),
-                    ParentMakerConfiguration.build(), true), natTraversal.control());
+            natTraversal = create(NatTraverser.class,
+                    new NatTraverserInit(self, new HashSet<Address>(),
+                            croupierConfiguration.getSeed(),
+                            NatTraverserConfiguration.build(),
+                            HpClientConfiguration.build(),
+                            RendezvousServerConfiguration.build().
+                                    setSessionExpirationTime(30 * 1000),
+                            StunServerConfiguration.build(),
+                            StunClientConfiguration.build(),
+                            ParentMakerConfiguration.build(), true));
+
+            croupier = create(Croupier.class, new CroupierInit(self, croupierConfiguration));
+            gradient = create(Gradient.class, new GradientInit(self, gradientConfiguration));
+            search = create(Search.class, new SearchInit(self, searchConfiguration));
+            electionLeader = create(ElectionLeader.class,
+                    new ElectionInit<ElectionLeader>(self, electionConfiguration));
+            electionFollower = create(ElectionFollower.class,
+                    new ElectionInit<ElectionFollower>(self, electionConfiguration));
+
+            connect(network, natTraversal.getNegative(VodNetwork.class));
+
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    gradient.getNegative(VodNetwork.class));
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    croupier.getNegative(VodNetwork.class));
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    search.getNegative(VodNetwork.class));
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    electionLeader.getNegative(VodNetwork.class));
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    electionFollower.getNegative(VodNetwork.class));
+
+            connect(timer, natTraversal.getNegative(Timer.class));
+            connect(timer, search.getNegative(Timer.class));
+            connect(timer, croupier.getNegative(Timer.class));
+            connect(timer, gradient.getNegative(Timer.class));
+            connect(timer, electionLeader.getNegative(Timer.class));
+            connect(timer, electionFollower.getNegative(Timer.class));
+
+            connect(croupier.getPositive(PeerSamplePort.class),
+                    gradient.getNegative(PeerSamplePort.class));
+            connect(indexPort, search.getNegative(SimulationEventsPort.class));
+            connect(gradient.getNegative(PublicKeyPort.class),
+                    search.getPositive(PublicKeyPort.class));
+            connect(gradient.getNegative(GradientViewChangePort.class),
+                    electionLeader.getPositive(GradientViewChangePort.class));
+            connect(gradient.getNegative(GradientViewChangePort.class),
+                    electionFollower.getPositive(GradientViewChangePort.class));
+            connect(electionLeader.getNegative(LeaderStatusPort.class),
+                    gradient.getPositive(LeaderStatusPort.class));
+            connect(electionLeader.getNegative(LeaderStatusPort.class),
+                    search.getPositive(LeaderStatusPort.class));
+            connect(electionFollower.getNegative(LeaderStatusPort.class),
+                    gradient.getPositive(LeaderStatusPort.class));
+            connect(gradient.getPositive(GradientRoutingPort.class),
+                    search.getNegative(GradientRoutingPort.class));
+            connect(internalUiPort, search.getPositive(UiPort.class));
+
+            connect(search.getNegative(FailureDetectorPort.class), fdPort);
+            connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
+            connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
+            connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
+
+            subscribe(searchResponseHandler, search.getPositive(UiPort.class));
+            subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
+    }
+    Handler<Start> handleStart = new Handler<Start>() {
+        @Override
+        public void handle(final Start init) {
 
             LinkedList<SearchDescriptor> descs = new LinkedList<SearchDescriptor>();
-            if (init.getBootstrappingNode() != null) {
-                final SearchDescriptor descr = new SearchDescriptor(init.getBootstrappingNode());
+            if (bootstapingNode != null) {
+                final SearchDescriptor descr = new SearchDescriptor(bootstapingNode);
                 descs.add(descr);
             }
-
             trigger(new CroupierJoin(SearchDescriptor.toVodDescriptorList(descs)), croupier.getPositive(CroupierPort.class));
-            trigger(new SearchInit(self, searchConfiguration), search.getControl());
         }
     };
 

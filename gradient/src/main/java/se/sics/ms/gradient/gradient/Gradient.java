@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
+import se.sics.kompics.*;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
 import se.sics.ms.gradient.control.CheckPartitionInfoHashUpdate;
@@ -26,10 +27,6 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.ports.LeaderStatusPort.LeaderStatus;
@@ -128,8 +125,9 @@ public final class Gradient extends ComponentDefinition {
         }
     }
 
-    public Gradient() {
-        subscribe(handleInit, control);
+    public Gradient(GradientInit init) {
+        doInit(init);
+        subscribe(handleStart, control);
         subscribe(handleRound, timerPort);
         subscribe(handleShuffleRequestTimeout, timerPort);
         subscribe(handleCroupierSample, croupierSamplePort);
@@ -165,22 +163,27 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Initialize the state of the component.
      */
-    final Handler<GradientInit> handleInit = new Handler<GradientInit>() {
-        @Override
-        public void handle(GradientInit init) {
-            self = init.getSelf();
-            config = init.getConfiguration();
-            outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
-            random = new Random(init.getConfiguration().getSeed());
-            gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
-            routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>>();
-            leader = false;
-            leaderAddress = null;
-            latestRtts = new long[config.getLatestRttStoreLimit()];
-            partitionRequestList = new ArrayList<TimeoutId>();
-            partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
+    private void doInit(GradientInit init) {
 
+        self = init.getSelf();
+        config = init.getConfiguration();
+        outstandingShuffles = Collections.synchronizedMap(new HashMap<UUID, VodAddress>());
+        random = new Random(init.getConfiguration().getSeed());
+        gradientView = new GradientView(self, config.getViewSize(), config.getConvergenceTest(), config.getConvergenceTestRounds());
+        routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>>();
+        leader = false;
+        leaderAddress = null;
+        latestRtts = new long[config.getLatestRttStoreLimit()];
+        partitionRequestList = new ArrayList<TimeoutId>();
+        partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
+    }
+
+    public Handler<Start> handleStart = new Handler<Start>() {
+
+        @Override
+        public void handle(Start e) {
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(config.getShufflePeriod(), config.getShufflePeriod());
+
             rst.setTimeoutEvent(new GradientRound(rst, self.getId()));
             trigger(rst, timerPort);
         }

@@ -2,13 +2,14 @@ package se.sics.ms.election;
 
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.ElectionConfiguration;
+import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Init;
 
 /**
  * QueryLimit class that carries the configuration variables for election as well as it's
  * own address from the boot strapping process to the election components
  */
-public class ElectionInit extends Init {
+public class ElectionInit<T extends ComponentDefinition> extends Init<T> {
 	private final Self self;
 	private final ElectionConfiguration config;
 

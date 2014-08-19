@@ -34,13 +34,7 @@ import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.java.JavaTimer;
-import se.sics.kompics.Component;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Fault;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Kompics;
-import se.sics.kompics.Positive;
-import se.sics.kompics.Start;
+import se.sics.kompics.*;
 import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
@@ -79,35 +73,20 @@ public class SearchWebServiceMain extends ComponentDefinition {
         }
     }
 
-    public SearchWebServiceMain() {
-        network = create(NettyNetwork.class);
-        timer = create(JavaTimer.class);
-        natTraverser = create(NatTraverser.class);
-        searchPeer = create(SearchPeer.class);
-        searchMiddleware = create(SearchWebServiceMiddleware.class);
+    public SearchWebServiceMain(SearchWebServiceMiddlewareInit init) {
 
         myComp = this;
-//        ((SearchWebServiceMiddleware)searchMiddleware).setDelegate(myComp);
-        resolveIp = create(ResolveIp.class);
-
-        connect(natTraverser.getNegative(Timer.class), timer.getPositive(Timer.class));
-        connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
-        connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
-        connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
-
-        connect(searchMiddleware.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
-        //connect(uiPort, searchPeer.getNegative(UiPort.class));        
-
         subscribe(handleStart, control);
-        subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
-        subscribe(handleFault, natTraverser.getControl());
-        subscribe(handleNettyFault, network.getControl());
-        subscribe(handlePsPortBindResponse, network.getPositive(NatNetworkControl.class));
-
     }
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(Start event) {
+
+            resolveIp = create(ResolveIp.class, Init.NONE);
+            timer = create(JavaTimer.class, Init.NONE);
+
+            connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
+            subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
 
             trigger(new GetIpRequest(false),
                     resolveIp.getPositive(ResolveIpPort.class));
@@ -127,25 +106,37 @@ public class SearchWebServiceMain extends ComponentDefinition {
                 System.exit(-1);
             } else {
 
-            self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
+                self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
 
-            Set<Address> publicNodes = new HashSet<Address>();
-            try {
-                InetAddress inet = InetAddress.getByName(publicBootstrapNode);
-                publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
-            } catch (UnknownHostException ex) {
-                java.util.logging.Logger.getLogger(SearchWebServiceMain.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            trigger(new NatTraverserInit(self, publicNodes, MsConfig.getSeed()),
-                    natTraverser.getControl());
-
+                Set<Address> publicNodes = new HashSet<Address>();
                 try {
-                    trigger(new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(new Address(InetAddress.getByName(publicBootstrapNode), MsConfig.getPort(), 0))),
-                            searchPeer.getControl());
+                    InetAddress inet = InetAddress.getByName(publicBootstrapNode);
+                    publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
                 } catch (UnknownHostException ex) {
                     java.util.logging.Logger.getLogger(SearchWebServiceMain.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
+                searchMiddleware = create(SearchWebServiceMiddleware.class, Init.NONE);
+                try {
+                    searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(new Address(InetAddress.getByName(publicBootstrapNode), MsConfig.getPort(), 0))));
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                }
+
+                connect(natTraverser.getNegative(Timer.class), timer.getPositive(Timer.class));
+                connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
+                connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
+                connect(searchMiddleware.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
+                connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class), new MsgDestFilterAddress(myAddr));
+                connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class),
+                        new IndividualTimeout.IndividualTimeoutFilter(myAddr.getId()));
+
+                subscribe(handleFault, natTraverser.getControl());
+
+                trigger(Start.event, natTraverser.getControl());
+                trigger(Start.event, searchMiddleware.getControl());
+                trigger(Start.event, searchPeer.getControl());
             }
         }
     };
@@ -156,17 +147,18 @@ public class SearchWebServiceMain extends ComponentDefinition {
             int myId = (new Random(MsConfig.getSeed())).nextInt();
             InetAddress localIp = event.getIpAddress();
             myAddr = new Address(localIp, /*randInt(49152, 65535)*/MsConfig.getPort(), myId);
-            NettyInit nInit = new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class);
-            trigger(nInit, network.getControl());
+
+            network = create(NettyNetwork.class, new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class));
+
+            subscribe(handleNettyFault, network.getControl());
+            subscribe(handlePsPortBindResponse, network.getPositive(NatNetworkControl.class));
+
+            trigger(Start.event, network.getControl());
 
             PortBindRequest pb1 = new PortBindRequest(myAddr, Transport.UDP);
             PsPortBindResponse pbr1 = new PsPortBindResponse(pb1);
             pb1.setResponse(pbr1);
             trigger(pb1, network.getPositive(NatNetworkControl.class));
-
-            connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class), new MsgDestFilterAddress(myAddr));
-            connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class), 
-                    new IndividualTimeout.IndividualTimeoutFilter(myId));
         }
     };
     
