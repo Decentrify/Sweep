@@ -8,7 +8,7 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
 
-public final class SearchPeerInit extends Init {
+public final class SearchPeerInit extends Init<SearchPeer> {
     private final Self self;
 	private final CroupierConfiguration croupierConfiguration;
 	private final SearchConfiguration applicationConfiguration;

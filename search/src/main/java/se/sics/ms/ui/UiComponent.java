@@ -6,6 +6,7 @@ import se.sics.gvod.common.Self;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
+import se.sics.kompics.Start;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -34,24 +35,25 @@ public class UiComponent extends ComponentDefinition {
     private UiComponent component;
     private TrayUI trayUI;
 
-    public UiComponent(){
+    public UiComponent(UiComponentInit init){
         component = this;
-
-        subscribe(uiComponentInitHandler, control);
-        subscribe(searchResponseHandler, uiPort);
-        subscribe(addIndexEntryUiResponseHandler, uiPort);
+        doInit(init);
     }
 
-    final Handler<UiComponentInit> uiComponentInitHandler = new Handler<UiComponentInit>() {
+    private void doInit(UiComponentInit init) {
+        subscribe(startHandler, control);
+        subscribe(searchResponseHandler, uiPort);
+        subscribe(addIndexEntryUiResponseHandler, uiPort);
+
+        self = init.getPeerSelf();
+    }
+
+    final Handler<Start> startHandler = new Handler<Start>() {
         @Override
-        public void handle(UiComponentInit uiComponentInit) {
-            self = uiComponentInit.getPeerSelf();
-
-
+        public void handle(Start startInit) {
             if (!SystemTray.isSupported()) {
                 throw new IllegalStateException("SystemTray is not supported");
             }
-
 
             trayUI = new TrayUI(createImage("search.png", "tray icon"),
                     component);

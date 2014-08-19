@@ -31,7 +31,7 @@
     <properties>
         <java.compiler.version>1.7</java.compiler.version>
         <nattraverser.version>1.0-SNAPSHOT</nattraverser.version>
-        <kompics.version>0.4.4-SNAPSHOT</kompics.version>
+        <kompics.version>0.6.0-SNAPSHOT</kompics.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

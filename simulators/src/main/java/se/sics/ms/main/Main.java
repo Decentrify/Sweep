@@ -2,6 +2,7 @@ package se.sics.ms.main;
 
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.scenarios.GradualPartitioningScenario;
 import se.sics.ms.scenarios.Scenario;
 import se.sics.ms.scenarios.Scenario2;
 import se.sics.ms.simulator.SearchSimulationMain;
@@ -50,7 +51,7 @@ public class Main {
         Configuration config = new Configuration();
         config.store();
 
-        Scenario scenario = new Scenario2();
+        Scenario scenario = new GradualPartitioningScenario();
         scenario.setSeed(MsConfig.getSeed());
         scenario.getScenario().simulateThreaded(SearchSimulationMain.class);
     }

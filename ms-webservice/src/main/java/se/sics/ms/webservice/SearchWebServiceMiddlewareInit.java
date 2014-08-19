@@ -12,7 +12,7 @@ import se.sics.kompics.Init;
  *
  * @author alidar
  */
-public class SearchWebServiceMiddlewareInit extends Init {
+public class SearchWebServiceMiddlewareInit extends Init<SearchWebServiceMiddleware> {
 
     private SearchDelegate searchDelegate;
 

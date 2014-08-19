@@ -8,7 +8,7 @@ import se.sics.kompics.Init;
 /**
  * The init event for Search.
  */
-public final class SearchInit extends Init {
+public final class SearchInit extends Init<Search> {
 	private final Self peerSelf;
 	private final SearchConfiguration configuration;
 

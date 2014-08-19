@@ -7,7 +7,7 @@ import se.sics.kompics.Init;
 /**
  * The init event for the gradient.
  */
-public final class GradientInit extends Init {
+public final class GradientInit extends Init<Gradient> {
 	private final Self self;
 	private final GradientConfiguration configuration;
 
