@@ -1,6 +1,5 @@
 package se.sics.ms.gradient.gradient;
 
-//import com.sun.xml.internal.bind.v2.TODO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
@@ -67,8 +66,8 @@ public final class Gradient extends ComponentDefinition {
     private Map<UUID, VodAddress> outstandingShuffles;
     private boolean leader;
     private VodAddress leaderAddress;
+    private PublicKey leaderPublicKey;
     private Map<Integer, Long> shuffleTimes = new HashMap<Integer, Long>();
-    private ArrayList<TimeoutId> partitionRequestList;
     int latestRttRingBufferPointer = 0;
     private long[] latestRtts;
     // This is a routing table maintaining a a list of descriptors for each category and its partitions.
@@ -139,7 +138,6 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
-        subscribe(handlePublicKeyMessage, networkPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
@@ -149,9 +147,7 @@ public final class Gradient extends ComponentDefinition {
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchRequestTimeout, timerPort);
         subscribe(handleViewSizeRequest, gradientRoutingPort);
-//        subscribe(checkPartitioningRequirementHandler, gradientRoutingPort);
         subscribe(handlePartitioningUpdate, gradientRoutingPort);
-//        subscribe(delayedPartitioningMessageHandler, networkPort);
 
         subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
         subscribe(handleFailureDetector, fdPort);
@@ -174,7 +170,6 @@ public final class Gradient extends ComponentDefinition {
         leader = false;
         leaderAddress = null;
         latestRtts = new long[config.getLatestRttStoreLimit()];
-        partitionRequestList = new ArrayList<TimeoutId>();
         partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
     }
 
@@ -876,26 +871,11 @@ public final class Gradient extends ComponentDefinition {
     final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
         @Override
         public void handle(PublicKeyBroadcast publicKeyBroadcast) {
-            PublicKey key = publicKeyBroadcast.getPublicKey();
 
-            for (SearchDescriptor item : gradientView.getAll()) {
-                trigger(new PublicKeyMessage(self.getAddress(), item.getVodAddress().getNodeAddress(), key), networkPort);
-            }
-        }
-    };
-    /**
-     * Handles PublicKey message and broadcasts it down to the gradient
-     */
-    final Handler<PublicKeyMessage> handlePublicKeyMessage = new Handler<PublicKeyMessage>() {
-        @Override
-        public void handle(PublicKeyMessage publicKeyMessage) {
-            PublicKey key = publicKeyMessage.getPublicKey();
-
-            trigger(new PublicKeyBroadcast(key), publicKeyPort);
-
-            for (SearchDescriptor item : gradientView.getLowerUtilityNodes()) {
-                trigger(new PublicKeyMessage(publicKeyMessage.getVodSource(), item.getVodAddress().getNodeAddress(), key), networkPort);
-            }
+            leaderPublicKey = publicKeyBroadcast.getPublicKey();
+            //leaderAddress is used by a non leader node to directly send AddIndex request to leader. Since the
+            //current node is now a leader, this information is not invalid.
+            leaderAddress = null;
         }
     };
     /**
@@ -1149,13 +1129,15 @@ public final class Gradient extends ComponentDefinition {
         logger.debug("Check Leader Update Received.");
 
         trigger(new CheckLeaderInfoUpdate.Response(event.getRoundId(), event.getSourceAddress(),
-                leader ? self.getAddress() : leaderAddress), gradientRoutingPort);
+                leader ? self.getAddress() : leaderAddress, leaderPublicKey), gradientRoutingPort);
     }
 
     Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
         @Override
         public void handle(LeaderInfoUpdate leaderInfoUpdate) {
+
             leaderAddress = leaderInfoUpdate.getLeaderAddress();
+            leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
     };
 

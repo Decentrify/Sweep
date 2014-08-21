@@ -508,7 +508,7 @@ public class EncodingDecodingTest {
         Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
         set.add(searchDescriptor);
 
-        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderSearchDescriptor, set);
+        LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderSearchDescriptor, set, null);
         try {
             ByteBuf buffer = msg.toByteArray();
             opCodeCorrect(buffer, msg);

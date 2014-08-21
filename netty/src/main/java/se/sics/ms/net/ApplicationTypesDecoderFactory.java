@@ -265,4 +265,23 @@ public class ApplicationTypesDecoderFactory {
         return new PartitionHelper.PartitionInfoHash(partitionUpdateId, hash);
     }
 
+    public static PublicKey readPublicKey(ByteBuf buffer) throws MessageDecodingException {
+
+        String key = UserTypesDecoderFactory.readStringLength65536(buffer);
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(key.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();
+        }
+
+        return pub;
+    }
+
 }

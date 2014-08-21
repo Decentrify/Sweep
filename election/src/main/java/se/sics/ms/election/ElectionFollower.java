@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
 import se.sics.ms.gradient.events.LeaderInfoUpdate;
+import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.RelayMsgNetty;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -25,6 +26,7 @@ import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.messages.*;
 import se.sics.ms.types.PartitionId;
 
+import java.security.PublicKey;
 import java.util.*;
 
 import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
@@ -42,6 +44,7 @@ public class ElectionFollower extends ComponentDefinition {
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
+    Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
 
     private ElectionConfiguration config;
@@ -179,17 +182,17 @@ public class ElectionFollower extends ComponentDefinition {
 
             if (leader == null) {
                 if (event.getLeaderSearchDescriptor().equals(highestUtilityNode)) {
-                    acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors());
+                    acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors(), event.getLeaderPublicKey());
                 } else {
                     rejectLeader(event.getVodSource(), highestUtilityNode);
                 }
             } else if (!event.getLeaderSearchDescriptor().equals(highestUtilityNode)) {
                 rejectLeader(event.getVodSource(), highestUtilityNode);
             } else if (event.getLeaderSearchDescriptor().equals(leader)) {
-                acceptLeader(leader, event.getSearchDescriptors());
+                acceptLeader(leader, event.getSearchDescriptors(), event.getLeaderPublicKey());
             } else {
                 rejectLeader(leader.getVodAddress(), highestUtilityNode);
-                acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors());
+                acceptLeader(event.getLeaderSearchDescriptor(), event.getSearchDescriptors(), event.getLeaderPublicKey());
             }
         }
     };
@@ -394,7 +397,7 @@ public class ElectionFollower extends ComponentDefinition {
      * @param node the leader's Address
      * @param view the leader's current view
      */
-    private void acceptLeader(SearchDescriptor node, Set<SearchDescriptor> view) {
+    private void acceptLeader(SearchDescriptor node, Set<SearchDescriptor> view, PublicKey leaderPublicKey) {
         leaderIsAlive = true;
         leader = node;
         leaderView = view;
@@ -402,7 +405,7 @@ public class ElectionFollower extends ComponentDefinition {
         cancelHeartbeatTimeout();
         scheduleHeartbeatTimeout(config.getHeartbeatWaitTimeout());
 
-        trigger(new LeaderInfoUpdate(leader.getVodAddress()), leaderStatusPort);
+        trigger(new LeaderInfoUpdate(leader.getVodAddress(), leaderPublicKey), leaderStatusPort);
     }
 
     /**
@@ -460,6 +463,6 @@ public class ElectionFollower extends ComponentDefinition {
         leaderView = null;
         leaderIsAlive = false;
 
-        trigger(new LeaderInfoUpdate(null), leaderStatusPort);
+        trigger(new LeaderInfoUpdate(null, null), leaderStatusPort);
     }
 }

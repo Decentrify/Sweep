@@ -111,8 +111,14 @@ public final class SearchPeer extends ComponentDefinition {
             connect(croupier.getPositive(PeerSamplePort.class),
                     gradient.getNegative(PeerSamplePort.class));
             connect(indexPort, search.getNegative(SimulationEventsPort.class));
+
             connect(gradient.getNegative(PublicKeyPort.class),
                     search.getPositive(PublicKeyPort.class));
+            connect(electionLeader.getNegative(PublicKeyPort.class),
+                    search.getPositive(PublicKeyPort.class));
+            connect(electionFollower.getNegative(PublicKeyPort.class),
+                    search.getPositive(PublicKeyPort.class));
+
             connect(gradient.getNegative(GradientViewChangePort.class),
                     electionLeader.getPositive(GradientViewChangePort.class));
             connect(gradient.getNegative(GradientViewChangePort.class),
@@ -123,6 +129,8 @@ public final class SearchPeer extends ComponentDefinition {
                     search.getPositive(LeaderStatusPort.class));
             connect(electionFollower.getNegative(LeaderStatusPort.class),
                     gradient.getPositive(LeaderStatusPort.class));
+            connect(electionFollower.getNegative(LeaderStatusPort.class),
+                search.getPositive(LeaderStatusPort.class));
             connect(gradient.getPositive(GradientRoutingPort.class),
                     search.getNegative(GradientRoutingPort.class));
             connect(internalUiPort, search.getPositive(UiPort.class));
