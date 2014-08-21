@@ -1496,6 +1496,11 @@ public final class Search extends ComponentDefinition {
                     leaderIds.remove(leaderIds.get(0));
                 leaderIds.add(newLeaderPublicKey);
             }
+            else {
+                //if leader already exists in the list, move it to the top
+                leaderIds.remove(newLeaderPublicKey);
+                leaderIds.add(newLeaderPublicKey);
+            }
         }
     }
 
