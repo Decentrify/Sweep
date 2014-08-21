@@ -1,20 +1,18 @@
 package se.sics.ms.simulator;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Date;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
-
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Date;
 
 /**
  * Parser for an xml string describing a magnetic link. Some xml files entries

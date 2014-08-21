@@ -3,12 +3,10 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.util.PartitionHelper;
 
-import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
 

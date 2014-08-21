@@ -1,16 +1,15 @@
 package se.sics.ms.util;
 
-import org.junit.*;
 import se.sics.gvod.address.Address;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.types.PartitionId;
+import se.sics.ms.types.SearchDescriptor;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.ArrayList;
 
 /**
  * Created with IntelliJ IDEA.

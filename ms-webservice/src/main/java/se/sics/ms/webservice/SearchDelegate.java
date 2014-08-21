@@ -6,8 +6,9 @@
 
 package se.sics.ms.webservice;
 
-import java.util.ArrayList;
 import se.sics.ms.types.IndexEntry;
+
+import java.util.ArrayList;
 
 /**
  *

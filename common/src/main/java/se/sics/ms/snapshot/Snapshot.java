@@ -1,14 +1,13 @@
 package se.sics.ms.snapshot;
 
+import se.sics.gvod.address.Address;
+import se.sics.gvod.net.VodAddress;
+import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.Pair;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-
-import se.sics.gvod.address.Address;
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.util.Pair;
 
 /**
  * Keep track of the system state for evaluation and debugging. Write the

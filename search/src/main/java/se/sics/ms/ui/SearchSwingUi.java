@@ -6,11 +6,10 @@
 
 package se.sics.ms.ui;
 
-import javax.swing.DefaultListModel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+
+import javax.swing.*;
 
 /**
  *

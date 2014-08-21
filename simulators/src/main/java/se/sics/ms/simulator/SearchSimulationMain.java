@@ -1,24 +1,18 @@
 package se.sics.ms.simulator;
 
-import java.io.IOException;
-import se.sics.gvod.config.AbstractConfiguration;
-
-import se.sics.gvod.config.CroupierConfiguration;
-import se.sics.gvod.config.ElectionConfiguration;
-import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.config.*;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.network.model.king.KingLatencyMap;
+import se.sics.gvod.p2p.simulator.P2pSimulator;
+import se.sics.gvod.p2p.simulator.P2pSimulatorInit;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Kompics;
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
-
-import se.sics.gvod.config.VodConfig;
-import se.sics.gvod.p2p.simulator.P2pSimulator;
-import se.sics.gvod.p2p.simulator.P2pSimulatorInit;
 import se.sics.kompics.simulation.SimulatorScheduler;
+
+import java.io.IOException;
 
 public final class SearchSimulationMain extends ComponentDefinition {
 

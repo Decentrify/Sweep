@@ -3,7 +3,6 @@ package se.sics.ms.gradient.events;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
-import se.sics.ms.util.PartitionHelper;
 
 import java.util.List;
 

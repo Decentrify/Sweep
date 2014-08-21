@@ -1,15 +1,15 @@
 package se.sics.ms.gradient.gradient;
 
-import java.util.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
-import se.sics.ms.gradient.misc.UtilityComparator;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.types.PartitionId;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.PartitionHelper;
+
+import java.util.*;
 
 
 /**

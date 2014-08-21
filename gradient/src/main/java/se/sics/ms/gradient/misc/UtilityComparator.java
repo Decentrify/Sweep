@@ -1,6 +1,7 @@
 package se.sics.ms.gradient.misc;
 
 import se.sics.ms.types.SearchDescriptor;
+
 import java.util.Comparator;
 
 /**

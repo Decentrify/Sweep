@@ -5,15 +5,11 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 

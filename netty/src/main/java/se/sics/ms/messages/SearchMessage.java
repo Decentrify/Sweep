@@ -4,13 +4,9 @@
  */
 package se.sics.ms.messages;
 
-import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
+import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
@@ -21,7 +17,12 @@ import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.types.SearchPattern;
+
+import java.util.Collection;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *

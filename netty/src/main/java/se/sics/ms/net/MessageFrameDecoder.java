@@ -9,9 +9,9 @@ import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.ms.messages.*;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.ms.messages.*;
 
 /**
  *

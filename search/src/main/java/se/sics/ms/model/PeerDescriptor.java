@@ -1,8 +1,8 @@
 package se.sics.ms.model;
 
-import java.io.Serializable;
-
 import se.sics.gvod.net.VodAddress;
+
+import java.io.Serializable;
 
 public class PeerDescriptor implements Comparable<PeerDescriptor>, Serializable {
 	private static final long serialVersionUID = 1906679375438244117L;

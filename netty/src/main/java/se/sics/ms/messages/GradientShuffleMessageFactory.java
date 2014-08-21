@@ -1,11 +1,11 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
-import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
+import se.sics.ms.types.SearchDescriptor;
 
 import java.util.Set;
 

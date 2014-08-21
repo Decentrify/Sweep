@@ -1,11 +1,8 @@
 package se.sics.ms.messages;
 
-import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
+import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
@@ -13,6 +10,10 @@ import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+
+import java.util.Collection;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SearchMessageFactory {
 

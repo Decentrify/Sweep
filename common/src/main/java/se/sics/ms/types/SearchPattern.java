@@ -1,16 +1,12 @@
 package se.sics.ms.types;
 
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.*;
+import se.sics.ms.configuration.MsConfig;
+
 import java.io.Serializable;
 import java.util.Date;
 import java.util.StringTokenizer;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.NumericRangeQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.WildcardQuery;
-import se.sics.ms.configuration.MsConfig;
 
 /**
  * Created with IntelliJ IDEA.

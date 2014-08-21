@@ -5,8 +5,7 @@
  */
 
 package se.sics.ms.webservice;
-import java.util.ArrayList;
-import java.util.logging.Level;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.ComponentDefinition;
@@ -15,12 +14,15 @@ import se.sics.kompics.Negative;
 import se.sics.kompics.Start;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
-import se.sics.ms.ports.UiPort;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.ui.UiComponent;
+
+import java.util.ArrayList;
+import java.util.logging.Level;
 
 /**
  *

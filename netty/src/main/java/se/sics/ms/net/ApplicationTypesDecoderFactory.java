@@ -1,21 +1,14 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.base64.Base64Decoder;
 import org.apache.commons.codec.binary.Base64;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.configuration.MsConfig;
-//import se.sics.ms.messages.PartitioningMessage;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
-import sun.misc.BASE64Decoder;
 
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -25,6 +18,8 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
 import static se.sics.gvod.net.util.UserTypesDecoderFactory.*;
+
+//import se.sics.ms.messages.PartitioningMessage;
 
 /**
  *

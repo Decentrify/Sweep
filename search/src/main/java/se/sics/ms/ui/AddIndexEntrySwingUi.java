@@ -1,16 +1,10 @@
 package se.sics.ms.ui;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.Date;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
+
+import javax.swing.*;
+import java.util.Date;
 
 /*
  * To change this license header, choose License Headers in Project Properties.

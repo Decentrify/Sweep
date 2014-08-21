@@ -6,12 +6,9 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.util.PartitionHelper;
-import sun.misc.BASE64Encoder;
 
 import java.security.PublicKey;
 import java.util.LinkedList;
-
-import static se.sics.gvod.net.util.UserTypesEncoderFactory.writeStringLength65536;
 
 /**
  * Used for encoding the control messages in byte array.

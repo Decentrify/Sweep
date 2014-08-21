@@ -2,7 +2,6 @@ package se.sics.ms.util;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 

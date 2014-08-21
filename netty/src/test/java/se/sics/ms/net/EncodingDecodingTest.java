@@ -4,41 +4,31 @@
  */
 package se.sics.ms.net;
 
+import io.netty.buffer.ByteBuf;
+import org.junit.*;
+import se.sics.gvod.address.Address;
+import se.sics.gvod.common.UtilityVod;
+import se.sics.gvod.common.hp.HPMechanism;
+import se.sics.gvod.common.hp.HPRole;
+import se.sics.gvod.common.msgs.*;
+import se.sics.gvod.config.VodConfig;
+import se.sics.gvod.net.Nat;
+import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.timer.TimeoutId;
+import se.sics.gvod.timer.UUID;
+import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.exceptions.IllegalSearchString;
+import se.sics.ms.messages.*;
+import se.sics.ms.types.*;
+import se.sics.ms.util.PartitionHelper;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import io.netty.buffer.ByteBuf;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import se.sics.gvod.common.msgs.*;
-import se.sics.gvod.net.VodAddress;
-import se.sics.ms.types.SearchDescriptor;
-import se.sics.gvod.config.BaseCommandLineConfig;
-import se.sics.gvod.net.Nat;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.common.UtilityVod;
-import se.sics.gvod.config.VodConfig;
-import se.sics.gvod.common.hp.HPMechanism;
-import se.sics.gvod.common.hp.HPRole;
-import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.exceptions.IllegalSearchString;
-import se.sics.ms.messages.*;
-import se.sics.gvod.timer.TimeoutId;
-import se.sics.gvod.timer.UUID;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
-import se.sics.ms.util.PartitionHelper;
 
 /**
  *

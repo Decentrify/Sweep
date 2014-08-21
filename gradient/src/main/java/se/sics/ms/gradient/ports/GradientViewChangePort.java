@@ -1,9 +1,10 @@
 package se.sics.ms.gradient.ports;
 
-import java.util.SortedSet;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
+import se.sics.ms.types.SearchDescriptor;
+
+import java.util.SortedSet;
 
 /**
  * This class is a port created for the purpose of broadcasting gradient's view

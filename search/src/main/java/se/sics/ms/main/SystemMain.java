@@ -1,12 +1,5 @@
 package se.sics.ms.main;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
@@ -19,17 +12,12 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.NatNetworkControl;
-import se.sics.gvod.net.NettyInit;
-import se.sics.gvod.net.NettyNetwork;
-import se.sics.gvod.net.Transport;
-import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.*;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.java.JavaTimer;
 import se.sics.kompics.*;
-
 import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
@@ -37,12 +25,20 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.ports.UiPort;
+import se.sics.ms.search.SearchPeer;
+import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.ui.UiComponent;
 import se.sics.ms.ui.UiComponentInit;
-import se.sics.ms.search.SearchPeer;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.logging.Level;
 
 public class SystemMain extends ComponentDefinition {
 

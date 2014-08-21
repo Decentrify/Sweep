@@ -1,7 +1,6 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -9,12 +8,10 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import sun.misc.BASE64Encoder;
+import se.sics.ms.types.SearchDescriptor;
 
 import java.security.PublicKey;
 import java.util.Set;
-
-import static se.sics.gvod.net.util.UserTypesEncoderFactory.writeStringLength65536;
 
 /**
  * Created with IntelliJ IDEA.
