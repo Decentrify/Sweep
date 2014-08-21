@@ -1,21 +1,14 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.base64.Base64Decoder;
 import org.apache.commons.codec.binary.Base64;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.configuration.MsConfig;
-//import se.sics.ms.messages.PartitioningMessage;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
-import sun.misc.BASE64Decoder;
 
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -25,6 +18,8 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
 import static se.sics.gvod.net.util.UserTypesDecoderFactory.*;
+
+//import se.sics.ms.messages.PartitioningMessage;
 
 /**
  *
@@ -263,6 +258,25 @@ public class ApplicationTypesDecoderFactory {
         TimeoutId partitionUpdateId = UserTypesDecoderFactory.readTimeoutId(buffer);
         String hash = UserTypesDecoderFactory.readStringLength65536(buffer);
         return new PartitionHelper.PartitionInfoHash(partitionUpdateId, hash);
+    }
+
+    public static PublicKey readPublicKey(ByteBuf buffer) throws MessageDecodingException {
+
+        String key = UserTypesDecoderFactory.readStringLength65536(buffer);
+        KeyFactory keyFactory;
+        PublicKey pub = null;
+        try {
+            keyFactory = KeyFactory.getInstance("RSA");
+            byte[] decode = Base64.decodeBase64(key.getBytes());
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+            pub = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();
+        }
+
+        return pub;
     }
 
 }

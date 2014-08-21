@@ -1,8 +1,6 @@
 package se.sics.ms.timeout;
 
 import se.sics.gvod.timer.ScheduleTimeout;
-import se.sics.gvod.timer.Timeout;
-import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 
 /**

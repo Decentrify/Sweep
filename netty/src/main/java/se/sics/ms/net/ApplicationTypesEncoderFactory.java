@@ -5,18 +5,15 @@
 package se.sics.ms.net;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
 
+import java.security.PublicKey;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -220,6 +217,13 @@ public class ApplicationTypesEncoderFactory {
 
         UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdateHash.getPartitionRequestId());
         UserTypesEncoderFactory.writeStringLength65536(buffer, partitionUpdateHash.getHash());
+    }
+
+
+    public static void writePublicKey(ByteBuf buffer, PublicKey publicKey) throws MessageEncodingException {
+
+        if(publicKey != null)
+            writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
     }
 
 

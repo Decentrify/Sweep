@@ -2,7 +2,6 @@ package se.sics.ms.simulation;
 
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
-import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 
 
 @SuppressWarnings("serial")

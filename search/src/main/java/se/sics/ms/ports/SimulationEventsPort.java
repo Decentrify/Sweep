@@ -2,7 +2,6 @@ package se.sics.ms.ports;
 
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
-
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 

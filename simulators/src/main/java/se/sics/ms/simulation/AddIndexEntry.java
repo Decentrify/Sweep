@@ -1,8 +1,8 @@
 package se.sics.ms.simulation;
 
-import java.io.Serializable;
-
 import se.sics.kompics.Event;
+
+import java.io.Serializable;
 
 public final class AddIndexEntry extends Event implements Serializable {
 	private static final long serialVersionUID = -8128102866273386943L;

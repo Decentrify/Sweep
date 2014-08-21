@@ -7,8 +7,9 @@
 package se.sics.ms.webservicemodel;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.Date;
 import se.sics.ms.configuration.MsConfig;
+
+import java.util.Date;
 
 /**
  *

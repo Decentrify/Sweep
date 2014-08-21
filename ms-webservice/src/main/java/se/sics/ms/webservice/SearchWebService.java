@@ -10,13 +10,14 @@ import io.dropwizard.Application;
 import io.dropwizard.Configuration;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.EnumSet;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.eclipse.jetty.servlets.CrossOriginFilter;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
+import se.sics.ms.webservicemodel.AddIndexRequestJSON;
+import se.sics.ms.webservicemodel.SearchIndexRequestJSON;
+import se.sics.ms.webservicemodel.SearchIndexResultJSON;
+import se.sics.ms.webservicemodel.StatusResponseJSON;
+
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration.Dynamic;
 import javax.ws.rs.Consumes;
@@ -25,13 +26,13 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.eclipse.jetty.servlets.CrossOriginFilter;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.SearchPattern;
-import se.sics.ms.webservicemodel.AddIndexRequestJSON;
-import se.sics.ms.webservicemodel.SearchIndexRequestJSON;
-import se.sics.ms.webservicemodel.SearchIndexResultJSON;
-import se.sics.ms.webservicemodel.StatusResponseJSON;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 /**
  *
  * @author jdowling

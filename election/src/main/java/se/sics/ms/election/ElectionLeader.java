@@ -4,21 +4,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.Self;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
-import se.sics.gvod.timer.Timer;
-import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.gradient.events.PublicKeyBroadcast;
+import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort.LeaderStatus;
-import se.sics.ms.gradient.misc.UtilityComparator;
+import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.ElectionMessage;
 import se.sics.ms.messages.LeaderViewMessage;
 import se.sics.ms.messages.RejectFollowerMessage;
@@ -26,8 +25,13 @@ import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.PartitionId;
+import se.sics.ms.types.SearchDescriptor;
 
-import java.util.*;
+import java.security.PublicKey;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.SortedSet;
 
 import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
@@ -44,12 +48,14 @@ public class ElectionLeader extends ComponentDefinition {
 	Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
+    Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
 	Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
 	private int yesVotes, totalVotes, electionCounter, convergedNodesCounter;
 	private boolean electionInProgress, iAmLeader;
+    private PublicKey leaderPublicKey;
 	private Self self;
 	private SortedSet<SearchDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
@@ -86,6 +92,7 @@ public class ElectionLeader extends ComponentDefinition {
 		subscribe(handleRejectedFollower, networkPort);
         subscribe(handleTerminateBeingLeader, leaderStatusPort);
         subscribe(handleFailureDetector, fdPort);
+        subscribe(handlePublicKeyBroadcast, publicKeyPort);
 	}
 
 	/**
@@ -326,7 +333,7 @@ public class ElectionLeader extends ComponentDefinition {
 		for (SearchDescriptor receiver : lowerUtilityNodes) {
             // TODO don't send the view every time
             LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver.getVodAddress(),
-                    new SearchDescriptor(self.getDescriptor()), lowerUtilityNodes);
+                    new SearchDescriptor(self.getDescriptor()), lowerUtilityNodes, leaderPublicKey);
 			trigger(msg, networkPort);
 		}
 	}
@@ -395,6 +402,16 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(FailureDetectorPort.FailureDetectorEvent event) {
             removeNodesFromLocalState(event.getSuspectedNodes());
+        }
+    };
+
+    /**
+     * Handles broadcast public key request from Search component
+     */
+    final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
+        @Override
+        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
+            leaderPublicKey = publicKeyBroadcast.getPublicKey();
         }
     };
 }

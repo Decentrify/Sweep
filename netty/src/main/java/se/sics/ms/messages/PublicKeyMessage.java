@@ -18,6 +18,7 @@ import static se.sics.gvod.net.util.UserTypesEncoderFactory.writeStringLength655
  * Date: 8/2/13
  * Time: 1:49 PM
  */
+//this message is no longer used. It was used earlier when PublicKey was pushed, now it is pulled.
 public class PublicKeyMessage extends DirectMsgNetty.Oneway {
     private final PublicKey publicKey;
 

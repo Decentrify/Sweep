@@ -3,7 +3,21 @@ package se.sics.ms.search;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.config.*;
+import se.sics.gvod.croupier.Croupier;
+import se.sics.gvod.croupier.CroupierPort;
+import se.sics.gvod.croupier.PeerSamplePort;
+import se.sics.gvod.croupier.events.CroupierInit;
+import se.sics.gvod.croupier.events.CroupierJoin;
+import se.sics.gvod.nat.traversal.NatTraverser;
+import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
+import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.timer.Timer;
+import se.sics.kompics.*;
+import se.sics.ms.election.ElectionFollower;
+import se.sics.ms.election.ElectionInit;
+import se.sics.ms.election.ElectionLeader;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -17,24 +31,6 @@ import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
-import se.sics.gvod.config.*;
-import se.sics.gvod.croupier.Croupier;
-import se.sics.gvod.croupier.CroupierPort;
-import se.sics.gvod.croupier.PeerSamplePort;
-import se.sics.gvod.croupier.events.CroupierInit;
-import se.sics.gvod.croupier.events.CroupierJoin;
-import se.sics.gvod.nat.traversal.NatTraverser;
-import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.Timer;
-import se.sics.kompics.*;
-import se.sics.kompics.Component;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Positive;
-import se.sics.ms.election.ElectionFollower;
-import se.sics.ms.election.ElectionInit;
-import se.sics.ms.election.ElectionLeader;
 
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -111,8 +107,14 @@ public final class SearchPeer extends ComponentDefinition {
             connect(croupier.getPositive(PeerSamplePort.class),
                     gradient.getNegative(PeerSamplePort.class));
             connect(indexPort, search.getNegative(SimulationEventsPort.class));
+
             connect(gradient.getNegative(PublicKeyPort.class),
                     search.getPositive(PublicKeyPort.class));
+            connect(electionLeader.getNegative(PublicKeyPort.class),
+                    search.getPositive(PublicKeyPort.class));
+            connect(electionFollower.getNegative(PublicKeyPort.class),
+                    search.getPositive(PublicKeyPort.class));
+
             connect(gradient.getNegative(GradientViewChangePort.class),
                     electionLeader.getPositive(GradientViewChangePort.class));
             connect(gradient.getNegative(GradientViewChangePort.class),
@@ -123,6 +125,8 @@ public final class SearchPeer extends ComponentDefinition {
                     search.getPositive(LeaderStatusPort.class));
             connect(electionFollower.getNegative(LeaderStatusPort.class),
                     gradient.getPositive(LeaderStatusPort.class));
+            connect(electionFollower.getNegative(LeaderStatusPort.class),
+                search.getPositive(LeaderStatusPort.class));
             connect(gradient.getPositive(GradientRoutingPort.class),
                     search.getNegative(GradientRoutingPort.class));
             connect(internalUiPort, search.getPositive(UiPort.class));

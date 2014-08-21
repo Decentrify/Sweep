@@ -6,13 +6,6 @@
 
 package se.sics.ms.webservice;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.address.Address;
@@ -25,11 +18,7 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.NatNetworkControl;
-import se.sics.gvod.net.NettyInit;
-import se.sics.gvod.net.NettyNetwork;
-import se.sics.gvod.net.Transport;
-import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.*;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
 import se.sics.gvod.timer.Timer;
@@ -42,10 +31,18 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.ports.UiPort;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.logging.Level;
 
 /**
  *

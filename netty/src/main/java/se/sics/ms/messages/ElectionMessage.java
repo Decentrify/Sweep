@@ -1,16 +1,14 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.msgs.RewriteableRetryTimeout;
-import se.sics.gvod.net.msgs.ScheduleRetryTimeout;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.types.SearchDescriptor;
 
 /**
  * Created with IntelliJ IDEA.

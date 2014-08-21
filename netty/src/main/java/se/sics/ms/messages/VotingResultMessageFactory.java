@@ -1,13 +1,14 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
+import se.sics.ms.types.SearchDescriptor;
 
+import java.security.PublicKey;
 import java.util.Set;
 
 /**
@@ -29,6 +30,8 @@ public class VotingResultMessageFactory extends DirectMsgNettyFactory.Oneway {
     protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
         SearchDescriptor searchDescriptor = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
         Set<SearchDescriptor> view = ApplicationTypesDecoderFactory.readSearchDescriptorSet(buffer);
-        return new LeaderViewMessage(vodSrc, vodDest, searchDescriptor, view);
+        PublicKey pub = ApplicationTypesDecoderFactory.readPublicKey(buffer);
+
+        return new LeaderViewMessage(vodSrc, vodDest, searchDescriptor, view, pub);
     }
 }

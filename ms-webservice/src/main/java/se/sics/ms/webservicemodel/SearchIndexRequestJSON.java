@@ -6,8 +6,9 @@
 
 package se.sics.ms.webservicemodel;
 
-import java.util.Date;
 import se.sics.ms.configuration.MsConfig;
+
+import java.util.Date;
 
 /**
  *

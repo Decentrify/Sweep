@@ -35,11 +35,13 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.gradient.control.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.PublicKeyPort;
+import se.sics.ms.messages.*;
 import se.sics.ms.model.LocalSearchRequest;
 import se.sics.ms.model.PartitionReplicationCount;
 import se.sics.ms.model.PeerControlMessageRequestHolder;
@@ -48,10 +50,14 @@ import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.snapshot.Snapshot;
-import se.sics.ms.timeout.*;
-import se.sics.ms.exceptions.IllegalSearchString;
-import se.sics.ms.messages.*;
-import se.sics.ms.types.*;
+import se.sics.ms.timeout.AwaitingForCommitTimeout;
+import se.sics.ms.timeout.CommitTimeout;
+import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.timeout.PartitionCommitTimeout;
+import se.sics.ms.types.Id;
+import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.IndexHash;
+import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
@@ -249,10 +255,10 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
+        subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(searchRequestHandler, uiPort);
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
-        subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
         subscribe(handlePrepareCommitResponse, networkPort);
@@ -656,6 +662,7 @@ public final class Search extends ComponentDefinition {
     private void performLeaderUpdateMatching(List<LeaderInfoControlResponse> leaderControlResponses) {
 
         VodAddress newLeader = null;
+        PublicKey newLeaderPublicKey = null;
         boolean isFirst = true;
         //agree to a leader only if all received responses have leader as null or
         // points to the same exact same leader.
@@ -664,9 +671,11 @@ public final class Search extends ComponentDefinition {
         for(LeaderInfoControlResponse leaderInfo : leaderControlResponses) {
 
             VodAddress currentLeader = leaderInfo.getLeaderAddress();
+            PublicKey currentLeaderPublicKey = leaderInfo.getLeaderPublicKey();
 
             if(isFirst) {
                 newLeader = currentLeader;
+                newLeaderPublicKey = leaderInfo.getLeaderPublicKey();
                 isFirst = false;
             }
             else {
@@ -676,8 +685,10 @@ public final class Search extends ComponentDefinition {
                     hasAgreedLeader = false;
                     break;
                 }
-                else if(currentLeader != null && newLeader != null) {
-                    if (newLeader.equals(currentLeader) == false) {
+                else if(currentLeader != null && newLeader != null &&
+                        currentLeaderPublicKey != null && newLeaderPublicKey != null) {
+                    if (newLeader.equals(currentLeader) == false ||
+                            newLeaderPublicKey.equals(currentLeaderPublicKey) == false) {
                         hasAgreedLeader = false;
                         break;
                     }
@@ -685,9 +696,19 @@ public final class Search extends ComponentDefinition {
             }
         }
 
-        if(hasAgreedLeader)
-            trigger(new LeaderInfoUpdate(newLeader), leaderStatusPort);
+        if(hasAgreedLeader) {
+            updateLeaderIds(newLeaderPublicKey);
+            trigger(new LeaderInfoUpdate(newLeader, newLeaderPublicKey), leaderStatusPort);
+        }
     }
+
+    Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
+        @Override
+        public void handle(LeaderInfoUpdate leaderInfoUpdate) {
+
+            updateLeaderIds(leaderInfoUpdate.getLeaderPublicKey());
+        }
+    };
 
 
     /**
@@ -1467,29 +1488,27 @@ public final class Search extends ComponentDefinition {
         public void handle(LeaderStatusPort.LeaderStatus event) {
             leader = event.isLeader();
 
-
-
             if(!leader) return;
 
             trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
         }
     };
 
-    /**
-     * Stores leader public key if not repeated
-     */
-    final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
-        @Override
-        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
-            PublicKey key = publicKeyBroadcast.getPublicKey();
+    public void updateLeaderIds(PublicKey newLeaderPublicKey) {
 
-            if(!leaderIds.contains(key)) {
-                if(leaderIds.size() == config.getMaxLeaderIdHistorySize())
+        if(newLeaderPublicKey != null) {
+            if (!leaderIds.contains(newLeaderPublicKey)) {
+                if (leaderIds.size() == config.getMaxLeaderIdHistorySize())
                     leaderIds.remove(leaderIds.get(0));
-                leaderIds.add(key);
+                leaderIds.add(newLeaderPublicKey);
+            }
+            else {
+                //if leader already exists in the list, move it to the top
+                leaderIds.remove(newLeaderPublicKey);
+                leaderIds.add(newLeaderPublicKey);
             }
         }
-    };
+    }
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override

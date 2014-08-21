@@ -1,8 +1,8 @@
 package se.sics.ms.simulation;
 
-import java.io.Serializable;
-
 import se.sics.kompics.Event;
+
+import java.io.Serializable;
 
 /**
  * Event used to tell the simulator to add an index entry from the file storing

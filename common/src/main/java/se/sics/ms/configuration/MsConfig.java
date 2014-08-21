@@ -4,8 +4,9 @@
  */
 package se.sics.ms.configuration;
 
-import java.io.IOException;
 import se.sics.gvod.config.VodConfig;
+
+import java.io.IOException;
 
 /**
  *

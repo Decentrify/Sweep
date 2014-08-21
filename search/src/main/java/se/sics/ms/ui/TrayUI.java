@@ -15,7 +15,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.util.logging.Level;
-import se.sics.gvod.config.VodConfig;
 
 /**
  * Created with IntelliJ IDEA. User: kazarindn Date: 8/7/13 Time: 1:05 PM

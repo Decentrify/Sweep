@@ -24,6 +24,7 @@ import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
@@ -32,7 +33,6 @@ import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
-import se.sics.ms.util.PartitionHelper;
 
 public final class SearchSimulator extends ComponentDefinition {
 

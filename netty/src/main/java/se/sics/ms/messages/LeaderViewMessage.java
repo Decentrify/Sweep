@@ -1,7 +1,6 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import se.sics.ms.types.SearchDescriptor;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -9,7 +8,9 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.types.SearchDescriptor;
 
+import java.security.PublicKey;
 import java.util.Set;
 
 /**
@@ -21,11 +22,13 @@ import java.util.Set;
 public class LeaderViewMessage extends DirectMsgNetty.Oneway {
     private final SearchDescriptor leaderSearchDescriptor;
     private final Set<SearchDescriptor> searchDescriptors;
+    private final PublicKey leaderPublicKey;
 
-    public LeaderViewMessage(VodAddress source, VodAddress destination, SearchDescriptor leaderSearchDescriptor, Set<SearchDescriptor> searchDescriptors) {
+    public LeaderViewMessage(VodAddress source, VodAddress destination, SearchDescriptor leaderSearchDescriptor, Set<SearchDescriptor> searchDescriptors, PublicKey leaderPublicKey) {
         super(source, destination);
         this.searchDescriptors = searchDescriptors;
         this.leaderSearchDescriptor = leaderSearchDescriptor;
+        this.leaderPublicKey = leaderPublicKey;
     }
 
     public SearchDescriptor getLeaderSearchDescriptor() {
@@ -36,6 +39,10 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
         return searchDescriptors;
     }
 
+    public PublicKey getLeaderPublicKey() {
+        return leaderPublicKey;
+    }
+
     @Override
     public int getSize() {
         return getHeaderSize();
@@ -43,7 +50,7 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
 
     @Override
     public RewriteableMsg copy() {
-        return new LeaderViewMessage(vodSrc, vodDest, leaderSearchDescriptor, searchDescriptors);
+        return new LeaderViewMessage(vodSrc, vodDest, leaderSearchDescriptor, searchDescriptors, leaderPublicKey);
     }
 
     @Override
@@ -51,6 +58,7 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
         ByteBuf buffer = createChannelBufferWithHeader();
         UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(leaderSearchDescriptor));
         ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, searchDescriptors);
+        ApplicationTypesEncoderFactory.writePublicKey(buffer, leaderPublicKey);
         return buffer;
     }
 

@@ -7,12 +7,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
-import se.sics.kompics.Event;
-import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.util.PartitionHelper;
-
-import java.util.LinkedList;
 
 /**
  * Control Message which will contain the control information.

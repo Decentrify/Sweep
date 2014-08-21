@@ -1,7 +1,7 @@
 package se.sics.ms.gradient.events;
 
-import se.sics.gvod.common.Self;
 import se.sics.kompics.Event;
+
 import java.security.PublicKey;
 
 /**

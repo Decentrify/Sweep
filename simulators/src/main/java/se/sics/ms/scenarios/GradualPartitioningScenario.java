@@ -58,9 +58,9 @@ public class GradualPartitioningScenario extends Scenario {
 
             joinNodes.start();
             // Add Entries.
-            addEntries.startAfterTerminationOf(10000, joinNodes);
-            addEntries1.startAfterTerminationOf(80000, addEntries);
-            addEntries2.startAfterTerminationOf(80000, addEntries1);
+            addEntries.startAfterTerminationOf(30000, joinNodes);
+            addEntries1.startAfterTerminationOf(100000, addEntries);
+            addEntries2.startAfterTerminationOf(100000, addEntries1);
             // Start Searching Them.
             searchEntries.startAfterTerminationOf(50000,addEntries2);
         }

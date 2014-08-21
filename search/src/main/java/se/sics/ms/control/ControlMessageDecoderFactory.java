@@ -9,6 +9,7 @@ import se.sics.ms.messages.ControlMessage;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.util.PartitionHelper;
 
+import java.security.PublicKey;
 import java.util.List;
 
 /**
@@ -47,10 +48,11 @@ public class ControlMessageDecoderFactory {
 
         if(hasLeaderInfo) {
             VodAddress leaderAddress = UserTypesDecoderFactory.readVodAddress(buffer);
-            return new LeaderInfoControlResponse(leaderAddress);
+            PublicKey leaderPublicKey = ApplicationTypesDecoderFactory.readPublicKey(buffer);
+            return new LeaderInfoControlResponse(leaderAddress, leaderPublicKey);
         }
 
-        return new LeaderInfoControlResponse(null);
+        return new LeaderInfoControlResponse(null, null);
     }
 
     private static ControlBase decodePartitioningHashUpdate(ControlMessageEnum controlMessageEnum,

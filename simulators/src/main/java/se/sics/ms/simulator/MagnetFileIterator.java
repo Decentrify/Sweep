@@ -1,15 +1,13 @@
 package se.sics.ms.simulator;
 
+import org.xml.sax.SAXException;
+import se.sics.ms.types.IndexEntry;
+
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.xml.sax.SAXException;
-
-import se.sics.ms.types.IndexEntry;
 
 /**
  * Provides functionality to access the entries of an xml file with magnet links

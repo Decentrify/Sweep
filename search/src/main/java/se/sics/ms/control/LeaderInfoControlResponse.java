@@ -2,17 +2,21 @@ package se.sics.ms.control;
 
 import se.sics.gvod.net.VodAddress;
 
+import java.security.PublicKey;
+
 /**
  * Created by alidar on 8/12/14.
  */
 public class LeaderInfoControlResponse extends ControlBase {
 
     private VodAddress leaderAddress;
+    private PublicKey leaderPublicKey;
 
-    public LeaderInfoControlResponse(VodAddress leaderAddress)
+    public LeaderInfoControlResponse(VodAddress leaderAddress, PublicKey leaderPublicKey)
     {
         super(ControlMessageResponseTypeEnum.LEADER_UPDATE_RESPONSE);
         this.leaderAddress = leaderAddress;
+        this.leaderPublicKey = leaderPublicKey;
     }
 
     @Override
@@ -37,7 +41,7 @@ public class LeaderInfoControlResponse extends ControlBase {
         return leaderAddress;
     }
 
-    public void setLeaderAddress(VodAddress leaderAddress) {
-        this.leaderAddress = leaderAddress;
+    public PublicKey getLeaderPublicKey() {
+        return leaderPublicKey;
     }
 }
