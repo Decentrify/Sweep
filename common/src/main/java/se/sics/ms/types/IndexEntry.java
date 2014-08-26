@@ -129,17 +129,10 @@ public class IndexEntry implements Serializable {
 				+ ", leaderId=" + leaderId + "]";
 	}
 
-    /**
-     *
-     * @param url
-     * @param fileName
-     * @param fileSize
-     * @param uploaded
-     * @param language
-     * @param category
-     * @param description
-     */
-    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
+    public IndexEntry(String globalId, long id, String url, String fileName, long fileSize, Date uploaded,
+                      String language, MsConfig.Categories category, String description, String hash,
+                      PublicKey leaderId) {
+
         this.url = url;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -147,78 +140,33 @@ public class IndexEntry implements Serializable {
         this.language = language;
         this.category = category;
         this.description = description;
-
-        this.globalId = "";
-        this.id = Long.MIN_VALUE;
-        this.leaderId = null;
-    }
-
-    /**
-     *
-     * @param id
-     * @param url
-     * @param fileName
-     * @param fileSize
-     * @param uploaded
-     * @param language
-     * @param category
-     * @param description
-     * @param hash
-     * @param leaderId
-     */
-    public IndexEntry(String globalId, long id, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description, String hash, PublicKey leaderId) {
         this.globalId = globalId;
         this.id = id;
-        this.url = url;
-        this.fileName = fileName;
-        this.fileSize = fileSize;
-        this.uploaded = uploaded;
-        this.language = language;
-        this.category = category;
-        this.description = description;
         this.hash = hash;
         this.leaderId = leaderId;
     }
 
-    /**
-     * @param url
-     * @param fileName
-     * @param category
-     * @param description
-     * @param hash
-     */
-    public IndexEntry(String url, String fileName, Date uploaded, MsConfig.Categories category, String language, String description,
-                      String hash) {
-        super();
-        this.url = url;
-        this.fileName = fileName;
-        this.uploaded = uploaded;
-        this.category = category;
-        this.language = language;
-        this.description = description;
-        this.hash = hash;
+    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
+
+        this("", Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, "", null);
     }
 
-    /**
-     * @param indexId
-     * @param url
-     * @param fileName
-     * @param category
-     * @param description
-     * @param hash
-     * @param leaderId
-     */
+    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language,
+                      MsConfig.Categories category, String description, String globalId) {
+
+        this(globalId, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, "", null);
+    }
+
+    public IndexEntry(String url, String fileName, Date uploaded, MsConfig.Categories category, String language,
+                      String description, String hash) {
+
+        this("", Long.MIN_VALUE, url, fileName, 0, uploaded, language, category, description, hash, null);
+    }
+
     public IndexEntry(String globalId, long indexId, String url, String fileName, MsConfig.Categories category,
                       String description, String hash, PublicKey leaderId) {
-        super();
-        this.globalId = globalId;
-        this.id = indexId;
-        this.url = url;
-        this.fileName = fileName;
-        this.category = category;
-        this.description = description;
-        this.hash = hash;
-        this.leaderId = leaderId;
+
+        this(globalId, indexId, url, fileName, 0, null, "", category, description, hash, leaderId);
     }
 
 
