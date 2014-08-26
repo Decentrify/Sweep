@@ -29,6 +29,7 @@ public class ApplicationTypesEncoderFactory {
     
     public static void writeIndexEntry(ByteBuf buffer, IndexEntry indexEntry)
             throws MessageEncodingException {
+        writeStringLength256(buffer, indexEntry.getGlobalId());
         buffer.writeLong(indexEntry.getId());
         writeStringLength256(buffer, indexEntry.getUrl());
         writeStringLength256(buffer, indexEntry.getFileName());
@@ -221,9 +222,10 @@ public class ApplicationTypesEncoderFactory {
 
 
     public static void writePublicKey(ByteBuf buffer, PublicKey publicKey) throws MessageEncodingException {
-
         if(publicKey != null)
             writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
+        else
+            writeStringLength65536(buffer,new String());
     }
 
 

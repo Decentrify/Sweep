@@ -671,7 +671,7 @@ public class EncodingDecodingTest {
         String description = "description";
         String hash = "hash";
 
-        IndexEntry entry = new IndexEntry("", 1, url, fileName, size, time, language, MsConfig.Categories.Music, description, hash, publicKey);
+        IndexEntry entry = new IndexEntry(null, 1, url, fileName, size, time, language, MsConfig.Categories.Music, description, hash, publicKey);
         Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         indexEntries.add(entry);
         RepairMessage.Response msg = new RepairMessage.Response(gSrc, gDest, UUID.nextUUID(), indexEntries);

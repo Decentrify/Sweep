@@ -148,19 +148,19 @@ public class IndexEntry implements Serializable {
 
     public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
 
-        this("", Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, "", null);
+        this(null, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, null, null);
     }
 
     public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language,
                       MsConfig.Categories category, String description, String globalId) {
 
-        this(globalId, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, "", null);
+        this(globalId, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, null, null);
     }
 
     public IndexEntry(String url, String fileName, Date uploaded, MsConfig.Categories category, String language,
                       String description, String hash) {
 
-        this("", Long.MIN_VALUE, url, fileName, 0, uploaded, language, category, description, hash, null);
+        this(null, Long.MIN_VALUE, url, fileName, 0, uploaded, language, category, description, hash, null);
     }
 
     public IndexEntry(String globalId, long indexId, String url, String fileName, MsConfig.Categories category,
