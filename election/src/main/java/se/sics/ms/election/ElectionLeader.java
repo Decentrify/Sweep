@@ -386,13 +386,15 @@ public class ElectionLeader extends ComponentDefinition {
 
     private void removeNodeFromCollection(VodAddress nodeAddress, Collection<SearchDescriptor> collection) {
 
-        Iterator<SearchDescriptor> i = collection.iterator();
-        while (i.hasNext()) {
-            SearchDescriptor descriptor = i.next();
+        if(collection != null) {
+            Iterator<SearchDescriptor> i = collection.iterator();
+            while (i.hasNext()) {
+                SearchDescriptor descriptor = i.next();
 
-            if(descriptor.getVodAddress().equals(nodeAddress)) {
-                i.remove();
-                break;
+                if (descriptor.getVodAddress().equals(nodeAddress)) {
+                    i.remove();
+                    break;
+                }
             }
         }
     }

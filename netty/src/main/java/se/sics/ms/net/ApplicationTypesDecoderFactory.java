@@ -263,6 +263,11 @@ public class ApplicationTypesDecoderFactory {
     public static PublicKey readPublicKey(ByteBuf buffer) throws MessageDecodingException {
 
         String key = UserTypesDecoderFactory.readStringLength65536(buffer);
+
+        if(key == null){
+            return null;
+        }
+
         KeyFactory keyFactory;
         PublicKey pub = null;
         try {

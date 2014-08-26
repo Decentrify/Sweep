@@ -57,3 +57,4 @@ lib
 # log files
 *.log*
 /ms-webservice/target/
+/webapp/target
