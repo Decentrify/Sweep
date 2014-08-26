@@ -27,6 +27,20 @@
     <module>simulators</module>
         <module>ms-webservice</module>
     </modules>
+    
+    <distributionManagement>
+        <repository>
+            <id>sics-release-repository</id>
+            <name>SICS Repository</name>
+            <url>scpexe://kompics.i.sics.se/home/maven/repository</url>
+        </repository>
+        <snapshotRepository>
+            <id>sics-snapshot-repository</id>
+            <name>SICS Snapshot Repository</name>
+            <url>scpexe://kompics.i.sics.se/home/maven/snapshotrepository</url>
+        </snapshotRepository>
+        <downloadUrl>http://kompics.sics.se/maven/repository</downloadUrl>
+    </distributionManagement>    
 
     <properties>
         <java.compiler.version>1.7</java.compiler.version>
@@ -47,6 +61,13 @@
                 </configuration>
             </plugin>
         </plugins>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh-external</artifactId>
+                <version>1.0-beta-6</version>
+            </extension>
+        </extensions>        
     </build>
     
     <repositories>
