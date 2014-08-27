@@ -86,7 +86,7 @@ public class PartitionHelper {
         if(descriptors == null)
             return;
 
-        List<SearchDescriptor> updatedSample = new ArrayList<>();
+        List<SearchDescriptor> updatedSample = new ArrayList<SearchDescriptor>();
 
 
         //this method has to be called after the partitionsNumber is already incremented

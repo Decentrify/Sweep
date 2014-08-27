@@ -28,7 +28,7 @@ public class
 
     public static List<VodDescriptor> toVodDescriptorList(List<SearchDescriptor> searchDescriptors)
     {
-        ArrayList<VodDescriptor> descriptorList = new ArrayList<>();
+        ArrayList<VodDescriptor> descriptorList = new ArrayList<VodDescriptor>();
 
         for(SearchDescriptor descriptor: searchDescriptors) {
             descriptorList.add(SearchDescriptor.toVodDescriptor(descriptor));
@@ -39,7 +39,7 @@ public class
 
     public static List<SearchDescriptor> toSearchDescriptorList(List<VodDescriptor> descriptors) {
 
-        ArrayList<SearchDescriptor> searchDescriptorsList = new ArrayList<>();
+        ArrayList<SearchDescriptor> searchDescriptorsList = new ArrayList<SearchDescriptor>();
 
         for(VodDescriptor descriptor: descriptors) {
             searchDescriptorsList.add(new SearchDescriptor(descriptor));

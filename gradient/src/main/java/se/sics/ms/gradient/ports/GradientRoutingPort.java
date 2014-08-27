@@ -140,7 +140,7 @@ public class GradientRoutingPort extends PortType {
 
         public IndexHashExchangeResponse(Collection<VodAddress> nodes)
         {
-            setNodesSelectedForExchange(new HashSet<>(nodes));
+            setNodesSelectedForExchange(new HashSet<VodAddress>(nodes));
         }
 
         public HashSet<VodAddress> getNodesSelectedForExchange() {
