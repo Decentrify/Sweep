@@ -29,7 +29,7 @@ public class DelayedPartitioningMessage {
     public static class Request extends DirectMsgNetty.Request{
 
 
-        private List<TimeoutId> partitionRequestIds = new ArrayList<>();
+        private List<TimeoutId> partitionRequestIds = new ArrayList<TimeoutId>();
 
         public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId , List<TimeoutId> partitionRequestIds) {
             super(source, destination, timeoutId);

@@ -21,7 +21,7 @@ public class ControlMessageHelper {
 
         List<T> listControl = (List<T>)controlMessageResponseHolderMap.get(controlResponse.getControlMessageResponseTypeEnum());
         if(listControl == null)
-            listControl = new ArrayList<>();
+            listControl = new ArrayList<T>();
         listControl.add(controlResponse);
 
         controlMessageResponseHolderMap.put(controlResponse.getControlMessageResponseTypeEnum(), listControl);

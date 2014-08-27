@@ -24,7 +24,7 @@ public class PartitionReplicationCount {
 
     public PartitionReplicationCount(int leaderGroupSize, PartitionHelper.PartitionInfo partitionInfo){
         this.leaderGroupSize = leaderGroupSize;
-        leaderGroupNodesAddress = new ArrayList<>();
+        leaderGroupNodesAddress = new ArrayList<VodAddress>();
         this.partitionInfo = partitionInfo;
     }
 

@@ -131,7 +131,7 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
 
-    private HashMap<PartitionHelper.PartitionInfo,TimeoutId> partitionUpdatePendingCommit = new HashMap<>();
+    private HashMap<PartitionHelper.PartitionInfo,TimeoutId> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, TimeoutId>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
@@ -139,13 +139,13 @@ public final class Search extends ComponentDefinition {
     private static HashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new HashMap<TimeoutId, Pair<Long, Integer>>();
     private TimeoutId partitionRequestId;
     private boolean partitionInProgress = false;
-    private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<>();
-    private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<>();
+    private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
+    private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
 
     private TimeoutId controlMessageExchangeRoundId;
-    private Map<VodAddress,TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<>();
-    private Map<VodAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<>();
-    private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<>();
+    private Map<VodAddress,TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<VodAddress, TimeoutId>();
+    private Map<VodAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<VodAddress, PeerControlMessageRequestHolder>();
+    private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
     private int controlMessageResponseCount =0;
     private static final int CONTROL_MESSAGE_ENUM_SIZE= 1;
     private boolean partitionUpdateFetchInProgress = false;
@@ -459,8 +459,8 @@ public final class Search extends ComponentDefinition {
 
     private boolean exchangeInProgress = false;
     private TimeoutId indexExchangeTimeout;
-    private HashSet<VodAddress> nodesSelectedForIndexHashExchange = new HashSet<>();
-    private HashSet<VodAddress> nodesRespondedInIndexHashExchange = new HashSet<>();
+    private HashSet<VodAddress> nodesSelectedForIndexHashExchange = new HashSet<VodAddress>();
+    private HashSet<VodAddress> nodesRespondedInIndexHashExchange = new HashSet<VodAddress>();
     private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
@@ -1049,7 +1049,7 @@ public final class Search extends ComponentDefinition {
 
     private void publishUnresponsiveNodeDuringHashExchange() {
         //to get nodes that didn't respond during index hash exchange
-        HashSet<VodAddress> unresponsiveNodes = new HashSet<>(nodesSelectedForIndexHashExchange);
+        HashSet<VodAddress> unresponsiveNodes = new HashSet<VodAddress>(nodesSelectedForIndexHashExchange);
         unresponsiveNodes.removeAll(nodesRespondedInIndexHashExchange);
 
         trigger(new FailureDetectorPort.FailureDetectorEvent(self.getAddress()), fdPort);
@@ -2244,7 +2244,7 @@ public final class Search extends ComponentDefinition {
 
                 logger.debug("Partitioning complete at the leader : " + self.getId());
 
-                LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+                LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
                 partitionUpdates.add(partitionReplicationCount.getPartitionInfo());
 
                 // Inform the gradient about the partitioning.

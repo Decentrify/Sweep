@@ -166,7 +166,7 @@ public class ApplicationTypesDecoderFactory {
     public static LinkedList<PartitionHelper.PartitionInfo> readPartitionUpdateSequence(ByteBuf buffer) throws MessageDecodingException {
 
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
         for(int i = 0; i < len; i++){
             partitionUpdates.add(readPartitionUpdate(buffer));
         }
@@ -182,7 +182,7 @@ public class ApplicationTypesDecoderFactory {
     public static List<TimeoutId> readPartitionUpdateRequestId(ByteBuf buffer) throws MessageDecodingException {
 
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        List<TimeoutId> partitionRequestIds = new ArrayList<>();
+        List<TimeoutId> partitionRequestIds = new ArrayList<TimeoutId>();
 
         for(int i =0 ; i< len ; i++){
             partitionRequestIds.add(UserTypesDecoderFactory.readTimeoutId(buffer));
@@ -239,7 +239,7 @@ public class ApplicationTypesDecoderFactory {
 
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
 
-        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdates = new LinkedList<>();
+        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfoHash>();
         for(int i = 0; i < len; i++){
             partitionUpdates.add(readPartitionUpdateHash(buffer));
         }

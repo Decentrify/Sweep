@@ -170,7 +170,7 @@ public final class Gradient extends ComponentDefinition {
         leader = false;
         leaderAddress = null;
         latestRtts = new long[config.getLatestRttStoreLimit()];
-        partitionHistory = new LinkedList<>();      // Store the history of partitions but upto a specified level.
+        partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
     }
 
     public Handler<Start> handleStart = new Handler<Start>() {
@@ -772,7 +772,7 @@ public final class Gradient extends ComponentDefinition {
                 return;
             }
 
-            HashSet<VodAddress> nodesSelectedForExchange = new HashSet<>();
+            HashSet<VodAddress> nodesSelectedForExchange = new HashSet<VodAddress>();
 
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
@@ -895,7 +895,7 @@ public final class Gradient extends ComponentDefinition {
             logger.debug(" Partitioning Protocol Initiated at Leader." + self.getAddress().getId());
             int leaderGroupSize = event.getLeaderGroupSize();
             NavigableSet<SearchDescriptor> lowerUtilityNodes = ((NavigableSet)gradientView.getLowerUtilityNodes()).descendingSet();
-            List<VodAddress> leaderGroupAddresses = new ArrayList<>();
+            List<VodAddress> leaderGroupAddresses = new ArrayList<VodAddress>();
 
             // If gradient not full or not enough nodes in leader group.
             if((gradientView.getAll().size() < config.getViewSize())|| (lowerUtilityNodes.size() < leaderGroupSize)){
@@ -1149,7 +1149,7 @@ public final class Gradient extends ComponentDefinition {
         // Check for the partitioning updates and return it back.
         logger.debug("Check Partitioning Update Received.");
 
-        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<>();
+        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
         ControlMessageEnum controlMessageEnum;
 
         // Check for the responses when you have atleast partitioned yourself.
@@ -1235,7 +1235,7 @@ public final class Gradient extends ComponentDefinition {
      */
     public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds){
 
-        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<>();
+        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
 
         // Iterate over the available partition updates.
         for(TimeoutId partitionUpdateId : partitionUpdatesIds){
