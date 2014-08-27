@@ -23,9 +23,7 @@
         <module>gradient</module>
         <module>election</module>
         <module>netty</module>
-        <module>webapp</module>
     <module>simulators</module>
-        <module>ms-webservice</module>
     </modules>
     
     <distributionManagement>
