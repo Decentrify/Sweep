@@ -7,6 +7,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.gvod.timer.UUID;
 import se.sics.ms.net.MessageFrameDecoder;
 
 /**
@@ -18,11 +19,9 @@ public class ControlMessage {
 
    public static class Request extends DirectMsgNetty.Request{
 
-       private TimeoutId roundId;
 
        public Request(VodAddress source, VodAddress destination, TimeoutId roundId) {
-           super(source, destination);
-           this.roundId = roundId;
+           super(source, destination, roundId);
        }
 
        @Override
@@ -32,7 +31,7 @@ public class ControlMessage {
 
        @Override
        public RewriteableMsg copy() {
-           return new Request(vodSrc,vodDest,roundId);
+           return new Request(vodSrc,vodDest,timeoutId);
        }
 
        /**
@@ -43,7 +42,6 @@ public class ControlMessage {
        @Override
        public ByteBuf toByteArray() throws MessageEncodingException {
            ByteBuf buffer = createChannelBufferWithHeader();
-           UserTypesEncoderFactory.writeTimeoutId(buffer,roundId);
            return buffer;
        }
 
@@ -57,7 +55,7 @@ public class ControlMessage {
         * @return roundId.
         */
        public TimeoutId getRoundId(){
-           return this.roundId;
+           return this.timeoutId;
        }
    }
 
@@ -70,12 +68,11 @@ public class ControlMessage {
 
         //FIXME: Add support for the enums.
 
-        private TimeoutId roundId;
         private byte[] bytes;
 
         public Response(VodAddress source, VodAddress destination,TimeoutId roundId , byte[] bytes) {
-            super(source, destination);
-            this.roundId = roundId;
+            super(source, destination,roundId);
+//            this.roundId = roundId;
             this.bytes = bytes;
         }
 
@@ -86,7 +83,7 @@ public class ControlMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Response(vodSrc,vodDest,roundId,bytes);
+            return new Response(vodSrc,vodDest,timeoutId,bytes);
         }
 
         /**
@@ -98,7 +95,7 @@ public class ControlMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
 
             ByteBuf buffer = createChannelBufferWithHeader();
-            UserTypesEncoderFactory.writeTimeoutId(buffer,roundId);
+//            UserTypesEncoderFactory.writeTimeoutId(buffer,roundId);
             UserTypesEncoderFactory.writeArrayBytes(buffer, bytes);
 
             return buffer;
@@ -114,7 +111,7 @@ public class ControlMessage {
          * @return currentRoundId
          */
         public TimeoutId getRoundId(){
-            return this.roundId;
+            return this.timeoutId;
         }
 
         /**

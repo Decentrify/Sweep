@@ -28,9 +28,7 @@ public class ControlMessageFactory {
          */
         @Override
         protected ControlMessage.Request process(ByteBuf byteBuf) throws MessageDecodingException {
-
-            TimeoutId roundId = UserTypesDecoderFactory.readTimeoutId(byteBuf);
-            return new ControlMessage.Request(vodSrc,vodDest,roundId);
+            return new ControlMessage.Request(vodSrc,vodDest,timeoutId);
         }
     }
 
@@ -56,10 +54,8 @@ public class ControlMessageFactory {
         @Override
         protected ControlMessage.Response process(ByteBuf byteBuf) throws MessageDecodingException {
 
-            TimeoutId roundId = UserTypesDecoderFactory.readTimeoutId(byteBuf);
             byte[] bytes = UserTypesDecoderFactory.readArrayBytes(byteBuf);
-
-            return new ControlMessage.Response(vodSrc, vodDest, roundId, bytes);
+            return new ControlMessage.Response(vodSrc, vodDest, timeoutId, bytes);
         }
     }
 
