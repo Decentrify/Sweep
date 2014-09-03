@@ -997,7 +997,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf byteBuffer = partitionCommitResponse.toByteArray();
             opCodeCorrect(byteBuffer, partitionCommitResponse);
-            PartitionCommitMessage.Request partitionCommitResponseDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+            PartitionCommitMessage.Response partitionCommitResponseDecoded = PartitionCommitMessageFactory.Response.fromBuffer(byteBuffer);
 
             assert(partitionCommitResponseDecoded.getPartitionRequestId().equals(requestId));
             assert(partitionCommitResponseDecoded.getTimeoutId().equals(roundId));
@@ -1011,6 +1011,25 @@ public class EncodingDecodingTest {
     }
 
 
+    @Test
+    public void ControlMessageRequestTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        ControlMessage.Request controlMessageRequest = new ControlMessage.Request(gSrc,gDest,roundId);
+
+        try{
+            ByteBuf byteBuffer = controlMessageRequest.toByteArray();
+            opCodeCorrect(byteBuffer, controlMessageRequest);
+            ControlMessage.Request controlMessageRequestDecoded = ControlMessageFactory.Request.fromBuffer(byteBuffer);
+            assert(controlMessageRequestDecoded.getRoundId().equals(roundId));
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
 
 
 }
