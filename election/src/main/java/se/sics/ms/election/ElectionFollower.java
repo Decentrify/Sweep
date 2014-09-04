@@ -162,7 +162,9 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
-            higherUtilityNodes = event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor()));
+
+            //create a copy so other component  receiving the same copy of the object is not effected.
+            higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
         }
     };
     /**
