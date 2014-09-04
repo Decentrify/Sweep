@@ -944,7 +944,8 @@ public final class Gradient extends ComponentDefinition {
                     self.getAddress().getPartitionIdDepth()+1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
-        logger.debug("Partitioning Occured at Node: " + self.getId() + " PartitionDepth: " + self.getAddress().getPartitionIdDepth() +" PartitionId: " + self.getAddress().getPartitionId() + " PartitionType: " + self.getAddress().getPartitioningType());
+        //FIXME: Changing logging level to verify partitioning.
+        logger.error("_Abhi: Partitioning Occured at Node: " + self.getId() + " PartitionDepth: " + self.getAddress().getPartitionIdDepth() +" PartitionId: " + self.getAddress().getPartitionId() + " PartitionType: " + self.getAddress().getPartitioningType());
         int partitionId = self.getAddress().getPartitionId();
         Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId));
