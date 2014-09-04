@@ -57,7 +57,7 @@ public class ApplicationTypesEncoderFactory {
 
     public static void writeIndexEntryHash(ByteBuf buffer, IndexHash hash) throws MessageEncodingException {
         writeId(buffer, hash.getId());
-        writeStringLength256(buffer, hash.getHash());
+        writeStringLength65536(buffer, hash.getHash());
     }
 
     public static void writeIndexEntryHashCollection(ByteBuf buffer, Collection<IndexHash> hashes) throws MessageEncodingException {

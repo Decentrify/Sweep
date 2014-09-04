@@ -70,7 +70,7 @@ public class ApplicationTypesDecoderFactory {
 
     public static IndexHash readIndexEntryHash(ByteBuf buffer) throws MessageDecodingException {
         Id id = readId(buffer);
-        String hash = UserTypesDecoderFactory.readStringLength256(buffer);
+        String hash = UserTypesDecoderFactory.readStringLength65536(buffer);
 
         return new IndexHash(id, hash);
     }
