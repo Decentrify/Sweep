@@ -38,7 +38,7 @@ public class ApplicationTypesDecoderFactory {
         String language = UserTypesDecoderFactory.readStringLength256(buffer);
         MsConfig.Categories category = MsConfig.Categories.values()[buffer.readInt()];
         String description = UserTypesDecoderFactory.readStringLength65536(buffer);
-        String hash = UserTypesDecoderFactory.readStringLength256(buffer);
+        String hash = UserTypesDecoderFactory.readStringLength65536(buffer);
         String leaderId = UserTypesDecoderFactory.readStringLength65536(buffer);
         if (leaderId == null)
             return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, null);

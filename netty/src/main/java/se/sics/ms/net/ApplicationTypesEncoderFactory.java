@@ -38,7 +38,7 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, indexEntry.getLanguage());
         buffer.writeInt(indexEntry.getCategory().ordinal());
         writeStringLength65536(buffer, indexEntry.getDescription());
-        writeStringLength256(buffer, indexEntry.getHash());
+        writeStringLength65536(buffer, indexEntry.getHash());
         if(indexEntry.getLeaderId() == null)
             writeStringLength65536(buffer, new String());
         else
