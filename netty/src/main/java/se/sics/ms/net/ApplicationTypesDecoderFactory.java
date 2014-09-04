@@ -207,7 +207,7 @@ public class ApplicationTypesDecoderFactory {
 
         // Added decoding support for the hash and public key of the leader.
 
-        String hash = readStringLength256(buffer);
+        String hash = readStringLength65536(buffer);
         String stringKey = readStringLength65536(buffer);
         if (stringKey == null)
             return new PartitionHelper.PartitionInfo(middleEntryId, requestId, VodAddress.PartitioningType.values()[partitionsNumber], hash, null);

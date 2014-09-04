@@ -166,7 +166,7 @@ public class ApplicationTypesEncoderFactory {
         buffer.writeInt(partitionUpdate.getPartitioningTypeInfo().ordinal());
 
         // Added support for the hash string of the Partition Update.
-        writeStringLength256(buffer, partitionUpdate.getHash());
+        writeStringLength65536(buffer, partitionUpdate.getHash());
         if(partitionUpdate.getKey() == null)
             writeStringLength65536(buffer, new String());
         else
