@@ -56,12 +56,12 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte PARTITION_COMMIT_RESPONSE     = 0x7f;
 
     // Control Message
-    public static final byte CONTROL_MESSAGE_REQUEST = -0x1;
-    public static final byte CONTROL_MESSAGE_RESPONSE = -0x2;
+    public static final byte CONTROL_MESSAGE_REQUEST = -0x01;
+    public static final byte CONTROL_MESSAGE_RESPONSE = -0x02;
 
     // Delayed Partitioning Request
-    public static final byte DELAYED_PARTITIONING_MESSAGE_REQUEST  = -0x3;
-    public static final byte DELAYED_PARTITIONING_MESSAGE_RESPONSE  = -0x4;
+    public static final byte DELAYED_PARTITIONING_MESSAGE_REQUEST  = -0x03;
+    public static final byte DELAYED_PARTITIONING_MESSAGE_RESPONSE  = -0x04;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -162,7 +162,7 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case DELAYED_PARTITIONING_MESSAGE_REQUEST:
                 return DelayedPartitioningMessageFactory.Request.fromBuffer(buffer);
             case DELAYED_PARTITIONING_MESSAGE_RESPONSE:
-                return DelayedPartitioningMessageFactory.Request.fromBuffer(buffer);
+                return DelayedPartitioningMessageFactory.Response.fromBuffer(buffer);
 
             default:
                 break;
