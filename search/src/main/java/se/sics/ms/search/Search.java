@@ -472,7 +472,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ControlMessageExchangeRound event) {
 
-            logger.debug(" Initiated the Periodic Exchange ... ");
+            logger.debug("Initiated the Periodic Exchange Timeout.");
 
             //Clear the previous rounds data to avoid clash in the responses.
             cleanControlMessageResponseData();
@@ -544,7 +544,7 @@ public final class Search extends ComponentDefinition {
                 if(controlMessageResponse.addAndCheckStatus()){
 
                     // Construct the response object and trigger it back to the user.
-                    logger.debug(" Ready To Send back Control Message to the Requestor .. ");
+                    logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
 
                     // Send the data back to the user.
                     trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
@@ -614,12 +614,13 @@ public final class Search extends ComponentDefinition {
 
                 if(controlMessageResponseCount >= config.getIndexExchangeRequestNumber()){
 
-                    // Perform the checks and comparison on the responses received from the nodes.
-                    performControlMessageResponseMatching();
 
-                    // Perform the cleaning of the data after this.
-                    cleanControlMessageResponseData();
-                }
+                // Perform the checks and comparison on the responses received from the nodes.
+                performControlMessageResponseMatching();
+
+                // Perform the cleaning of the data after this.
+                cleanControlMessageResponseData();
+               }
             }
 
             catch (MessageDecodingException e) {
@@ -767,12 +768,11 @@ public final class Search extends ComponentDefinition {
         }
 
         if(mismatchFound || !(basePartitioningUpdateHashes.size()>0)){
-           logger.debug("No Common Update Found For Now ... ");
+            logger.debug("Not Applying any Partition Update.");
             return;
         }
 
 
-        logger.debug("Common Partition Update Found at Node: " + self.getId());
 
         for(PartitionHelper.PartitionInfoHash infoHash : basePartitioningUpdateHashes){
             finalPartitionUpdates.add(infoHash.getPartitionRequestId());
@@ -784,7 +784,6 @@ public final class Search extends ComponentDefinition {
         VodAddress randomPeerAddress = partitionControlResponses.get(random.nextInt(partitionControlResponses.size())).getSourceAddress();
 
 
-        // TODO: Move the timeout in the search config file.
         TimeoutId timeoutId = UUID.nextUUID();
         ScheduleTimeout st = new ScheduleTimeout(config.getDelayedPartitioningRequestTimeout());
         DelayedPartitioningMessage.Timeout delayedPartitioningTimeout = new DelayedPartitioningMessage.Timeout(st, self.getId());
@@ -797,6 +796,8 @@ public final class Search extends ComponentDefinition {
         // Trigger the new updates.
         trigger(new DelayedPartitioningMessage.Request(self.getAddress(), randomPeerAddress, timeoutId, finalPartitionUpdates), networkPort);
 
+        // Trigger the Scehdule Timeout Event.
+        trigger(st,timerPort);
     }
 
 
@@ -834,15 +835,18 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(DelayedPartitioningMessage.Response event) {
 
-            if(!partitionUpdateFetchInProgress || !event.getTimeoutId().equals(currentPartitionInfoFetchRound))
+            if(!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
                 return;
 
             // Simply apply the partitioning update and handle the duplicacy.
             trigger(new GradientRoutingPort.ApplyPartitioningUpdate(event.getPartitionHistory()), gradientRoutingPort);
+
+            // Cancel the timeout event.
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
+
         }
     };
-
-
 
     /**
      * Handler for the Delayed Partitioning Timeout.
