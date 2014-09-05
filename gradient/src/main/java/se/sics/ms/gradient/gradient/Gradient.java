@@ -944,8 +944,7 @@ public final class Gradient extends ComponentDefinition {
                     self.getAddress().getPartitionIdDepth()+1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
-        //FIXME: Changing logging level to verify partitioning.
-        logger.error("_Abhi: Partitioning Occured at Node: " + self.getId() + " PartitionDepth: " + self.getAddress().getPartitionIdDepth() +" PartitionId: " + self.getAddress().getPartitionId() + " PartitionType: " + self.getAddress().getPartitioningType());
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getAddress().getPartitionIdDepth() +" PartitionId: " + self.getAddress().getPartitionId() + " PartitionType: " + self.getAddress().getPartitioningType());
         int partitionId = self.getAddress().getPartitionId();
         Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId));
@@ -1103,15 +1102,50 @@ public final class Gradient extends ComponentDefinition {
             if(higherUtilityNodes == null || higherUtilityNodes.size() < event.getControlMessageExchangeNumber())
                 return;
 
-            // FIXME: Correct the issue of repeating of numbers.
-            // Provide the list of requested nodes.
-            for(int i =0 ; i< event.getControlMessageExchangeNumber() ; i++){
-                int n = random.nextInt(higherUtilityNodes.size());
+            List<Integer> randomIntegerList = getUniqueRandomIntegerList(higherUtilityNodes.size(), event.getControlMessageExchangeNumber());
+            for(int n : randomIntegerList){
                 VodAddress destination = higherUtilityNodes.get(n).getVodAddress();
-                trigger(new ControlMessage.Request(self.getAddress(),destination,event.getRoundId()), networkPort);
+                trigger(new ControlMessage.Request(self.getAddress(), destination, event.getRoundId()), networkPort);
             }
         }
     };
+
+
+    /**
+     * Based on the parameters passed, it returns a random set of elements.
+     * @param sizeOfAvailableObjectSet
+     * @param randomSetSize
+     * @return
+     */
+    public List<Integer> getUniqueRandomIntegerList(int sizeOfAvailableObjectSet, int randomSetSize){
+
+        //Create an instance of random integer list.
+        List<Integer> uniqueRandomIntegerList = new ArrayList<Integer>();
+
+        // In case any size is <=0 just return empty list.
+        if(sizeOfAvailableObjectSet <=0 || randomSetSize <=0){
+            return uniqueRandomIntegerList;
+        }
+
+        // Can't return random element positions in case the size is lower than required.
+        if(sizeOfAvailableObjectSet < randomSetSize){
+            for(int i =0 ; i < sizeOfAvailableObjectSet ; i ++){
+                uniqueRandomIntegerList.add(i);
+            }
+        }
+        else{
+
+            while(uniqueRandomIntegerList.size() < randomSetSize){
+
+                int n = random.nextInt(sizeOfAvailableObjectSet);
+                if(!uniqueRandomIntegerList.contains(n))
+                    uniqueRandomIntegerList.add(n);
+            }
+        }
+
+        return uniqueRandomIntegerList;
+    }
+
 
     Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>(){
         @Override
