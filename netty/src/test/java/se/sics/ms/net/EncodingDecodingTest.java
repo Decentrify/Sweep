@@ -131,6 +131,30 @@ public class EncodingDecodingTest {
     }
 
     @Test
+    public void searchRequestWithNullDate() {
+        SearchPattern pattern = new SearchPattern("abc", 1, 100, null, null, "language", MsConfig.Categories.Books, "booo");
+        TimeoutId timeoutId = UUID.nextUUID();
+        int partitionId = 1;
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern, partitionId);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            SearchMessage.Request request = SearchMessageFactory.Request.fromBuffer(buffer);
+            assert timeoutId.equals(request.getSearchTimeoutId());
+            assert (request.getPattern().equals(pattern));
+            assert msg.getPartitionId() == partitionId;
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+
+
+    @Test
     public void searchResponse() {
         try {
             UUID requestId = (UUID)UUID.nextUUID();

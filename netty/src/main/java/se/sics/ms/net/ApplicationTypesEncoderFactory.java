@@ -115,8 +115,18 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, pattern.getFileNamePattern());
         buffer.writeInt(pattern.getMinFileSize());
         buffer.writeInt(pattern.getMaxFileSize());
-        buffer.writeLong(pattern.getMinUploadDate().getTime());
-        buffer.writeLong(pattern.getMaxUploadDate().getTime());
+
+        // Min and Max Upload Dates can be null there special handling needs to be done.
+        if(pattern.getMinUploadDate() == null)
+            buffer.writeLong(0);
+        else
+            buffer.writeLong(pattern.getMinUploadDate().getTime());
+
+        if(pattern.getMaxUploadDate() == null)
+            buffer.writeLong(0);
+        else
+            buffer.writeLong(pattern.getMaxUploadDate().getTime());
+
         writeStringLength256(buffer, pattern.getLanguage());
         buffer.writeInt(pattern.getCategory().ordinal());
         writeStringLength65536(buffer, pattern.getDescriptionPattern());

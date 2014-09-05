@@ -137,8 +137,24 @@ public class ApplicationTypesDecoderFactory {
         String fileNamePattern = UserTypesDecoderFactory.readStringLength256(buffer);
         int minFileSize = buffer.readInt();
         int maxFileSize = buffer.readInt();
-        Date minUploadDate = new Date(buffer.readLong());
-        Date maxUploadDate = new Date(buffer.readLong());
+
+        // Handling the checks for the case in which the date is null, so the long value written is 0.
+        Date minUploadDate;
+        long minUploadDateTime = buffer.readLong();
+
+        if(minUploadDateTime == 0)
+            minUploadDate = null;
+        else
+            minUploadDate= new Date(minUploadDateTime);
+
+        Date maxUploadDate;
+        long maxUploadDateTime = buffer.readLong();
+
+        if(maxUploadDateTime == 0)
+            maxUploadDate = null;
+        else
+            maxUploadDate= new Date(maxUploadDateTime);
+
         String language = UserTypesDecoderFactory.readStringLength256(buffer);
         MsConfig.Categories category = MsConfig.Categories.values()[buffer.readInt()];
         String descriptionPattern = UserTypesDecoderFactory.readStringLength65536(buffer);
