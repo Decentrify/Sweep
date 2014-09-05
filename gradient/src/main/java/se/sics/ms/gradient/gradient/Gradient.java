@@ -1077,10 +1077,11 @@ public final class Gradient extends ComponentDefinition {
             partitionHistory.addLast(update);
 
             // Now apply the update.
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
             // Leader boolean simply sends true down the message in case of leader node, as it was implemented like this way before, not sure why.
             boolean partition = determineYourPartitionAndUpdatePartitionsNumberUpdated(update.getPartitioningTypeInfo());
             gradientView.adjustViewToNewPartitions();
+
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, update.getMedianId()), gradientRoutingPort);
         }
