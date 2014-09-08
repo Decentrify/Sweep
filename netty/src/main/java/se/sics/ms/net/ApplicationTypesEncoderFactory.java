@@ -47,7 +47,7 @@ public class ApplicationTypesEncoderFactory {
 
     public static void writeIndexEntryCollection(ByteBuf buffer, Collection<IndexEntry> items) throws MessageEncodingException {
         if(items == null){
-            writeUnsignedintAsOneByte(buffer, 0);
+            writeUnsignedintAsTwoBytes(buffer, 0);
             return;
         }
         UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, items.size());
