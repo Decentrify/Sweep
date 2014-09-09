@@ -7,6 +7,7 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
@@ -99,7 +100,7 @@ public class SearchMessage {
         private final int partitionId;
         
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, int numResponses, int responseNumber, Collection<IndexEntry> results, int partitionId) throws IllegalSearchString {
-            super(source, destination, timeoutId);
+            super(source, destination, Transport.TCP, timeoutId);
             this.partitionId = partitionId;
 
             if(results == null)
