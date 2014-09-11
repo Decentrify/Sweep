@@ -3,6 +3,7 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
@@ -21,7 +22,7 @@ public class ControlMessage {
 
 
        public Request(VodAddress source, VodAddress destination, TimeoutId roundId) {
-           super(source, destination, roundId);
+           super(source, destination,roundId);
        }
 
        @Override

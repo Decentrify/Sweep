@@ -18,12 +18,15 @@ import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
+import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
@@ -1575,8 +1578,11 @@ public final class Search extends ComponentDefinition {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
-                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
-                        0, 0, result, event.getPartitionId()), networkPort);
+                // Check the message and update the address in case of a Transport Protocol different than TCP.
+                SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
+                checkTransportAndUpdateBeforeSending(searchMessageResponse);
+                trigger(searchMessageResponse, networkPort);
+
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -1584,6 +1590,31 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
+
+    public void checkTransportAndUpdateBeforeSending(RewriteableMsg msg){
+
+        // In case a UDT message, update the port to UDT port before sending.
+        if(msg.getProtocol() == Transport.UDT){
+            logger.warn("{checkTransportAndUpdateBeforeSending}: Going to rewrite the ports as UDT Message.");
+            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getUdtPort(), msg.getDestination().getId()));
+            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getUdtPort(), msg.getSource().getId()));
+        }
+    }
+
+    /**
+     * Update the message
+     * @param msg
+     */
+    public void checkTransportAndUpdateBeforeReceiving(RewriteableMsg msg){
+
+        // In case msg received is UDT, rewrite the port to original UDP port on which other protocols are running.
+        if(msg.getProtocol() == Transport.UDT){
+            logger.warn("{checkTransportAndUpdateBeforeReceiving}: Going to rewrite the ports as UDT Message.");
+            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getPort(), msg.getDestination().getId()));
+            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getPort(), msg.getSource().getId()));
+        }
+
+    }
 
     /**
      * Query the given index store with a given search pattern.
@@ -1627,10 +1658,11 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
+
+            checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
-
             addSearchResponse(event.getResults(), event.getPartitionId(), event.getSearchTimeoutId());
         }
     };
