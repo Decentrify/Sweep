@@ -22,7 +22,7 @@ public class ControlMessage {
 
 
        public Request(VodAddress source, VodAddress destination, TimeoutId roundId) {
-           super(source, destination,Transport.UDT,roundId);
+           super(source, destination,roundId);
        }
 
        @Override
