@@ -13,7 +13,7 @@ import se.sics.ms.configuration.MsConfig;
 public class TransportHelper {
 
     private static final Logger logger = LoggerFactory.getLogger(TransportHelper.class);
-    private static boolean isSimulation = true;
+    private static boolean isSimulation = false;
     /**
      * Update the message before sending it on the network.
       * @param msg
