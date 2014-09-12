@@ -32,6 +32,7 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.events.UiAddIndexEntryRequest;
@@ -1578,9 +1579,9 @@ public final class Search extends ComponentDefinition {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
-                // Check the message and update the address in case of a Transport Protocol different than TCP.
+                // Check the message and update the address in case of a Transport Protocol different than UDP.
                 SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
-                checkTransportAndUpdateBeforeSending(searchMessageResponse);
+                TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
                 trigger(searchMessageResponse, networkPort);
 
             } catch (IOException ex) {
@@ -1591,30 +1592,6 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    public void checkTransportAndUpdateBeforeSending(RewriteableMsg msg){
-
-        // In case a UDT message, update the port to UDT port before sending.
-        if(msg.getProtocol() == Transport.UDT){
-            logger.warn("{checkTransportAndUpdateBeforeSending}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getUdtPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getUdtPort(), msg.getSource().getId()));
-        }
-    }
-
-    /**
-     * Update the message
-     * @param msg
-     */
-    public void checkTransportAndUpdateBeforeReceiving(RewriteableMsg msg){
-
-        // In case msg received is UDT, rewrite the port to original UDP port on which other protocols are running.
-        if(msg.getProtocol() == Transport.UDT){
-            logger.warn("{checkTransportAndUpdateBeforeReceiving}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getPort(), msg.getSource().getId()));
-        }
-
-    }
 
     /**
      * Query the given index store with a given search pattern.
@@ -1659,7 +1636,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Response event) {
 
-            checkTransportAndUpdateBeforeReceiving(event);
+            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
