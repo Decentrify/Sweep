@@ -1615,7 +1615,11 @@ public final class Search extends ComponentDefinition {
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
                 Document d = searcher.doc(docId);
-                result.add(createIndexEntry(d));
+                // Check to avoid duplicate index entries in the response.
+                IndexEntry entry = createIndexEntry(d);
+                if(result.contains(entry))
+                    continue;
+                result.add(entry);
             }
 
             return result;
@@ -2124,7 +2128,7 @@ public final class Search extends ComponentDefinition {
                 if(count.incrementAndCheckResponse(event.getVodSource())){
 
                     // Received the required responses. Start the commit phase.
-                    logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
+                    logger.debug("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
                     List<VodAddress> leaderGroupAddress = count.getLeaderGroupNodesAddress();
 
 
@@ -2239,7 +2243,7 @@ public final class Search extends ComponentDefinition {
 
             if (partitionInProgress && partitionReplicationCount != null){
 
-                logger.warn("{PartitionCommitMessage.Response} received from the nodes at the Leader");
+                logger.debug("{PartitionCommitMessage.Response} received from the nodes at the Leader");
 
                 // Partitioning complete ( Reset the partitioning parameters. )
 //                partitionInProgress = false;
