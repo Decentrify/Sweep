@@ -1931,7 +1931,7 @@ public final class Search extends ComponentDefinition {
         maxStoredId++;
 
         //update the counter, so we can check if partitioning is necessary
-        if(leader && self.getAddress().getPartitionIdDepth() < config.getMaxPartitionIdLength())
+        if(leader && self.getPartitionIdDepth() < config.getMaxPartitionIdLength())
             checkPartitioning();
     }
 
@@ -1944,7 +1944,7 @@ public final class Search extends ComponentDefinition {
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
-        VodAddress.PartitioningType partitionsNumber = self.getAddress().getPartitioningType();
+        VodAddress.PartitioningType partitionsNumber = self.getPartitioningType();
         long medianId;
 
         if(maxStoredId > minStoredId){
@@ -2091,11 +2091,11 @@ public final class Search extends ComponentDefinition {
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
      *
      * DO NOT REMOVE THIS. (Handles a rare fault case prevention).
-     * @param partitionInfo
+     * @param source
      * @return applyPartitioningUpdate.
      */
     private boolean partitionOrderValid(VodAddress source) {
-        return (source.getPartitioningType() == self.getAddress().getPartitioningType() && source.getPartitionIdDepth() == self.getAddress().getPartitionIdDepth());
+        return (source.getPartitioningType() == self.getPartitioningType() && source.getPartitionIdDepth() == self.getPartitionIdDepth());
     }
 
 

@@ -419,10 +419,10 @@ public final class Gradient extends ComponentDefinition {
             List<SearchDescriptor> sample = SearchDescriptor.toSearchDescriptorList(event.getNodes());
             List<SearchDescriptor> updatedSample = new ArrayList<SearchDescriptor>();
 
-            if ((self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)) {
-                boolean isOnePartition = self.getAddress().getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
+            if ((self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)) {
+                boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
                 if (!isOnePartition) {
-                    int bitsToCheck = self.getAddress().getPartitionIdDepth();
+                    int bitsToCheck = self.getPartitionIdDepth();
 
                     for (SearchDescriptor d : sample) {
                         PartitionId partitionId = PartitionHelper.determineSearchDescriptorPartition(d,
@@ -446,7 +446,7 @@ public final class Gradient extends ComponentDefinition {
 
             incrementRoutingTableAge();
 //            addRoutingTableEntries(sample);
-            if ((self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE))
+            if ((self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE))
                 addRoutingTableEntries(updatedSample);
             else {
                 updatedSample = sample;
@@ -944,7 +944,7 @@ public final class Gradient extends ComponentDefinition {
 
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                    self.getAddress().getPartitionIdDepth()+1, newPartitionId, selfCategory);
+                    self.getPartitionIdDepth()+1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
         logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() +" PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
@@ -1192,7 +1192,7 @@ public final class Gradient extends ComponentDefinition {
         ControlMessageEnum controlMessageEnum;
 
         // Check for the responses when you have atleast partitioned yourself.
-        if (self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
+        if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
             controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getSourceAddress(), partitionUpdateHashes);
         } else {
@@ -1210,7 +1210,7 @@ public final class Gradient extends ComponentDefinition {
      */
     private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes){
 
-        boolean isOnePartition = self.getAddress().getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
+        boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
 
         // for ONE_BEFORE
         if(isOnePartition){
@@ -1223,7 +1223,7 @@ public final class Gradient extends ComponentDefinition {
         // for MANY_BEFORE.
         else {
 
-            int myDepth = self.getAddress().getPartitionIdDepth();
+            int myDepth = self.getPartitionIdDepth();
             if (address.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
 
                 if (myDepth <= (HISTORY_LENGTH)) {
