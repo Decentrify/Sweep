@@ -26,6 +26,7 @@ import se.sics.ms.messages.RejectFollowerMessage;
 import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 

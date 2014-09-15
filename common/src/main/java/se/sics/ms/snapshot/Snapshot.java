@@ -3,6 +3,7 @@ package se.sics.ms.snapshot;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.util.Pair;
 
 import java.util.*;
@@ -14,7 +15,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * information in a log file.
  */
 public class Snapshot {
-	private static SortedMap<VodAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<VodAddress, PeerInfo>());
+	private static SortedMap<OverlayAddress, PeerInfo> peers = Collections.synchronizedSortedMap(new TreeMap<OverlayAddress, PeerInfo>());
 	private static int counter = 0;
 	private static String FILENAME = "search.out";
     private static ConcurrentHashMap<Pair<Integer, Integer>, Long> maxIds = new ConcurrentHashMap<Pair<Integer, Integer>, Long>();
@@ -40,7 +41,7 @@ public class Snapshot {
 	 *            the address of the peer
 	 */
 	public static void addPeer(VodAddress address) {
-		peers.put(address, new PeerInfo());
+		peers.put(new OverlayAddress(address), new PeerInfo());
 	}
 
 	/**
@@ -50,7 +51,7 @@ public class Snapshot {
 	 *            the address of the peer
 	 */
 	public static void removePeer(VodAddress address) {
-		peers.remove(address);
+		peers.remove(new OverlayAddress(address));
 	}
 
 	/**
@@ -60,7 +61,7 @@ public class Snapshot {
 	 *            the address of the peer
 	 */
 	public static void incNumIndexEntries(VodAddress address) {
-		PeerInfo peerInfo = peers.get(address);
+		PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
 		if (peerInfo == null) {
 			return;
@@ -82,7 +83,7 @@ public class Snapshot {
     }
 
     public static void setNumIndexEntries(VodAddress address, long value) {
-        PeerInfo peerInfo = peers.get(address);
+        PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
         if (peerInfo == null) {
             return;
@@ -100,7 +101,7 @@ public class Snapshot {
 	 *            the neighbors to be set
 	 */
 	public static void updateNeighbours(VodAddress address, ArrayList<Address> partners) {
-		PeerInfo peerInfo = peers.get(address);
+		PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
 		if (peerInfo == null) {
 			return;
@@ -118,7 +119,7 @@ public class Snapshot {
 	 *            the leader status
 	 */
 	public static void setLeaderStatus(VodAddress address, boolean leader, LinkedList<Boolean> partition) {
-		PeerInfo peerInfo = peers.get(address);
+		PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
 		if (leader) {
 			oldLeaders.add(address);
@@ -141,7 +142,7 @@ public class Snapshot {
 	 *            the string representation of the Gradient view
 	 */
 	public static void setElectionView(VodAddress address, String view) {
-		PeerInfo peerInfo = peers.get(address);
+		PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
 		if (peerInfo == null) {
 			return;
@@ -159,7 +160,7 @@ public class Snapshot {
 	 *            the string representation of the Gradient view
 	 */
 	public static void setCurrentView(VodAddress address, String view) {
-		PeerInfo peerInfo = peers.get(address);
+		PeerInfo peerInfo = peers.get(new OverlayAddress(address));
 
 		if (peerInfo == null) {
 			return;
@@ -295,7 +296,7 @@ public class Snapshot {
 	 *            the builder used to add the information
 	 */
 	private static void reportLeaders(StringBuilder builder) {
-		for (VodAddress p : peers.keySet()) {
+		for (OverlayAddress p : peers.keySet()) {
 			PeerInfo info = peers.get(p);
             if(info == null) continue;
 			if (info.isLeader()) {
@@ -328,7 +329,7 @@ public class Snapshot {
         VodAddress minPeer = null;
 		long maxNumIndexEntries = 0;
 		long minNumIndexEntries = Integer.MAX_VALUE;
-		for (VodAddress node : peers.keySet()) {
+		for (OverlayAddress node : peers.keySet()) {
 			PeerInfo p = peers.get(node);
             if(p == null) continue;
 			if (p.getNumIndexEntries() < minNumIndexEntries) {
@@ -408,7 +409,7 @@ public class Snapshot {
 	private static void reportOldLeaders(StringBuilder builder) {
 		builder.append("Nodes that have been leader:\n");
 		for (VodAddress node : oldLeaders) {
-			PeerInfo peer = peers.get(node);
+			PeerInfo peer = peers.get(new OverlayAddress(node));
 			builder.append("\t" + node.getId());
 			builder.append(" was leader with gradient view: ");
 			if (peer != null) {
@@ -429,24 +430,24 @@ public class Snapshot {
      */
     public static void updateInfo(VodAddress address){
 
-        VodAddress requiredVodAddress  = null;
+        OverlayAddress requiredOverlayAddress  = null;
 
-        for(VodAddress peerAddress : peers.keySet() ){
+        for(OverlayAddress peerAddress : peers.keySet() ){
             if(peerAddress.getId() == address.getId()){
-                requiredVodAddress = peerAddress;
+                requiredOverlayAddress = peerAddress;
                 break;
             }
         }
 
-        if(requiredVodAddress == null)
+        if(requiredOverlayAddress == null)
             return;
 
         // Remove the existing entry from the map.
-        PeerInfo requiredPeerInfo = peers.get(requiredVodAddress);
-        peers.remove(requiredVodAddress);
+        PeerInfo requiredPeerInfo = peers.get(requiredOverlayAddress);
+        peers.remove(requiredOverlayAddress);
 
         // add the updated entries in the map.
-        peers.put(address,requiredPeerInfo);
+        peers.put(new OverlayAddress(address),requiredPeerInfo);
 
     }
 }

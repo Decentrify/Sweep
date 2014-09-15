@@ -329,12 +329,12 @@ public final class Gradient extends ComponentDefinition {
                 for (SearchDescriptor d : sample) {
                     PartitionId partitionId = PartitionHelper.determineSearchDescriptorPartition(d,
                             isOnceBefore, bitsToCheck);
-                    VodAddress a = PartitionHelper.updatePartitionId(d.getVodAddress(), partitionId);
+                    VodAddress a = PartitionHelper.updatePartitionId(d, partitionId);
                     updatedSample.add(new SearchDescriptor(a, d));
                 }
             } else {
                 for (SearchDescriptor d : sample) {
-                    VodAddress a = PartitionHelper.updatePartitionId(d.getVodAddress(),
+                    VodAddress a = PartitionHelper.updatePartitionId(d,
                             new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0));
                     updatedSample.add(new SearchDescriptor(a, d));
                 }
@@ -429,7 +429,7 @@ public final class Gradient extends ComponentDefinition {
                         PartitionId partitionId = PartitionHelper.determineSearchDescriptorPartition(d,
                                 isOnePartition, bitsToCheck);
 
-                        VodAddress a = PartitionHelper.updatePartitionId(d.getVodAddress(), partitionId);
+                        VodAddress a = PartitionHelper.updatePartitionId(d, partitionId);
                         updatedSample.add(new SearchDescriptor(a, d));
 
                     }
@@ -438,7 +438,7 @@ public final class Gradient extends ComponentDefinition {
                         PartitionId partitionId = PartitionHelper.determineSearchDescriptorPartition(d,
                                 isOnePartition, 1);
 
-                        VodAddress a = PartitionHelper.updatePartitionId(d.getVodAddress(), partitionId);
+                        VodAddress a = PartitionHelper.updatePartitionId(d, partitionId);
                         updatedSample.add(new SearchDescriptor(a, d));
 
                     }
@@ -494,7 +494,7 @@ public final class Gradient extends ComponentDefinition {
 
     private void addRoutingTableEntries(List<SearchDescriptor> nodes) {
         for (SearchDescriptor searchDescriptor : nodes) {
-            MsConfig.Categories category = categoryFromCategoryId(searchDescriptor.getVodAddress().getCategoryId());
+            MsConfig.Categories category = categoryFromCategoryId(searchDescriptor.getOverlayId().getCategoryId());
             int partition = searchDescriptor.getVodAddress().getPartitionId();
 
             Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
