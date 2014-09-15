@@ -300,4 +300,12 @@ public class ApplicationTypesDecoderFactory {
         return pub;
     }
 
+    public static OverlayId readOverlayId(ByteBuf buffer) {
+
+        int overlayId = buffer.readInt();
+
+        return new OverlayId(overlayId);
+
+    }
+
 }

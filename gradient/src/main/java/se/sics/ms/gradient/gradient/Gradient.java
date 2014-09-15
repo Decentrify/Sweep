@@ -34,10 +34,8 @@ import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.OverlayAddress;
-import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.*;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 
@@ -1109,7 +1107,7 @@ public final class Gradient extends ComponentDefinition {
             List<Integer> randomIntegerList = getUniqueRandomIntegerList(higherUtilityNodes.size(), event.getControlMessageExchangeNumber());
             for(int n : randomIntegerList){
                 VodAddress destination = higherUtilityNodes.get(n).getVodAddress();
-                trigger(new ControlMessage.Request(self.getAddress(), destination, event.getRoundId()), networkPort);
+                trigger(new ControlMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), event.getRoundId()), networkPort);
             }
         }
     };
@@ -1194,7 +1192,7 @@ public final class Gradient extends ComponentDefinition {
         // Check for the responses when you have atleast partitioned yourself.
         if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
-            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getSourceAddress(), partitionUpdateHashes);
+            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getSourceAddress(), event.getOverlayId(), partitionUpdateHashes);
         } else {
             // Send empty partition update as you have not partitioned.
             controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
@@ -1208,13 +1206,13 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Based on the source address, provide the control message enum that needs to be associated with the control response object.
      */
-    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes){
+    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address, OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes){
 
         boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
 
         // for ONE_BEFORE
         if(isOnePartition){
-            if(address.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE){
+            if(overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE){
                 for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
                     partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
             }
@@ -1224,7 +1222,7 @@ public final class Gradient extends ComponentDefinition {
         else {
 
             int myDepth = self.getPartitionIdDepth();
-            if (address.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+            if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
 
                 if (myDepth <= (HISTORY_LENGTH)) {
                     for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
@@ -1235,7 +1233,7 @@ public final class Gradient extends ComponentDefinition {
             }
             else {
 
-                int receivedNodeDepth = address.getPartitionIdDepth();
+                int receivedNodeDepth = overlayId.getPartitionIdDepth();
                 if(myDepth - receivedNodeDepth > HISTORY_LENGTH)
                     return ControlMessageEnum.REJOIN;
 

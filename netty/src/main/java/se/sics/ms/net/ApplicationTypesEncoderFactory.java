@@ -238,5 +238,13 @@ public class ApplicationTypesEncoderFactory {
             writeStringLength65536(buffer,new String());
     }
 
+    public static void writeOverlayId(ByteBuf buffer, OverlayId overlayId) {
+
+        if(overlayId != null)
+            buffer.writeInt(overlayId.getId());
+        else
+            buffer.writeInt(0);
+    }
+
 
 }

@@ -59,6 +59,7 @@ import se.sics.ms.timeout.CommitTimeout;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
@@ -506,7 +507,7 @@ public final class Search extends ComponentDefinition {
             peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
 
             // Request info from the gradient component
-            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
+            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(), event.getVodSource(), event.getOverlayId()), gradientRoutingPort);
             trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
         }
     };
@@ -2007,7 +2008,7 @@ public final class Search extends ComponentDefinition {
 
             // Send the partition requests to the leader group.
             for(VodAddress destinationAddress : leaderGroupAddresses){
-                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,timeoutId, partitionInfo);
+                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,new OverlayId(self.getOverlayId()),timeoutId, partitionInfo);
                 trigger(partitionPrepareRequest, networkPort);
             }
 
@@ -2061,7 +2062,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!partitionOrderValid(event.getVodSource()))
+            if(!partitionOrderValid(event.getVodSource(), event.getOverlayId()))
                 return;
 
 
@@ -2094,8 +2095,8 @@ public final class Search extends ComponentDefinition {
      * @param source
      * @return applyPartitioningUpdate.
      */
-    private boolean partitionOrderValid(VodAddress source) {
-        return (source.getPartitioningType() == self.getPartitioningType() && source.getPartitionIdDepth() == self.getPartitionIdDepth());
+    private boolean partitionOrderValid(VodAddress source, OverlayId overlayId) {
+        return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitionIdDepth());
     }
 
 

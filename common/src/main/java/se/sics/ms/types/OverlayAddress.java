@@ -40,11 +40,10 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
     }
 
     @Override
-    public int compareTo(OverlayAddress o) {
-        if (equals(o)) {
+    public int compareTo(OverlayAddress other) {
+        if (equals(other)) {
             return 0;
         }
-        OverlayAddress other = (OverlayAddress)o;
 
         int res = this.address.compareTo(other.getAddress());
 
@@ -85,16 +84,13 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
             return false;
         }
 
-        if (this.overlayId.equals(other.getOverlayId())) {
-            return false;
-        }
-
-        return true;
+        return this.overlayId.equals(other.getOverlayId());
     }
 
     public int hashCode() {
         final int prime = 7;
-        int result = prime + ((this.address == null) ? 0 : this.address.hashCode())  + this.overlayId.hashCode();
+        int result = prime + ((this.address == null) ? 0 : this.address.hashCode())  +
+                ((this.overlayId == null) ? 0 : this.overlayId.hashCode());
         return result;
     }
 

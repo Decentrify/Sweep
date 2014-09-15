@@ -9,7 +9,9 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.gvod.timer.UUID;
+import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.types.OverlayId;
 
 /**
  * Control Message which will contain the control information.
@@ -20,9 +22,10 @@ public class ControlMessage {
 
    public static class Request extends DirectMsgNetty.Request{
 
-
-       public Request(VodAddress source, VodAddress destination, TimeoutId roundId) {
+       private OverlayId overlayId;
+       public Request(VodAddress source, VodAddress destination, OverlayId overlayId, TimeoutId roundId) {
            super(source, destination,roundId);
+           this.overlayId = overlayId;
        }
 
        @Override
@@ -32,7 +35,7 @@ public class ControlMessage {
 
        @Override
        public RewriteableMsg copy() {
-           return new Request(vodSrc,vodDest,timeoutId);
+           return new Request(vodSrc, vodDest, overlayId, timeoutId);
        }
 
        /**
@@ -43,6 +46,7 @@ public class ControlMessage {
        @Override
        public ByteBuf toByteArray() throws MessageEncodingException {
            ByteBuf buffer = createChannelBufferWithHeader();
+           ApplicationTypesEncoderFactory.writeOverlayId(buffer, this.overlayId);
            return buffer;
        }
 
@@ -57,6 +61,10 @@ public class ControlMessage {
         */
        public TimeoutId getRoundId(){
            return this.timeoutId;
+       }
+
+       public OverlayId getOverlayId() {
+           return overlayId;
        }
    }
 

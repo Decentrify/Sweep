@@ -2,6 +2,7 @@ package se.sics.ms.gradient.control;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.PartitionHelper;
 
 import java.util.LinkedList;
@@ -16,8 +17,15 @@ public class CheckPartitionInfoHashUpdate {
      */
     public static class Request extends ControlMessageInternal.Request {
 
-        public Request(TimeoutId roundId , VodAddress sourceAddress){
+        private OverlayId overlayId;
+
+        public Request(TimeoutId roundId , VodAddress sourceAddress, OverlayId overlayId){
             super(roundId, sourceAddress);
+            this.overlayId = overlayId;
+        }
+
+        public OverlayId getOverlayId() {
+            return overlayId;
         }
     }
 

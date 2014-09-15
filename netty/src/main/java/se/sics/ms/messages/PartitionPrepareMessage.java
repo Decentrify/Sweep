@@ -11,6 +11,7 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.PartitionHelper;
 
 /**
@@ -23,16 +24,22 @@ public class PartitionPrepareMessage {
     public static class Request extends DirectMsgNetty.Request {
 
         private final PartitionHelper.PartitionInfo partitionInfo;
+        private final OverlayId overlayId;
 
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId roundId, PartitionHelper.PartitionInfo partitionInfo){
+        public Request(VodAddress source, VodAddress destination, OverlayId overlayId, TimeoutId roundId, PartitionHelper.PartitionInfo partitionInfo){
             super(source, destination, roundId);
             this.partitionInfo = partitionInfo;
+            this.overlayId = overlayId;
         }
 
 
         public PartitionHelper.PartitionInfo getPartitionInfo(){
             return this.partitionInfo;
+        }
+
+        public OverlayId getOverlayId() {
+            return overlayId;
         }
 
 
@@ -43,13 +50,14 @@ public class PartitionPrepareMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, timeoutId, partitionInfo);
+            return new Request(vodSrc, vodDest, overlayId, timeoutId, partitionInfo);
         }
 
         @Override
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             ApplicationTypesEncoderFactory.writePartitionUpdate(buffer, partitionInfo);
+            ApplicationTypesEncoderFactory.writeOverlayId(buffer, overlayId);
             return buffer;
         }
 

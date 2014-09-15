@@ -155,9 +155,6 @@ public class
             return false;
         }
 
-        if(!this.overlayAddress.equals(other.getOverlayAddress()))
-            return false;
-
-        return true;
+        return this.overlayAddress.equals(other.getOverlayAddress());
     }
 }
