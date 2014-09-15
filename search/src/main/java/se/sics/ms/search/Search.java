@@ -2063,10 +2063,7 @@ public final class Search extends ComponentDefinition {
             }
 
             if(!partitionOrderValid(event.getVodSource(), event.getOverlayId()))
-
-
                 return;
-            }
 
 
             // Step2: Trigger the response for this request, which should be directly handled by the search component.
