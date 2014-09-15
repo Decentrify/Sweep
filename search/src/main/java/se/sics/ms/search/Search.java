@@ -32,6 +32,7 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.events.UiAddIndexEntryRequest;
@@ -1575,9 +1576,9 @@ public final class Search extends ComponentDefinition {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
-                // Check the message and update the address in case of a Transport Protocol different than TCP.
+                // Check the message and update the address in case of a Transport Protocol different than UDP.
                 SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
-                checkTransportAndUpdateBeforeSending(searchMessageResponse);
+                TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
                 trigger(searchMessageResponse, networkPort);
 
             } catch (IOException ex) {
@@ -1588,30 +1589,6 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    public void checkTransportAndUpdateBeforeSending(RewriteableMsg msg){
-
-        // In case a UDT message, update the port to UDT port before sending.
-        if(msg.getProtocol() == Transport.UDT){
-            logger.warn("{checkTransportAndUpdateBeforeSending}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getUdtPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getUdtPort(), msg.getSource().getId()));
-        }
-    }
-
-    /**
-     * Update the message
-     * @param msg
-     */
-    public void checkTransportAndUpdateBeforeReceiving(RewriteableMsg msg){
-
-        // In case msg received is UDT, rewrite the port to original UDP port on which other protocols are running.
-        if(msg.getProtocol() == Transport.UDT){
-            logger.warn("{checkTransportAndUpdateBeforeReceiving}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getPort(), msg.getSource().getId()));
-        }
-
-    }
 
     /**
      * Query the given index store with a given search pattern.
@@ -1635,7 +1612,11 @@ public final class Search extends ComponentDefinition {
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
                 Document d = searcher.doc(docId);
-                result.add(createIndexEntry(d));
+                // Check to avoid duplicate index entries in the response.
+                IndexEntry entry = createIndexEntry(d);
+                if(result.contains(entry))
+                    continue;
+                result.add(entry);
             }
 
             return result;
@@ -1656,7 +1637,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Response event) {
 
-            checkTransportAndUpdateBeforeReceiving(event);
+            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
@@ -2144,7 +2125,7 @@ public final class Search extends ComponentDefinition {
                 if(count.incrementAndCheckResponse(event.getVodSource())){
 
                     // Received the required responses. Start the commit phase.
-                    logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
+                    logger.debug("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
                     List<VodAddress> leaderGroupAddress = count.getLeaderGroupNodesAddress();
 
 
@@ -2259,7 +2240,7 @@ public final class Search extends ComponentDefinition {
 
             if (partitionInProgress && partitionReplicationCount != null){
 
-                logger.warn("{PartitionCommitMessage.Response} received from the nodes at the Leader");
+                logger.debug("{PartitionCommitMessage.Response} received from the nodes at the Leader");
 
                 // Partitioning complete ( Reset the partitioning parameters. )
 //                partitionInProgress = false;

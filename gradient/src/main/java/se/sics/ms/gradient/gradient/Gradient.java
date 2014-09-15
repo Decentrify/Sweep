@@ -16,6 +16,7 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
 import se.sics.ms.gradient.control.CheckPartitionInfoHashUpdate;
@@ -844,6 +845,10 @@ public final class Gradient extends ComponentDefinition {
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
+
+            // Search response is a UDT Message, so fix the ports before processing.
+            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
+
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
 
