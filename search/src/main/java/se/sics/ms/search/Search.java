@@ -98,7 +98,7 @@ public final class Search extends ComponentDefinition {
     Negative<UiPort> uiPort = negative(UiPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
-    private Self self;
+    private MsSelfImpl self;
     private SearchConfiguration config;
     private boolean leader;
     // The last lowest missing index value
@@ -300,7 +300,7 @@ public final class Search extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
-        self = init.getSelf();
+        self = (MsSelfImpl)init.getSelf();
 
         config = init.getConfiguration();
         KeyPairGenerator keyGen;
@@ -1375,7 +1375,7 @@ public final class Search extends ComponentDefinition {
 
                 int partitionId = self.getAddress().getPartitionId();
 
-                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId), replicationCount.getEntry().getId());
+                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -1742,9 +1742,9 @@ public final class Search extends ComponentDefinition {
 
             int partitionId = self.getAddress().getPartitionId();
 
-            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     minStoredId);
-            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     maxStoredId);
             Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
 
