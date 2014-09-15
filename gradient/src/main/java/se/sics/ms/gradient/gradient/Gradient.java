@@ -348,7 +348,7 @@ public final class Gradient extends ComponentDefinition {
             Set<SearchDescriptor> toRemove = new HashSet<SearchDescriptor>();
             while (iterator.hasNext()) {
                 SearchDescriptor d = iterator.next();
-                VodAddress next = d.getVodAddress();
+                OverlayAddress next = d.getOverlayAddress();
                 if (next.getPartitionId() != self.getPartitionId()
                         || next.getPartitionIdDepth() != self.getPartitionIdDepth()
                         || next.getPartitioningType() != self.getPartitioningType()) {
@@ -377,13 +377,12 @@ public final class Gradient extends ComponentDefinition {
             // Create a copy so components don't affect each other
             SortedSet<SearchDescriptor> view = new TreeSet<SearchDescriptor>(gradientView.getAll());
 
-            VodAddress selfVodAddress = self.getAddress();
             Iterator<SearchDescriptor> iterator = view.iterator();
             while (iterator.hasNext()) {
-                VodAddress next = iterator.next().getVodAddress();
-                if (next.getPartitionId() != selfVodAddress.getPartitionId()
-                        || next.getPartitionIdDepth() != selfVodAddress.getPartitionIdDepth()
-                        || next.getPartitioningType() != selfVodAddress.getPartitioningType()) {
+                OverlayAddress next = iterator.next().getOverlayAddress();
+                if (next.getPartitionId() != self.getPartitionId()
+                        || next.getPartitionIdDepth() != self.getPartitionIdDepth()
+                        || next.getPartitioningType() != self.getPartitioningType()) {
                     iterator.remove();
                 }
             }
@@ -495,7 +494,7 @@ public final class Gradient extends ComponentDefinition {
     private void addRoutingTableEntries(List<SearchDescriptor> nodes) {
         for (SearchDescriptor searchDescriptor : nodes) {
             MsConfig.Categories category = categoryFromCategoryId(searchDescriptor.getOverlayId().getCategoryId());
-            int partition = searchDescriptor.getVodAddress().getPartitionId();
+            int partition = searchDescriptor.getOverlayAddress().getPartitionId();
 
             Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
             if (categoryRoutingMap == null) {
@@ -509,8 +508,8 @@ public final class Gradient extends ComponentDefinition {
                 categoryRoutingMap.put(partition, bucket);
 
                 //update old routing tables if see an entry from a new partition
-                PartitionId newPartitionId = new PartitionId(searchDescriptor.getVodAddress().getPartitioningType(),
-                        searchDescriptor.getVodAddress().getPartitionIdDepth(), searchDescriptor.getVodAddress().getPartitionId());
+                PartitionId newPartitionId = new PartitionId(searchDescriptor.getOverlayAddress().getPartitioningType(),
+                        searchDescriptor.getOverlayAddress().getPartitionIdDepth(), searchDescriptor.getOverlayAddress().getPartitionId());
                 updateBucketsInRoutingTable(newPartitionId, categoryRoutingMap, bucket);
             }
 
@@ -584,7 +583,7 @@ public final class Gradient extends ComponentDefinition {
                     //as a finger table to random nodes
                     Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
                     if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
-                        HashSet<SearchDescriptor> croupierNodes =  croupierPartitions.get(self.getAddress().getPartitionId());
+                        HashSet<SearchDescriptor> croupierNodes =  croupierPartitions.get(self.getPartitionId());
                         if(croupierNodes != null && !croupierNodes.isEmpty()) {
                             startNodes.addAll(croupierNodes);
                         }
@@ -801,7 +800,7 @@ public final class Gradient extends ComponentDefinition {
 
             for (Integer partition : categoryRoutingMap.keySet()) {
                 // if your partition, hit only self
-                if (partition == self.getAddress().getPartitionId()
+                if (partition == self.getPartitionId()
                         && category == categoryFromCategoryId(self.getCategoryId())) {
                     trigger(new SearchMessage.Request(self.getAddress(), self.getAddress(),
                             event.getTimeoutId(), event.getTimeoutId(), event.getPattern(),
@@ -923,8 +922,8 @@ public final class Gradient extends ComponentDefinition {
     private boolean determineYourPartitionAndUpdatePartitionsNumberUpdated(VodAddress.PartitioningType partitionsNumber) {
         int nodeId = self.getId();
 
-        PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getAddress().getPartitionIdDepth(),
-                self.getAddress().getPartitionId());
+        PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getPartitionIdDepth(),
+                self.getPartitionId());
 
         boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
 
@@ -940,7 +939,7 @@ public final class Gradient extends ComponentDefinition {
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
 
         } else {
-            int newPartitionId = self.getAddress().getPartitionId() | ((partitionSubId ? 1 : 0) << self.getAddress().getPartitionIdDepth());
+            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionIdDepth());
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
@@ -948,8 +947,8 @@ public final class Gradient extends ComponentDefinition {
                     self.getAddress().getPartitionIdDepth()+1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
-        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getAddress().getPartitionIdDepth() +" PartitionId: " + self.getAddress().getPartitionId() + " PartitionType: " + self.getAddress().getPartitioningType());
-        int partitionId = self.getAddress().getPartitionId();
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() +" PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        int partitionId = self.getPartitionId();
         Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getCategoryId(), partitionId));
         return partitionSubId;

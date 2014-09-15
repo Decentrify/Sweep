@@ -14,6 +14,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.events.PublicKeyBroadcast;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
@@ -56,7 +57,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private int yesVotes, totalVotes, electionCounter, convergedNodesCounter;
 	private boolean electionInProgress, iAmLeader;
     private PublicKey leaderPublicKey;
-	private Self self;
+	private MsSelfImpl self;
 	private SortedSet<SearchDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
     private final UtilityComparator utilityComparator = new UtilityComparator();
@@ -100,7 +101,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * will initiate variables
 	 */
     public void doInit(ElectionInit init) {
-        self = init.getSelf();
+        self = (MsSelfImpl)init.getSelf();
         config = init.getConfig();
 
         iAmLeader = false;
@@ -244,8 +245,8 @@ public class ElectionLeader extends ComponentDefinition {
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                    self.getPartitionIdDepth(), self.getPartitionId());
             adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
             adjustDescriptorsToNewPartitionId(myPartitionId, lowerUtilityNodes);
         }
@@ -290,8 +291,8 @@ public class ElectionLeader extends ComponentDefinition {
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-                PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                        self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+                PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                        self.getPartitionIdDepth(), self.getPartitionId());
                 Snapshot.setLeaderStatus(self.getAddress(), true, myPartitionId.getAsLinkedList());
 			}
 		} else {

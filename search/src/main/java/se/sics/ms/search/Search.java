@@ -1373,7 +1373,7 @@ public final class Search extends ComponentDefinition {
                 replicationTimeoutToAdd.remove(commitId);
                 commitRequests.remove(commitId);
 
-                int partitionId = self.getAddress().getPartitionId();
+                int partitionId = self.getPartitionId();
 
                 Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
@@ -1740,7 +1740,7 @@ public final class Search extends ComponentDefinition {
             nextInsertionId = maxStoredId+1;
             lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId+1;
 
-            int partitionId = self.getAddress().getPartitionId();
+            int partitionId = self.getPartitionId();
 
             Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     minStoredId);

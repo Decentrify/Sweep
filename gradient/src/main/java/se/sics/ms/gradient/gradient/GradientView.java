@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
@@ -21,7 +22,7 @@ public class GradientView {
     private static final Logger logger = LoggerFactory.getLogger(GradientView.class);
     private TreeMap<VodAddress, SearchDescriptor> mapping;
 	private TreeSet<SearchDescriptor> entries;
-	private Self self;
+	private MsSelfImpl self;
 	private int size;
 	private final Comparator<SearchDescriptor> preferenceComparator;
     private final int convergenceTestRounds;
@@ -45,7 +46,7 @@ public class GradientView {
         this.preferenceComparator = new PreferenceComparator(new SearchDescriptor(self.getDescriptor()));
         this.mapping = new TreeMap<VodAddress, SearchDescriptor>();
 		this.entries = new TreeSet<SearchDescriptor>(utilityComparator);
-		this.self = self;
+		this.self = (MsSelfImpl)self;
 		this.size = size;
 		this.converged = false;
         this.changed = false;
@@ -173,10 +174,10 @@ public class GradientView {
         Collection<SearchDescriptor> oldEntries = (Collection<SearchDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
-        if(self.getAddress().getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
+        if(self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
-            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                    self.getPartitionIdDepth(), self.getPartitionId());
             PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, searchDescriptors);
         }
 
@@ -201,8 +202,8 @@ public class GradientView {
 	}
 
     protected void adjustViewToNewPartitions() {
-        PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+        PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                self.getPartitionIdDepth(), self.getPartitionId());
         PartitionHelper.adjustDescriptorsToNewPartitionId(myPartitionId, entries);
     }
 

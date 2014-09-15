@@ -2,6 +2,7 @@ package se.sics.ms.util;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -118,7 +119,7 @@ public class PartitionHelper {
 
         Iterator<SearchDescriptor> iterator = descriptors.iterator();
         while (iterator.hasNext()) {
-            VodAddress next = iterator.next().getVodAddress();
+            OverlayAddress next = iterator.next().getOverlayAddress();
             if(next.getPartitionId() != partitionId.getPartitionId()
                     || next.getPartitionIdDepth() != partitionId.getPartitionIdDepth()
                     || next.getPartitioningType() != partitionId.getPartitioningType())
@@ -166,7 +167,7 @@ public class PartitionHelper {
             Iterator<SearchDescriptor> oldBucketIterator = oldBucket.iterator();
             while(oldBucketIterator.hasNext()) {
                 SearchDescriptor next = oldBucketIterator.next();
-                VodAddress nextAddress = next.getVodAddress();
+                OverlayAddress nextAddress = next.getOverlayAddress();
                 boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
                         new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
                                 nextAddress.getPartitionId()));
@@ -191,7 +192,7 @@ public class PartitionHelper {
         Iterator<SearchDescriptor> oldBucketIterator = oldBucket.iterator();
         while(oldBucketIterator.hasNext()) {
             SearchDescriptor next = oldBucketIterator.next();
-            VodAddress nextAddress = next.getVodAddress();
+            OverlayAddress nextAddress = next.getOverlayAddress();
             boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(next.getId(),
                     new PartitionId(nextAddress.getPartitioningType(), nextAddress.getPartitionIdDepth(),
                             nextAddress.getPartitionId()));

@@ -101,10 +101,8 @@ public class UtilTests {
         descriptors.add(searchDescriptor);
         descriptors.add(descriptorList);
 
-        VodAddress selfAddress = self.getAddress();
-
-        PartitionId partitionIdToAdjustTo = new PartitionId(selfAddress.getPartitioningType(),
-                selfAddress.getPartitionIdDepth(), selfAddress.getPartitionId());
+        PartitionId partitionIdToAdjustTo = new PartitionId(self.getPartitioningType(),
+                self.getPartitionIdDepth(), self.getPartitionId());
         PartitionHelper.adjustDescriptorsToNewPartitionId(partitionIdToAdjustTo, descriptors);
 
         assert (descriptors.size() == 1);
