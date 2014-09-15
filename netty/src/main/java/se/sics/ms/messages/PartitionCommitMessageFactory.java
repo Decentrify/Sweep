@@ -39,15 +39,15 @@ public class PartitionCommitMessageFactory {
 
         }
 
-        public static PartitionPrepareMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException{
-            return (PartitionPrepareMessage.Response) new PartitionCommitMessageFactory.Response().decode(buffer);
+        public static PartitionCommitMessage.Response fromBuffer(ByteBuf buffer) throws MessageDecodingException{
+            return (PartitionCommitMessage.Response) new PartitionCommitMessageFactory.Response().decode(buffer);
         }
 
         @Override
-        protected PartitionPrepareMessage.Response process(ByteBuf byteBuf) throws MessageDecodingException {
+        protected PartitionCommitMessage.Response process(ByteBuf byteBuf) throws MessageDecodingException {
 
             TimeoutId partitionRequestId = UserTypesDecoderFactory.readTimeoutId(byteBuf);
-            PartitionPrepareMessage.Response response = new PartitionPrepareMessage.Response(vodSrc,vodDest,timeoutId,partitionRequestId);
+            PartitionCommitMessage.Response response = new PartitionCommitMessage.Response(vodSrc,vodDest,timeoutId,partitionRequestId);
             return response;
         }
     }

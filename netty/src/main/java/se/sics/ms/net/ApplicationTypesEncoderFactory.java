@@ -38,7 +38,7 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, indexEntry.getLanguage());
         buffer.writeInt(indexEntry.getCategory().ordinal());
         writeStringLength65536(buffer, indexEntry.getDescription());
-        writeStringLength256(buffer, indexEntry.getHash());
+        writeStringLength65536(buffer, indexEntry.getHash());
         if(indexEntry.getLeaderId() == null)
             writeStringLength65536(buffer, new String());
         else
@@ -47,7 +47,7 @@ public class ApplicationTypesEncoderFactory {
 
     public static void writeIndexEntryCollection(ByteBuf buffer, Collection<IndexEntry> items) throws MessageEncodingException {
         if(items == null){
-            writeUnsignedintAsOneByte(buffer, 0);
+            writeUnsignedintAsTwoBytes(buffer, 0);
             return;
         }
         UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, items.size());
@@ -57,7 +57,7 @@ public class ApplicationTypesEncoderFactory {
 
     public static void writeIndexEntryHash(ByteBuf buffer, IndexHash hash) throws MessageEncodingException {
         writeId(buffer, hash.getId());
-        writeStringLength256(buffer, hash.getHash());
+        writeStringLength65536(buffer, hash.getHash());
     }
 
     public static void writeIndexEntryHashCollection(ByteBuf buffer, Collection<IndexHash> hashes) throws MessageEncodingException {
@@ -115,8 +115,18 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength256(buffer, pattern.getFileNamePattern());
         buffer.writeInt(pattern.getMinFileSize());
         buffer.writeInt(pattern.getMaxFileSize());
-        buffer.writeLong(pattern.getMinUploadDate().getTime());
-        buffer.writeLong(pattern.getMaxUploadDate().getTime());
+
+        // Min and Max Upload Dates can be null there special handling needs to be done.
+        if(pattern.getMinUploadDate() == null)
+            buffer.writeLong(0);
+        else
+            buffer.writeLong(pattern.getMinUploadDate().getTime());
+
+        if(pattern.getMaxUploadDate() == null)
+            buffer.writeLong(0);
+        else
+            buffer.writeLong(pattern.getMaxUploadDate().getTime());
+
         writeStringLength256(buffer, pattern.getLanguage());
         buffer.writeInt(pattern.getCategory().ordinal());
         writeStringLength65536(buffer, pattern.getDescriptionPattern());
@@ -166,7 +176,7 @@ public class ApplicationTypesEncoderFactory {
         buffer.writeInt(partitionUpdate.getPartitioningTypeInfo().ordinal());
 
         // Added support for the hash string of the Partition Update.
-        writeStringLength256(buffer, partitionUpdate.getHash());
+        writeStringLength65536(buffer, partitionUpdate.getHash());
         if(partitionUpdate.getKey() == null)
             writeStringLength65536(buffer, new String());
         else
@@ -226,6 +236,14 @@ public class ApplicationTypesEncoderFactory {
             writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
         else
             writeStringLength65536(buffer,new String());
+    }
+
+    public static void writeOverlayId(ByteBuf buffer, OverlayId overlayId) {
+
+        if(overlayId != null)
+            buffer.writeInt(overlayId.getId());
+        else
+            buffer.writeInt(0);
     }
 
 

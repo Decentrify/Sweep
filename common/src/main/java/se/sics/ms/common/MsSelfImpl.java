@@ -44,4 +44,20 @@ public class MsSelfImpl extends SelfImpl {
         this.overlayId = overlayId;
     }
 
+    public int getCategoryId() {
+        return overlayId & 65535;
+    }
+
+    public int getPartitionId() {
+        return (overlayId & 67043328) >>> 16;
+    }
+
+    public int getPartitionIdDepth() {
+        return (overlayId & 1006632960) >>> 26;
+    }
+
+    public VodAddress.PartitioningType getPartitioningType() {
+        return VodAddress.PartitioningType.values()[(overlayId & -1073741824) >>> 30];
+    }
+
 }

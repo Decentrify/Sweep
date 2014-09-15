@@ -8,10 +8,13 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.Timer;
+import se.sics.gvod.timer.UUID;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.events.PublicKeyBroadcast;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
@@ -24,14 +27,12 @@ import se.sics.ms.messages.RejectFollowerMessage;
 import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 
 import java.security.PublicKey;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.SortedSet;
+import java.util.*;
 
 import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
@@ -56,7 +57,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private int yesVotes, totalVotes, electionCounter, convergedNodesCounter;
 	private boolean electionInProgress, iAmLeader;
     private PublicKey leaderPublicKey;
-	private Self self;
+	private MsSelfImpl self;
 	private SortedSet<SearchDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
     private final UtilityComparator utilityComparator = new UtilityComparator();
@@ -100,7 +101,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 * will initiate variables
 	 */
     public void doInit(ElectionInit init) {
-        self = init.getSelf();
+        self = (MsSelfImpl)init.getSelf();
         config = init.getConfig();
 
         iAmLeader = false;
@@ -115,8 +116,10 @@ public class ElectionLeader extends ComponentDefinition {
 	final Handler<GradientViewChangePort.GradientViewChanged> handleGradientBroadcast = new Handler<GradientViewChangePort.GradientViewChanged>() {
 		@Override
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
-			higherUtilityNodes = event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor()));
-			lowerUtilityNodes = event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor()));
+
+            //create a copy so other component  receiving the same copy of the object is not effected.
+            higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
+            lowerUtilityNodes = new TreeSet<SearchDescriptor>(event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor())));
 
 			// Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
@@ -242,8 +245,8 @@ public class ElectionLeader extends ComponentDefinition {
 
             trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                    self.getPartitionIdDepth(), self.getPartitionId());
             adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
             adjustDescriptorsToNewPartitionId(myPartitionId, lowerUtilityNodes);
         }
@@ -288,8 +291,8 @@ public class ElectionLeader extends ComponentDefinition {
 
                 trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
 
-                PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                        self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+                PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                        self.getPartitionIdDepth(), self.getPartitionId());
                 Snapshot.setLeaderStatus(self.getAddress(), true, myPartitionId.getAsLinkedList());
 			}
 		} else {

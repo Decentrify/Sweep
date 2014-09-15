@@ -18,17 +18,21 @@ import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
+import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.events.UiAddIndexEntryRequest;
@@ -54,10 +58,8 @@ import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.timeout.CommitTimeout;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.IndexHash;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import sun.misc.BASE64Encoder;
@@ -97,7 +99,7 @@ public final class Search extends ComponentDefinition {
     Negative<UiPort> uiPort = negative(UiPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
-    private Self self;
+    private MsSelfImpl self;
     private SearchConfiguration config;
     private boolean leader;
     // The last lowest missing index value
@@ -299,7 +301,7 @@ public final class Search extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
-        self = init.getSelf();
+        self = (MsSelfImpl)init.getSelf();
 
         config = init.getConfiguration();
         KeyPairGenerator keyGen;
@@ -472,7 +474,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ControlMessageExchangeRound event) {
 
-            logger.debug(" Initiated the Periodic Exchange ... ");
+            logger.debug("Initiated the Periodic Exchange Timeout.");
 
             //Clear the previous rounds data to avoid clash in the responses.
             cleanControlMessageResponseData();
@@ -505,7 +507,7 @@ public final class Search extends ComponentDefinition {
             peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
 
             // Request info from the gradient component
-            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
+            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(), event.getVodSource(), event.getOverlayId()), gradientRoutingPort);
             trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
         }
     };
@@ -544,7 +546,7 @@ public final class Search extends ComponentDefinition {
                 if(controlMessageResponse.addAndCheckStatus()){
 
                     // Construct the response object and trigger it back to the user.
-                    logger.debug(" Ready To Send back Control Message to the Requestor .. ");
+                    logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
 
                     // Send the data back to the user.
                     trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
@@ -614,12 +616,13 @@ public final class Search extends ComponentDefinition {
 
                 if(controlMessageResponseCount >= config.getIndexExchangeRequestNumber()){
 
-                    // Perform the checks and comparison on the responses received from the nodes.
-                    performControlMessageResponseMatching();
 
-                    // Perform the cleaning of the data after this.
-                    cleanControlMessageResponseData();
-                }
+                // Perform the checks and comparison on the responses received from the nodes.
+                performControlMessageResponseMatching();
+
+                // Perform the cleaning of the data after this.
+                cleanControlMessageResponseData();
+               }
             }
 
             catch (MessageDecodingException e) {
@@ -767,12 +770,11 @@ public final class Search extends ComponentDefinition {
         }
 
         if(mismatchFound || !(basePartitioningUpdateHashes.size()>0)){
-           logger.debug("No Common Update Found For Now ... ");
+            logger.debug("Not Applying any Partition Update.");
             return;
         }
 
 
-        logger.debug("Common Partition Update Found at Node: " + self.getId());
 
         for(PartitionHelper.PartitionInfoHash infoHash : basePartitioningUpdateHashes){
             finalPartitionUpdates.add(infoHash.getPartitionRequestId());
@@ -784,7 +786,6 @@ public final class Search extends ComponentDefinition {
         VodAddress randomPeerAddress = partitionControlResponses.get(random.nextInt(partitionControlResponses.size())).getSourceAddress();
 
 
-        // TODO: Move the timeout in the search config file.
         TimeoutId timeoutId = UUID.nextUUID();
         ScheduleTimeout st = new ScheduleTimeout(config.getDelayedPartitioningRequestTimeout());
         DelayedPartitioningMessage.Timeout delayedPartitioningTimeout = new DelayedPartitioningMessage.Timeout(st, self.getId());
@@ -797,6 +798,8 @@ public final class Search extends ComponentDefinition {
         // Trigger the new updates.
         trigger(new DelayedPartitioningMessage.Request(self.getAddress(), randomPeerAddress, timeoutId, finalPartitionUpdates), networkPort);
 
+        // Trigger the Scehdule Timeout Event.
+        trigger(st,timerPort);
     }
 
 
@@ -834,15 +837,18 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(DelayedPartitioningMessage.Response event) {
 
-            if(!partitionUpdateFetchInProgress || !event.getTimeoutId().equals(currentPartitionInfoFetchRound))
+            if(!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
                 return;
 
             // Simply apply the partitioning update and handle the duplicacy.
             trigger(new GradientRoutingPort.ApplyPartitioningUpdate(event.getPartitionHistory()), gradientRoutingPort);
+
+            // Cancel the timeout event.
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
+
         }
     };
-
-
 
     /**
      * Handler for the Delayed Partitioning Timeout.
@@ -1368,9 +1374,9 @@ public final class Search extends ComponentDefinition {
                 replicationTimeoutToAdd.remove(commitId);
                 commitRequests.remove(commitId);
 
-                int partitionId = self.getAddress().getPartitionId();
+                int partitionId = self.getPartitionId();
 
-                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId), replicationCount.getEntry().getId());
+                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -1571,8 +1577,11 @@ public final class Search extends ComponentDefinition {
             try {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
-                trigger(new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),
-                        0, 0, result, event.getPartitionId()), networkPort);
+                // Check the message and update the address in case of a Transport Protocol different than UDP.
+                SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
+                TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
+                trigger(searchMessageResponse, networkPort);
+
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
@@ -1580,6 +1589,7 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
+
 
     /**
      * Query the given index store with a given search pattern.
@@ -1603,7 +1613,11 @@ public final class Search extends ComponentDefinition {
             for (int i = 0; i < hits.length; ++i) {
                 int docId = hits[i].doc;
                 Document d = searcher.doc(docId);
-                result.add(createIndexEntry(d));
+                // Check to avoid duplicate index entries in the response.
+                IndexEntry entry = createIndexEntry(d);
+                if(result.contains(entry))
+                    continue;
+                result.add(entry);
             }
 
             return result;
@@ -1623,10 +1637,11 @@ public final class Search extends ComponentDefinition {
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
+
+            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
             }
-
             addSearchResponse(event.getResults(), event.getPartitionId(), event.getSearchTimeoutId());
         }
     };
@@ -1726,11 +1741,11 @@ public final class Search extends ComponentDefinition {
             nextInsertionId = maxStoredId+1;
             lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId+1;
 
-            int partitionId = self.getAddress().getPartitionId();
+            int partitionId = self.getPartitionId();
 
-            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     minStoredId);
-            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getAddress().getCategoryId(), partitionId),
+            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     maxStoredId);
             Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
 
@@ -1917,7 +1932,7 @@ public final class Search extends ComponentDefinition {
         maxStoredId++;
 
         //update the counter, so we can check if partitioning is necessary
-        if(leader && self.getAddress().getPartitionIdDepth() < config.getMaxPartitionIdLength())
+        if(leader && self.getPartitionIdDepth() < config.getMaxPartitionIdLength())
             checkPartitioning();
     }
 
@@ -1930,7 +1945,7 @@ public final class Search extends ComponentDefinition {
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
-        VodAddress.PartitioningType partitionsNumber = self.getAddress().getPartitioningType();
+        VodAddress.PartitioningType partitionsNumber = self.getPartitioningType();
         long medianId;
 
         if(maxStoredId > minStoredId){
@@ -1993,7 +2008,7 @@ public final class Search extends ComponentDefinition {
 
             // Send the partition requests to the leader group.
             for(VodAddress destinationAddress : leaderGroupAddresses){
-                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,timeoutId, partitionInfo);
+                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,new OverlayId(self.getOverlayId()),timeoutId, partitionInfo);
                 trigger(partitionPrepareRequest, networkPort);
             }
 
@@ -2047,9 +2062,9 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!partitionOrderValid(event.getVodSource())) {
+            if(!partitionOrderValid(event.getVodSource(), event.getOverlayId()))
 
-                logger.error("_ABHI:  MY ID:" + self.getId());
+
                 return;
             }
 
@@ -2080,11 +2095,11 @@ public final class Search extends ComponentDefinition {
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
      *
      * DO NOT REMOVE THIS. (Handles a rare fault case prevention).
-     * @param partitionInfo
+     * @param source
      * @return applyPartitioningUpdate.
      */
-    private boolean partitionOrderValid(VodAddress source) {
-        return (source.getPartitioningType() == self.getAddress().getPartitioningType() && source.getPartitionIdDepth() == self.getAddress().getPartitionIdDepth());
+    private boolean partitionOrderValid(VodAddress source, OverlayId overlayId) {
+        return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitionIdDepth());
     }
 
 
@@ -2114,7 +2129,7 @@ public final class Search extends ComponentDefinition {
                 if(count.incrementAndCheckResponse(event.getVodSource())){
 
                     // Received the required responses. Start the commit phase.
-                    logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
+                    logger.debug("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
                     List<VodAddress> leaderGroupAddress = count.getLeaderGroupNodesAddress();
 
 
@@ -2229,7 +2244,7 @@ public final class Search extends ComponentDefinition {
 
             if (partitionInProgress && partitionReplicationCount != null){
 
-                logger.warn("{PartitionCommitMessage.Response} received from the nodes at the Leader");
+                logger.debug("{PartitionCommitMessage.Response} received from the nodes at the Leader");
 
                 // Partitioning complete ( Reset the partitioning parameters. )
 //                partitionInProgress = false;

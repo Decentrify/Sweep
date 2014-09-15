@@ -13,9 +13,9 @@ import java.util.List;
 public class
         SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable {
 
-    private se.sics.gvod.net.VodAddress vodAddress;
     private int age;
     private transient boolean connected;
+    private OverlayAddress overlayAddress;
 
     //// Conversion functions
     public static VodDescriptor toVodDescriptor(SearchDescriptor searchDescriptor) {
@@ -66,13 +66,13 @@ public class
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age, boolean connected) {
-        this.vodAddress = vodAddress;
+        this.overlayAddress = new OverlayAddress(vodAddress);
         setAge(age);
         this.connected = connected;
     }
 
     public VodAddress getVodAddress() {
-        return vodAddress;
+        return this.overlayAddress.getAddress();
     }
 
     public int getAge() {
@@ -80,7 +80,7 @@ public class
     }
 
     public int getId() {
-        return vodAddress.getId();
+        return this.overlayAddress.getId();
     }
 
     public int incrementAndGetAge() {
@@ -93,6 +93,17 @@ public class
 
     public void setConnected(boolean connected) {
         this.connected = connected;
+    }
+
+    public OverlayId getOverlayId() { return this.overlayAddress.getOverlayId();}
+
+    @Override
+    public String toString() {
+        return this.overlayAddress.toString();
+    }
+
+    public OverlayAddress getOverlayAddress() {
+        return overlayAddress;
     }
 
     public void setAge(int age) {
@@ -120,7 +131,7 @@ public class
     public int hashCode() {
         final int prime = 87;
         int result = 1;
-        result = prime * result + ((vodAddress == null) ? 0 : vodAddress.hashCode());
+        result = prime * result + ((this.getOverlayAddress() == null) ? 0 : this.getOverlayAddress().hashCode());
         return result;
     }
 
@@ -136,19 +147,14 @@ public class
             return false;
         }
         SearchDescriptor other = (SearchDescriptor) obj;
-        if (vodAddress == null) {
-            if (other.vodAddress != null) {
+        if (this.overlayAddress == null) {
+            if (other.getOverlayAddress() != null) {
                 return false;
             }
-        } else if (other.vodAddress == null) {
+        } else if (other.overlayAddress == null) {
             return false;
         }
 
-        return vodAddress.equals(other.getVodAddress());
-    }
-
-    @Override
-    public String toString() {
-        return vodAddress.toString();
+        return this.overlayAddress.equals(other.getOverlayAddress());
     }
 }

@@ -15,6 +15,7 @@ import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Negative;
 import se.sics.kompics.Positive;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.events.LeaderInfoUpdate;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
@@ -48,7 +49,7 @@ public class ElectionFollower extends ComponentDefinition {
     Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
 
     private ElectionConfiguration config;
-    private Self self;
+    private MsSelfImpl self;
     private SearchDescriptor leader;
     private SortedSet<SearchDescriptor> higherUtilityNodes;
     private Set<SearchDescriptor> leaderView;
@@ -101,7 +102,7 @@ public class ElectionFollower extends ComponentDefinition {
      * mainly initiates variables
      */
     public void doInit(ElectionInit init) {
-        self = init.getSelf();
+        self = (MsSelfImpl)init.getSelf();
         config = init.getConfig();
     }
     /**
@@ -162,7 +163,9 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
-            higherUtilityNodes = event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor()));
+
+            //create a copy so other component  receiving the same copy of the object is not effected.
+            higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
         }
     };
     /**
@@ -175,9 +178,9 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderViewMessage event) {
             SearchDescriptor highestUtilityNode = getHighestUtilityNode(event.getLeaderSearchDescriptor());
 
-            if(highestUtilityNode.getVodAddress().getPartitionId() != self.getAddress().getPartitionId()
-                    || highestUtilityNode.getVodAddress().getPartitionIdDepth() != self.getAddress().getPartitionIdDepth()
-                    || highestUtilityNode.getVodAddress().getPartitioningType() != self.getAddress().getPartitioningType())
+            if(highestUtilityNode.getOverlayAddress().getPartitionId() != self.getPartitionId()
+                    || highestUtilityNode.getOverlayAddress().getPartitionIdDepth() != self.getPartitionIdDepth()
+                    || highestUtilityNode.getOverlayAddress().getPartitioningType() != self.getPartitioningType())
                 highestUtilityNode = event.getLeaderSearchDescriptor();
 
             if (leader == null) {
@@ -328,8 +331,8 @@ public class ElectionFollower extends ComponentDefinition {
             //higherUtilityNodes.clear();
             deathVoteTimeout = null;
 
-            PartitionId myPartitionId = new PartitionId(self.getAddress().getPartitioningType(),
-                    self.getAddress().getPartitionIdDepth(), self.getAddress().getPartitionId());
+            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+                    self.getPartitionIdDepth(), self.getPartitionId());
 
             adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
         }

@@ -131,6 +131,30 @@ public class EncodingDecodingTest {
     }
 
     @Test
+    public void searchRequestWithNullDate() {
+        SearchPattern pattern = new SearchPattern("abc", 1, 100, null, null, "language", MsConfig.Categories.Books, "booo");
+        TimeoutId timeoutId = UUID.nextUUID();
+        int partitionId = 1;
+        SearchMessage.Request msg = new SearchMessage.Request(gSrc, gDest, UUID.nextUUID(), timeoutId, pattern, partitionId);
+        try {
+            ByteBuf buffer = msg.toByteArray();
+            opCodeCorrect(buffer, msg);
+            SearchMessage.Request request = SearchMessageFactory.Request.fromBuffer(buffer);
+            assert timeoutId.equals(request.getSearchTimeoutId());
+            assert (request.getPattern().equals(pattern));
+            assert msg.getPartitionId() == partitionId;
+        } catch (MessageDecodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        } catch (MessageEncodingException ex) {
+            Logger.getLogger(EncodingDecodingTest.class.getName()).log(Level.SEVERE, null, ex);
+            assert (false);
+        }
+    }
+
+
+
+    @Test
     public void searchResponse() {
         try {
             UUID requestId = (UUID)UUID.nextUUID();
@@ -808,13 +832,13 @@ public class EncodingDecodingTest {
         int depth = 3;
         int partitionId = 4;
         int categoryId = (int) Math.pow(2, 16) - 2;
-        VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1), 
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(type,
-                depth, partitionId, categoryId), nat);
-        assert vodAddress.getCategoryId() == categoryId;
-        assert vodAddress.getPartitionId() == partitionId;
-        assert vodAddress.getPartitionIdDepth() == depth;
-        assert vodAddress.getPartitioningType() == type;
+        OverlayId overlayId = new OverlayId(PartitionHelper.encodePartitionDataAndCategoryIdAsInt(type,
+                depth, partitionId, categoryId));
+
+        assert overlayId.getCategoryId() == categoryId;
+        assert overlayId.getPartitionId() == partitionId;
+        assert overlayId.getPartitionIdDepth() == depth;
+        assert overlayId.getPartitioningType() == type;
     }
 
     /* Number of entries in Search Descriptor is not used anywhere, that field is now removed.
@@ -906,11 +930,13 @@ public class EncodingDecodingTest {
         long middleEntry = 1L;
         TimeoutId requestId = UUID.nextUUID();
         TimeoutId roundId = UUID.nextUUID();
+        int oId = 99;
+        OverlayId overlayId = new OverlayId(oId);
 
         VodAddress.PartitioningType partitioningType = VodAddress.PartitioningType.NEVER_BEFORE;
 
         PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(middleEntry, requestId, partitioningType);
-        PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(gSrc,gDest,roundId,partitionInfo);
+        PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(gSrc,gDest,overlayId,roundId,partitionInfo);
 
         try{
 
@@ -921,6 +947,7 @@ public class EncodingDecodingTest {
             assert(partitionPrepareRequestDecoded.getPartitionInfo().getMedianId() == middleEntry);
             assert(partitionPrepareRequestDecoded.getPartitionInfo().getRequestId().equals(requestId));
             assert(partitionPrepareRequestDecoded.getPartitionInfo().getPartitioningTypeInfo() == partitioningType);
+            assert(partitionPrepareRequestDecoded.getOverlayId().getId() == oId);
 
 
         } catch (MessageEncodingException e) {
@@ -997,7 +1024,7 @@ public class EncodingDecodingTest {
         try {
             ByteBuf byteBuffer = partitionCommitResponse.toByteArray();
             opCodeCorrect(byteBuffer, partitionCommitResponse);
-            PartitionCommitMessage.Request partitionCommitResponseDecoded = PartitionCommitMessageFactory.Request.fromBuffer(byteBuffer);
+            PartitionCommitMessage.Response partitionCommitResponseDecoded = PartitionCommitMessageFactory.Response.fromBuffer(byteBuffer);
 
             assert(partitionCommitResponseDecoded.getPartitionRequestId().equals(requestId));
             assert(partitionCommitResponseDecoded.getTimeoutId().equals(roundId));
@@ -1011,6 +1038,28 @@ public class EncodingDecodingTest {
     }
 
 
+    @Test
+    public void ControlMessageRequestTest(){
+
+        TimeoutId roundId = UUID.nextUUID();
+        int oId = 99;//some random number
+        OverlayId overlayId = new OverlayId(oId);
+        ControlMessage.Request controlMessageRequest = new ControlMessage.Request(gSrc,gDest,overlayId,roundId);
+
+        try{
+            ByteBuf byteBuffer = controlMessageRequest.toByteArray();
+            opCodeCorrect(byteBuffer, controlMessageRequest);
+            ControlMessage.Request controlMessageRequestDecoded = ControlMessageFactory.Request.fromBuffer(byteBuffer);
+            assert(controlMessageRequestDecoded.getRoundId().equals(roundId));
+            assert(controlMessageRequestDecoded.getOverlayId().getId() == oId);
+
+        } catch (MessageEncodingException e) {
+            e.printStackTrace();
+        } catch (MessageDecodingException e) {
+            e.printStackTrace();
+        }
+
+    }
 
 
 }

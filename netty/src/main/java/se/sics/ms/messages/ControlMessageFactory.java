@@ -5,6 +5,8 @@ import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.net.ApplicationTypesDecoderFactory;
+import se.sics.ms.types.OverlayId;
 
 /**
  * This is the factory class for the Control Message.
@@ -28,9 +30,8 @@ public class ControlMessageFactory {
          */
         @Override
         protected ControlMessage.Request process(ByteBuf byteBuf) throws MessageDecodingException {
-
-            TimeoutId roundId = UserTypesDecoderFactory.readTimeoutId(byteBuf);
-            return new ControlMessage.Request(vodSrc,vodDest,roundId);
+            OverlayId overlayId = ApplicationTypesDecoderFactory.readOverlayId(byteBuf);
+            return new ControlMessage.Request(vodSrc,vodDest,overlayId,timeoutId);
         }
     }
 
@@ -56,10 +57,8 @@ public class ControlMessageFactory {
         @Override
         protected ControlMessage.Response process(ByteBuf byteBuf) throws MessageDecodingException {
 
-            TimeoutId roundId = UserTypesDecoderFactory.readTimeoutId(byteBuf);
             byte[] bytes = UserTypesDecoderFactory.readArrayBytes(byteBuf);
-
-            return new ControlMessage.Response(vodSrc, vodDest, roundId, bytes);
+            return new ControlMessage.Response(vodSrc, vodDest, timeoutId, bytes);
         }
     }
 

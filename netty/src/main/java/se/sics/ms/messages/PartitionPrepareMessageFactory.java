@@ -6,6 +6,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.PartitionHelper;
 
 /**
@@ -28,7 +29,8 @@ public class PartitionPrepareMessageFactory {
         @Override
         protected PartitionPrepareMessage.Request process(ByteBuf byteBuf) throws MessageDecodingException {
             PartitionHelper.PartitionInfo partitionInfo = ApplicationTypesDecoderFactory.readPartitionUpdate(byteBuf);
-            PartitionPrepareMessage.Request request  = new PartitionPrepareMessage.Request(vodSrc,vodDest,timeoutId,partitionInfo);
+            OverlayId overlayId = ApplicationTypesDecoderFactory.readOverlayId(byteBuf);
+            PartitionPrepareMessage.Request request  = new PartitionPrepareMessage.Request(vodSrc,vodDest,overlayId,timeoutId,partitionInfo);
             return request;
         }
     }
