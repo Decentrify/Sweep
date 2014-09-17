@@ -1730,7 +1730,9 @@ public final class Search extends ComponentDefinition {
             minStoredId = getMinStoredIdFromLucene();
             maxStoredId = getMaxStoredIdFromLucene();
 
-            ((MsSelfImpl)self).setNumberOfIndexEntries(Math.abs(maxStoredId - minStoredId + 1));
+            //Increment Max Store Id to keep in line with the original methodology.
+            maxStoredId +=1;
+            ((MsSelfImpl)self).setNumberOfIndexEntries(Math.abs(maxStoredId - minStoredId));
 
             if(maxStoredId < minStoredId) {
                 long temp = maxStoredId;
@@ -1738,8 +1740,9 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
-            nextInsertionId = maxStoredId+1;
-            lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId+1;
+            // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested.
+            nextInsertionId = maxStoredId;
+            lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
 
             int partitionId = self.getPartitionId();
 
@@ -1938,9 +1941,9 @@ public final class Search extends ComponentDefinition {
 
     private void checkPartitioning() {
         long numberOfEntries;
-        // Created Uniform mechanism to calculate the number of entries.
-        //TODO: The max and min stored id mechanism is a little buggy and needs to be corrected.
-        numberOfEntries = Math.abs(maxStoredId - minStoredId + 1);
+
+        /* Be careful of the mechanism in which the maxStoreId and minStoreId are updated. =========================== */
+        numberOfEntries = Math.abs(maxStoredId - minStoredId);
 
         if(numberOfEntries < config.getMaxEntriesOnPeer())
             return;
