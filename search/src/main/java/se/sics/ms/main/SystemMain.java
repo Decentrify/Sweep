@@ -1,7 +1,22 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
 package se.sics.ms.main;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.co.FailureDetectorComponent;
+import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.util.ToVodAddr;
@@ -12,7 +27,11 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.*;
+import se.sics.gvod.net.NatNetworkControl;
+import se.sics.gvod.net.NettyInit;
+import se.sics.gvod.net.NettyNetwork;
+import se.sics.gvod.net.Transport;
+import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
 import se.sics.gvod.timer.Timer;
@@ -25,21 +44,15 @@ import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.ports.UiPort;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.ui.UiComponent;
-import se.sics.ms.ui.UiComponentInit;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.logging.Level;
-
+/**
+ *
+ * @author alidar
+ */
 public class SystemMain extends ComponentDefinition {
 
     private static final Logger logger = LoggerFactory.getLogger(SystemMain.class);
@@ -47,12 +60,13 @@ public class SystemMain extends ComponentDefinition {
     Component timer;
     Component natTraverser;
     Component searchPeer;
-    Component ui;
     private Component resolveIp;
     private Self self;
     private Address myAddr;
+    private SystemMain myComp;
     private String publicBootstrapNode = "cloud7.sics.se";
-    
+    private int bindCount = 0; //
+
     public static class PsPortBindResponse extends PortBindResponse {
         public PsPortBindResponse(PortBindRequest request) {
             super(request);
@@ -61,75 +75,97 @@ public class SystemMain extends ComponentDefinition {
 
     public SystemMain() {
 
+        myComp = this;
         subscribe(handleStart, control);
+
+        resolveIp = create(ResolveIp.class, Init.NONE);
+        timer = create(JavaTimer.class, Init.NONE);
+
+        connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
+        subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
+
     }
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(Start event) {
-
-            resolveIp = create(ResolveIp.class, Init.NONE);
-            timer = create(JavaTimer.class, Init.NONE);
-
-            connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
-            subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
-
             trigger(new GetIpRequest(false),
                     resolveIp.getPositive(ResolveIpPort.class));
-
         }
     };
     private Handler<PsPortBindResponse> handlePsPortBindResponse =
             new Handler<PsPortBindResponse>() {
-        @Override
-        public void handle(PsPortBindResponse event) {
+                @Override
+                public void handle(PsPortBindResponse event) {
 
-            if (event.getStatus() != PortBindResponse.Status.SUCCESS) {
-                logger.warn("Couldn't bind to port {}. Either another instance of the program is"
-                                + "already running, or that port is being used by a different program. Go"
-                                + "to settings to change the port in use. Status: ", event.getPort(),
-                        event.getStatus());
-                Kompics.shutdown();
-                System.exit(-1);
-            } else {
+                    if (event.getStatus() != PortBindResponse.Status.SUCCESS) {
+                        logger.warn("Couldn't bind to port {}. Either another instance of the program is"
+                                        + "already running, or that port is being used by a different program. Go"
+                                        + "to settings to change the port in use. Status: ", event.getPort(),
+                                event.getStatus());
+                        Kompics.shutdown();
+                        System.exit(-1);
+                    } else {
 
-                self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
+                        bindCount++;
+                        if(bindCount == 2) { //if both UDP and TCP ports have successfully binded.
+                            self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
 
-                Set<Address> publicNodes = new HashSet<Address>();
-                try {
-                    InetAddress inet = InetAddress.getByName(publicBootstrapNode);
-                    publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
-                } catch (UnknownHostException ex) {
-                    java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
+                            Set<Address> publicNodes = new HashSet<Address>();
+                            try {
+                                InetAddress inet = InetAddress.getByName(publicBootstrapNode);
+                                publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
+                            } catch (UnknownHostException ex) {
+                                java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+
+                            natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
+                            try {
+                                searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(new Address(InetAddress.getByName(publicBootstrapNode), MsConfig.getPort(), 0))));
+                            } catch (UnknownHostException e) {
+                                e.printStackTrace();
+                            }
+
+                            Component fd = create(FailureDetectorComponent.class, Init.NONE);
+
+                            connect(natTraverser.getNegative(Timer.class), timer.getPositive(Timer.class));
+                            connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
+                            connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
+
+                            /** Filter not working for some reason so commenting it.**/
+//                            connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class),new MsgDestFilterAddress(myAddr));
+
+                            connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class));
+                            connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class),
+                                    new IndividualTimeout.IndividualTimeoutFilter(myAddr.getId()));
+                            connect(fd.getPositive(FailureDetectorPort.class), searchPeer.getNegative(FailureDetectorPort.class));
+
+                            subscribe(handleNettyFault, natTraverser.getControl());
+
+                            trigger(Start.event, natTraverser.getControl());
+                            trigger(Start.event, searchPeer.getControl());
+                            trigger(Start.event, fd.getControl());
+
+                        }
+                    }
                 }
-
-                natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
-                searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), null));
-                ui = create(UiComponent.class, new UiComponentInit(self));
-
-                connect(natTraverser.getNegative(Timer.class), timer.getPositive(Timer.class));
-                connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
-                connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
-                connect(ui.getPositive(UiPort.class), searchPeer.getNegative(UiPort.class));
-                connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class), new MsgDestFilterAddress(myAddr));
-                connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class),
-                        new IndividualTimeout.IndividualTimeoutFilter(myAddr.getId()));
-
-                subscribe(handleFault, natTraverser.getControl());
-
-                trigger(Start.event, natTraverser.getControl());
-                trigger(Start.event, searchPeer.getControl());
-                trigger(Start.event, ui.getControl());
-
-            }
-        }
-    };
+            };
     public Handler<GetIpResponse> handleGetIpResponse = new Handler<GetIpResponse>() {
         @Override
         public void handle(GetIpResponse event) {
 
-            int myId = (new Random(MsConfig.getSeed())).nextInt();
+            //FIXME: Fix the case in which the different nodes in which the initial seed is generated same.
+//            int myId = (new Random(MsConfig.getSeed())).nextInt();
+            int myId = (new Random()).nextInt();
+
             InetAddress localIp = event.getIpAddress();
+
+            logger.info("My Local Ip Address returned from ResolveIp is:  " + localIp.getHostName());
+            if(localIp.getHostName().equals(publicBootstrapNode))
+                myId = 0;
+
+            // Bind Udt and Udp on separate ports in the system for now.
             myAddr = new Address(localIp, MsConfig.getPort(), myId);
+            Address myUdtAddr = new Address(localIp, MsConfig.getUdtPort(), myId);
 
             network = create(NettyNetwork.class, new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class));
 
@@ -138,22 +174,35 @@ public class SystemMain extends ComponentDefinition {
 
             trigger(Start.event, network.getControl());
 
-            PortBindRequest pb1 = new PortBindRequest(myAddr, Transport.UDP);
-            PsPortBindResponse pbr1 = new PsPortBindResponse(pb1);
-            pb1.setResponse(pbr1);
-            trigger(pb1, network.getPositive(NatNetworkControl.class));
-
+            bindPort(Transport.UDP, myAddr);
+            bindPort(Transport.UDT, myUdtAddr);
         }
     };
-    public Handler<Fault> handleFault
-            = new Handler<Fault>() {
-        @Override
-        public void handle(Fault ex) {
 
-            logger.debug(ex.getFault().toString());
-            System.exit(-1);
-        }
-    };
+
+    void bindPort(Transport transport, Address address) {
+
+        logger.warn("Sending a port bind request for : " + address.toString());
+        PortBindRequest udpPortBindReq = new PortBindRequest(address, transport);
+        PsPortBindResponse pbr1 = new PsPortBindResponse(udpPortBindReq);
+        udpPortBindReq.setResponse(pbr1);
+        trigger(udpPortBindReq, network.getPositive(NatNetworkControl.class));
+
+    }
+
+    public static int randInt(int min, int max) {
+
+        // Usually this should be a field rather than a method variable so
+        // that it is not re-seeded every call.
+        Random rand = new Random(MsConfig.getSeed());
+
+        // nextInt is normally exclusive of the top value,
+        // so add 1 to make it inclusive
+        int randomNum = rand.nextInt((max - min) + 1) + min;
+
+        return randomNum;
+    }
+
     Handler<Fault> handleNettyFault = new Handler<Fault>() {
         @Override
         public void handle(Fault msg) {
@@ -175,11 +224,10 @@ public class SystemMain extends ComponentDefinition {
 
         System.setProperty("java.net.preferIPv4Stack", "true");
         try {
-            // We use MsConfig in the NatTraverser component, so we have to 
-            // initialize it.
+            // Initialize the MsConfig Component.
             MsConfig.init(args);
         } catch (IOException ex) {
-            java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         }
 
         Kompics.createAndStart(SystemMain.class, numWorkers);

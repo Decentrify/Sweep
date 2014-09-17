@@ -1,4 +1,3 @@
-
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -17,36 +16,11 @@
     <url>http://maven.apache.org</url>
 
     <dependencies>
-    <dependency>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-json</artifactId>
-        <version>1.18.1</version>
-    </dependency> 
-<!--        <dependency>
-            <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-core</artifactId>               
-            <version>0.7.0</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>logback-classic</artifactId>
-                    <groupId>ch.qos.logback</groupId>
-                </exclusion>               
-                <exclusion>
-                    <artifactId>logback-core</artifactId>
-                    <groupId>ch.qos.logback</groupId>
-                </exclusion>
-                <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>log4j-over-slf4j</artifactId>
-                </exclusion>
-                
-            </exclusions>
-        </dependency>
         <dependency>
-            <groupId>io.dropwizard</groupId>
-            <artifactId>dropwizard-jetty</artifactId>
-            <version>0.7.0</version>
-        </dependency>-->
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-json</artifactId>
+            <version>1.18.1</version>
+        </dependency>
         <dependency>
             <groupId>se.sics.p2p.experiments</groupId>
             <artifactId>p2p-simulator</artifactId>
@@ -67,10 +41,6 @@
             <artifactId>nat-traverser</artifactId>
             <version>${nattraverser.version}</version>
             <exclusions>
-                <exclusion>
-                    <artifactId>log4j</artifactId>
-                    <groupId>log4j</groupId>
-                </exclusion>
                 <exclusion>
                     <artifactId>slf4j-log4j12</artifactId>
                     <groupId>org.slf4j</groupId>
@@ -102,11 +72,6 @@
             <artifactId>lucene-analyzers-common</artifactId>
             <version>4.2.0</version>
         </dependency>
-        <!--        <dependency>
-            <groupId>se.sics.kompics.basic</groupId>
-            <artifactId>kompics-component-jetty-web-server</artifactId>
-            <version>${kompics.version}</version>
-        </dependency>-->
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-gradient</artifactId>
@@ -123,6 +88,23 @@
 
     <build>
         <plugins>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.3.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>se.sics.ms.main.SystemMain</mainClass>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <artifactId>
                     maven-assembly-plugin
