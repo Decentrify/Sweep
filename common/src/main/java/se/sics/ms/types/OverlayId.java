@@ -9,6 +9,19 @@ public class OverlayId implements Comparable<OverlayId> {
 
     protected int id;
 
+    static public int getCategoryId(int overlayId) {
+        return overlayId & 65535;
+    }
+    static public int getPartitionId(int overlayId) {
+        return (overlayId & 67043328) >>> 16;
+    }
+    static public int getPartitionIdDepth(int overlayId) {
+        return (overlayId & 1006632960) >>> 26;
+    }
+    static public VodAddress.PartitioningType getPartitioningType(int overlayId) {
+        return VodAddress.PartitioningType.values()[(overlayId & -1073741824) >>> 30];
+    }
+
     public  OverlayId(int overlayId) {
         this.id = overlayId;
     }
@@ -18,19 +31,19 @@ public class OverlayId implements Comparable<OverlayId> {
     }
 
     public int getCategoryId() {
-        return id & 65535;
+        return OverlayId.getCategoryId(this.id);
     }
 
     public int getPartitionId() {
-        return (id & 67043328) >>> 16;
+        return OverlayId.getPartitionId(this.id);
     }
 
     public int getPartitionIdDepth() {
-        return (id & 1006632960) >>> 26;
+        return OverlayId.getPartitionIdDepth(this.id);
     }
 
     public VodAddress.PartitioningType getPartitioningType() {
-        return VodAddress.PartitioningType.values()[(id & -1073741824) >>> 30];
+        return OverlayId.getPartitioningType(this.id);
     }
 
     public int compareTo(OverlayId o) {
