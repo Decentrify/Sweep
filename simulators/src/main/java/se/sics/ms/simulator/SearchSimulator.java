@@ -54,6 +54,7 @@ public final class SearchSimulator extends ComponentDefinition {
     static String[] subjects = {"computer ", "Lucene ", "torrent "};
     static String[] objects = {"computer", "java", "video"};
     Random r = new Random(System.currentTimeMillis());
+    int counter =0;
 
     public SearchSimulator(SearchSimulatorInit init) {
         peers = new HashMap<Long, Component>();
@@ -94,14 +95,18 @@ public final class SearchSimulator extends ComponentDefinition {
 
     String randomText() {
         StringBuilder sb = new StringBuilder();
-        int clauses = Math.max(1, r.nextInt(3));
-        for (int i = 0; i < clauses; i++) {
-            sb.append(articles[r.nextInt(articles.length)]);
-            sb.append(subjects[r.nextInt(subjects.length)]);
-            sb.append(verbs[r.nextInt(verbs.length)]);
-            sb.append(objects[r.nextInt(objects.length)]);
-            sb.append(". ");
-        }
+//        int clauses = Math.max(1, r.nextInt(3));
+//        for (int i = 0; i < clauses; i++) {
+//            sb.append(articles[r.nextInt(articles.length)]);
+//            sb.append(subjects[r.nextInt(subjects.length)]);
+//            sb.append(verbs[r.nextInt(verbs.length)]);
+//            sb.append(objects[r.nextInt(objects.length)]);
+//            sb.append(". ");
+//        }
+
+
+        sb.append("abhi"+counter);
+        counter++;
         return sb.toString();
     }
 
@@ -205,7 +210,7 @@ public final class SearchSimulator extends ComponentDefinition {
         public void handle(Search event) {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
-            SearchPattern searchPattern = new SearchPattern(randomText(), 0, 0, null, null, null, MsConfig.Categories.Video, null);
+            SearchPattern searchPattern = new SearchPattern("abhi", 0, 0, null, null, null, MsConfig.Categories.Video, null);
             trigger(new SimulationEventsPort.SearchSimulated(searchPattern), peer.getNegative(SimulationEventsPort.class));
         }
     };

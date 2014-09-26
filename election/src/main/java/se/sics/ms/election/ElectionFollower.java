@@ -120,6 +120,12 @@ public class ElectionFollower extends ComponentDefinition {
                 candidateAccepted = false;
             }
 
+            //FIXME: Stale Descriptor is the cause of issue.
+//            if(self.getId() == 520972445 && event.getLeaderCandidateDescriptor().getId() == 319791623 && !candidateAccepted){
+//                logger.warn(" _ISSUE: HighestUtilityNode ID: " + highestUtilityNode.getId() + " Age: " + highestUtilityNode.getAge() + " Received SearchDescriptorId: " + event.getLeaderCandidateDescriptor().getId() + " Candidate Accepted : " + candidateAccepted);
+//            }
+
+
             ElectionMessage.Response response = new ElectionMessage.Response(
                     self.getAddress(),
                     event.getVodSource(),

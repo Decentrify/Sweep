@@ -30,14 +30,14 @@ public class SearchResponseScenario extends Scenario {
             StochasticProcess addEntries = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(4, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(1, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
             StochasticProcess addEntries1 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(1, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
@@ -51,7 +51,7 @@ public class SearchResponseScenario extends Scenario {
             StochasticProcess searchEntries = new StochasticProcess() {{
 
                 eventInterArrivalTime(constant(300));
-                raise(1, Operations.search(), uniform(0, Integer.MAX_VALUE));
+                raise(1, Operations.search(), constant(4041837));
 
             }};
 
@@ -59,10 +59,11 @@ public class SearchResponseScenario extends Scenario {
             joinNodes.start();
             // Add Entries.
             addEntries.startAfterTerminationOf(3000, joinNodes);
-//            addEntries1.startAfterTerminationOf(100000, addEntries);
+
+//            addEntries1.startAfterTerminationOf(500000, addEntries);
 //            addEntries2.startAfterTerminationOf(100000, addEntries1);
             // Start Searching Them.
-            searchEntries.startAfterTerminationOf(50000,addEntries);
+//            searchEntries.startAfterTerminationOf(500000,addEntries);
         }
     };
 

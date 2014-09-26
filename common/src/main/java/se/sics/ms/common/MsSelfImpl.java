@@ -15,7 +15,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author: Steffen Grohsschmiedt
  */
 public class MsSelfImpl extends SelfImpl {
-    private static AtomicLong numberOfIndexEntries = new AtomicLong();
+
+    // FIXME: Removing the static reference as creating problems in simulations.
+    private AtomicLong numberOfIndexEntries = new AtomicLong();
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
@@ -29,15 +31,15 @@ public class MsSelfImpl extends SelfImpl {
     public VodDescriptor getDescriptor() {
         int age = 0;
         return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
-                MsSelfImpl.numberOfIndexEntries.get());
+                numberOfIndexEntries.get());
     }
 
     public void setNumberOfIndexEntries(long numberOfIndexEntries) {
-        MsSelfImpl.numberOfIndexEntries.set(numberOfIndexEntries); 
+        this.numberOfIndexEntries.set(numberOfIndexEntries);
     }
 
     public void incrementNumberOfIndexEntries() {
-        MsSelfImpl.numberOfIndexEntries.incrementAndGet();
+        this.numberOfIndexEntries.incrementAndGet();
     }
 
     public void setOverlayId(int overlayId) {
@@ -58,6 +60,10 @@ public class MsSelfImpl extends SelfImpl {
 
     public VodAddress.PartitioningType getPartitioningType() {
         return VodAddress.PartitioningType.values()[(overlayId & -1073741824) >>> 30];
+    }
+
+    public long getNumberOfIndexEntries(){
+        return numberOfIndexEntries.get();
     }
 
 }

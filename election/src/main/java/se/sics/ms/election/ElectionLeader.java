@@ -121,7 +121,11 @@ public class ElectionLeader extends ComponentDefinition {
             higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
             lowerUtilityNodes = new TreeSet<SearchDescriptor>(event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor())));
 
-			// Create view for Snapshot
+
+//            if(self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE && self.getId() == 319791623)
+//                logger.warn("_ISSUE: Higher Utility Nodes That I have after Partitioning ... " + higherUtilityNodes.size() + " Am I leader .. " + iAmLeader);
+
+            // Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
 			for (SearchDescriptor node : higherUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
@@ -137,8 +141,12 @@ public class ElectionLeader extends ComponentDefinition {
 					&& higherUtilityNodes.size() == 0
 					&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()) {
 
+//                if(self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE && self.getId() == 319791623)
+//                    logger.warn("_ISSUE: Starting vote after partitioning. " + self.getId());
 				startVote();
 			} else if (iAmLeader && higherUtilityNodes.size() != 0) {
+//                if(self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE && self.getId() == 520972445)
+//                    logger.warn("Broadcasting rejected Message to others. " + self.getId());
                 rejected();
             }
 		}
@@ -157,18 +165,21 @@ public class ElectionLeader extends ComponentDefinition {
 				if (event.isVote() == true) {
 					yesVotes++;
 				}
+                else{
+//                    if(self.getId() == 319791623){
+//                        logger.warn(" _ISSUE: Not a yes vote: From  "+ event.getVodSource().getId());
+//                    }
+                }
 				if (event.isConvereged() == true) {
 					convergedNodesCounter++;
 				}
-                else{
-//                    if(self.getId() == 319791623){
-//                        logger.info(" _ISSUE: Node Not Converged == " + event.getVodSource().getId());
-//                    }
-                }
 			}
 
 			// Count the votes if all votes have returned
 			if (totalVotes >= numberOfNodesAtVotingTime) {
+//                if(self.getId() == 319791623){
+//                    logger.warn(" _ISSUE: At Time of Initiation :  Yes Votes : " + yesVotes + " Total Votes : " + totalVotes);
+//                }
 				evaluateVotes();
 			}
 		}
@@ -283,6 +294,7 @@ public class ElectionLeader extends ComponentDefinition {
 				variableReset();
 				iAmLeader = true;
 
+//                logger.warn(" _Abhi: I got the response and now I will become the leader : " + self.getId());
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(config.getHeartbeatTimeoutDelay(), config.getHeartbeatTimeoutInterval());
 				timeout.setTimeoutEvent(new HeartbeatSchedule(timeout, self.getId()));
@@ -296,6 +308,14 @@ public class ElectionLeader extends ComponentDefinition {
                 Snapshot.setLeaderStatus(self.getAddress(), true, myPartitionId.getAsLinkedList());
 			}
 		} else {
+
+//            if(self.getId() == 319791623){
+//                logger.warn("_ISSUE: Got Rejected ...");
+//                logger.warn("_ISSUE: Got Rejected ... HigherUtilitySize: " + higherUtilityNodes.size() + "Is Lower Utility Nodes Greater than election group : "  +  (lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()));
+//                logger.warn("_ISSUE: Converged Nodes Counter: " + (convergedNodesCounter >= config.getMinNumberOfConvergedNodes()));
+//                logger.warn("_ISSUE: Yes Votes Blah Blah : " + ((float) yesVotes >= Math.ceil((float) lowerUtilityNodes.size() * config.getMinPercentageOfVotes())));
+//                logger.warn("_ISSUE: Yes Votes == Total Votes .. " + "Yes Votes: " + yesVotes  + " Total Votes: " + totalVotes + " Number of Votes at starting : " + numberOfNodesAtVotingTime);
+//            }
 			rejected();
 		}
 	}

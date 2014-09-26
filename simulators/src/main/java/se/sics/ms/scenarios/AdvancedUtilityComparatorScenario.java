@@ -17,13 +17,13 @@ import se.sics.ms.simulation.Operations;
  * Scenario to test partitioning code.
  */
 @SuppressWarnings("serial")
-public class GradualPartitioningScenario extends Scenario {
+public class AdvancedUtilityComparatorScenario extends Scenario {
     private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
         {
             StochasticProcess joinNodes = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(50, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+                    raise(12, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
@@ -37,14 +37,14 @@ public class GradualPartitioningScenario extends Scenario {
             StochasticProcess addEntries1 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(1, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
             StochasticProcess addEntries2 = new StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(100));
-                    raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
+                    raise(1, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
@@ -57,16 +57,18 @@ public class GradualPartitioningScenario extends Scenario {
 
 
             joinNodes.start();
+
             // Add Entries.
-            addEntries.startAfterTerminationOf(300000, joinNodes);
-//            addEntries1.startAfterTerminationOf(500000, addEntries);
-//            addEntries2.startAfterTerminationOf(500000, addEntries1);
+            addEntries.startAfterTerminationOf(30000, joinNodes);
+//            addEntries1.startAfterTerminationOf(300000, addEntries);
+//            addEntries2.startAfterTerminationOf(100000, addEntries1);
+
             // Start Searching Them.
 //            searchEntries.startAfterTerminationOf(50000,addEntries2);
         }
     };
 
-    public GradualPartitioningScenario() {
+    public AdvancedUtilityComparatorScenario() {
         super(scenario);
     }
 

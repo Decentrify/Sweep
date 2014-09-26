@@ -63,7 +63,8 @@ public class GradientView {
 	 */
 	protected void add(SearchDescriptor searchDescriptor) {
         if (searchDescriptor.getVodAddress().equals(self.getAddress())) {
-            logger.warn("{} tried to add itself to its GradientView", self.getAddress());
+            logger.warn("{} tried to add itself to its GradientView with number of Index Entries {}: ", self.getAddress());
+            logger.warn(" _ISSUE: Search Descriptor id: " + searchDescriptor.getId() + " Descriptor : Number of Index Entries: " + searchDescriptor.getNumberOfIndexEntries());
             return;
         }
 
@@ -72,14 +73,14 @@ public class GradientView {
         SearchDescriptor currDescriptor = null;
 
         for(SearchDescriptor descriptor : entries){
-            if(descriptor.equals(searchDescriptor)){
+            if(descriptor.getVodAddress().getPeerAddress().equals(searchDescriptor.getVodAddress().getPeerAddress())){
                 currDescriptor = descriptor;
                 break;
             }
         }
 
         if(currDescriptor != null){
-            if(currDescriptor.equals(searchDescriptor) && utilityComparator.compare(currDescriptor,searchDescriptor) ==0)
+            if(searchDescriptor.getAge() > currDescriptor.getAge())
                 return;
             else{
                 entries.remove(currDescriptor);
@@ -87,19 +88,7 @@ public class GradientView {
             }
         }
 
-
-
-//        if (mapping.containsKey(searchDescriptor.getVodAddress())) {
-//            SearchDescriptor currentSearchDescriptor = mapping.get(searchDescriptor.getVodAddress());
-//            if (currentSearchDescriptor.equals(searchDescriptor) && utilityComparator.compare(currentSearchDescriptor, searchDescriptor) == 0) {
-//                return;
-//            } else {
-//                entries.remove(currentSearchDescriptor);
-//                changed = true;
-//            }
-//        }
-
-//        mapping.put(searchDescriptor.getVodAddress(), searchDescriptor);
+        // NOTE: Presence of overlayId in the search descriptor, allows for duplication in the Search Sample.
         entries.add(searchDescriptor);
 
         if (!changed) {
@@ -166,11 +155,21 @@ public class GradientView {
 	/**
 	 * Merge a collection of nodes in the view and drop the least preferred
 	 * nodes if the size limit is reached.
-	 * 
+	 *
 	 * @param searchDescriptors
 	 *            the nodes to be merged
 	 */
 	protected void merge(Collection<SearchDescriptor> searchDescriptors) {
+
+//        if(self.getId() == 319791623 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
+//            logger.warn("========== RECEIVED DESCRIPTORS FOR MERGING =============== ");
+//            for(SearchDescriptor desc : searchDescriptors)
+//                logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId() + "Number of Index Entries: " + desc.getNumberOfIndexEntries());
+//            logger.warn("=========== END ==========================");
+//            logger.warn("");
+//        }
+
+
         Collection<SearchDescriptor> oldEntries = (Collection<SearchDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
 
@@ -185,10 +184,38 @@ public class GradientView {
             add(searchDescriptor);
         }
 
+//        if(self.getId() == 319791623){
+//            logger.warn("========== OLD ENTRIES BEFORE REMOVAL =============== ");
+//            for(SearchDescriptor desc : oldEntries)
+//                logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId() + "Number of Index Entries: " + desc.getNumberOfIndexEntries());
+//            logger.warn("=========== END ==========================");
+//            logger.warn("");
+//        }
+
+
+        // Check old entries retain all method.
 		oldEntries.retainAll(entries);
 		if (oldSize == entries.size() && oldEntries.size() > convergenceTest * entries.size()) {
             currentConvergedRounds++;
 		} else {
+//            if(self.getId() == 319791623 && entries.size() >= 5){
+////                logger.warn("Convergence Test : " + (oldEntries.size() > convergenceTest * entries.size()) + " OldEntriesSize: " + oldEntries.size() + " Converged Entries : " + (convergenceTest) + " * " + entries.size());
+////                logger.warn("OldEntries Size "  + oldSize);
+//                logger.warn("=========== OLD ENTRIES AFTER RETAIN ALL ============");
+//                for(SearchDescriptor desc : oldEntries)
+//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ "Number of Index Entries: " + desc.getNumberOfIndexEntries());
+//
+//                logger.warn("=========== END ==========================");
+//                logger.warn("");
+//
+//                logger.warn("=========== Entries Set =============== ");
+//                for(SearchDescriptor desc : entries)
+//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ "Number of Index Entries: " + desc.getNumberOfIndexEntries());
+//
+//                logger.warn("=========== END ==========================");
+//                logger.warn("");
+//            }
+
             currentConvergedRounds = 0;
 		}
         if (currentConvergedRounds > convergenceTestRounds) {
@@ -219,8 +246,33 @@ public class GradientView {
 	protected SortedSet<SearchDescriptor> getExchangeDescriptors(SearchDescriptor searchDescriptor, int number) {
 		SortedSet<SearchDescriptor> set = getClosestNodes(searchDescriptor, number);
 
+        // NOTE : remove contract is tied up with the comparator used in the treeset, so in case the {@link SearchDescriptor} has updated utility and the node has a stored one with same address but an outdated utility,
+        // so it fails to remove the corresponding descriptor and breaks the normal functioning by duplicacy.
+
+
+        // Keeping it for safety.
         set.remove(searchDescriptor);
 
+        // DO NOT REMOVE BELOW CHECK  =================
+        SearchDescriptor duplicateDescriptor =null;
+
+        for(SearchDescriptor desc : set){
+            // Remove The check once the overlay address is removed from the VodAddress.
+            if(desc.getVodAddress().getPeerAddress().equals(searchDescriptor.getVodAddress().getPeerAddress())) {
+                duplicateDescriptor = desc;
+                break;
+            }
+        }
+
+        // Found the node.
+        if(duplicateDescriptor !=null){
+            set.remove(duplicateDescriptor);
+        }
+
+        // =============================================
+
+        // Even the contains contract also involves the compare method in the Comparator used and therefore in case the search descriptor is present in the entries and we send in the query with same address
+        // but updated utility, it is not able to detect any duplicacy and hence problem is created.
         try {
             assert !set.contains(searchDescriptor);
         } catch (AssertionError e) {
@@ -369,7 +421,8 @@ public class GradientView {
 	 * @return a sorted list of the closest nodes to self
 	 */
 	private SortedSet<SearchDescriptor> getClosestNodes(int number) {
-		return getClosestNodes(number, preferenceComparator);
+        // As the number of index entries in self can also change therefore create a new object every time, when doing comparison.
+		return getClosestNodes(number, new PreferenceComparator(new SearchDescriptor(self.getDescriptor())));
 	}
 
 	/**
