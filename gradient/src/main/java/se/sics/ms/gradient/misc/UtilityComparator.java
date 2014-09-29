@@ -13,13 +13,22 @@ public class UtilityComparator implements Comparator<SearchDescriptor> {
 
     @Override
     public int compare(SearchDescriptor o1, SearchDescriptor o2) {
+
+        // NAT TYPE.
         if (o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {
             if (o1.getVodAddress().isOpen())
                 return 1;
             return -1;
         }
 
-//        Add the number of index entries comparison to this also.
+        // PARTITIONING DEPTH.
+        if(o1.getReceivedPartitionDepth() != o2.getReceivedPartitionDepth()) {
+            if(o1.getReceivedPartitionDepth() > o2.getReceivedPartitionDepth())
+                return 1;
+            return -1;
+        }
+
+        // NUMBER OF INDEX ENTRIES.
         if (o1.getNumberOfIndexEntries() != o2.getNumberOfIndexEntries()) {
 
             if (o1.getNumberOfIndexEntries() > o2.getNumberOfIndexEntries())
@@ -27,6 +36,7 @@ public class UtilityComparator implements Comparator<SearchDescriptor> {
             return -1;
         }
 
+        // NODE ID.
         if (o1.getId() != o2.getId()) {
 
             if (o1.getId() > o2.getId())

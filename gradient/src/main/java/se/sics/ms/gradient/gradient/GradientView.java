@@ -83,6 +83,16 @@ public class GradientView {
             if(searchDescriptor.getAge() > currDescriptor.getAge())
                 return;
             else{
+
+                // ======= TESTING..
+                if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE && searchDescriptor.getVodAddress().getId() == 398137537) {
+//                    logger.warn("START ========= ");
+//                    logger.warn("======== Current Descriptor: " + currDescriptor.getId() + " Age: " + currDescriptor.getAge() + "Number of Index Entries : " + currDescriptor.getNumberOfIndexEntries());
+//                    logger.warn("======== Search Descriptor: " + searchDescriptor.getId() + " Age: " + searchDescriptor.getAge() + " Number of Index Entries : " + searchDescriptor.getNumberOfIndexEntries());
+//                    logger.warn("END =========");
+//
+//                    logger.warn("  ");
+                }
                 entries.remove(currDescriptor);
                 changed = true;
             }
@@ -198,23 +208,23 @@ public class GradientView {
 		if (oldSize == entries.size() && oldEntries.size() > convergenceTest * entries.size()) {
             currentConvergedRounds++;
 		} else {
-//            if(self.getId() == 319791623 && entries.size() >= 5){
+            if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
 ////                logger.warn("Convergence Test : " + (oldEntries.size() > convergenceTest * entries.size()) + " OldEntriesSize: " + oldEntries.size() + " Converged Entries : " + (convergenceTest) + " * " + entries.size());
 ////                logger.warn("OldEntries Size "  + oldSize);
 //                logger.warn("=========== OLD ENTRIES AFTER RETAIN ALL ============");
 //                for(SearchDescriptor desc : oldEntries)
-//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ "Number of Index Entries: " + desc.getNumberOfIndexEntries());
+//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ " Number of Index Entries: " + desc.getNumberOfIndexEntries() + " Age: " + desc.getAge());
 //
 //                logger.warn("=========== END ==========================");
 //                logger.warn("");
-//
+////
 //                logger.warn("=========== Entries Set =============== ");
 //                for(SearchDescriptor desc : entries)
-//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ "Number of Index Entries: " + desc.getNumberOfIndexEntries());
-//
+//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ " Number of Index Entries: " + desc.getNumberOfIndexEntries() + " Age: " + desc.getAge());
+////
 //                logger.warn("=========== END ==========================");
 //                logger.warn("");
-//            }
+            }
 
             currentConvergedRounds = 0;
 		}
@@ -224,6 +234,9 @@ public class GradientView {
             }
             converged = true;
         } else {
+
+//            if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE)
+//                logger.warn("OldSize : " + oldSize + " Current Entries Size: " + entries.size() + " Remaining Old Entries: " + oldEntries.size());
             converged = false;
         }
 	}
@@ -294,6 +307,10 @@ public class GradientView {
 
         //as part of the protocol, the source node should also be added in the set, otherwise
         // message will be discarded on the receiving node
+
+//        if(self.getId() == 726089965 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
+//            logger.warn(" ========== Pushing Self with number of index entries: "+ self.getNumberOfIndexEntries());
+//        }
         set.add(new SearchDescriptor(self.getDescriptor()));
 
 		return set;

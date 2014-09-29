@@ -227,8 +227,9 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Address address = new Address(ip, 9999, (int) id);
 
+        // FIXME: Changing the initial partitioning depth as zero.
         Self self = new MsSelfImpl(new VodAddress(address, 
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0, MsConfig.Categories.Video.ordinal())));
+                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);

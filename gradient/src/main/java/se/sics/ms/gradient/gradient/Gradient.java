@@ -265,9 +265,6 @@ public final class Gradient extends ComponentDefinition {
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
-//        if(self.getId() == 726089965 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-//            logger.warn(" ========== Pushing Number of Index Entries : " + self.getNumberOfIndexEntries());
-//        }
 
 
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
@@ -303,15 +300,6 @@ public final class Gradient extends ComponentDefinition {
             Set<SearchDescriptor> exchangeNodes = gradientView.getExchangeDescriptors(exchangePartnerDescriptor, config.getShuffleLength());
             GradientShuffleMessage.Response rResponse = new GradientShuffleMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), exchangeNodes);
             trigger(rResponse, networkPort);
-
-//            if(self.getId() == 520972445 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-//
-//                logger.warn("========== RECEIVED DESCRIPTORS FOR MERGING FROM:  =============== " + event.getVodSource().getId());
-//                for(SearchDescriptor desc : searchDescriptors)
-//                     logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId() + "Number of Index Entries: " + desc.getNumberOfIndexEntries());
-//                logger.warn("=========== END ==========================");
-//                logger.warn("");
-//            }
 
             gradientView.merge(searchDescriptors);
 
@@ -400,8 +388,6 @@ public final class Gradient extends ComponentDefinition {
                 }
             }
 
-//            if(self.getId() == 319791623)
-//                logger.warn("_ISSUE: Am I Converged  ...." + gradientView.isConverged());
 
             trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
         }
@@ -1096,13 +1082,6 @@ public final class Gradient extends ComponentDefinition {
             boolean partition = determineYourPartitionAndUpdatePartitionsNumberUpdated(update.getPartitioningTypeInfo());
             gradientView.adjustViewToNewPartitions();
 
-//            if(self.getId() == 1879934641){
-//                logger.warn(" _Abhi: GOING TO PRINT MY GRADIENT AFTER PARTITION: ");
-//                logger.warn("_Abhi: MyOverlayId" + self.getOverlayId());
-//                for(SearchDescriptor desc : gradientView.getAll())
-//                    logger.warn(" _Abhi: Descriptor: " + desc.getId());
-//            }
-
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
             trigger(new RemoveEntriesNotFromYourPartition(partition, update.getMedianId()), gradientRoutingPort);
@@ -1133,8 +1112,6 @@ public final class Gradient extends ComponentDefinition {
             List<Integer> randomIntegerList = getUniqueRandomIntegerList(preferredNodes.size(), event.getControlMessageExchangeNumber());
             for(int n : randomIntegerList){
                 VodAddress destination = preferredNodes.get(n).getVodAddress();
-//                if(self.getId() == 319791623)
-//                    logger.warn("_CASE: Sending to : " + destination.getId());
                 trigger(new ControlMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), event.getRoundId()), networkPort);
             }
         }

@@ -530,9 +530,6 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("Initiated the Periodic Exchange Timeout.");
 
-//            if(self.getId() == 726089965 || self.getId() == 319791623)
-//                logger.warn("_CASE: Control Message Exchange Round Intiated at: " + self.getId());
-
             //Clear the previous rounds data to avoid clash in the responses.
             cleanControlMessageResponseData();
 
@@ -1096,13 +1093,6 @@ public final class Search extends ComponentDefinition {
             try {
                 for (IndexEntry indexEntry : event.getIndexEntries()) {
                     if (intersection.remove(new IndexHash(indexEntry)) && isIndexEntrySignatureValid(indexEntry)) {
-
-//                        if(self.getId() == 509477471 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-//                            logger.warn(" _ISSUE _ISSUE: Going to add entries via index hash exchange ... " + indexEntry.getId());
-//                            logger.warn(" Received From: " + event.getVodSource().getId() +" OverlayAddress : "+ event.getVodSource().getOverlayId());
-//                        }
-
-
                         addEntryLocal(indexEntry);
                     } else {
                     }
@@ -1809,11 +1799,6 @@ public final class Search extends ComponentDefinition {
             // Update the number of entries in the system.
             int numberOfStoredIndexEntries = getNumberOfStoredIndexEntries();
             ((MsSelfImpl)self).setNumberOfIndexEntries(numberOfStoredIndexEntries);
-//            if(self.getId() == 726089965 || self.getId() == 319791623){
-//                logger.warn("_Abhi: Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() +" PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType() + " Entries: " + self.getNumberOfIndexEntries());
-//                logger.warn("_Abhi: MaxId: " + maxStoredId + " minStoreId: " + minStoredId);
-//                System.exit(1);
-//            }
 
 
             if(maxStoredId < minStoredId) {
@@ -1937,9 +1922,6 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
-
-//        if(self.getId() == 149288516)
-//            logger.warn("_ISSUE: Adding Index Entry in Local : " + entry.getId());
 
         IndexWriter writer = new IndexWriter(index, indexWriterConfig);
         addIndexEntry(writer, entry);
@@ -2152,7 +2134,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!partitionOrderValid(event.getVodSource(), event.getOverlayId()))
+            if(!partitionOrderValid(event.getOverlayId()))
                 return;
 
 
@@ -2181,11 +2163,11 @@ public final class Search extends ComponentDefinition {
      * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
      *
-     * DO NOT REMOVE THIS. (Handles a rare fault case prevention).
+     * DO NOT REMOVE THIS. (Prevents a rare fault case).
      * @param source
      * @return applyPartitioningUpdate.
      */
-    private boolean partitionOrderValid(VodAddress source, OverlayId overlayId) {
+    private boolean partitionOrderValid(OverlayId overlayId) {
         return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitionIdDepth());
     }
 
@@ -2881,7 +2863,7 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
             if(selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
 
                 // Difference should never be less than or equal to zero as nodes start with partitioning depth =1.
-                if(selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth() <=0){
+                if((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0){
                     result =true;
                 }
             }

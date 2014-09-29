@@ -212,27 +212,21 @@ public class PartitionHelper {
         }
 
     }
-    
-//    public static int encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType partitioningType, 
-//            int partitionIdDepth, int partitionId, int categoryId) {
-//        if(partitionIdDepth > 15 || partitionIdDepth < 1)
-//            throw new IllegalArgumentException("partitionIdDepth must be between 1 and 15");
-//        if(partitionId > 1023 || partitionId < 0)
-//            throw new IllegalArgumentException("partitionId must be between 0 and 1023");
-//        if(categoryId > 65535 || categoryId < 0)
-//            throw new IllegalArgumentException("categoryId must be between 0 and 65535");
-//
-//        int result = partitioningType.ordinal() << 30;
-//        result = result | (partitionIdDepth << 21);
-//        result = result | (partitionId << 12);
-//        result = result | categoryId;
-//
-//        return result;
-//    }   
+
+    /**
+     * Create overlay id for the values passed in the function.
+     * @param partitioningType
+     * @param partitionIdDepth
+     * @param partitionId
+     * @param categoryId
+     * @return overlayId.
+     */
     public static int encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType partitioningType, 
             int partitionIdDepth, int partitionId, int categoryId) {
-        if(partitionIdDepth > 15 || partitionIdDepth < 1)
-            throw new IllegalArgumentException("partitionIdDepth must be between 1 and 15");
+
+        // ========= NOTE: Changed the minimum partition depth to 0.
+        if(partitionIdDepth > 15 || partitionIdDepth < 0)
+            throw new IllegalArgumentException("partitionIdDepth must be between 0 and 15");
         if(partitionId > 1023 || partitionId < 0)
             throw new IllegalArgumentException("partitionId must be between 0 and 1023");
         if(categoryId > 65535 || categoryId < 0)
