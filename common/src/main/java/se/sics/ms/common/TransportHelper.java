@@ -12,6 +12,10 @@ import se.sics.ms.configuration.MsConfig;
  */
 public class TransportHelper {
 
+    // ===============
+    // UDT = UDP+1
+    // ===============
+
     private static final Logger logger = LoggerFactory.getLogger(TransportHelper.class);
     private static boolean isSimulation = false;
     /**
@@ -26,9 +30,11 @@ public class TransportHelper {
 
         // In case a UDT message, update the port to UDT port before sending as UDT server running on a different port.
         if(msg.getProtocol() == Transport.UDT){
-            logger.warn("_Abhi: {checkTransportAndUpdateBeforeSending}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getUdtPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getUdtPort(), msg.getSource().getId()));
+
+            logger.debug("Going to rewrite the ports as UDT Ports before sending in the network.");
+
+            msg.rewriteDestination(new Address(msg.getDestination().getIp(), msg.getDestination().getPort()+1, msg.getDestination().getId()));
+            msg.rewritePublicSource(new Address(msg.getSource().getIp(), msg.getSource().getPort()+1, msg.getSource().getId()));
         }
     }
 
@@ -44,9 +50,14 @@ public class TransportHelper {
 
         // In case msg received is UDT, rewrite the port to original UDP port on which other protocols are running, to avoid creating confusion in the components about the ports.
         if(msg.getProtocol() == Transport.UDT){
-            logger.warn("_Abhi: {checkTransportAndUpdateBeforeReceiving}: Going to rewrite the ports as UDT Message.");
-            msg.rewriteDestination(new Address(msg.getDestination().getIp(), MsConfig.getPort(), msg.getDestination().getId()));
-            msg.rewritePublicSource(new Address(msg.getSource().getIp(), MsConfig.getPort(), msg.getSource().getId()));
+
+            // Should be mirror image of the changes made before sending.
+            // =========== NOTE: Testing for the nodes behind NAT's needs to be done using this approach.
+
+            logger.debug("Going to update the ports to normal UDP Ports before processing of message starts.");
+
+            msg.rewriteDestination(new Address(msg.getDestination().getIp(), msg.getDestination().getPort()-1, msg.getDestination().getId()));
+            msg.rewritePublicSource(new Address(msg.getSource().getIp(), msg.getSource().getPort()-1, msg.getSource().getId()));
         }
 
     }

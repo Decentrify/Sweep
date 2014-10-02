@@ -2,8 +2,10 @@ package se.sics.ms.main;
 
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.scenarios.AdvancedUtilityComparatorScenario;
 import se.sics.ms.scenarios.GradualPartitioningScenario;
 import se.sics.ms.scenarios.Scenario;
+import se.sics.ms.scenarios.SearchResponseScenario;
 import se.sics.ms.simulator.SearchSimulationMain;
 
 import java.io.IOException;

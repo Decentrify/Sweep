@@ -42,6 +42,7 @@ import se.sics.ms.util.PartitionHelper;
 import java.security.PublicKey;
 import java.util.*;
 
+import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 
 /**
@@ -264,6 +265,8 @@ public final class Gradient extends ComponentDefinition {
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
+
+
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
         exchangePartner.setConnected(true);
 
@@ -385,6 +388,7 @@ public final class Gradient extends ComponentDefinition {
                 }
             }
 
+
             trigger(new GradientViewChangePort.GradientViewChanged(gradientView.isConverged(), view), gradientViewChangePort);
         }
     }
@@ -444,7 +448,7 @@ public final class Gradient extends ComponentDefinition {
 
             incrementRoutingTableAge();
 //            addRoutingTableEntries(sample);
-            if ((self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE))
+            if(self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)
                 addRoutingTableEntries(updatedSample);
             else {
                 updatedSample = sample;
@@ -468,10 +472,6 @@ public final class Gradient extends ComponentDefinition {
             gradientView.merge(updatedSample);
 
             // Shuffle with one sample from our partition
-//            if (sample.size() > 0) {
-//                int n = random.nextInt(sample.size());
-//                initiateShuffle(sample.get(n));
-//            }
             if (updatedSample.size() > 0) {
                 int n = random.nextInt(updatedSample.size());
                 initiateShuffle(updatedSample.get(n));
@@ -765,7 +765,8 @@ public final class Gradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
             ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(gradientView.getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
-                logger.warn(" {}: Not enough nodes to perform Index Hash Exchange." + self.getAddress().getId());
+                // TODO: Revert Back debug check.
+                logger.debug(" {}: Not enough nodes to perform Index Hash Exchange." + self.getAddress().getId());
                 return;
             }
 
@@ -1098,15 +1099,19 @@ public final class Gradient extends ComponentDefinition {
         @Override
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
-            ArrayList<SearchDescriptor> higherUtilityNodes = new ArrayList<SearchDescriptor>(gradientView.getHigherUtilityNodes());
+            ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(gradientView.getHigherUtilityNodes());
 
-            // TODO: update the check to allow to send to nearby neighbors the request.
-            if(higherUtilityNodes == null || higherUtilityNodes.size() < event.getControlMessageExchangeNumber())
+            // In case the higher utility nodes are less than the required ones, introduce the lower utility nodes also.
+            if(preferredNodes.size() < event.getControlMessageExchangeNumber())
+                preferredNodes.addAll(gradientView.getLowerUtilityNodes());
+
+            // NOTE: Now if the node size is less than required, then return.
+            if(preferredNodes.size() < event.getControlMessageExchangeNumber())
                 return;
 
-            List<Integer> randomIntegerList = getUniqueRandomIntegerList(higherUtilityNodes.size(), event.getControlMessageExchangeNumber());
+            List<Integer> randomIntegerList = getUniqueRandomIntegerList(preferredNodes.size(), event.getControlMessageExchangeNumber());
             for(int n : randomIntegerList){
-                VodAddress destination = higherUtilityNodes.get(n).getVodAddress();
+                VodAddress destination = preferredNodes.get(n).getVodAddress();
                 trigger(new ControlMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), event.getRoundId()), networkPort);
             }
         }

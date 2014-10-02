@@ -6,6 +6,7 @@ import se.sics.gvod.net.VodAddress;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Created by alidar on 8/11/14.
@@ -16,10 +17,13 @@ public class
     private int age;
     private transient boolean connected;
     private OverlayAddress overlayAddress;
+    private final long numberOfIndexEntries;
+
+    private int receivedPartitionDepth;
 
     //// Conversion functions
     public static VodDescriptor toVodDescriptor(SearchDescriptor searchDescriptor) {
-        VodDescriptor descriptor = new VodDescriptor(searchDescriptor.getVodAddress());
+        VodDescriptor descriptor = new VodDescriptor(searchDescriptor.getVodAddress(), searchDescriptor.getNumberOfIndexEntries());
         descriptor.setAge(searchDescriptor.getAge());
         descriptor.setConnected(searchDescriptor.isConnected());
 
@@ -50,26 +54,42 @@ public class
     ////
 
     public SearchDescriptor(VodDescriptor descriptor) {
-        this(descriptor.getVodAddress(), descriptor.getAge(), descriptor.isConnected());
+        this(descriptor.getVodAddress(), descriptor.getAge(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress) {
-        this(vodAddress, 0, false);
+        this(vodAddress, 0, false,0,0);
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age) {
-        this(vodAddress, age, false);
+        this(vodAddress, age, false,0,0);
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, SearchDescriptor searchDescriptor) {
-        this(vodAddress, searchDescriptor.getAge(), searchDescriptor.isConnected());
+        this(vodAddress, searchDescriptor.getAge(), searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getReceivedPartitionDepth());
     }
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age, boolean connected) {
-        this.overlayAddress = new OverlayAddress(vodAddress);
+    public SearchDescriptor(VodAddress vodAddress, int age, boolean connected, long numberOfIndexEntries){
+        this(new OverlayAddress(vodAddress), age, connected , numberOfIndexEntries);
+    }
+
+    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
+        this(new OverlayAddress(vodAddress), age, connected , numberOfIndexEntries, receivedPartitionDepth);
+    }
+
+    // Convenience Constructor to create the SearchDescriptor from the VodDescriptor and use same Partitioning Depth.
+    public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries){
+        this(overlayAddress, age, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
+    }
+
+    public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth){
+        this.overlayAddress = overlayAddress;
         setAge(age);
         this.connected = connected;
+        this.numberOfIndexEntries = numberOfIndexEntries;
+        this.receivedPartitionDepth  = receivedPartitionDepth;
     }
+
 
     public VodAddress getVodAddress() {
         return this.overlayAddress.getAddress();
@@ -156,5 +176,18 @@ public class
         }
 
         return this.overlayAddress.equals(other.getOverlayAddress());
+    }
+
+    public long getNumberOfIndexEntries() {
+        return numberOfIndexEntries;
+    }
+
+    /**
+     * Fetch the original partitioning depth.
+     *
+     * @return originalPartitioning Depth.
+     */
+    public int getReceivedPartitionDepth(){
+        return this.receivedPartitionDepth;
     }
 }

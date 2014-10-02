@@ -395,7 +395,7 @@ public class Snapshot {
             long max = maxIds.get(categoryPartitionPair) == null ? -1 : maxIds.get(categoryPartitionPair).longValue();
             builder.append(String.format("\t Category \"%s\". Partition %s. Min: %s Max: %s Total: %s\n",
                     MsConfig.Categories.values()[categoryPartitionPair.getFirst()], categoryPartitionPair.getSecond(),
-                    min, max, Math.abs(max - min + 1)));
+                    min, max, Math.abs(max - min)));
         }
 		builder.append("\n");
 	}
