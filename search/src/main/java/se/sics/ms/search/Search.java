@@ -466,6 +466,60 @@ public final class Search extends ComponentDefinition {
     private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
+    /**
+     * Fetch the number of entries stored in the lucene.
+     * @return number of Index Entries.
+     */
+    private int getNumberOfStoredIndexEntries(){
+
+        // Donot use the max and min store id from the lucene to fetch the number of entries because they contain the index ids.
+        // In case of missing indexes, the difference would be inflated.
+
+        int numberOfEntries =0;
+        TotalHitCountCollector totalHitCountCollector = getTotalHitCountCollector();
+        if(totalHitCountCollector != null)
+            numberOfEntries = totalHitCountCollector.getTotalHits();
+
+        return numberOfEntries;
+    }
+
+
+    /**
+     * Fetch the Total Index Entries Collector.
+     * @param order : true is needed in reverse order.
+     * @return TopDocs.
+     */
+    private TotalHitCountCollector getTotalHitCountCollector(){
+
+        IndexReader reader = null;
+        TotalHitCountCollector totalHitCountCollector =null;
+        try {
+            reader = DirectoryReader.open(index);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            // Create query to search the index entries.
+            // Possible Problem when Index Entry wraps around.
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+
+            // Push the results in the collector.
+            totalHitCountCollector = new TotalHitCountCollector();
+            searcher.search(query, totalHitCountCollector);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return totalHitCountCollector;
+    }
+
 
     /**
      * Initiate the control message exchange in the system.
@@ -1024,6 +1078,13 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
+            // Stop accepting responses from lagging behind nodes.
+            if(isMessageFromNodeLaggingBehind(event.getVodSource())){
+//                logger.warn("_ISSUE: Now the issue of lagging behind nodes sending me updates whould not come ... " + self.getId() + " My Overlay Address: " + self.getOverlayId() + " Received Overlay Address: " + event.getVodSource().getOverlayId() + " Received From : " + event.getVodSource().getId());
+                return;
+            }
+
+
             CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
             trigger(cancelTimeout, timerPort);
             indexExchangeTimeout = null;
@@ -1578,6 +1639,7 @@ public final class Search extends ComponentDefinition {
                 ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
 
                 // Check the message and update the address in case of a Transport Protocol different than UDP.
+                // Check the isSimulation flag inside the TransportHelper before running the code in simulations.
                 SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
                 TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
                 trigger(searchMessageResponse, networkPort);
@@ -1638,6 +1700,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Response event) {
 
+            // NOTE: For Simulation, check the simulation check inside the transport helper which should be true, for now.
             TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
                 return;
@@ -1732,7 +1795,11 @@ public final class Search extends ComponentDefinition {
 
             //Increment Max Store Id to keep in line with the original methodology.
             maxStoredId +=1;
-            ((MsSelfImpl)self).setNumberOfIndexEntries(Math.abs(maxStoredId - minStoredId));
+
+            // Update the number of entries in the system.
+            int numberOfStoredIndexEntries = getNumberOfStoredIndexEntries();
+            ((MsSelfImpl)self).setNumberOfIndexEntries(numberOfStoredIndexEntries);
+
 
             if(maxStoredId < minStoredId) {
                 long temp = maxStoredId;
@@ -1740,7 +1807,8 @@ public final class Search extends ComponentDefinition {
                 minStoredId = temp;
             }
 
-            // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested.
+            // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested and some edge cases exists in this implementation.
+            // FIXME: More cleaner solution is required.
             nextInsertionId = maxStoredId;
             lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
 
@@ -1750,7 +1818,7 @@ public final class Search extends ComponentDefinition {
                     minStoredId);
             Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
                     maxStoredId);
-            Snapshot.setNumIndexEntries(self.getAddress(), maxStoredId - minStoredId + 1);
+            Snapshot.setNumIndexEntries(self.getAddress(), numberOfStoredIndexEntries);
 
             // It will ensure that the values of last missing index entries and other values are not getting updated.
             partitionInProgress = false;
@@ -1854,6 +1922,7 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
+
         IndexWriter writer = new IndexWriter(index, indexWriterConfig);
         addIndexEntry(writer, entry);
         writer.close();
@@ -2065,7 +2134,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!partitionOrderValid(event.getVodSource(), event.getOverlayId()))
+            if(!partitionOrderValid(event.getOverlayId()))
                 return;
 
 
@@ -2094,11 +2163,11 @@ public final class Search extends ComponentDefinition {
      * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
      *
-     * DO NOT REMOVE THIS. (Handles a rare fault case prevention).
+     * DO NOT REMOVE THIS. (Prevents a rare fault case).
      * @param source
      * @return applyPartitioningUpdate.
      */
-    private boolean partitionOrderValid(VodAddress source, OverlayId overlayId) {
+    private boolean partitionOrderValid(OverlayId overlayId) {
         return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitionIdDepth());
     }
 
@@ -2769,4 +2838,39 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
         return false;
     }
+
+
+    /**
+     * In case the dynamic utilities, if a leader partition, then it might happen that its utility falls below the nodes which have not yet partitioned.
+     * Thus, it starts asking from the nodes which have not yet partitioned for the updates.
+     *
+     * @return true in case the message from node ahead in terms of partitioning.
+     */
+    private boolean isMessageFromNodeLaggingBehind(VodAddress address){
+
+        boolean result = false;
+
+        // Construct an overlay address from the VodAdress.
+        OverlayAddress receivedOverlayAddress = new OverlayAddress(address);
+
+        // Create an object about your own overlay address.
+        OverlayAddress selfOverlayAddress = new OverlayAddress(self.getAddress());
+
+        // Only go deep into checking if the overlay ids are different.
+        if(!receivedOverlayAddress.getOverlayId().equals(selfOverlayAddress.getOverlayId())){
+
+            // Move ahead only in case I have partitioned, else accept the message from other nodes.
+            if(selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
+
+                // Difference should never be less than or equal to zero as nodes start with partitioning depth =1.
+                if((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0){
+                    result =true;
+                }
+            }
+        }
+
+        return result;
+    }
+
+
 }

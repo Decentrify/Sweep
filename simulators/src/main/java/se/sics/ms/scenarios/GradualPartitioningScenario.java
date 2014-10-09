@@ -29,21 +29,21 @@ public class GradualPartitioningScenario extends Scenario {
 
             StochasticProcess addEntries = new StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(100));
+                    eventInterArrivalTime(constant(1000));
                     raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
             StochasticProcess addEntries1 = new StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(100));
+                    eventInterArrivalTime(constant(1000));
                     raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
 
             StochasticProcess addEntries2 = new StochasticProcess() {
                 {
-                    eventInterArrivalTime(constant(100));
+                    eventInterArrivalTime(constant(1000));
                     raise(10, Operations.addIndexEntry(), uniform(0, Integer.MAX_VALUE));
                 }
             };
@@ -58,11 +58,11 @@ public class GradualPartitioningScenario extends Scenario {
 
             joinNodes.start();
             // Add Entries.
-            addEntries.startAfterTerminationOf(30000, joinNodes);
-            addEntries1.startAfterTerminationOf(100000, addEntries);
-            addEntries2.startAfterTerminationOf(100000, addEntries1);
+            addEntries.startAfterTerminationOf(300000, joinNodes);
+            addEntries1.startAfterTerminationOf(500000, addEntries);
+            addEntries2.startAfterTerminationOf(500000, addEntries1);
             // Start Searching Them.
-            searchEntries.startAfterTerminationOf(50000,addEntries2);
+//            searchEntries.startAfterTerminationOf(50000,addEntries2);
         }
     };
 

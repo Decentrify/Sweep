@@ -121,7 +121,8 @@ public class ElectionLeader extends ComponentDefinition {
             higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
             lowerUtilityNodes = new TreeSet<SearchDescriptor>(event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor())));
 
-			// Create view for Snapshot
+
+            // Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
 			for (SearchDescriptor node : higherUtilityNodes) {
 				builder.append(node.getVodAddress().getId() + " ");
@@ -160,11 +161,6 @@ public class ElectionLeader extends ComponentDefinition {
 				if (event.isConvereged() == true) {
 					convergedNodesCounter++;
 				}
-                else{
-//                    if(self.getId() == 319791623){
-//                        logger.info(" _ISSUE: Node Not Converged == " + event.getVodSource().getId());
-//                    }
-                }
 			}
 
 			// Count the votes if all votes have returned
