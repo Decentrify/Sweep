@@ -64,7 +64,8 @@ public class SystemMain extends ComponentDefinition {
     private Self self;
     private Address myAddr;
     private SystemMain myComp;
-    private String publicBootstrapNode = "cloud7.sics.se";
+//    private String publicBootstrapNode = "cloud7.sics.se";
+    private Address bootstrapAddress;
     private int bindCount = 0; //
 
     public static class PsPortBindResponse extends PortBindResponse {
@@ -80,7 +81,7 @@ public class SystemMain extends ComponentDefinition {
 
         resolveIp = create(ResolveIp.class, Init.NONE);
         timer = create(JavaTimer.class, Init.NONE);
-
+        bootstrapAddress = MsConfig.getBootstrapServer();
         connect(resolveIp.getNegative(Timer.class), timer.getPositive(Timer.class));
         subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
 
@@ -112,18 +113,18 @@ public class SystemMain extends ComponentDefinition {
 
                             Set<Address> publicNodes = new HashSet<Address>();
                             try {
-                                InetAddress inet = InetAddress.getByName(publicBootstrapNode);
-                                publicNodes.add(new Address(inet, MsConfig.getPort(), 0));
+//                                InetAddress inet = InetAddress.getByName(publicBootstrapNode);
+                                if(bootstrapAddress != null)
+                                    publicNodes.add(bootstrapAddress);
+                                else
+                                    throw new UnknownHostException("Bootstrap address unknown.");
+
                             } catch (UnknownHostException ex) {
                                 java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
                             natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
-                            try {
-                                searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(new Address(InetAddress.getByName(publicBootstrapNode), MsConfig.getPort(), 0))));
-                            } catch (UnknownHostException e) {
-                                e.printStackTrace();
-                            }
+                            searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(bootstrapAddress)));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
@@ -160,12 +161,12 @@ public class SystemMain extends ComponentDefinition {
             InetAddress localIp = event.getIpAddress();
 
             logger.info("My Local Ip Address returned from ResolveIp is:  " + localIp.getHostName());
-            if(localIp.getHostName().equals(publicBootstrapNode))
+            if(localIp.getHostName().equals(bootstrapAddress.getIp().getHostName()))
                 myId = 0;
 
             // Bind Udt and Udp on separate ports in the system for now.
             myAddr = new Address(localIp, MsConfig.getPort(), myId);
-            Address myUdtAddr = new Address(localIp, MsConfig.getUdtPort(), myId);
+            Address myUdtAddr = new Address(localIp, myAddr.getPort()+1, myId);
 
             network = create(NettyNetwork.class, new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class));
 

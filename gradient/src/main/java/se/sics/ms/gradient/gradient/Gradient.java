@@ -6,6 +6,7 @@ import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.SelfImpl;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.PeerSamplePort;
@@ -72,6 +73,7 @@ public final class Gradient extends ComponentDefinition {
     private Map<Integer, Long> shuffleTimes = new HashMap<Integer, Long>();
     int latestRttRingBufferPointer = 0;
     private long[] latestRtts;
+    String compName;
     // This is a routing table maintaining a a list of descriptors for each category and its partitions.
     private Map<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>> routingTable;
 
@@ -173,6 +175,7 @@ public final class Gradient extends ComponentDefinition {
         leaderAddress = null;
         latestRtts = new long[config.getLatestRttStoreLimit()];
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
+        compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
     }
 
     public Handler<Start> handleStart = new Handler<Start>() {
@@ -304,6 +307,9 @@ public final class Gradient extends ComponentDefinition {
             gradientView.merge(searchDescriptors);
 
             sendGradientViewChange();
+
+            // Publish The Gradient Sample.
+            publishSample();
         }
     };
     /**
@@ -1300,5 +1306,20 @@ public final class Gradient extends ComponentDefinition {
         // Return the ordered update list.
         return partitionUpdates;
     }
+
+
+    private void publishSample() {
+
+        Set<SearchDescriptor> nodes = gradientView.getAll();
+        StringBuilder sb = new StringBuilder("Neighbours: { ");
+        for (SearchDescriptor d : nodes) {
+            sb.append(d.getVodAddress().getId()).append(", ");
+        }
+        sb.append("}");
+
+        logger.warn(compName + sb);
+    }
+
+
 
 }

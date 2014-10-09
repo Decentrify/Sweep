@@ -115,7 +115,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>search.main.Main</mainClass>
+                            <mainClass>se.sics.ms.main.SystemMain</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
