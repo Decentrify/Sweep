@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
@@ -14,11 +15,13 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 	private final SearchConfiguration applicationConfiguration;
 	private final GradientConfiguration gradientConfiguration;
 	private final ElectionConfiguration electionConfiguration;
+    private final ChunkManagerConfiguration chunkManagerConfiguration;
     private final VodAddress bootstrappingNode;
 
 	public SearchPeerInit(Self self,
                           CroupierConfiguration croupierConfiguration, SearchConfiguration applicationConfiguration,
                           GradientConfiguration gradientConfiguration, ElectionConfiguration electionConfiguration,
+                          ChunkManagerConfiguration chunkManagerConfiguration,
                           VodAddress bootstrappingNode) {
 		super();
 		this.self = self;
@@ -26,6 +29,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 		this.applicationConfiguration = applicationConfiguration;
 		this.gradientConfiguration = gradientConfiguration;
 		this.electionConfiguration = electionConfiguration;
+        this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.bootstrappingNode = bootstrappingNode;
     }
 
@@ -51,5 +55,9 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 
     public VodAddress getBootstrappingNode() {
         return bootstrappingNode;
+    }
+
+    public ChunkManagerConfiguration getChunkManagerConfiguration() {
+        return chunkManagerConfiguration;
     }
 }

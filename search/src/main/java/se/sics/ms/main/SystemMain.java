@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.co.FailureDetectorComponent;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
@@ -124,7 +125,10 @@ public class SystemMain extends ComponentDefinition {
                             }
 
                             natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
-                            searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(), SearchConfiguration.build(), GradientConfiguration.build(), ElectionConfiguration.build(), ToVodAddr.bootstrap(bootstrapAddress)));
+                            searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(),
+                                    SearchConfiguration.build(), GradientConfiguration.build(),
+                                    ElectionConfiguration.build(), ChunkManagerConfiguration.build(),
+                                    ToVodAddr.bootstrap(bootstrapAddress)));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 

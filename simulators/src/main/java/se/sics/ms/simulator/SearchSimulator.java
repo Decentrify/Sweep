@@ -1,6 +1,8 @@
 package se.sics.ms.simulator;
 
 import org.xml.sax.SAXException;
+import se.sics.cm.ChunkManager;
+import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.co.FailureDetectorComponent;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
@@ -45,6 +47,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
     private ElectionConfiguration electionConfiguration;
+    private ChunkManagerConfiguration chunkManagerConfiguration;
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
     private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
@@ -67,7 +70,7 @@ public final class SearchSimulator extends ComponentDefinition {
         searchConfiguration = init.getSearchConfiguration();
         gradientConfiguration = init.getGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
-
+        chunkManagerConfiguration = init.getChunkManagerConfiguration();
         identifierSpaceSize = croupierConfiguration.getRto();
 
         subscribe(handleStart, control);
@@ -231,7 +234,8 @@ public final class SearchSimulator extends ComponentDefinition {
         Self self = new MsSelfImpl(new VodAddress(address, 
                 PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
-        Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, bootstrappingNode));
+        Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));

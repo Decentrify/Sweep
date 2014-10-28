@@ -1,5 +1,9 @@
 package se.sics.ms.search;
 
+import se.sics.cm.ChunkManager;
+import se.sics.cm.ChunkManagerConfiguration;
+import se.sics.cm.ChunkManagerInit;
+import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
@@ -28,6 +32,7 @@ import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.PublicKeyPort;
+import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
@@ -43,13 +48,14 @@ public final class SearchPeer extends ComponentDefinition {
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
-    private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal;
+    private Component croupier, gradient, search, electionLeader, electionFollower, natTraversal, chunkManager;
     private Self self;
     private SearchConfiguration searchConfiguration;
 
     private CroupierConfiguration croupierConfiguration;
     private GradientConfiguration gradientConfiguration;
     private ElectionConfiguration electionConfiguration;
+    private ChunkManagerConfiguration chunkManagerConfiguration;
     private VodAddress bootstapingNode;
 
     public SearchPeer(SearchPeerInit init) {
@@ -59,6 +65,7 @@ public final class SearchPeer extends ComponentDefinition {
         gradientConfiguration = init.getGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
         searchConfiguration = init.getSearchConfiguration();
+        chunkManagerConfiguration = init.getChunkManagerConfiguration();
         bootstapingNode = init.getBootstrappingNode();
 
         subscribe(handleStart, control);
@@ -83,6 +90,8 @@ public final class SearchPeer extends ComponentDefinition {
                     new ElectionInit<ElectionLeader>(self, electionConfiguration));
             electionFollower = create(ElectionFollower.class,
                     new ElectionInit<ElectionFollower>(self, electionConfiguration));
+            chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration,
+                    MessageFrameDecoder.class));
 
             connect(network, natTraversal.getNegative(VodNetwork.class));
 
@@ -96,6 +105,8 @@ public final class SearchPeer extends ComponentDefinition {
                     electionLeader.getNegative(VodNetwork.class));
             connect(natTraversal.getPositive(VodNetwork.class),
                     electionFollower.getNegative(VodNetwork.class));
+            connect(natTraversal.getPositive(VodNetwork.class),
+                    chunkManager.getNegative(VodNetwork.class));
 
             connect(timer, natTraversal.getNegative(Timer.class));
             connect(timer, search.getNegative(Timer.class));
@@ -103,6 +114,7 @@ public final class SearchPeer extends ComponentDefinition {
             connect(timer, gradient.getNegative(Timer.class));
             connect(timer, electionLeader.getNegative(Timer.class));
             connect(timer, electionFollower.getNegative(Timer.class));
+            connect(timer, chunkManager.getNegative(Timer.class));
 
             connect(croupier.getPositive(PeerSamplePort.class),
                     gradient.getNegative(PeerSamplePort.class));
@@ -135,6 +147,8 @@ public final class SearchPeer extends ComponentDefinition {
             connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
             connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
             connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
+
+            connect(search.getNegative(ChunkManagerPort.class),chunkManager.getPositive(ChunkManagerPort.class));
 
             subscribe(searchResponseHandler, search.getPositive(UiPort.class));
             subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));

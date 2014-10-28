@@ -17,6 +17,7 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
@@ -91,6 +92,7 @@ public final class Search extends ComponentDefinition {
 
     Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<ChunkManagerPort> chunkManagerPort = positive(ChunkManagerPort.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
@@ -992,7 +994,7 @@ public final class Search extends ComponentDefinition {
                     }
                 }
 
-                trigger(new IndexHashExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), hashes), networkPort);
+                trigger(new IndexHashExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), hashes), chunkManagerPort);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
@@ -1642,7 +1644,7 @@ public final class Search extends ComponentDefinition {
                 // Check the isSimulation flag inside the TransportHelper before running the code in simulations.
                 SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
                 TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
-                trigger(searchMessageResponse, networkPort);
+                trigger(searchMessageResponse, chunkManagerPort);
 
             } catch (IOException ex) {
                 java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
