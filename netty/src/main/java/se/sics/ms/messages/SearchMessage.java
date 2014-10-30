@@ -100,7 +100,7 @@ public class SearchMessage {
         private final int partitionId;
         
         public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, TimeoutId searchTimeoutId, int numResponses, int responseNumber, Collection<IndexEntry> results, int partitionId) throws IllegalSearchString {
-            super(source, destination, Transport.UDT, timeoutId);
+            super(source, destination, timeoutId);
             this.partitionId = partitionId;
 
             if(results == null)

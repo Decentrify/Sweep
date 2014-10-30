@@ -249,11 +249,13 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexHashExchangeRequest, networkPort);
         subscribe(handleGradientIndexHashExchangeResponse, gradientRoutingPort);
         subscribe(handleIndexHashExchangeResponse, networkPort);
+        subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
+        subscribe(handleSearchResponse, chunkManagerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
         subscribe(handleAddRequestTimeout, timerPort);
