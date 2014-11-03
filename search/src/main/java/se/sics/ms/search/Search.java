@@ -252,6 +252,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
+        subscribe(handleIndexExchangeResponse, chunkManagerPort);
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
@@ -1064,7 +1065,7 @@ public final class Search extends ComponentDefinition {
                         indexEntries.add(entry);
                 }
 
-                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), networkPort);
+                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), chunkManagerPort);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
