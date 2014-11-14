@@ -1316,12 +1316,25 @@ public final class Gradient extends ComponentDefinition {
     }
 
 
+    private void publishDescriptor(Set<SearchDescriptor> nodes) {
+
+        StringBuilder sb = new StringBuilder("Neighbours: { ");
+        for (SearchDescriptor d : nodes) {
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth() + ":" +d.getAge()).append(", ");
+
+        }
+        sb.append("}");
+
+        logger.warn(compName + sb);
+    }
+
+
     private void publishSample() {
 
         Set<SearchDescriptor> nodes = gradientView.getAll();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
-            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth()).append(", ");
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth() + ":" +d.getAge()).append(", ");
 
         }
         sb.append("}");
