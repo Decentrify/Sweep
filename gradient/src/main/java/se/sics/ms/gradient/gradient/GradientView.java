@@ -139,8 +139,6 @@ public class GradientView {
 			return null;
 		}
 
-		incrementDescriptorAges();
-
       return getClosestNodes(1).first();
 	}
 

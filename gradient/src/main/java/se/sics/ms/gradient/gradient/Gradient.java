@@ -268,13 +268,13 @@ public final class Gradient extends ComponentDefinition {
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
-
-
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
         exchangePartner.setConnected(true);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
+
+        gradientView.incrementDescriptorAges();
 
         shuffleTimes.put(rTimeoutId.getId(), System.currentTimeMillis());
     }
@@ -305,6 +305,7 @@ public final class Gradient extends ComponentDefinition {
             trigger(rResponse, networkPort);
 
             gradientView.merge(searchDescriptors);
+            gradientView.incrementDescriptorAges();
 
             sendGradientViewChange();
 
