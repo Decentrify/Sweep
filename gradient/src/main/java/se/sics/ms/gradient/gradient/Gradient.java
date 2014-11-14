@@ -268,13 +268,13 @@ public final class Gradient extends ComponentDefinition {
         UUID rTimeoutId = (UUID) rst.getTimeoutEvent().getTimeoutId();
         outstandingShuffles.put(rTimeoutId, exchangePartner.getVodAddress());
 
-
-
         GradientShuffleMessage.Request rRequest = new GradientShuffleMessage.Request(self.getAddress(), exchangePartner.getVodAddress(), rTimeoutId, exchangeNodes);
         exchangePartner.setConnected(true);
 
         trigger(rst, timerPort);
         trigger(rRequest, networkPort);
+
+        gradientView.incrementDescriptorAges();
 
         shuffleTimes.put(rTimeoutId.getId(), System.currentTimeMillis());
     }
@@ -305,6 +305,7 @@ public final class Gradient extends ComponentDefinition {
             trigger(rResponse, networkPort);
 
             gradientView.merge(searchDescriptors);
+            gradientView.incrementDescriptorAges();
 
             sendGradientViewChange();
 
@@ -344,7 +345,7 @@ public final class Gradient extends ComponentDefinition {
             } else {
                 for (SearchDescriptor d : sample) {
                     VodAddress a = PartitionHelper.updatePartitionId(d,
-                            new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 1, 0));
+                            new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0));
                     updatedSample.add(new SearchDescriptor(a, d));
                 }
             }
@@ -451,6 +452,13 @@ public final class Gradient extends ComponentDefinition {
                     }
                 }
             }
+            else {
+                for (SearchDescriptor d : sample) {
+                    VodAddress a = PartitionHelper.updatePartitionId(d,
+                            new PartitionId(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0));
+                    updatedSample.add(new SearchDescriptor(a, d));
+                }
+            }
 
             incrementRoutingTableAge();
 //            addRoutingTableEntries(sample);
@@ -475,7 +483,7 @@ public final class Gradient extends ComponentDefinition {
             }
 
             //Merge croupier sample to have quicker convergence of gradient
-            gradientView.merge(updatedSample);
+            //gradientView.merge(updatedSample);
 
             // Shuffle with one sample from our partition
             if (updatedSample.size() > 0) {
@@ -1115,9 +1123,9 @@ public final class Gradient extends ComponentDefinition {
             if(preferredNodes.size() < event.getControlMessageExchangeNumber())
                 return;
 
-            List<Integer> randomIntegerList = getUniqueRandomIntegerList(preferredNodes.size(), event.getControlMessageExchangeNumber());
-            for(int n : randomIntegerList){
-                VodAddress destination = preferredNodes.get(n).getVodAddress();
+            //List<Integer> randomIntegerList = getUniqueRandomIntegerList(preferredNodes.size(), event.getControlMessageExchangeNumber());
+            for(int i = 0; i < event.getControlMessageExchangeNumber(); i++){
+                VodAddress destination = preferredNodes.get(i).getVodAddress();
                 trigger(new ControlMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), event.getRoundId()), networkPort);
             }
         }
@@ -1308,12 +1316,26 @@ public final class Gradient extends ComponentDefinition {
     }
 
 
+    private void publishDescriptor(Set<SearchDescriptor> nodes) {
+
+        StringBuilder sb = new StringBuilder("Neighbours: { ");
+        for (SearchDescriptor d : nodes) {
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth() + ":" +d.getAge()).append(", ");
+
+        }
+        sb.append("}");
+
+        logger.warn(compName + sb);
+    }
+
+
     private void publishSample() {
 
         Set<SearchDescriptor> nodes = gradientView.getAll();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
-            sb.append(d.getVodAddress().getId()).append(", ");
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth() + ":" +d.getAge()).append(", ");
+
         }
         sb.append("}");
 

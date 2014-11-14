@@ -8,6 +8,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.cm.events.ChunkedMessageFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
@@ -62,6 +63,9 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     // Delayed Partitioning Request
     public static final byte DELAYED_PARTITIONING_MESSAGE_REQUEST  = -0x03;
     public static final byte DELAYED_PARTITIONING_MESSAGE_RESPONSE  = -0x04;
+
+    //Chunked message to fragment big messages
+    public static final byte CHUNKED_MESSAGE  = -0x05;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -163,6 +167,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return DelayedPartitioningMessageFactory.Request.fromBuffer(buffer);
             case DELAYED_PARTITIONING_MESSAGE_RESPONSE:
                 return DelayedPartitioningMessageFactory.Response.fromBuffer(buffer);
+
+            //Chunked message to fragment big messages
+            case CHUNKED_MESSAGE:
+                return ChunkedMessageFactory.fromBuffer(buffer);
 
             default:
                 break;

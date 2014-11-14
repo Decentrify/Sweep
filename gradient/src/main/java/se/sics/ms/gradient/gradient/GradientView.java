@@ -20,11 +20,9 @@ import java.util.*;
  */
 public class GradientView {
     private static final Logger logger = LoggerFactory.getLogger(GradientView.class);
-    private TreeMap<VodAddress, SearchDescriptor> mapping;
 	private TreeSet<SearchDescriptor> entries;
 	private MsSelfImpl self;
 	private int size;
-	private final Comparator<SearchDescriptor> preferenceComparator;
     private final int convergenceTestRounds;
     private int currentConvergedRounds;
 	private boolean converged, changed;
@@ -43,8 +41,6 @@ public class GradientView {
      *            the number of rounds the convergenceTest needs to be satisfied for the view to be converged
 	 */
 	public GradientView(Self self, int size, double convergenceTest, int convergenceTestRounds) {
-        this.preferenceComparator = new PreferenceComparator(new SearchDescriptor(self.getDescriptor()));
-        this.mapping = new TreeMap<VodAddress, SearchDescriptor>();
 		this.entries = new TreeSet<SearchDescriptor>(utilityComparator);
 		this.self = (MsSelfImpl)self;
 		this.size = size;
@@ -83,16 +79,6 @@ public class GradientView {
             if(searchDescriptor.getAge() > currDescriptor.getAge())
                 return;
             else{
-
-                // ======= TESTING..
-                if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE && searchDescriptor.getVodAddress().getId() == 398137537) {
-//                    logger.warn("START ========= ");
-//                    logger.warn("======== Current Descriptor: " + currDescriptor.getId() + " Age: " + currDescriptor.getAge() + "Number of Index Entries : " + currDescriptor.getNumberOfIndexEntries());
-//                    logger.warn("======== Search Descriptor: " + searchDescriptor.getId() + " Age: " + searchDescriptor.getAge() + " Number of Index Entries : " + searchDescriptor.getNumberOfIndexEntries());
-//                    logger.warn("END =========");
-//
-//                    logger.warn("  ");
-                }
                 entries.remove(currDescriptor);
                 changed = true;
             }
@@ -124,7 +110,6 @@ public class GradientView {
 	 */
 	protected void remove(VodAddress address) {
         int oldSize = entries.size();
-//        SearchDescriptor toRemove = mapping.remove(address);
         SearchDescriptor toRemove = null;
 
         for(SearchDescriptor descriptor:  entries){
@@ -154,11 +139,6 @@ public class GradientView {
 			return null;
 		}
 
-		incrementDescriptorAges();
-//		SearchDescriptor oldestEntry = Collections.max(entries);
-//
-//		return oldestEntry;
-
       return getClosestNodes(1).first();
 	}
 
@@ -170,15 +150,6 @@ public class GradientView {
 	 *            the nodes to be merged
 	 */
 	protected void merge(Collection<SearchDescriptor> searchDescriptors) {
-
-//        if(self.getId() == 319791623 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-//            logger.warn("========== RECEIVED DESCRIPTORS FOR MERGING =============== ");
-//            for(SearchDescriptor desc : searchDescriptors)
-//                logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId() + "Number of Index Entries: " + desc.getNumberOfIndexEntries());
-//            logger.warn("=========== END ==========================");
-//            logger.warn("");
-//        }
-
 
         Collection<SearchDescriptor> oldEntries = (Collection<SearchDescriptor>) entries.clone();
 		int oldSize = oldEntries.size();
@@ -194,38 +165,11 @@ public class GradientView {
             add(searchDescriptor);
         }
 
-//        if(self.getId() == 319791623){
-//            logger.warn("========== OLD ENTRIES BEFORE REMOVAL =============== ");
-//            for(SearchDescriptor desc : oldEntries)
-//                logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId() + "Number of Index Entries: " + desc.getNumberOfIndexEntries());
-//            logger.warn("=========== END ==========================");
-//            logger.warn("");
-//        }
-
-
         // Check old entries retain all method.
 		oldEntries.retainAll(entries);
 		if (oldSize == entries.size() && oldEntries.size() > convergenceTest * entries.size()) {
             currentConvergedRounds++;
 		} else {
-            if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-////                logger.warn("Convergence Test : " + (oldEntries.size() > convergenceTest * entries.size()) + " OldEntriesSize: " + oldEntries.size() + " Converged Entries : " + (convergenceTest) + " * " + entries.size());
-////                logger.warn("OldEntries Size "  + oldSize);
-//                logger.warn("=========== OLD ENTRIES AFTER RETAIN ALL ============");
-//                for(SearchDescriptor desc : oldEntries)
-//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ " Number of Index Entries: " + desc.getNumberOfIndexEntries() + " Age: " + desc.getAge());
-//
-//                logger.warn("=========== END ==========================");
-//                logger.warn("");
-////
-//                logger.warn("=========== Entries Set =============== ");
-//                for(SearchDescriptor desc : entries)
-//                    logger.warn(" DescriptorID : " + desc.getId() + " Descriptor Overlay : " + desc.getOverlayId()+ " Number of Index Entries: " + desc.getNumberOfIndexEntries() + " Age: " + desc.getAge());
-////
-//                logger.warn("=========== END ==========================");
-//                logger.warn("");
-            }
-
             currentConvergedRounds = 0;
 		}
         if (currentConvergedRounds > convergenceTestRounds) {
@@ -234,9 +178,6 @@ public class GradientView {
             }
             converged = true;
         } else {
-
-//            if(self.getId() == 4041837 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE)
-//                logger.warn("OldSize : " + oldSize + " Current Entries Size: " + entries.size() + " Remaining Old Entries: " + oldEntries.size());
             converged = false;
         }
 	}
@@ -307,10 +248,6 @@ public class GradientView {
 
         //as part of the protocol, the source node should also be added in the set, otherwise
         // message will be discarded on the receiving node
-
-//        if(self.getId() == 726089965 && self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE){
-//            logger.warn(" ========== Pushing Self with number of index entries: "+ self.getNumberOfIndexEntries());
-//        }
         set.add(new SearchDescriptor(self.getDescriptor()));
 
 		return set;

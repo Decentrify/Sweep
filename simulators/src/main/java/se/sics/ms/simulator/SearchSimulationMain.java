@@ -1,5 +1,6 @@
 package se.sics.ms.simulator;
 
+import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.config.*;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.network.model.king.KingLatencyMap;
@@ -52,7 +53,8 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 croupierConfig,
                 GradientConfiguration.build(),
                 SearchConfiguration.build(),
-                ElectionConfiguration.build()));
+                ElectionConfiguration.build(),
+                ChunkManagerConfiguration.build()));
 
         // connect
         connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
