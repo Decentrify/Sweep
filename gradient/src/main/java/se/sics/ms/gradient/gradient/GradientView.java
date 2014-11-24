@@ -3,6 +3,7 @@ package se.sics.ms.gradient.gradient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.common.Self;
+import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.gradient.misc.UtilityComparator;
@@ -318,11 +319,19 @@ public class GradientView {
 	/**
 	 * Increment the age of all descriptors in the view
 	 */
-	private void incrementDescriptorAges() {
+	public void incrementDescriptorAges() {
 		for (SearchDescriptor descriptor : entries) {
 			descriptor.incrementAndGetAge();
 		}
 	}
+
+    public MsSelfImpl getSelf() {
+        return self;
+    }
+
+    public void setSelf(MsSelfImpl self) {
+        this.self = self;
+    }
 
 	/**
 	 * Compare nodes according to their utility. Nodes with smaller IDs but
@@ -409,4 +418,17 @@ public class GradientView {
         }
 		return set;
 	}
+
+    private void publishSample() {
+
+        Set<SearchDescriptor> nodes = getAll();
+        StringBuilder sb = new StringBuilder("Neighbours: { ");
+        for (SearchDescriptor d : nodes) {
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth()).append(", ");
+
+        }
+        sb.append("}");
+
+        logger.warn("" + sb);
+    }
 }

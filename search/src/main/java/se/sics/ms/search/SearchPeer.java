@@ -33,6 +33,7 @@ import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
@@ -147,6 +148,8 @@ public final class SearchPeer extends ComponentDefinition {
             connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
             connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
             connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
+
+            connect(search.getPositive(SelfChangedPort.class), gradient.getNegative(SelfChangedPort.class));
 
             connect(search.getNegative(ChunkManagerPort.class),chunkManager.getPositive(ChunkManagerPort.class));
 
