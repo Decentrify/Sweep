@@ -67,4 +67,11 @@ public class MsSelfImpl extends SelfImpl {
         return numberOfIndexEntries.get();
     }
 
+    public MsSelfImpl clone() {
+        MsSelfImpl clonedObj = new MsSelfImpl(this.getNat(), getIp(), this.port, this.nodeId, this.overlayId);
+        clonedObj.setNumberOfIndexEntries(numberOfIndexEntries.get());
+
+        return clonedObj;
+    }
+
 }

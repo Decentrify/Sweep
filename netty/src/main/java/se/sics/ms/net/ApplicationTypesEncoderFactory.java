@@ -140,6 +140,7 @@ public class ApplicationTypesEncoderFactory {
         writeUnsignedintAsTwoBytes(buffer, nodeDescriptors.size());
         for (SearchDescriptor node : nodeDescriptors) {
             writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(node));
+            buffer.writeInt(node.getReceivedPartitionDepth());
         }
     }
 

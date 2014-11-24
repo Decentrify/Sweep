@@ -190,4 +190,8 @@ public class
     public int getReceivedPartitionDepth(){
         return this.receivedPartitionDepth;
     }
+
+    public void setReceivedPartitionDepth(int receivedPartitionDepth) {
+        this.receivedPartitionDepth = receivedPartitionDepth;
+    }
 }

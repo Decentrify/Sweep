@@ -19,15 +19,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
@@ -51,6 +47,7 @@ import se.sics.ms.model.LocalSearchRequest;
 import se.sics.ms.model.PartitionReplicationCount;
 import se.sics.ms.model.PeerControlMessageRequestHolder;
 import se.sics.ms.model.ReplicationCount;
+import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.ports.UiPort;
@@ -99,6 +96,7 @@ public final class Search extends ComponentDefinition {
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
+    Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
@@ -154,6 +152,9 @@ public final class Search extends ComponentDefinition {
     private static final int CONTROL_MESSAGE_ENUM_SIZE= 1;
     private boolean partitionUpdateFetchInProgress = false;
     private TimeoutId currentPartitionInfoFetchRound;
+
+    private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
+    private static final int HISTORY_LENGTH = 5;
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -276,7 +277,6 @@ public final class Search extends ComponentDefinition {
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
-        subscribe(handleRemoveEntriesNotFromYourPartition, gradientRoutingPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
@@ -293,12 +293,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
-        subscribe(handlerCheckPartitionInfoResponse, gradientRoutingPort);
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
-
-
-
     }
 
     /**
@@ -326,6 +322,7 @@ public final class Search extends ComponentDefinition {
         commitRequests = new HashMap<TimeoutId, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
         gapTimeouts = new HashMap<Long, UUID>();
+        partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
 
         if (PERSISTENT_INDEX) {
             File file = new File("resources/index_" + self.getId());
@@ -565,11 +562,60 @@ public final class Search extends ComponentDefinition {
             // Update the latest request id from the peer control message from the map.
             peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
 
+            // Information amount partition is available in Search, just fetch locally
+            handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(event));
             // Request info from the gradient component
-            trigger(new CheckPartitionInfoHashUpdate.Request(event.getRoundId(), event.getVodSource(), event.getOverlayId()), gradientRoutingPort);
             trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
         }
     };
+
+    void handleControlMessageInternalResponseEvent(ControlMessageInternal.Response event) {
+
+        try{
+
+            TimeoutId roundIdReceived = event.getRoundId();
+            TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
+
+            // Perform initial checks to avoid old responses.
+            if(currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
+                return;
+            }
+
+            // Update the peer control response map to add the new entry.
+            PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress());
+            if(controlMessageResponse == null){
+                logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
+                return;
+            }
+
+            ByteBuf buf = controlMessageResponse.getBuffer();
+            // Fetch the buffer to write and append the information in it.
+            ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event);
+
+            // encansuplate it into a separate method.
+            if(controlMessageResponse.addAndCheckStatus()){
+
+                // Construct the response object and trigger it back to the user.
+                logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
+
+                // Send the data back to the user.
+                trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
+
+                // TODO: Some kind of timeout mechanism needs to be there because there might be some issue with the components and hence they don't reply on time.
+
+                // Clean the data at the user end also.
+                cleanControlRequestMessageData(event.getSourceAddress());
+            }
+        }
+
+        catch (MessageEncodingException e) {
+            // If the exception is thrown it means that encoding was not successful for some reason and we will return after raising a flag ...
+            logger.error(" Encoding Failed ... Please Check ... ");
+            e.printStackTrace();
+            // Clean the data at the user end also.
+            cleanControlRequestMessageData(event.getSourceAddress());
+        }
+    }
 
 
     /**
@@ -580,50 +626,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ControlMessageInternal.Response event) {
 
-            try{
-
-                TimeoutId roundIdReceived = event.getRoundId();
-                TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
-
-                // Perform initial checks to avoid old responses.
-                if(currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
-                    return;
-                }
-
-                // Update the peer control response map to add the new entry.
-                PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress());
-                if(controlMessageResponse == null){
-                    logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
-                    return;
-                }
-
-                ByteBuf buf = controlMessageResponse.getBuffer();
-                // Fetch the buffer to write and append the information in it.
-                ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event);
-
-                // encansuplate it into a separate method.
-                if(controlMessageResponse.addAndCheckStatus()){
-
-                    // Construct the response object and trigger it back to the user.
-                    logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
-
-                    // Send the data back to the user.
-                    trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
-
-                    // TODO: Some kind of timeout mechanism needs to be there because there might be some issue with the components and hence they don't reply on time.
-
-                    // Clean the data at the user end also.
-                    cleanControlRequestMessageData(event.getSourceAddress());
-                }
-            }
-
-            catch (MessageEncodingException e) {
-                // If the exception is thrown it means that encoding was not successful for some reason and we will return after raising a flag ...
-                logger.error(" Encoding Failed ... Please Check ... ");
-                e.printStackTrace();
-                // Clean the data at the user end also.
-                cleanControlRequestMessageData(event.getSourceAddress());
-            }
+            handleControlMessageInternalResponseEvent(event);
         }
     };
 
@@ -871,22 +874,12 @@ public final class Search extends ComponentDefinition {
         public void handle(DelayedPartitioningMessage.Request event) {
 
             logger.debug (" Delayed Partitioning Message Request Received from: " + event.getSource().getId()) ;
-            trigger(new CheckPartitionInfo.Request(event.getTimeoutId(),event.getVodSource(),event.getPartitionRequestIds()), gradientRoutingPort);     // Let gradient Handle the request.
+            LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = fetchPartitioningUpdates(event.getPartitionRequestIds());
+
+            trigger(new DelayedPartitioningMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), partitionUpdates), networkPort);
 
         }
     };
-
-    /**
-     * Partition Info Response Received.
-     */
-    Handler<CheckPartitionInfo.Response> handlerCheckPartitionInfoResponse = new Handler<CheckPartitionInfo.Response>(){
-
-        @Override
-        public void handle(CheckPartitionInfo.Response event) {
-            trigger(new DelayedPartitioningMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), event.getPartitionUpdates()), networkPort);
-        }
-    };
-
 
     /**
      * Apply the partitioning updates to the local.
@@ -899,13 +892,12 @@ public final class Search extends ComponentDefinition {
             if(!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
                 return;
 
-            // Simply apply the partitioning update and handle the duplicacy.
-            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(event.getPartitionHistory()), gradientRoutingPort);
-
             // Cancel the timeout event.
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
 
+            // Simply apply the partitioning update and handle the duplicacy.
+            applyPartitioningUpdate(event.getPartitionHistory());
         }
     };
 
@@ -1777,58 +1769,56 @@ public final class Search extends ComponentDefinition {
     /**
      * Removes IndexEntries that don't belong to your partition after a partition splits into two
      */
-    final Handler<RemoveEntriesNotFromYourPartition> handleRemoveEntriesNotFromYourPartition = new Handler<RemoveEntriesNotFromYourPartition>() {
-        @Override
-        public void handle(RemoveEntriesNotFromYourPartition removeEntriesNotFromYourPartition) {
-            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
-            trigger(cancelTimeout, timerPort);
-            indexExchangeTimeout = null;
-            exchangeInProgress = false;
+    void removeEntriesNotFromYourPartition(long middleId, boolean isPartition) {
 
-            if(removeEntriesNotFromYourPartition.isPartition()){
-                deleteDocumentsWithIdMoreThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
-                deleteHigherExistingEntries(removeEntriesNotFromYourPartition.getMiddleId(), existingEntries, false);
-            }
+        CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+        trigger(cancelTimeout, timerPort);
+        indexExchangeTimeout = null;
+        exchangeInProgress = false;
 
-            else{
-                deleteDocumentsWithIdLessThen(removeEntriesNotFromYourPartition.getMiddleId(), minStoredId, maxStoredId);
-                deleteLowerExistingEntries(removeEntriesNotFromYourPartition.getMiddleId(), existingEntries, true);
-            }
-
-            minStoredId = getMinStoredIdFromLucene();
-            maxStoredId = getMaxStoredIdFromLucene();
-
-            //Increment Max Store Id to keep in line with the original methodology.
-            maxStoredId +=1;
-
-            // Update the number of entries in the system.
-            int numberOfStoredIndexEntries = getNumberOfStoredIndexEntries();
-            ((MsSelfImpl)self).setNumberOfIndexEntries(numberOfStoredIndexEntries);
-
-
-            if(maxStoredId < minStoredId) {
-                long temp = maxStoredId;
-                maxStoredId = minStoredId;
-                minStoredId = temp;
-            }
-
-            // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested and some edge cases exists in this implementation.
-            // FIXME: More cleaner solution is required.
-            nextInsertionId = maxStoredId;
-            lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
-
-            int partitionId = self.getPartitionId();
-
-            Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
-                    minStoredId);
-            Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
-                    maxStoredId);
-            Snapshot.setNumIndexEntries(self.getAddress(), numberOfStoredIndexEntries);
-
-            // It will ensure that the values of last missing index entries and other values are not getting updated.
-            partitionInProgress = false;
+        if(isPartition){
+            deleteDocumentsWithIdMoreThen(middleId, minStoredId, maxStoredId);
+            deleteHigherExistingEntries(middleId, existingEntries, false);
         }
-    };
+
+        else{
+            deleteDocumentsWithIdLessThen(middleId, minStoredId, maxStoredId);
+            deleteLowerExistingEntries(middleId, existingEntries, true);
+        }
+
+        minStoredId = getMinStoredIdFromLucene();
+        maxStoredId = getMaxStoredIdFromLucene();
+
+        //Increment Max Store Id to keep in line with the original methodology.
+        maxStoredId +=1;
+
+        // Update the number of entries in the system.
+        int numberOfStoredIndexEntries = getNumberOfStoredIndexEntries();
+        self.setNumberOfIndexEntries(numberOfStoredIndexEntries);
+
+
+        if(maxStoredId < minStoredId) {
+            long temp = maxStoredId;
+            maxStoredId = minStoredId;
+            minStoredId = temp;
+        }
+
+        // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested and some edge cases exists in this implementation.
+        // FIXME: More cleaner solution is required.
+        nextInsertionId = maxStoredId;
+        lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
+
+        int partitionId = self.getPartitionId();
+
+        Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
+                minStoredId);
+        Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
+                maxStoredId);
+        Snapshot.setNumIndexEntries(self.getAddress(), numberOfStoredIndexEntries);
+
+        // It will ensure that the values of last missing index entries and other values are not getting updated.
+        partitionInProgress = false;
+        }
 
 
     /**
@@ -1942,6 +1932,7 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
+        //logger.warn("Adding Index Entry: " + entry.getId());
         Document doc = new Document();
         doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
         doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
@@ -1986,7 +1977,8 @@ public final class Search extends ComponentDefinition {
         }
 
         addIndexEntry(index, indexEntry);
-        ((MsSelfImpl)self).incrementNumberOfIndexEntries();
+        self.incrementNumberOfIndexEntries();
+        trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
@@ -2295,7 +2287,7 @@ public final class Search extends ComponentDefinition {
             partitionUpdates.add(partitionUpdate);
 
             // Apply the partition update.
-            trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdates), gradientRoutingPort);
+            applyPartitioningUpdate(partitionUpdates);
             partitionUpdatePendingCommit.remove(partitionUpdate);               // Remove the partition update from the pending map.
 
             // Send a  conformation to the leader.
@@ -2337,7 +2329,7 @@ public final class Search extends ComponentDefinition {
                 partitionUpdates.add(partitionReplicationCount.getPartitionInfo());
 
                 // Inform the gradient about the partitioning.
-                trigger(new GradientRoutingPort.ApplyPartitioningUpdate(partitionUpdates), gradientRoutingPort);
+                applyPartitioningUpdate(partitionUpdates);
             }
 
         }
@@ -2877,5 +2869,179 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
         return result;
     }
 
+    /**
+     * Apply the partitioning updates received.
+     */
+    public void applyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionUpdates){
+
+        for(PartitionHelper.PartitionInfo update : partitionUpdates){
+
+            boolean duplicateFound = false;
+            for(PartitionHelper.PartitionInfo partitionInfo : partitionHistory){
+                if(partitionInfo.getRequestId().getId() == update.getRequestId().getId()){
+                    duplicateFound = true;
+                    break;
+                }
+            }
+
+            if(duplicateFound)
+                continue;
+
+            if(partitionHistory.size() >= HISTORY_LENGTH){
+                partitionHistory.removeFirst();
+            }
+
+            // Store the update in the history.
+            partitionHistory.addLast(update);
+
+            // Now apply the update.
+            // Leader boolean simply sends true down the message in case of leader node, as it was implemented like this way before, not sure why.
+            boolean partition = determineYourPartitionAndUpdatePartitionsNumberUpdated(update.getPartitioningTypeInfo());
+            removeEntriesNotFromYourPartition(update.getMedianId(), partition);
+
+            trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
+            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
+
+        }
+    }
+
+    /**
+     * Based on the source address, provide the control message enum that needs to be associated with the control response object.
+     */
+    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address, OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes){
+
+        boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
+
+        // for ONE_BEFORE
+        if(isOnePartition){
+            if(overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE){
+                for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
+                    partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
+            }
+        }
+
+        // for MANY_BEFORE.
+        else {
+
+            int myDepth = self.getPartitionIdDepth();
+            if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+
+                if (myDepth <= (HISTORY_LENGTH)) {
+                    for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
+                        partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
+                }
+                else
+                    return ControlMessageEnum.REJOIN;
+            }
+            else {
+
+                int receivedNodeDepth = overlayId.getPartitionIdDepth();
+                if(myDepth - receivedNodeDepth > HISTORY_LENGTH)
+                    return ControlMessageEnum.REJOIN;
+
+                else if ((myDepth - receivedNodeDepth) <= (HISTORY_LENGTH) && (myDepth - receivedNodeDepth) > 0) {
+
+                    // TODO : Test this condition.
+                    int j = partitionHistory.size() - (myDepth-receivedNodeDepth);
+                    for(int i = 0 ; i < (myDepth-receivedNodeDepth) && j < HISTORY_LENGTH ; i++){
+                        partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionHistory.get(j)));
+                        j++;
+                    }
+                }
+            }
+        }
+        return ControlMessageEnum.PARTITION_UPDATE;
+    }
+
+    private boolean determineYourPartitionAndUpdatePartitionsNumberUpdated(VodAddress.PartitioningType partitionsNumber) {
+        int nodeId = self.getId();
+
+        PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getPartitionIdDepth(),
+                self.getPartitionId());
+
+        boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
+
+        if (partitionsNumber == VodAddress.PartitioningType.NEVER_BEFORE) {
+            int partitionId = (partitionSubId ? 1 : 0);
+
+            int selfCategory = self.getCategoryId();
+            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+                    1, partitionId, selfCategory);
+
+            // TODO - all existing VodAddresses in Sets, Maps, etc are now invalid.
+            // Do we replace them or what do we do with them?
+            ((MsSelfImpl) self).setOverlayId(newOverlayId);
+
+        } else {
+            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionIdDepth());
+            int selfCategory = self.getCategoryId();
+
+            // Incrementing partitioning depth in the overlayId.
+            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+                    self.getPartitionIdDepth()+1, newPartitionId, selfCategory);
+            ((MsSelfImpl) self).setOverlayId(newOverlayId);
+        }
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() +" PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        int partitionId = self.getPartitionId();
+        Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
+        Snapshot.addPartition(new Pair<Integer, Integer>(self.getCategoryId(), partitionId));
+        return partitionSubId;
+    }
+
+    /**
+     * Based on the unique ids return the partition updates back.
+     * @param partitionUpdatesIds
+     * @return
+     */
+    public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds){
+
+        LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
+
+        // Iterate over the available partition updates.
+        for(TimeoutId partitionUpdateId : partitionUpdatesIds){
+
+            boolean found = false;
+            for(PartitionHelper.PartitionInfo partitionInfo : partitionHistory){
+                if(partitionInfo.getRequestId().equals(partitionUpdateId)){
+                    partitionUpdates.add(partitionInfo);
+                    found = true;
+                    break;
+                }
+            }
+
+            if(!found){
+                // Stop The addition as there has been a missing piece.
+                break;
+            }
+        }
+
+        // Return the ordered update list.
+        return partitionUpdates;
+    }
+
+    /**
+     * Request To check if the source address is behind in terms of partitioning updates.
+     */
+    private CheckPartitionInfoHashUpdate.Response getCheckPartitionInfoHashUpdateResponse(ControlMessage.Request event) {
+
+        // Check for the partitioning updates and return it back.
+        logger.debug("Check Partitioning Update Received.");
+
+        LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
+        ControlMessageEnum controlMessageEnum;
+
+        // Check for the responses when you have atleast partitioned yourself.
+        if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
+
+            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getVodSource(), event.getOverlayId(), partitionUpdateHashes);
+        } else {
+            // Send empty partition update as you have not partitioned.
+            controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
+        }
+
+        // Trigger the partitioning update.
+        return new CheckPartitionInfoHashUpdate.Response(event.getRoundId(), event.getVodSource(), partitionUpdateHashes, controlMessageEnum);
+    }
 
 }
+

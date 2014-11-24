@@ -166,7 +166,10 @@ public class ApplicationTypesDecoderFactory {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         Set<SearchDescriptor> addrs = new HashSet<SearchDescriptor>();
         for (int i = 0; i < len; i++) {
-            addrs.add(new SearchDescriptor(readVodNodeDescriptor(buffer)));
+            SearchDescriptor currentSearchDescriptor = new SearchDescriptor(readVodNodeDescriptor(buffer));
+            int receivedPartitionDepth = buffer.readInt();
+            currentSearchDescriptor.setReceivedPartitionDepth(receivedPartitionDepth);
+            addrs.add(currentSearchDescriptor);
         }
         return addrs;
     }
