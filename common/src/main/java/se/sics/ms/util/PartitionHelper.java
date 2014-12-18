@@ -184,7 +184,7 @@ public class PartitionHelper {
             return;
         }
 
-        int oldPartitionId = newPartitionId.getPartitionId() & (0 << newPartitionId.getPartitionIdDepth()-1);
+        int oldPartitionId = getPreviousPartitionId(newPartitionId);
         HashSet<SearchDescriptor> oldBucket = categoryRoutingMap.get(oldPartitionId);
         if(oldBucket == null)
             return;
@@ -210,6 +210,19 @@ public class PartitionHelper {
                 bucket.add(new SearchDescriptor(a, next));
             }
         }
+
+    }
+
+    public static int getPreviousPartitionId(PartitionId partitionId) {
+
+        int mask = 0;
+
+        for(int i = 0; i < partitionId.getPartitionIdDepth() - 1; i++) {
+
+            mask|=(1<<i);
+        }
+
+        return partitionId.getPartitionId() & mask;
 
     }
 
