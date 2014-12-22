@@ -47,6 +47,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 .setRtoRetries(2)
                 .setRtoScale(1.0d);
 
+        // TODO - check that this is the correct seed being passed to the KingLatencyMap
         Component p2pSimulator = create(P2pSimulator.class, new P2pSimulatorInit(simulatorScheduler,
                 scenario, new KingLatencyMap(croupierConfig.getSeed())));
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(

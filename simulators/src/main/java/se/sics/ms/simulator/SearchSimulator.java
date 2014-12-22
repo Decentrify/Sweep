@@ -50,7 +50,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
-    private AsIpGenerator ipGenerator = AsIpGenerator.getInstance(125);
+    private AsIpGenerator ipGenerator;
     private MagnetFileIterator magnetFiles;
     static String[] articles = {" ", "The ", "QueryLimit "};
     static String[] verbs = {"fires ", "walks ", "talks ", "types ", "programs "};
@@ -73,6 +73,9 @@ public final class SearchSimulator extends ComponentDefinition {
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         identifierSpaceSize = croupierConfiguration.getRto();
 
+        // TODO - is this the correct seed??!?
+        ipGenerator = AsIpGenerator.getInstance(init.getCroupierConfiguration().getSeed());
+        
         subscribe(handleStart, control);
         subscribe(handleGenerateReport, timer);
         subscribe(handlePeerJoin, simulator);
