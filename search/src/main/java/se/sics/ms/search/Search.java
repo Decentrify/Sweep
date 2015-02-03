@@ -1963,7 +1963,7 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Add a new {link {@link IndexEntry} to the local Lucene index.
+     * Add a new {@link IndexEntry} to the local Lucene index.
      *
      * @param indexEntry the {@link IndexEntry} to be added
      * @throws IOException if the Lucene index fails to store the entry
