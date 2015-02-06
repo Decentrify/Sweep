@@ -222,6 +222,9 @@ public class Snapshot {
 	 */
 	public static void report() {
 
+        if(peers.isEmpty()){
+            return;
+        }
 		StringBuilder builder = new StringBuilder();
 		builder.append("current time: " + counter++ + "\n");
 		reportNetworkState(builder);

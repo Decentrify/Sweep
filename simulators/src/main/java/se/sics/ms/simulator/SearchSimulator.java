@@ -91,10 +91,10 @@ public final class SearchSimulator extends ComponentDefinition {
         public void handle(Start init) {
             // generate periodic report
             int snapshotPeriod = Configuration.SNAPSHOT_PERIOD;
-            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod,
-                    snapshotPeriod);
-            spt.setTimeoutEvent(new GenerateReport(spt));
-            trigger(spt, timer);
+//            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod,
+//                    snapshotPeriod);
+//            spt.setTimeoutEvent(new GenerateReport(spt));
+//            spt(spt, timer);
 
         }
     };
@@ -174,6 +174,8 @@ public final class SearchSimulator extends ComponentDefinition {
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
+
+            System.out.println(" Handle Peer Join Received. ");
             Long id = event.getPeerId();
 
             // join with the next id if this id is taken
@@ -224,6 +226,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private VodAddress bootstrappingNode;
     private final void createAndStartNewPeer(long id) {
 
+        System.out.println(" Going to start peer with id: " + id) ;
         InetAddress ip = null;
         try {
             ip = InetAddress.getLocalHost();

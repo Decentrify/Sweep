@@ -13,6 +13,11 @@
     <url>http://maven.apache.org</url>
     <dependencies>
         <dependency>
+            <groupId>se.sics.p2ptoolbox</groupId>
+            <artifactId>simulator</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-search</artifactId>
             <version>${project.version}</version>        

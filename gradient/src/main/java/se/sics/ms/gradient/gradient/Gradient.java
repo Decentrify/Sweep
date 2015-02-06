@@ -482,6 +482,7 @@ public final class Gradient extends ComponentDefinition {
             }
 
             //Merge croupier sample to have quicker convergence of gradient
+            // FIXME: Switch it on when croupier has been fixed.
             //gradientView.merge(updatedSample);
 
             // Shuffle with one sample from our partition
