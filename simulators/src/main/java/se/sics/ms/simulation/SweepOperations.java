@@ -2,20 +2,21 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.address.Address;
+import se.sics.gvod.config.*;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.DirectMsg;
-import se.sics.kompics.Init;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
-import se.sics.ms.simulation.PeerJoinP2pSimulated;
-import se.sics.ms.simulator.P2pValidationMainInit;
-import se.sics.ms.simulator.P2pValidatorMain;
+import se.sics.ms.simulator.P2pSim;
+import se.sics.ms.simulator.P2pSimulatorInit;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
 import se.sics.p2ptoolbox.simulator.cmd.StartNodeCmd;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -35,36 +36,48 @@ public class SweepOperations {
         
         // Create default address of InetAddress.
         try {
+            // === Initialize VodConfig.
+            VodConfig.init(new String[0]);
             InetAddress localHost = InetAddress.getLocalHost();
+            
             nodeAddress = new VodAddress(new Address(localHost,defaultPort,defaultNodeId), defaultOverlayAddress);
         } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
     
     
     public static Operation<StartNodeCmd> startNodeCmdOperation = new Operation<StartNodeCmd>() {
-        @Override
-        public StartNodeCmd generate() {
             
-            return new StartNodeCmd<P2pValidatorMain>() {
+            public StartNodeCmd generate(){
+                
+                return new StartNodeCmd<P2pSim>() {
 
-                @Override
-                public Integer getNodeId() {
-                    return defaultNodeId;
-                }
 
-                @Override
-                public Class getNodeComponentDefinition() {
-                    return P2pValidatorMain.class;
-                }
+                    CroupierConfiguration croupierConfig = CroupierConfiguration.build()
+                            .setRto(3000)
+                            .setRtoRetries(2)
+                            .setRtoScale(1.0d);
 
-                @Override
-                public P2pValidationMainInit getNodeComponentInit() {
-                    return new P2pValidationMainInit(3000, 2 , 1.0d , nodeAddress);
-                }
-            };
-        }
+                    @Override
+                    public Integer getNodeId() {
+                        return defaultNodeId;
+                    }
+
+                    @Override
+                    public Class getNodeComponentDefinition() {
+                        return P2pSim.class;
+                    }
+
+                    @Override
+                    public P2pSimulatorInit getNodeComponentInit(VodAddress statusServer) {
+                        return new P2pSimulatorInit(nodeAddress, statusServer, croupierConfig, GradientConfiguration.build(), SearchConfiguration.build()
+                                                    , ElectionConfiguration.build(), ChunkManagerConfiguration.build());
+                    }
+                };
+            }
     };
     
     // Instantiate Peers.
@@ -77,17 +90,17 @@ public class SweepOperations {
                 
                 @Override
                 public DirectMsg getNetworkMsg(VodAddress origin) {
-                    logger.info("Trying to fetch the network message .... ");
-                    logger.info("Origin : " + origin.toString());
-                    logger.info("My Node Address : " + nodeAddress.toString());
-                            
+                    logger.debug("Peer join operation invoked for Id -> " + peerId);
                     return new PeerJoinP2pSimulated.Request(origin, nodeAddress, peerId);
                 }
 
                 @Override
                 public void beforeCmd(SimulationContext simulationContext) {
-                    // Executed before the command is executed.
-                    logger.info("Executing command to start peer with Id: " + peerId);
+                }
+
+                @Override
+                public boolean myResponse(DirectMsg response) {
+                    return true;
                 }
 
                 @Override
@@ -101,6 +114,41 @@ public class SweepOperations {
                 }
             };
             
+        }
+    };
+    
+    
+    public static Operation1<NetworkOpCmd,Long> addIndexEntryCommand = new Operation1<NetworkOpCmd, Long>() {
+        @Override
+        public NetworkOpCmd generate(final Long id) {
+            
+            return new NetworkOpCmd() {
+                @Override
+                public DirectMsg getNetworkMsg(VodAddress origin) {
+                    logger.debug("Add Index Entry id invoked for id -> " + id);
+                    return new IndexEntryP2pSimulated.Request(origin, nodeAddress, id);
+                }
+
+                @Override
+                public void beforeCmd(SimulationContext context) {
+
+                }
+
+                @Override
+                public boolean myResponse(DirectMsg response) {
+                    return true;
+                }
+
+                @Override
+                public void validate(SimulationContext context, DirectMsg response) throws ValidationException {
+
+                }
+
+                @Override
+                public void afterValidation(SimulationContext context) {
+
+                }
+            };
         }
     };
 

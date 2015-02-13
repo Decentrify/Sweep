@@ -1,5 +1,7 @@
 package se.sics.ms.simulator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
 import se.sics.cm.ChunkManager;
 import se.sics.cm.ChunkManagerConfiguration;
@@ -58,6 +60,7 @@ public final class SearchSimulator extends ComponentDefinition {
     static String[] objects = {"computer", "java", "video"};
     Random r = new Random(System.currentTimeMillis());
     int counter =0;
+    Logger logger = LoggerFactory.getLogger(SearchSimulator.class);
 
     public SearchSimulator(SearchSimulatorInit init) {
         peers = new HashMap<Long, Component>();
@@ -174,10 +177,9 @@ public final class SearchSimulator extends ComponentDefinition {
     Handler<PeerJoin> handlePeerJoin = new Handler<PeerJoin>() {
         @Override
         public void handle(PeerJoin event) {
-
-            System.out.println(" Handle Peer Join Received. ");
+            
             Long id = event.getPeerId();
-
+            logger.info(" Handle Peer Join Received for id -> " + id);
             // join with the next id if this id is taken
             Long successor = ringNodes.getNode(id);
 
