@@ -14,6 +14,9 @@ import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 import se.sics.kompics.simulation.SimulatorScheduler;
 
 import java.io.IOException;
+import se.sics.ms.configuration.MsConfig;
+import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 
 public final class SearchSimulationMain extends ComponentDefinition {
 
@@ -50,8 +53,13 @@ public final class SearchSimulationMain extends ComponentDefinition {
         // TODO - check that this is the correct seed being passed to the KingLatencyMap
         Component p2pSimulator = create(P2pSimulator.class, new P2pSimulatorInit(simulatorScheduler,
                 scenario, new KingLatencyMap(croupierConfig.getSeed())));
+        //TODO Alex/Croupier get croupier selection policy from settings
+        CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
+        CroupierConfig newCroupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
+                MsConfig.CROUPIER_SHUFFLE_PERIOD, hardcodedPolicy);
+
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
-                croupierConfig,
+                newCroupierConfig,
                 GradientConfiguration.build(),
                 SearchConfiguration.build(),
                 ElectionConfiguration.build(),
@@ -61,6 +69,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
         connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
         connect(simulator.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
         connect(simulator.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
-    
+
     }
 }

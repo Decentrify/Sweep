@@ -4,13 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
-import se.sics.gvod.common.Self;
-import se.sics.gvod.common.SelfImpl;
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.croupier.PeerSamplePort;
-import se.sics.gvod.croupier.events.CroupierSample;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -21,8 +16,6 @@ import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
-import se.sics.ms.gradient.control.CheckPartitionInfoHashUpdate;
-import se.sics.ms.gradient.control.ControlMessageEnum;
 import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.misc.UtilityComparator;
@@ -34,18 +27,17 @@ import se.sics.ms.gradient.ports.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
-import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
-import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 
 import java.security.PublicKey;
 import java.util.*;
 
-import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
+import se.sics.p2ptoolbox.croupier.api.CroupierPort;
+import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 
 /**
  * Component creating a gradient network from Croupier samples according to a
@@ -54,7 +46,7 @@ import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 public final class Gradient extends ComponentDefinition {
 
     private static final Logger logger = LoggerFactory.getLogger(Gradient.class);
-    Positive<PeerSamplePort> croupierSamplePort = positive(PeerSamplePort.class);
+    Positive<CroupierPort> croupierSamplePort = positive(CroupierPort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
@@ -424,7 +416,8 @@ public final class Gradient extends ComponentDefinition {
     final Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
-            List<SearchDescriptor> sample = SearchDescriptor.toSearchDescriptorList(event.getNodes());
+            //TODO Alex/Croupier - extract SearchDescriptor - which should pe a PeerView - you probably want both public and private
+            List<SearchDescriptor> sample = new ArrayList<SearchDescriptor>();
             List<SearchDescriptor> updatedSample = new ArrayList<SearchDescriptor>();
 
             if ((self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)) {

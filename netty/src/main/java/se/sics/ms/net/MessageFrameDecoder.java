@@ -13,6 +13,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.ms.messages.*;
+import se.sics.p2ptoolbox.serialization.serializer.SerializerAdapter;
 
 /**
  *
@@ -66,6 +67,9 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
 
     //Chunked message to fragment big messages
     public static final byte CHUNKED_MESSAGE  = -0x05;
+    
+    public static final byte CROUPIER_REQUEST = -0x06;
+    public static final byte CROUPIER_RESPONSE = -0x07;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -171,7 +175,12 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             //Chunked message to fragment big messages
             case CHUNKED_MESSAGE:
                 return ChunkedMessageFactory.fromBuffer(buffer);
-
+            case CROUPIER_REQUEST:
+                SerializerAdapter.Request requestS = new SerializerAdapter.Request();
+                return requestS.decodeMsg(buffer);
+            case CROUPIER_RESPONSE:
+                SerializerAdapter.Response responseS = new SerializerAdapter.Response();
+                return responseS.decodeMsg(buffer);
             default:
                 break;
         }
