@@ -14,6 +14,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.ms.croupier.CroupierEncodeDecode;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -46,6 +47,7 @@ import se.sics.p2ptoolbox.croupier.api.msg.CroupierJoin;
 import se.sics.p2ptoolbox.croupier.core.Croupier;
 import se.sics.p2ptoolbox.croupier.core.Croupier.CroupierInit;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.serialization.filter.OverlayHeaderFilter;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -121,8 +123,12 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, electionFollower.getNegative(Timer.class));
         connect(timer, chunkManager.getNegative(Timer.class));
 
+        // Attach search and gradient with croupier.
         connect(croupier.getPositive(CroupierPort.class),
                 gradient.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class),
+                search.getNegative(CroupierPort.class));
+        
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
 
         connect(gradient.getNegative(PublicKeyPort.class),
@@ -171,7 +177,7 @@ public final class SearchPeer extends ComponentDefinition {
         log.info("connecting croupier components...");
         croupier = create(Croupier.class, new CroupierInit(config, seed, 0, self.getAddress()));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(natTraversal.getPositive(VodNetwork.class), croupier.getNegative(VodNetwork.class));
+        connect(natTraversal.getPositive(VodNetwork.class), croupier.getNegative(VodNetwork.class), new OverlayHeaderFilter(0));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
@@ -181,25 +187,22 @@ public final class SearchPeer extends ComponentDefinition {
 
         @Override
         public void handle(CroupierDisconnected event) {
-            log.error("croupier disconnected");
-            System.exit(-1);
+            log.error("croupier disconnected .. ");
         }
 
     };
 
     private void startCroupier() {
-        log.info("starting croupier...");
-        trigger(Start.event, croupier.control());
         
         log.info("bootstrapping croupier...");
-        if (bootstrapingNode != null) {
-            log.error("no bootstrap node");
-            System.exit(-1);
-        }
-        Set<VodAddress> bootstrapingSet = new HashSet<VodAddress>();
-        bootstrapingSet.add(bootstrapingNode);
-        trigger(new CroupierJoin(UUID.randomUUID(), bootstrapingSet), croupier.getPositive(CroupierPort.class));
+        Set<VodAddress> bootstrappingSet = new HashSet<VodAddress>();
         
+        // Update Set if bootstrap node is not null.
+        if (bootstrapingNode != null && !self.getAddress().equals(bootstrapingNode)) {
+            bootstrappingSet.add(bootstrapingNode);
+        }
+        
+        trigger(new CroupierJoin(UUID.randomUUID(), bootstrappingSet), croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting croupier view update next");
     }
 

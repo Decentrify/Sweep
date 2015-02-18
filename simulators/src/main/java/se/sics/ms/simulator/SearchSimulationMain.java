@@ -43,8 +43,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
 
         VodConfig.init(new String[0]);
 
-//        CroupierConfiguration croupierConfig =
-//                (CroupierConfiguration) AbstractConfiguration.load(CroupierConfiguration.class);
         CroupierConfiguration croupierConfig = CroupierConfiguration.build()
                 .setRto(3000)
                 .setRtoRetries(2)
@@ -56,7 +54,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
         //TODO Alex/Croupier get croupier selection policy from settings
         CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
         CroupierConfig newCroupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
-                MsConfig.CROUPIER_SHUFFLE_PERIOD, hardcodedPolicy);
+                MsConfig.CROUPIER_SHUFFLE_LENGTH, hardcodedPolicy);
 
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
                 newCroupierConfig,

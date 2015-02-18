@@ -27,6 +27,8 @@ import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.ms.net.MessageFrameDecoder;
+import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.serializer.SearchDescriptorSerializer;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 import se.sics.p2ptoolbox.croupier.core.CroupierSetup;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
@@ -63,9 +65,10 @@ public class CroupierEncodeDecode {
             context.multiplexAlias(CroupierConfig.OtherAliases.HEADER_FIELD.toString(), OverlayHeaderField.class, (byte)0x01);
             
             context.registerAlias(CroupierConfig.OtherAliases.PEER_VIEW.aliasedClass, CroupierConfig.OtherAliases.PEER_VIEW.toString(), PEER_VIEW);
-            //TODO Alex/Croupier register your PeerView and PeerView Serializer here - you can have more than one, just give them different ids, but each croupier overlay can only aexchange one type of PeerView
-//            context.registerSerializer(PeerViewA.class, new PeerViewASerializer());
-//            context.multiplexAlias(CroupierConfig.OtherAliases.PEER_VIEW.toString(), PeerViewA.class, (byte)0x01);
+            //TODO Alex/Croupier register your PeerView and PeerView Serializer here - you can have more than one, just give them different ids, but each croupier overlay can only exchange one type of PeerView
+            // Registering the serializer with croupier.
+            context.registerSerializer(SearchDescriptor.class, new SearchDescriptorSerializer());
+            context.multiplexAlias(CroupierConfig.OtherAliases.PEER_VIEW.toString(), SearchDescriptor.class, (byte)0x01);
             
             context.registerSerializer(UUID.class, new UUIDSerializer());
             context.registerSerializer(VodAddress.class, new VodAddressSerializer());

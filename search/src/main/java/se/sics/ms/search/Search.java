@@ -60,6 +60,8 @@ import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.croupier.api.CroupierPort;
+import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -97,7 +99,8 @@ public final class Search extends ComponentDefinition {
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
-
+    Positive<CroupierPort> croupierPortPositive  = requires(CroupierPort.class);
+    
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
     private SearchConfiguration config;
@@ -383,11 +386,16 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
-            // TODO move time to own config instead of using the gradient period
+            // TODO move time to own config instead of using the gradient period. IndexHashExchangePeriod.
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
             rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
 
+            // Bootup the croupier with default configuration.
+            logger.warn(" Trigger Initial Croupier Update for Id: " + self.getAddress().getId());
+            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false,0,0));
+            trigger(initialCroupierBootupUpdate,croupierPortPositive);
+            
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new ControlMessageExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
@@ -1932,7 +1940,6 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
-        //logger.warn("Adding Index Entry: " + entry.getId());
         Document doc = new Document();
         doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
         doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
@@ -1978,7 +1985,11 @@ public final class Search extends ComponentDefinition {
 
         addIndexEntry(index, indexEntry);
         self.incrementNumberOfIndexEntries();
+        
+        // Inform other components about the IndexEntry Update.
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
+        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
+        
         Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
@@ -2899,7 +2910,9 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
             boolean partition = determineYourPartitionAndUpdatePartitionsNumberUpdated(update.getPartitioningTypeInfo());
             removeEntriesNotFromYourPartition(update.getMedianId(), partition);
 
+            // Inform other components about the update.
             trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
+            trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
         }

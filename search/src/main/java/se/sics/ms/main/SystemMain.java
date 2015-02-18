@@ -132,10 +132,27 @@ public class SystemMain extends ComponentDefinition {
 
                             natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
 
-                            //TODO Alex/Croupier get croupier selection policy from settings
-                            CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
+                            //TODO Alex/Croupier get croupier selection policy from settings.
+                            
+                            CroupierSelectionPolicy croupierPolicy;
+                            
+                            switch(MsConfig.CROUPIER_SELECTION_POLICY) {
+                                
+                                case HEALER: croupierPolicy = CroupierSelectionPolicy.HEALER;
+                                    break;
+                                
+                                case RANDOM: croupierPolicy = CroupierSelectionPolicy.RANDOM;
+                                    break;
+                                
+                                case TAIL: croupierPolicy = CroupierSelectionPolicy.TAIL;
+                                    break;
+                                
+                                default :
+                                    croupierPolicy = CroupierSelectionPolicy.HEALER;
+                            }
+                            
                             CroupierConfig croupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
-                                    MsConfig.CROUPIER_SHUFFLE_PERIOD, hardcodedPolicy);
+                                    MsConfig.CROUPIER_SHUFFLE_LENGTH, croupierPolicy);
                             searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
                                             SearchConfiguration.build(), GradientConfiguration.build(),
                                             ElectionConfiguration.build(), ChunkManagerConfiguration.build(),

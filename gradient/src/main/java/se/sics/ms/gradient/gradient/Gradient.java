@@ -38,6 +38,8 @@ import java.util.*;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
+import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
+import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 /**
  * Component creating a gradient network from Croupier samples according to a
@@ -420,6 +422,9 @@ public final class Gradient extends ComponentDefinition {
             List<SearchDescriptor> sample = new ArrayList<SearchDescriptor>();
             List<SearchDescriptor> updatedSample = new ArrayList<SearchDescriptor>();
 
+            checkInstanceAndAdd(SearchDescriptor.class, sample, event.publicSample);
+            checkInstanceAndAdd(SearchDescriptor.class, sample, event.privateSample);
+            
             if ((self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)) {
                 boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
                 if (!isOnePartition) {
@@ -453,6 +458,7 @@ public final class Gradient extends ComponentDefinition {
             }
 
             incrementRoutingTableAge();
+            // FIXME: Switch on the adding of entries in the table, once the croupier is fixed ?
 //            addRoutingTableEntries(sample);
             if(self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE)
                 addRoutingTableEntries(updatedSample);
@@ -475,7 +481,7 @@ public final class Gradient extends ComponentDefinition {
             }
 
             //Merge croupier sample to have quicker convergence of gradient
-            //gradientView.merge(updatedSample);
+            gradientView.merge(updatedSample);
 
             // Shuffle with one sample from our partition
             if (updatedSample.size() > 0) {
@@ -484,6 +490,18 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+    
+    
+    private <T extends PeerView> void checkInstanceAndAdd(Class<T> classType, List<T> baseList, List<CroupierPeerView> sampleList){
+        
+        for(CroupierPeerView croupierPeerView : sampleList){
+            
+            if((classType).isInstance(croupierPeerView.pv)){
+                baseList.add((T)croupierPeerView.pv);
+            }
+        }
+    }
+    
 
     private void incrementRoutingTableAge() {
         for (Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap : routingTable.values()) {
@@ -1101,7 +1119,7 @@ public final class Gradient extends ComponentDefinition {
         public void handle(SelfChangedPort.SelfChangedEvent event) {
 
             MsSelfImpl oldSelf = self;
-            self = event.getSelf();
+            self = event.getSelf().clone();
             gradientView.setSelf(self);
 
             if(oldSelf.getPartitionIdDepth() < self.getPartitionIdDepth()) {
@@ -1119,7 +1137,6 @@ public final class Gradient extends ComponentDefinition {
 
         }
         sb.append("}");
-
         logger.warn(compName + sb);
     }
 
