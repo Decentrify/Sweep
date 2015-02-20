@@ -2,6 +2,7 @@ package se.sics.ms.types;
 
 import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
+import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -11,8 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Created by alidar on 8/11/14.
  */
-public class
-        SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable {
+public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, PeerView {
 
     private int age;
     private transient boolean connected;
@@ -22,6 +22,7 @@ public class
     private int receivedPartitionDepth;
 
     //// Conversion functions
+    // FIXME: Do we still need VodDescriptor. If not Fix it. ?
     public static VodDescriptor toVodDescriptor(SearchDescriptor searchDescriptor) {
         VodDescriptor descriptor = new VodDescriptor(searchDescriptor.getVodAddress(), searchDescriptor.getNumberOfIndexEntries());
         descriptor.setAge(searchDescriptor.getAge());
@@ -80,6 +81,10 @@ public class
     // Convenience Constructor to create the SearchDescriptor from the VodDescriptor and use same Partitioning Depth.
     public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries){
         this(overlayAddress, age, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
+    }
+
+    public SearchDescriptor(SearchDescriptor descriptor){
+        this(descriptor.getOverlayAddress(), descriptor.getAge(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.getReceivedPartitionDepth());
     }
 
     public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth){
@@ -193,5 +198,10 @@ public class
 
     public void setReceivedPartitionDepth(int receivedPartitionDepth) {
         this.receivedPartitionDepth = receivedPartitionDepth;
+    }
+    
+    @Override
+    public SearchDescriptor deepCopy() {
+        return new SearchDescriptor(this.getOverlayAddress(), this.getAge() , this.isConnected(), this.getNumberOfIndexEntries(), this.getReceivedPartitionDepth());
     }
 }

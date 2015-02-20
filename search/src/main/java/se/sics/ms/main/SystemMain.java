@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package se.sics.ms.main;
 
 import java.io.IOException;
@@ -44,11 +43,14 @@ import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.croupier.CroupierEncodeDecode;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
+import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 
 /**
  *
@@ -70,6 +72,7 @@ public class SystemMain extends ComponentDefinition {
     private int bindCount = 0; //
 
     public static class PsPortBindResponse extends PortBindResponse {
+
         public PsPortBindResponse(PortBindRequest request) {
             super(request);
         }
@@ -79,7 +82,9 @@ public class SystemMain extends ComponentDefinition {
 
         myComp = this;
         subscribe(handleStart, control);
-
+        
+        CroupierEncodeDecode.init();
+        
         resolveIp = create(ResolveIp.class, Init.NONE);
         timer = create(JavaTimer.class, Init.NONE);
         bootstrapAddress = MsConfig.getBootstrapServer();
@@ -94,41 +99,64 @@ public class SystemMain extends ComponentDefinition {
                     resolveIp.getPositive(ResolveIpPort.class));
         }
     };
-    private Handler<PsPortBindResponse> handlePsPortBindResponse =
-            new Handler<PsPortBindResponse>() {
+    private Handler<PsPortBindResponse> handlePsPortBindResponse
+            = new Handler<PsPortBindResponse>() {
                 @Override
                 public void handle(PsPortBindResponse event) {
 
                     if (event.getStatus() != PortBindResponse.Status.SUCCESS) {
                         logger.warn("Couldn't bind to port {}. Either another instance of the program is"
-                                        + "already running, or that port is being used by a different program. Go"
-                                        + "to settings to change the port in use. Status: ", event.getPort(),
+                                + "already running, or that port is being used by a different program. Go"
+                                + "to settings to change the port in use. Status: ", event.getPort(),
                                 event.getStatus());
                         Kompics.shutdown();
                         System.exit(-1);
                     } else {
 
                         bindCount++;
-                        if(bindCount == 2) { //if both UDP and TCP ports have successfully binded.
+                        if (bindCount == 2) { //if both UDP and TCP ports have successfully binded.
                             self = new MsSelfImpl(ToVodAddr.systemAddr(myAddr));
 
                             Set<Address> publicNodes = new HashSet<Address>();
                             try {
 //                                InetAddress inet = InetAddress.getByName(publicBootstrapNode);
-                                if(bootstrapAddress != null)
+                                if (bootstrapAddress != null) {
                                     publicNodes.add(bootstrapAddress);
-                                else
+                                } else {
                                     throw new UnknownHostException("Bootstrap address unknown.");
+                                }
 
                             } catch (UnknownHostException ex) {
                                 java.util.logging.Logger.getLogger(SystemMain.class.getName()).log(Level.SEVERE, null, ex);
                             }
 
                             natTraverser = create(NatTraverser.class, new NatTraverserInit(self, publicNodes, MsConfig.getSeed()));
-                            searchPeer = create(SearchPeer.class, new SearchPeerInit(self, CroupierConfiguration.build(),
-                                    SearchConfiguration.build(), GradientConfiguration.build(),
-                                    ElectionConfiguration.build(), ChunkManagerConfiguration.build(),
-                                    ToVodAddr.bootstrap(bootstrapAddress)));
+
+                            //TODO Alex/Croupier get croupier selection policy from settings.
+                            
+                            CroupierSelectionPolicy croupierPolicy;
+                            
+                            switch(MsConfig.CROUPIER_SELECTION_POLICY) {
+                                
+                                case HEALER: croupierPolicy = CroupierSelectionPolicy.HEALER;
+                                    break;
+                                
+                                case RANDOM: croupierPolicy = CroupierSelectionPolicy.RANDOM;
+                                    break;
+                                
+                                case TAIL: croupierPolicy = CroupierSelectionPolicy.TAIL;
+                                    break;
+                                
+                                default :
+                                    croupierPolicy = CroupierSelectionPolicy.HEALER;
+                            }
+                            
+                            CroupierConfig croupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
+                                    MsConfig.CROUPIER_SHUFFLE_LENGTH, croupierPolicy);
+                            searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
+                                            SearchConfiguration.build(), GradientConfiguration.build(),
+                                            ElectionConfiguration.build(), ChunkManagerConfiguration.build(),
+                                            ToVodAddr.bootstrap(bootstrapAddress)));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
@@ -136,9 +164,11 @@ public class SystemMain extends ComponentDefinition {
                             connect(natTraverser.getNegative(VodNetwork.class), network.getPositive(VodNetwork.class));
                             connect(natTraverser.getNegative(NatNetworkControl.class), network.getPositive(NatNetworkControl.class));
 
-                            /** Filter not working for some reason so commenting it.**/
+                            /**
+                             * Filter not working for some reason so commenting
+                             * it.*
+                             */
 //                            connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class),new MsgDestFilterAddress(myAddr));
-
                             connect(network.getPositive(VodNetwork.class), searchPeer.getNegative(VodNetwork.class));
                             connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class),
                                     new IndividualTimeout.IndividualTimeoutFilter(myAddr.getId()));
@@ -165,12 +195,13 @@ public class SystemMain extends ComponentDefinition {
             InetAddress localIp = event.getIpAddress();
 
             logger.info("My Local Ip Address returned from ResolveIp is:  " + localIp.getHostName());
-            if(localIp.getHostName().equals(bootstrapAddress.getIp().getHostName()))
+            if (localIp.getHostName().equals(bootstrapAddress.getIp().getHostName())) {
                 myId = 0;
+            }
 
             // Bind Udt and Udp on separate ports in the system for now.
             myAddr = new Address(localIp, MsConfig.getPort(), myId);
-            Address myUdtAddr = new Address(localIp, myAddr.getPort()+1, myId);
+            Address myUdtAddr = new Address(localIp, myAddr.getPort() + 1, myId);
 
             network = create(NettyNetwork.class, new NettyInit(MsConfig.getSeed(), true, MessageFrameDecoder.class));
 
@@ -183,7 +214,6 @@ public class SystemMain extends ComponentDefinition {
             bindPort(Transport.UDT, myUdtAddr);
         }
     };
-
 
     void bindPort(Transport transport, Address address) {
 

@@ -37,6 +37,7 @@ import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 
 public final class SearchSimulator extends ComponentDefinition {
 
@@ -45,7 +46,7 @@ public final class SearchSimulator extends ComponentDefinition {
     Positive<Timer> timer = positive(Timer.class);
     private final HashMap<Long, Component> peers;
     private final HashMap<Long, VodAddress> peersAddress;
-    private CroupierConfiguration croupierConfiguration;
+    private CroupierConfig croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
     private ElectionConfiguration electionConfiguration;
@@ -74,10 +75,11 @@ public final class SearchSimulator extends ComponentDefinition {
         gradientConfiguration = init.getGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
-        identifierSpaceSize = croupierConfiguration.getRto();
+        //TODO Alex/Croupier - what is this exactly? it was set to 3000 before
+        identifierSpaceSize = new Long(3000);
 
         // TODO - is this the correct seed??!?
-        ipGenerator = AsIpGenerator.getInstance(init.getCroupierConfiguration().getSeed());
+        ipGenerator = AsIpGenerator.getInstance(init.getGradientConfiguration().getSeed());
         
         subscribe(handleStart, control);
         subscribe(handleGenerateReport, timer);
