@@ -9,8 +9,11 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.simulator.P2pSim;
 import se.sics.ms.simulator.P2pSimulatorInit;
+import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
@@ -56,10 +59,9 @@ public class SweepOperations {
                 return new StartNodeCmd<P2pSim>() {
 
 
-                    CroupierConfiguration croupierConfig = CroupierConfiguration.build()
-                            .setRto(3000)
-                            .setRtoRetries(2)
-                            .setRtoScale(1.0d);
+                    CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
+                    CroupierConfig croupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
+                            MsConfig.CROUPIER_SHUFFLE_LENGTH, hardcodedPolicy);
 
                     @Override
                     public Integer getNodeId() {

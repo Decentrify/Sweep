@@ -7,6 +7,7 @@ import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 
 /**
  * Created by babbarshaer on 2015-02-04.
@@ -18,7 +19,7 @@ public class P2pSimulatorInit extends Init<P2pSim>{
     private final VodAddress self;
     private final VodAddress statusServer;
 
-    private final CroupierConfiguration croupierConfiguration;
+    private final CroupierConfig croupierConfiguration;
     private final GradientConfiguration gradientConfiguration;
     private final SearchConfiguration searchConfiguration;
     private final ElectionConfiguration electionConfiguration;
@@ -26,7 +27,7 @@ public class P2pSimulatorInit extends Init<P2pSim>{
 
 
 
-    public P2pSimulatorInit(VodAddress self, VodAddress statusServer, CroupierConfiguration croupierConfiguration, GradientConfiguration gradientConfiguration,
+    public P2pSimulatorInit(VodAddress self, VodAddress statusServer, CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
                                SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration,
                                ChunkManagerConfiguration chunkManagerConfiguration) {
         super();
@@ -43,7 +44,7 @@ public class P2pSimulatorInit extends Init<P2pSim>{
         return searchConfiguration;
     }
 
-    public CroupierConfiguration getCroupierConfiguration() {
+    public CroupierConfig getCroupierConfiguration() {
         return this.croupierConfiguration;
     }
 

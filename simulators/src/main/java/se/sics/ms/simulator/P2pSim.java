@@ -26,6 +26,7 @@ import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -44,14 +45,13 @@ public class P2pSim extends ComponentDefinition{
     private VodAddress self;
     private HashMap<Long, Component> peers;
     private HashMap<Long, VodAddress> peersAddress;
-    private CroupierConfiguration croupierConfiguration;
+    private CroupierConfig croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
     private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
-    private AsIpGenerator ipGenerator;
     private MagnetFileIterator magnetFiles;
     static String[] articles = {" ", "The ", "QueryLimit "};
     static String[] verbs = {"fires ", "walks ", "talks ", "types ", "programs "};
@@ -87,9 +87,7 @@ public class P2pSim extends ComponentDefinition{
         gradientConfiguration = init.getGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
-        identifierSpaceSize = croupierConfiguration.getRto();
-        ipGenerator = AsIpGenerator.getInstance(init.getCroupierConfiguration().getSeed());
-        
+        identifierSpaceSize = new Long(3000);
     }
     
     
