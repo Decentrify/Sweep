@@ -13,6 +13,7 @@ import org.apache.lucene.util.Version;
 import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.types.IndexEntry;
 
 import java.io.IOException;
 
@@ -194,6 +195,89 @@ public class LuceneTest {
                 reader.close();
         }
     }
+
+    /**
+     * Important test scenario, which tests the deletion pattern 
+     * during the partitioning.
+     * 
+     * ============================================================================
+     *  
+     *         epoch1               epoch2
+     * | ~~~~ Entries ~~~~~~ | ~~~~~~ Entries ~~~~~~ | ~~~~~~~~~~ Entries ~~~~~~~ |
+     *  
+     * ===========================================================================
+     * 
+     * Step1 : Identify the middle entry by taking the half of the total.
+     * Step2 : Clear of the entries to the left or the right of the middle entry.
+     * Step3 : When clearing the entries, leave the landing entries intact.
+     * STep4 : Test the remaining entries.
+     */
+    @Test
+    public void testPartitioningDeleteScenario() throws IOException {
+        
+        createFixedFormatIndexEntryTestData(_defaultEpoch, _defaultLeaderId, 0, 10);
+        createFixedFormatIndexEntryTestData(_defaultEpoch+2, _defaultLeaderId+2, 0, 5);
+        createFixedFormatIndexEntryTestData(_defaultEpoch+1, _defaultLeaderId+1, 0, 5);
+        
+        
+        // Epochs = 10,11,12;
+        // Number of Entries = 20;
+        // 3 leaders -> Distinct Landing entries = 3;
+        
+        logger.info("Before partitioning range query created.");
+        
+        // Epoch Range - |Start Epoch| - |My Epoch|. - In Normal Case Start Epoch always 0.
+        Query wholePartitionSearchQuery = NumericRangeQuery.newIntRange(EPOCH, 0, 15, true, true);
+        
+        logger.info(" Going to read number of entries. ");
+        IndexReader reader = null;
+        try{
+            reader = DirectoryReader.open(index);
+            int numDocs = reader.numDocs();
+            
+            
+            Double d = Math.ceil(numDocs/2);
+            int half = d.intValue();
+
+            SortField epochStoreField = new SortField(EPOCH, SortField.Type.INT);
+            SortField counterStoreField = new SortField(COUNTER, SortField.Type.INT);
+            Sort sort = new Sort(epochStoreField,counterStoreField);
+
+            logger.info("Sort Order Defined.");
+            IndexSearcher searcher  = new IndexSearcher(reader);
+            
+            // 3000 = number of results to return. (In sweep, max partitioning size.)
+            TopFieldDocs topFieldDocs = searcher.search(wholePartitionSearchQuery, 3000 , sort);
+            ScoreDoc[] sds = topFieldDocs.scoreDocs;
+            
+
+            int middleEntryDocID = sds[half].doc;
+            Document middleEntryDoc = searcher.doc(middleEntryDocID);
+            
+            int middleEntryEpoch = Integer.valueOf(middleEntryDoc.get(EPOCH));
+            int middleEntryCounter = Integer.valueOf(middleEntryDoc.get(COUNTER));
+            
+            Assert.assertEquals("Middle Entry EPOCH Comparison", new Integer(11), new Integer(middleEntryEpoch));
+            Assert.assertEquals("Middle Entry COUNTER Comparison", new Integer(0), new Integer(middleEntryCounter));
+        }
+        finally {
+            if(reader != null)
+                reader.close();
+        }
+        
+        
+        
+        
+        
+    }
+    
+    
+    
+    
+    
+    
+    
+    
 
 
     /**
