@@ -2,6 +2,9 @@ package se.sics.ms.common;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.search.*;
+import se.sics.ms.types.IndexEntry;
+
+import java.util.List;
 
 /**
  * Interface for the Lucene Access.
@@ -26,7 +29,7 @@ public interface LuceneAdaptor {
      * @return ScoreDocs
      * @throws LuceneAdaptorException
      */
-    public ScoreDoc[] searchDocumentsInLucene(Query query, TopDocsCollector collector) throws LuceneAdaptorException;
+    public void searchDocumentsInLucene(Query query, Collector collector) throws LuceneAdaptorException;
 
 
     /**
@@ -51,10 +54,50 @@ public interface LuceneAdaptor {
 
 
     /**
-     * Remove the documents from the Lucene.
+     * Remove the document from the Lucene.
      *
      * @param query Query used to identify documents to delete
      * @throws LuceneAdaptorException
      */
     public void deleteDocumentsFromLucene(Query query) throws LuceneAdaptorException;
+
+    /**
+     *  Remove the documents from Lucene.
+     * @param query Query to delete document from lucene.
+     * @throws LuceneAdaptorException
+     */
+    public void deleteDocumentsFromLucene(Query... query) throws LuceneAdaptorException;
+
+    /**
+     * Initial Empty Commit before index could be opened.
+     */
+    public void initialEmptyWriterCommit() throws LuceneAdaptorException;
+
+    /**
+     * Search for Index Entries in Lucene, based on the provided query and the collector instance.
+     *
+     * @param searchQuery query used to search.
+     * @param collector Collector supplied for query.
+     * @return List of Index Entries
+     * @throws LuceneAdaptorException
+     */
+    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException;
+
+
+    /**
+     * Search for Index Entries in Lucene, based on the provided query and the collector instance.
+     *
+     * @param searchQuery query used to search.
+     * @param sort Sort defined for search
+     * @param maxEntries maximum entries returned by Lucene.
+     * @return List of Index Entries
+     * @throws LuceneAdaptorException
+     */
+    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, Sort sort , int maxEntries) throws LuceneAdaptorException;
+
+    /**
+     * Clean all the data inside the Lucene Instance.
+     * @throws LuceneAdaptorException
+     */
+    public void wipeIndexData() throws LuceneAdaptorException;
 }

@@ -9,8 +9,11 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.types.IndexEntry;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Implementation Class for the Lucene Adaptor.
@@ -62,15 +65,13 @@ public class LuceneAdaptorImpl implements LuceneAdaptor {
     }
 
     @Override
-    public ScoreDoc[] searchDocumentsInLucene(Query query, TopDocsCollector collector) throws LuceneAdaptorException {
+    public void searchDocumentsInLucene(Query query, Collector collector) throws LuceneAdaptorException {
+        
         IndexReader reader = null;
-        ScoreDoc[] scds = new ScoreDoc[0];
         try {
             reader = DirectoryReader.open(directory);
             IndexSearcher searcher = new IndexSearcher(reader);
             searcher.search(query, collector);
-
-            scds = collector.topDocs().scoreDocs;
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -79,8 +80,6 @@ public class LuceneAdaptorImpl implements LuceneAdaptor {
 
             silentlyCloseReader(reader);
         }
-
-        return scds;
     }
 
     @Override
@@ -124,7 +123,7 @@ public class LuceneAdaptorImpl implements LuceneAdaptor {
         return size;
     }
 
-    
+
     @Override
     public void deleteDocumentsFromLucene(Query query) throws LuceneAdaptorException {
         
@@ -132,7 +131,7 @@ public class LuceneAdaptorImpl implements LuceneAdaptor {
         try {
             writer = new IndexWriter(directory,config);
             writer.deleteDocuments(query);
-            
+            writer.commit();
         } catch (IOException e) {
             e.printStackTrace();
             throw new LuceneAdaptorException(e.getMessage());
@@ -141,6 +140,113 @@ public class LuceneAdaptorImpl implements LuceneAdaptor {
             silentlyCloseWriter(writer);
         }
 
+    }
+
+    @Override
+    public void deleteDocumentsFromLucene(Query... query) throws LuceneAdaptorException {
+        
+        IndexWriter writer = null;
+        try {
+            writer = new IndexWriter(directory,config);
+            writer.deleteDocuments(query);
+            writer.commit();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally{
+            silentlyCloseWriter(writer);
+        }
+    }
+
+    @Override
+    public void initialEmptyWriterCommit() throws LuceneAdaptorException {
+        
+        IndexWriter writer = null;
+        try {
+            writer = new IndexWriter(directory,config);
+            writer.commit();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally {
+            silentlyCloseWriter(writer);
+        }
+
+    }
+
+    @Override
+    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException {
+        
+        IndexReader reader = null;
+        try{
+            reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            searcher.search(searchQuery, collector);
+            ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+            ArrayList<IndexEntry> result = new ArrayList<IndexEntry>();
+            for (int i = 0; i < hits.length; ++i) {
+                int docId = hits[i].doc;
+                Document d = searcher.doc(docId);
+                // Check to avoid duplicate index entries in the response.
+                IndexEntry entry = IndexEntry.IndexEntryHelper.createIndexEntry(d);
+                if(result.contains(entry))
+                    continue;
+                result.add(entry);
+            }
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally{
+            silentlyCloseReader(reader);
+        }
+    }
+
+    @Override
+    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, Sort sort, int maxEntries) throws LuceneAdaptorException {
+        IndexReader reader = null;
+        try{
+            reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopDocs docs = searcher.search(searchQuery, maxEntries, sort);
+            ScoreDoc[] hits = docs.scoreDocs;
+
+            ArrayList<IndexEntry> result = new ArrayList<IndexEntry>();
+            for (int i = 0; i < hits.length; ++i) {
+                int docId = hits[i].doc;
+                Document d = searcher.doc(docId);
+                IndexEntry entry = IndexEntry.IndexEntryHelper.createIndexEntry(d);
+                if(result.contains(entry))
+                    continue;
+                result.add(entry);
+            }
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally{
+            silentlyCloseReader(reader);
+        }
+    }
+
+    @Override
+    public void wipeIndexData() throws LuceneAdaptorException {
+        IndexWriter writer = null;
+        try {
+            writer = new IndexWriter(directory, config);
+            writer.deleteAll();
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        } finally {
+            silentlyCloseWriter(writer);
+        }
     }
 
 
