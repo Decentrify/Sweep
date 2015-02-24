@@ -43,6 +43,7 @@ public class P2pSim extends ComponentDefinition{
     Positive<VodNetwork> network = positive(VodNetwork.class);
     Positive<Timer> timer = positive(Timer.class);
     private VodAddress self;
+    private VodAddress simulatorAddress;
     private HashMap<Long, Component> peers;
     private HashMap<Long, VodAddress> peersAddress;
     private CroupierConfig croupierConfiguration;
@@ -77,6 +78,7 @@ public class P2pSim extends ComponentDefinition{
     private void doInit(P2pSimulatorInit init) {
         
         self = init.getSelf();
+        simulatorAddress = init.getSimulatorAddress();
         peers = new HashMap<Long, Component>();
         peersAddress = new HashMap<Long,VodAddress>();
         ringNodes = new ConsistentHashtable<Long>();
@@ -160,7 +162,7 @@ public class P2pSim extends ComponentDefinition{
 
         // Making connections.
         Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode));
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode, simulatorAddress));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));

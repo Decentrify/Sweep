@@ -245,7 +245,7 @@ public final class SearchSimulator extends ComponentDefinition {
                 PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode));
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode, null));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));

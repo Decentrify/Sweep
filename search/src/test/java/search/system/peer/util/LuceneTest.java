@@ -259,16 +259,20 @@ public class LuceneTest {
             
             Assert.assertEquals("Middle Entry EPOCH Comparison", new Integer(11), new Integer(middleEntryEpoch));
             Assert.assertEquals("Middle Entry COUNTER Comparison", new Integer(0), new Integer(middleEntryCounter));
+            
+            // == INFORMATION.
+            
+            // Once we have this information, the leader knowing that the middle entry is what,
+            // can direct other nodes in the leader group to perform partitioning if a particular fashion.
+            
+            // Only the information regarding the epoch and counter needs to be disseminated to the leader group.
+            // nothing else needs to be transferred to the leader group.
+
         }
         finally {
             if(reader != null)
                 reader.close();
         }
-        
-        
-        
-        
-        
     }
     
     

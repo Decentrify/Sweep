@@ -156,7 +156,7 @@ public class SystemMain extends ComponentDefinition {
                             searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
                                             SearchConfiguration.build(), GradientConfiguration.build(),
                                             ElectionConfiguration.build(), ChunkManagerConfiguration.build(),
-                                            ToVodAddr.bootstrap(bootstrapAddress)));
+                                            ToVodAddr.bootstrap(bootstrapAddress),null));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 

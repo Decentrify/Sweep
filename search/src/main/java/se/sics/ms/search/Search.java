@@ -32,6 +32,8 @@ import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
+import se.sics.ms.data.GradientStatusData;
+import se.sics.ms.data.SearchStatusData;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -50,6 +52,7 @@ import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
+import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
@@ -100,6 +103,7 @@ public final class Search extends ComponentDefinition {
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<CroupierPort> croupierPortPositive  = requires(CroupierPort.class);
+    Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
@@ -2914,7 +2918,8 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
             trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
             trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
+            
+//            trigger(new StatusAggregatorMessages.SearchUpdateEvent(new SearchStatusData()), statusAggregatorPortPositive);
         }
     }
 

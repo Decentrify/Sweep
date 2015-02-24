@@ -17,7 +17,7 @@ import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 public class P2pSimulatorInit extends Init<P2pSim>{
 
     private final VodAddress self;
-    private final VodAddress statusServer;
+    private final VodAddress simulatorAddress;
 
     private final CroupierConfig croupierConfiguration;
     private final GradientConfiguration gradientConfiguration;
@@ -27,12 +27,12 @@ public class P2pSimulatorInit extends Init<P2pSim>{
 
 
 
-    public P2pSimulatorInit(VodAddress self, VodAddress statusServer, CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
+    public P2pSimulatorInit(VodAddress self, VodAddress simulatorAddress, CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
                                SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration,
                                ChunkManagerConfiguration chunkManagerConfiguration) {
         super();
         this.self = self;
-        this.statusServer = statusServer;
+        this.simulatorAddress = simulatorAddress;
         this.croupierConfiguration = croupierConfiguration;
         this.gradientConfiguration = gradientConfiguration;
         this.searchConfiguration = aggregationConfiguration;
@@ -62,5 +62,9 @@ public class P2pSimulatorInit extends Init<P2pSim>{
 
     public VodAddress getSelf(){
         return this.self;
+    }
+    
+    public VodAddress getSimulatorAddress(){
+        return this.simulatorAddress;
     }
 }

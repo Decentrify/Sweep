@@ -18,12 +18,13 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfiguration chunkManagerConfiguration;
     private final VodAddress bootstrappingNode;
+    private final VodAddress simulatorAddress;
 
     public SearchPeerInit(Self self,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration gradientConfiguration, ElectionConfiguration electionConfiguration,
             ChunkManagerConfiguration chunkManagerConfiguration,
-            VodAddress bootstrappingNode) {
+            VodAddress bootstrappingNode, VodAddress simulatorAddress) {
         super();
         this.self = self;
         this.croupierConfiguration = croupierConfiguration;
@@ -32,6 +33,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.bootstrappingNode = bootstrappingNode;
+        this.simulatorAddress = simulatorAddress;
     }
 
     public Self getSelf() {
@@ -60,5 +62,9 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 
     public ChunkManagerConfiguration getChunkManagerConfiguration() {
         return chunkManagerConfiguration;
+    }
+    
+    public VodAddress getSimulatorAddress(){
+        return this.simulatorAddress;
     }
 }

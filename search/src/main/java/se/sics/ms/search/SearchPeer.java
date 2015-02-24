@@ -14,6 +14,8 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.ms.common.StatusAggregator;
+import se.sics.ms.common.StatusAggregatorInit;
 import se.sics.ms.croupier.CroupierEncodeDecode;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
@@ -31,6 +33,7 @@ import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
+import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -60,8 +63,9 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
-    private Component gradient, search, electionLeader, electionFollower, natTraversal, chunkManager;
+    private Component gradient, search, electionLeader, electionFollower, natTraversal, chunkManager, aggregatorComponent;
     private Self self;
+    private VodAddress simulatorAddress;
     private SearchConfiguration searchConfiguration;
 
     private GradientConfiguration gradientConfiguration;
@@ -72,6 +76,7 @@ public final class SearchPeer extends ComponentDefinition {
     public SearchPeer(SearchPeerInit init) {
 
         self = init.getSelf();
+        simulatorAddress = init.getSimulatorAddress();
         gradientConfiguration = init.getGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
         searchConfiguration = init.getSearchConfiguration();
@@ -103,6 +108,8 @@ public final class SearchPeer extends ComponentDefinition {
         chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration,
                 MessageFrameDecoder.class));
 
+        // New aggregator component, providing system overview.
+        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(simulatorAddress, self.getAddress(), 5000));
         connect(network, natTraversal.getNegative(VodNetwork.class));
 
         connect(natTraversal.getPositive(VodNetwork.class),
@@ -115,14 +122,22 @@ public final class SearchPeer extends ComponentDefinition {
                 electionFollower.getNegative(VodNetwork.class));
         connect(natTraversal.getPositive(VodNetwork.class),
                 chunkManager.getNegative(VodNetwork.class));
-
+        connect(natTraversal.getPositive(VodNetwork.class), 
+                aggregatorComponent.getNegative(VodNetwork.class));
+        
+        // Other Components and Aggregator Component.
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), 
+                search.getNegative(StatusAggregatorPort.class));
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
+                gradient.getNegative(StatusAggregatorPort.class));
+        
         connect(timer, natTraversal.getNegative(Timer.class));
         connect(timer, search.getNegative(Timer.class));
         connect(timer, gradient.getNegative(Timer.class));
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(timer, electionFollower.getNegative(Timer.class));
         connect(timer, chunkManager.getNegative(Timer.class));
-
+        connect(timer, aggregatorComponent.getNegative(Timer.class));
         // Attach search and gradient with croupier.
         connect(croupier.getPositive(CroupierPort.class),
                 gradient.getNegative(CroupierPort.class));
