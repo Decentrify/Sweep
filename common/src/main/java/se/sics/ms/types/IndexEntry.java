@@ -1,9 +1,17 @@
 package se.sics.ms.types;
 
+import org.apache.lucene.document.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.apache.commons.codec.binary.Base64;
 import se.sics.ms.configuration.MsConfig;
 
 import java.io.Serializable;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
 
 /**
@@ -199,4 +207,72 @@ public class IndexEntry implements Serializable {
         result = 31 * result + (leaderId != null ? leaderId.hashCode() : 0);
         return result;
     }
+
+
+    /**
+     * Helper class for the index entry addition.
+     */
+    public static class IndexEntryHelper{
+        
+        private static Logger logger = LoggerFactory.getLogger(IndexEntryHelper.class);
+
+
+        /**
+         * Read the entries from the Lucene Document and create Index Entry.
+         * @param d Lucene Document
+         * @return Index Entry.
+         */
+        public static IndexEntry createIndexEntry(Document d){
+
+            String leaderId = d.get(IndexEntry.LEADER_ID);
+            if (leaderId.isEmpty())
+                return createIndexEntryInternal(d, null);
+
+            KeyFactory keyFactory;
+            PublicKey pub = null;
+            try {
+                keyFactory = KeyFactory.getInstance("RSA");
+                byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+                X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
+                pub = keyFactory.generatePublic(publicKeySpec);
+            } catch (NoSuchAlgorithmException e) {
+                logger.error(e.getMessage());
+            } catch (InvalidKeySpecException e) {
+                logger.error(e.getMessage());
+            }
+
+            return createIndexEntryInternal(d, pub);
+        }
+
+        /**
+         * Create Index Entry Internal.
+         * @param d lucene document.
+         * @param pub instance of public key.
+         * @return IndexEntry.
+         */
+        private static IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
+            IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
+                    Long.valueOf(d.get(IndexEntry.ID)),
+                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                    MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
+
+            String fileSize = d.get(IndexEntry.FILE_SIZE);
+            if(fileSize != null)
+                indexEntry.setFileSize(Long.valueOf(fileSize));
+
+            String uploadedDate = d.get(IndexEntry.UPLOADED);
+            if(uploadedDate != null)
+                indexEntry.setUploaded(new Date(Long.valueOf(uploadedDate)));
+
+            String language = d.get(IndexEntry.LANGUAGE);
+            if(language != null)
+                indexEntry.setLanguage(language);
+
+            return indexEntry;
+        }
+
+    }
+    
+    
 }

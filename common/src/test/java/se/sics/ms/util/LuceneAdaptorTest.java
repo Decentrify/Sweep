@@ -3,6 +3,7 @@ package se.sics.ms.util;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
@@ -78,21 +79,72 @@ public class LuceneAdaptorTest {
     public void luceneInstanceSizeTest() throws LuceneAdaptorException {
         
         logger.info("Initiating Lucene Instance Size Test.");
-        
+
         int _luceneInstanceSize = 10;
-        List<IndexEntry> testEntries = _createJunkIndexEntry(_luceneInstanceSize);
-        
-        for(IndexEntry entry : testEntries){
-            Document doc = _getDocumentForIndexEntry(entry);
-            logger.debug(doc.toString());
-            luceneAdaptor.addDocumentToLucene(doc);
-        }
+        _addEntriesToLucene(10);
         
         Assert.assertEquals("Matching instance size", _luceneInstanceSize, luceneAdaptor.getSizeOfLuceneInstance());
     }
     
     
+    @Test
+    public void indexEntrySearchTest() throws LuceneAdaptorException {
         
+        logger.info(" Initiated Index Entry Search Test");
+        
+        int _indexEntryListSize= 20;
+       _addEntriesToLucene(_indexEntryListSize);
+        
+        logger.debug(" Index entry write in lucene complete.");
+        logger.debug(" Constructing a search query.");
+
+        TopScoreDocCollector collector = TopScoreDocCollector.create(30, true);
+        Query searchQuery = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+        List<IndexEntry> fetchedIndexEntriesList = luceneAdaptor.searchIndexEntriesInLucene(searchQuery,collector);
+
+        Assert.assertEquals("Equal Size Lists Check", _indexEntryListSize , fetchedIndexEntriesList.size());
+        
+    }
+
+
+    @Test
+    public void minimumIndexEntryTest() throws LuceneAdaptorException {
+
+        logger.info("Minimum Index Entry ID Test.");
+
+        int _indexEntryListSize= 20;
+        _addEntriesToLucene(_indexEntryListSize);
+
+        logger.debug(" Index entry write in lucene complete.");
+        logger.debug(" Constructing a search query.");
+
+        Sort sort = new Sort(new SortField(IndexEntry.ID, SortField.Type.LONG));
+        Query searchQuery = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE , Long.MAX_VALUE, true, true);
+        List<IndexEntry> fetchedIndexEntriesList = luceneAdaptor.searchIndexEntriesInLucene(searchQuery, sort, 1);
+
+        Assert.assertEquals("Equal Size Lists Check", 1 , fetchedIndexEntriesList.size());
+        Assert.assertEquals("Minimum ID Check", new Long(0), fetchedIndexEntriesList.get(0).getId());
+
+    }
+
+
+    /**
+     * Helper Method to add entries in Index.
+     * @param  count
+     * @throws LuceneAdaptorException
+     */
+    private void _addEntriesToLucene(int count) throws LuceneAdaptorException {
+        
+        List<IndexEntry> indexEntries = _createJunkIndexEntry(count);
+
+        for(IndexEntry entry : indexEntries){
+            Document doc = _getDocumentForIndexEntry(entry);
+            logger.debug(doc.toString());
+            luceneAdaptor.addDocumentToLucene(doc);
+        }
+        
+    }
+    
 
     /**
      * For testing reasons create a list of junk index entries.
