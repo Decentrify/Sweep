@@ -38,9 +38,17 @@ public class PartitioningScenario extends Scenario {
                 }
             };
 
+            StochasticProcess searchEntries = new StochasticProcess() {{
+
+                eventInterArrivalTime(constant(300));
+                raise(1, Operations.search(), uniform(0, Integer.MAX_VALUE));
+
+            }};
+
 
             joinNodes.start();
             addEntries.startAfterTerminationOf(10000, joinNodes);
+//            searchEntries.startAfterTerminationOf(50000, addEntries);
 //            terminateProcess.startAfterTerminationOf(5000, addEntries);
         }
     };

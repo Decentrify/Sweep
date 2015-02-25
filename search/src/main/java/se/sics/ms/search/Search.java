@@ -5,9 +5,6 @@ import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.SortField.Type;
@@ -28,8 +25,7 @@ import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
-import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.common.TransportHelper;
+import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.data.GradientStatusData;
@@ -102,9 +98,9 @@ public final class Search extends ComponentDefinition {
     Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
-    Positive<CroupierPort> croupierPortPositive  = requires(CroupierPort.class);
+    Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
-    
+
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
     private SearchConfiguration config;
@@ -140,7 +136,7 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
 
-    private HashMap<PartitionHelper.PartitionInfo,TimeoutId> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, TimeoutId>();
+    private HashMap<PartitionHelper.PartitionInfo, TimeoutId> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, TimeoutId>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
@@ -152,16 +148,17 @@ public final class Search extends ComponentDefinition {
     private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
 
     private TimeoutId controlMessageExchangeRoundId;
-    private Map<VodAddress,TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<VodAddress, TimeoutId>();
+    private Map<VodAddress, TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<VodAddress, TimeoutId>();
     private Map<VodAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<VodAddress, PeerControlMessageRequestHolder>();
     private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
-    private int controlMessageResponseCount =0;
-    private static final int CONTROL_MESSAGE_ENUM_SIZE= 1;
+    private int controlMessageResponseCount = 0;
     private boolean partitionUpdateFetchInProgress = false;
     private TimeoutId currentPartitionInfoFetchRound;
 
     private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
     private static final int HISTORY_LENGTH = 5;
+    private LuceneAdaptor writeLuceneAdaptor;
+    private LuceneAdaptor searchRequestLuceneAdaptor;
 
     private class ExchangeRound extends IndividualTimeout {
 
@@ -171,7 +168,7 @@ public final class Search extends ComponentDefinition {
     }
 
     // Control Message Exchange Round.
-    private class ControlMessageExchangeRound extends IndividualTimeout{
+    private class ControlMessageExchangeRound extends IndividualTimeout {
 
         public ControlMessageExchangeRound(SchedulePeriodicTimeout request, int id) {
             super(request, id);
@@ -213,13 +210,10 @@ public final class Search extends ComponentDefinition {
         private final IndexEntry entry;
 
         /**
-         * @param request
-         *            the ScheduleTimeout that holds the Timeout
-         * @param retryLimit
-         *            the number of retries for the related
-         *            {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
-         * @param entry
-         *            the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
+         * @param request    the ScheduleTimeout that holds the Timeout
+         * @param retryLimit the number of retries for the related
+         *                   {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
+         * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
         public AddIndexTimeout(ScheduleTimeout request, int id, int retryLimit, IndexEntry entry) {
             super(request, id);
@@ -309,7 +303,7 @@ public final class Search extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
-        self = (MsSelfImpl)init.getSelf();
+        self = (MsSelfImpl) init.getSelf();
 
         config = init.getConfiguration();
         KeyPairGenerator keyGen;
@@ -330,9 +324,9 @@ public final class Search extends ComponentDefinition {
         existingEntries = new TreeSet<Long>();
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
-
+        File file = null;
         if (PERSISTENT_INDEX) {
-            File file = new File("resources/index_" + self.getId());
+            file = new File("resources/index_" + self.getId());
             try {
                 index = FSDirectory.open(file);
             } catch (IOException e1) {
@@ -341,36 +335,30 @@ public final class Search extends ComponentDefinition {
                 System.exit(-1);
             }
 
-            if (file.exists()) {
-                try {
-                    initializeIndexCaches();
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                    System.exit(-1);
-                }
-            }
         } else {
             index = new RAMDirectory();
         }
 
-        recentRequests = new HashMap<TimeoutId, Long>();
-
-        // Can't open the index before committing a writer once
-        IndexWriter writer;
+        writeLuceneAdaptor = new LuceneAdaptorImpl(index, indexWriterConfig);
         try {
-            writer = new IndexWriter(index, indexWriterConfig);
-            writer.commit();
-            writer.close();
-        } catch (IOException e) {
+//            logger.warn(" Writer Lucene Adapter Instantiated. ");
+            writeLuceneAdaptor.initialEmptyWriterCommit();
+            
+            if (PERSISTENT_INDEX && file != null && file.exists()) {
+                initializeIndexCaches(writeLuceneAdaptor);
+            }
+            
+            minStoredId = getMinStoredIdFromLucene(writeLuceneAdaptor);
+            maxStoredId = getMaxStoredIdFromLucene(writeLuceneAdaptor);
+
+        } catch (LuceneAdaptorException e) {
+            // Proper exception handling.
             e.printStackTrace();
             System.exit(-1);
         }
+        recentRequests = new HashMap<TimeoutId, Long>();
 
-        minStoredId = getMinStoredIdFromLucene();
-        maxStoredId = getMaxStoredIdFromLucene();
-
-        if(minStoredId > maxStoredId) {
+        if (minStoredId > maxStoredId) {
             long temp = minStoredId;
             minStoredId = maxStoredId;
             maxStoredId = temp;
@@ -397,8 +385,8 @@ public final class Search extends ComponentDefinition {
 
             // Bootup the croupier with default configuration.
             logger.warn(" Trigger Initial Croupier Update for Id: " + self.getAddress().getId());
-            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false,0,0));
-            trigger(initialCroupierBootupUpdate,croupierPortPositive);
+            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, 0, 0));
+            trigger(initialCroupierBootupUpdate, croupierPortPositive);
             
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new ControlMessageExchangeRound(rst, self.getId()));
@@ -407,67 +395,54 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Initialize the local index id cashing data structures from the persistent
-     * file.
+     * Initialize the Index Caches, from the indexes stored in files.
      *
-     * @throws IOException in case errors occur while reading the index
+     * @param luceneAdaptor LuceneAdaptor for access to lucene instance.
+     * @throws LuceneAdaptorException
      */
-    private void initializeIndexCaches() throws IOException {
-        IndexReader reader = null;
-        IndexSearcher searcher;
-        try {
-            reader = DirectoryReader.open(index);
-            searcher = new IndexSearcher(reader);
+    public void initializeIndexCaches(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException{
 
-            boolean continuous = true;
-            // TODO check which limit performs well
-            int readLimit = 20000;
-            // Would not terminate in case it reaches the limit of long ;)
-            for (long i = 0; ; i += readLimit) {
-                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true, false);
-                TopDocs topDocs = searcher.search(query, readLimit, new Sort(new SortField(IndexEntry.ID, Type.LONG)));
+        boolean continuous = true;
+        int readLimit = 20000;
 
-                if (topDocs.totalHits == 0) {
-                    break;
+        for (long i = 0; ; i += readLimit) {
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true, false);
+            List<IndexEntry> indexEntryList =luceneAdaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), readLimit);
+            
+            if(indexEntryList.isEmpty()){
+                logger.info("Empty entry list retrieved from the index.");
+                break;
+            }
+
+            if (continuous) {
+                Long[] ids = new Long[indexEntryList.size()];
+                
+                for(int j =0, x = indexEntryList.size(); j < x ; j ++){
+                    ids[j] = indexEntryList.get(j).getId();
                 }
 
-                ScoreDoc[] hits = topDocs.scoreDocs;
-                if (continuous) {
-                    // Get all ids for the next entries
-                    Long[] ids = new Long[hits.length];
-                    for (int j = 0; j < hits.length; j++) {
-                        ids[j] = Long.valueOf(searcher.doc(hits[j].doc).get(IndexEntry.ID));
-                    }
-
-                    // Check if there is a gap between the last missing value
-                    // and the smallest newly given one
-                    if (ids[0] != 0 && lowestMissingIndexValue != ids[0]) {
-                        continuous = false;
-                        Collections.addAll(existingEntries, ids);
-                    } else {
-                        // Search for gaps between the given ids
-                        for (int j = 0; j < ids.length; j++) {
-                            lowestMissingIndexValue = ids[j] + 1;
-                            // If a gap was found add higher ids to the existing
-                            // entries
-                            if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
-                                continuous = false;
-                                existingEntries.addAll(Arrays.asList(ids).subList(j + 1, ids.length));
-                                break;
-                            }
-                        }
-                    }
+                if (ids[0] != 0 && lowestMissingIndexValue != ids[0]) {
+                    continuous = false;
+                    Collections.addAll(existingEntries, ids);
+                    
                 } else {
-                    for (int j = 0; j < hits.length; j++) {
-                        existingEntries.add(Long.valueOf(searcher.doc(hits[j].doc).get(IndexEntry.ID)));
+                    // Search for gaps between the given ids
+                    for (int j = 0; j < ids.length; j++) {
+                        lowestMissingIndexValue = ids[j] + 1;
+                        // If a gap was found add higher ids to the existing
+                        // entries
+                        if (j + 1 < ids.length && ids[j] + 1 != ids[j + 1]) {
+                            continuous = false;
+                            existingEntries.addAll(Arrays.asList(ids).subList(j + 1, ids.length));
+                            break;
+                        }
                     }
                 }
             }
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException ex) {
+            
+            else{
+                for(int j =0, x = indexEntryList.size(); j < x ; j ++){
+                    existingEntries.add(indexEntryList.get(j).getId());
                 }
             }
         }
@@ -482,56 +457,28 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Fetch the number of entries stored in the lucene.
+     *
      * @return number of Index Entries.
      */
-    private int getNumberOfStoredIndexEntries(){
+    private int queryBasedTotalHit(LuceneAdaptor adaptor, Query query) {
 
-        // Donot use the max and min store id from the lucene to fetch the number of entries because they contain the index ids.
-        // In case of missing indexes, the difference would be inflated.
-
-        int numberOfEntries =0;
-        TotalHitCountCollector totalHitCountCollector = getTotalHitCountCollector();
-        if(totalHitCountCollector != null)
+        int numberOfEntries = 0;
+        TotalHitCountCollector totalHitCountCollector = null;
+        try {
+            totalHitCountCollector = new TotalHitCountCollector();
+            adaptor.searchDocumentsInLucene(query, totalHitCountCollector);
             numberOfEntries = totalHitCountCollector.getTotalHits();
 
+        } catch (LuceneAdaptorException e) {
+            logger.error("{}: Unable to retrieve hit count for the query passed {}", self.getId(), query.toString());
+            e.printStackTrace();
+        }
         return numberOfEntries;
     }
 
 
-    /**
-     * Fetch the Total Index Entries Collector.
-     * @param order : true is needed in reverse order.
-     * @return TopDocs.
-     */
-    private TotalHitCountCollector getTotalHitCountCollector(){
-
-        IndexReader reader = null;
-        TotalHitCountCollector totalHitCountCollector =null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
-
-            // Create query to search the index entries.
-            // Possible Problem when Index Entry wraps around.
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
-
-            // Push the results in the collector.
-            totalHitCountCollector = new TotalHitCountCollector();
-            searcher.search(query, totalHitCountCollector);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        return totalHitCountCollector;
+    private int getTotalStoredEntriesCount(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
+        return luceneAdaptor.getSizeOfLuceneInstance();
     }
 
 
@@ -557,17 +504,17 @@ public final class Search extends ComponentDefinition {
     /**
      * Control Message Request Received.
      */
-    Handler<ControlMessage.Request> handlerControlMessageRequest = new Handler<ControlMessage.Request>(){
+    Handler<ControlMessage.Request> handlerControlMessageRequest = new Handler<ControlMessage.Request>() {
         @Override
         public void handle(ControlMessage.Request event) {
 
             logger.debug(" Received the Control Message Request at: " + self.getId());
 
             // Check if already entry present and reset the contents.
-            if(peerControlMessageResponseMap.get(event.getVodSource().getId())!= null)
+            if (peerControlMessageResponseMap.get(event.getVodSource().getId()) != null)
                 peerControlMessageResponseMap.get(event.getVodSource().getId()).reset();
 
-            // Else create a fresh entry, with number of responses to keep track of.
+                // Else create a fresh entry, with number of responses to keep track of.
             else
                 peerControlMessageResponseMap.put(event.getVodSource(), new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
 
@@ -577,25 +524,25 @@ public final class Search extends ComponentDefinition {
             // Information amount partition is available in Search, just fetch locally
             handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(event));
             // Request info from the gradient component
-            trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(),event.getVodSource()), gradientRoutingPort);
+            trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(), event.getVodSource()), gradientRoutingPort);
         }
     };
 
     void handleControlMessageInternalResponseEvent(ControlMessageInternal.Response event) {
 
-        try{
+        try {
 
             TimeoutId roundIdReceived = event.getRoundId();
             TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
 
             // Perform initial checks to avoid old responses.
-            if(currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
+            if (currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
                 return;
             }
 
             // Update the peer control response map to add the new entry.
             PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress());
-            if(controlMessageResponse == null){
+            if (controlMessageResponse == null) {
                 logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
                 return;
             }
@@ -605,7 +552,7 @@ public final class Search extends ComponentDefinition {
             ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event);
 
             // encansuplate it into a separate method.
-            if(controlMessageResponse.addAndCheckStatus()){
+            if (controlMessageResponse.addAndCheckStatus()) {
 
                 // Construct the response object and trigger it back to the user.
                 logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
@@ -618,9 +565,7 @@ public final class Search extends ComponentDefinition {
                 // Clean the data at the user end also.
                 cleanControlRequestMessageData(event.getSourceAddress());
             }
-        }
-
-        catch (MessageEncodingException e) {
+        } catch (MessageEncodingException e) {
             // If the exception is thrown it means that encoding was not successful for some reason and we will return after raising a flag ...
             logger.error(" Encoding Failed ... Please Check ... ");
             e.printStackTrace();
@@ -633,7 +578,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Received the partitioning updates from the gradient component.
      */
-    Handler<ControlMessageInternal.Response> handlerControlMessageInternalResponse = new Handler<ControlMessageInternal.Response>(){
+    Handler<ControlMessageInternal.Response> handlerControlMessageInternalResponse = new Handler<ControlMessageInternal.Response>() {
 
         @Override
         public void handle(ControlMessageInternal.Response event) {
@@ -645,9 +590,10 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Simply remove the data in the maps belonging to the address id for the
+     *
      * @param sourceAddress
      */
-    public void cleanControlRequestMessageData(VodAddress sourceAddress){
+    public void cleanControlRequestMessageData(VodAddress sourceAddress) {
 
         logger.debug(" Clean Control Message Data Called at : " + self.getId());
         peerControlMessageAddressRequestIdMap.remove(sourceAddress);
@@ -658,7 +604,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Control Message Response containing important information.
      */
-    Handler<ControlMessage.Response> handlerControlMessageResponse = new Handler<ControlMessage.Response>(){
+    Handler<ControlMessage.Response> handlerControlMessageResponse = new Handler<ControlMessage.Response>() {
         @Override
         public void handle(ControlMessage.Response event) {
 
@@ -669,7 +615,7 @@ public final class Search extends ComponentDefinition {
             // Create an instance of ByteBuf to read the data received.
             ByteBuf buffer = Unpooled.wrappedBuffer(event.getBytes());
 
-            try{
+            try {
 
                 int numOfIterations = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
 
@@ -678,28 +624,26 @@ public final class Search extends ComponentDefinition {
 
                     ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
 
-                    if(controlMessageInternalResponse != null)
+                    if (controlMessageInternalResponse != null)
                         ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
 
                     // Handles iterations within a response.
-                    numOfIterations -=1;
+                    numOfIterations -= 1;
                 }
 
                 // Handles multiple responses.
-                controlMessageResponseCount ++;
+                controlMessageResponseCount++;
 
-                if(controlMessageResponseCount >= config.getIndexExchangeRequestNumber()){
+                if (controlMessageResponseCount >= config.getIndexExchangeRequestNumber()) {
 
 
-                // Perform the checks and comparison on the responses received from the nodes.
-                performControlMessageResponseMatching();
+                    // Perform the checks and comparison on the responses received from the nodes.
+                    performControlMessageResponseMatching();
 
-                // Perform the cleaning of the data after this.
-                cleanControlMessageResponseData();
-               }
-            }
-
-            catch (MessageDecodingException e) {
+                    // Perform the cleaning of the data after this.
+                    cleanControlMessageResponseData();
+                }
+            } catch (MessageDecodingException e) {
                 logger.error(" Message Decodation Failed at :" + self.getAddress().getId());
                 cleanControlMessageResponseData();
             }
@@ -711,24 +655,24 @@ public final class Search extends ComponentDefinition {
     /**
      * Once all the messages for a round are received, then perform the matching.
      */
-    private void performControlMessageResponseMatching(){
+    private void performControlMessageResponseMatching() {
 
         logger.debug("Start with the PeerControl Response Matching at: " + self.getId());
 
         // Iterate over the keyset and handle specific cases based on your methodology.
-        for(Map.Entry<ControlMessageResponseTypeEnum , List<? extends ControlBase>> entry : controlMessageResponseHolderMap.entrySet()){
+        for (Map.Entry<ControlMessageResponseTypeEnum, List<? extends ControlBase>> entry : controlMessageResponseHolderMap.entrySet()) {
 
-            switch(entry.getKey()){
+            switch (entry.getKey()) {
 
-                case PARTITION_UPDATE_RESPONSE:{
+                case PARTITION_UPDATE_RESPONSE: {
                     logger.debug(" Started with handling of the Partition Update Response ");
-                    performPartitionUpdateMatching((List<PartitionControlResponse>)entry.getValue());
+                    performPartitionUpdateMatching((List<PartitionControlResponse>) entry.getValue());
                     break;
                 }
 
-                case LEADER_UPDATE_RESPONSE:{
+                case LEADER_UPDATE_RESPONSE: {
                     logger.debug(" Handle Leader Update Response .. ");
-                    performLeaderUpdateMatching((List<LeaderInfoControlResponse>)entry.getValue());
+                    performLeaderUpdateMatching((List<LeaderInfoControlResponse>) entry.getValue());
                     break;
                 }
             }
@@ -745,24 +689,22 @@ public final class Search extends ComponentDefinition {
         // points to the same exact same leader.
         boolean hasAgreedLeader = true;
 
-        for(LeaderInfoControlResponse leaderInfo : leaderControlResponses) {
+        for (LeaderInfoControlResponse leaderInfo : leaderControlResponses) {
 
             VodAddress currentLeader = leaderInfo.getLeaderAddress();
             PublicKey currentLeaderPublicKey = leaderInfo.getLeaderPublicKey();
 
-            if(isFirst) {
+            if (isFirst) {
                 newLeader = currentLeader;
                 newLeaderPublicKey = leaderInfo.getLeaderPublicKey();
                 isFirst = false;
-            }
-            else {
+            } else {
 
-                if((currentLeader != null && newLeader == null) ||
+                if ((currentLeader != null && newLeader == null) ||
                         (newLeader != null && currentLeader == null)) {
                     hasAgreedLeader = false;
                     break;
-                }
-                else if(currentLeader != null && newLeader != null &&
+                } else if (currentLeader != null && newLeader != null &&
                         currentLeaderPublicKey != null && newLeaderPublicKey != null) {
                     if (newLeader.equals(currentLeader) == false ||
                             newLeaderPublicKey.equals(currentLeaderPublicKey) == false) {
@@ -773,7 +715,7 @@ public final class Search extends ComponentDefinition {
             }
         }
 
-        if(hasAgreedLeader) {
+        if (hasAgreedLeader) {
             updateLeaderIds(newLeaderPublicKey);
             trigger(new LeaderInfoUpdate(newLeader, newLeaderPublicKey), leaderStatusPort);
         }
@@ -793,7 +735,7 @@ public final class Search extends ComponentDefinition {
      *
      * @param partitionControlResponses
      */
-    private void performPartitionUpdateMatching(List<PartitionControlResponse> partitionControlResponses){
+    private void performPartitionUpdateMatching(List<PartitionControlResponse> partitionControlResponses) {
 
         Iterator<PartitionControlResponse> iterator = partitionControlResponses.iterator();
 
@@ -801,14 +743,14 @@ public final class Search extends ComponentDefinition {
         boolean mismatchFound = false;
         boolean first = true;
 
-        ControlMessageEnum baseControlMessageEnum =null;
-        List<PartitionHelper.PartitionInfoHash> basePartitioningUpdateHashes =null;
+        ControlMessageEnum baseControlMessageEnum = null;
+        List<PartitionHelper.PartitionInfoHash> basePartitioningUpdateHashes = null;
 
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
 
             PartitionControlResponse pcr = iterator.next();
 
-            if(first){
+            if (first) {
                 // Set the base matching structure.
                 baseControlMessageEnum = pcr.getControlMessageEnum();
                 basePartitioningUpdateHashes = pcr.getPartitionUpdateHashes();
@@ -817,40 +759,37 @@ public final class Search extends ComponentDefinition {
             }
 
             // Simply match with the base one.
-            if(baseControlMessageEnum != pcr.getControlMessageEnum() || !(basePartitioningUpdateHashes.size() > 0)){
-               mismatchFound = true;
-               break;
-            }
-
-            else{
+            if (baseControlMessageEnum != pcr.getControlMessageEnum() || !(basePartitioningUpdateHashes.size() > 0)) {
+                mismatchFound = true;
+                break;
+            } else {
 
                 // Check the list of partitioning updates.
                 List<PartitionHelper.PartitionInfoHash> currentPartitioningUpdateHashes = pcr.getPartitionUpdateHashes();
                 int minimumLength = (basePartitioningUpdateHashes.size() < currentPartitioningUpdateHashes.size()) ? basePartitioningUpdateHashes.size() : currentPartitioningUpdateHashes.size();
 
-                int i=0;
-                while(i < minimumLength){
-                    if(!basePartitioningUpdateHashes.get(i).equals(currentPartitioningUpdateHashes.get(i)))
+                int i = 0;
+                while (i < minimumLength) {
+                    if (!basePartitioningUpdateHashes.get(i).equals(currentPartitioningUpdateHashes.get(i)))
                         break;
                     i++;
                 }
 
                 // If mismatch found and loop didn't run completely.
-                if(i < minimumLength){
+                if (i < minimumLength) {
                     // Remove the unmatched part.
                     basePartitioningUpdateHashes.subList(i, basePartitioningUpdateHashes.size()).clear();
                 }
             }
         }
 
-        if(mismatchFound || !(basePartitioningUpdateHashes.size()>0)){
+        if (mismatchFound || !(basePartitioningUpdateHashes.size() > 0)) {
             logger.debug("Not Applying any Partition Update.");
             return;
         }
 
 
-
-        for(PartitionHelper.PartitionInfoHash infoHash : basePartitioningUpdateHashes){
+        for (PartitionHelper.PartitionInfoHash infoHash : basePartitioningUpdateHashes) {
             finalPartitionUpdates.add(infoHash.getPartitionRequestId());
         }
 
@@ -873,19 +812,19 @@ public final class Search extends ComponentDefinition {
         trigger(new DelayedPartitioningMessage.Request(self.getAddress(), randomPeerAddress, timeoutId, finalPartitionUpdates), networkPort);
 
         // Trigger the Scehdule Timeout Event.
-        trigger(st,timerPort);
+        trigger(st, timerPort);
     }
 
 
     /**
      * Received Request for the Partitioning Updates.
      */
-    Handler<DelayedPartitioningMessage.Request> handlerDelayedPartitioningMessageRequest = new Handler<DelayedPartitioningMessage.Request>(){
+    Handler<DelayedPartitioningMessage.Request> handlerDelayedPartitioningMessageRequest = new Handler<DelayedPartitioningMessage.Request>() {
 
         @Override
         public void handle(DelayedPartitioningMessage.Request event) {
 
-            logger.debug (" Delayed Partitioning Message Request Received from: " + event.getSource().getId()) ;
+            logger.debug(" Delayed Partitioning Message Request Received from: " + event.getSource().getId());
             LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = fetchPartitioningUpdates(event.getPartitionRequestIds());
 
             trigger(new DelayedPartitioningMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), partitionUpdates), networkPort);
@@ -896,12 +835,12 @@ public final class Search extends ComponentDefinition {
     /**
      * Apply the partitioning updates to the local.
      */
-    Handler<DelayedPartitioningMessage.Response> delayedPartitioningResponseHandler = new Handler<DelayedPartitioningMessage.Response>(){
+    Handler<DelayedPartitioningMessage.Response> delayedPartitioningResponseHandler = new Handler<DelayedPartitioningMessage.Response>() {
 
         @Override
         public void handle(DelayedPartitioningMessage.Response event) {
 
-            if(!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
+            if (!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
                 return;
 
             // Cancel the timeout event.
@@ -916,7 +855,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Handler for the Delayed Partitioning Timeout.
      */
-    Handler<DelayedPartitioningMessage.Timeout> delayedPartitioningTimeoutHandler = new Handler<DelayedPartitioningMessage.Timeout>(){
+    Handler<DelayedPartitioningMessage.Timeout> delayedPartitioningTimeoutHandler = new Handler<DelayedPartitioningMessage.Timeout>() {
 
         @Override
         public void handle(DelayedPartitioningMessage.Timeout event) {
@@ -931,10 +870,10 @@ public final class Search extends ComponentDefinition {
     /**
      * After the exchange round is complete or aborted, clean the response data held from precious round.
      */
-    private void cleanControlMessageResponseData(){
+    private void cleanControlMessageResponseData() {
 
         //reset the count variable and the map.
-        controlMessageResponseCount =0;
+        controlMessageResponseCount = 0;
         controlMessageResponseHolderMap.clear();
     }
 
@@ -982,7 +921,7 @@ public final class Search extends ComponentDefinition {
                 // Search for entries the inquirer is missing
                 long lastId = event.getOldestMissingIndexValue();
                 for (long i : event.getExistingEntries()) {
-                    Collection<IndexEntry> indexEntries = findIdRange(lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
+                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
                     }
@@ -995,7 +934,7 @@ public final class Search extends ComponentDefinition {
 
                 // In case there is some space left search for more
                 if (hashes.size() < config.getMaxExchangeCount()) {
-                    Collection<IndexEntry> indexEntries = findIdRange(lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
+                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor,lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
                     }
@@ -1065,7 +1004,7 @@ public final class Search extends ComponentDefinition {
                 for (Id id : event.getIds()) {
                     // TODO use the leader id to search
                     IndexEntry entry = findById(id.getId());
-                    if(entry != null)
+                    if (entry != null)
                         indexEntries.add(entry);
                 }
 
@@ -1088,8 +1027,7 @@ public final class Search extends ComponentDefinition {
             }
 
             // Stop accepting responses from lagging behind nodes.
-            if(isMessageFromNodeLaggingBehind(event.getVodSource())){
-//                logger.warn("_ISSUE: Now the issue of lagging behind nodes sending me updates whould not come ... " + self.getId() + " My Overlay Address: " + self.getOverlayId() + " Received Overlay Address: " + event.getVodSource().getOverlayId() + " Received From : " + event.getVodSource().getId());
+            if (isMessageFromNodeLaggingBehind(event.getVodSource())) {
                 return;
             }
 
@@ -1104,10 +1042,13 @@ public final class Search extends ComponentDefinition {
                     if (intersection.remove(new IndexHash(indexEntry)) && isIndexEntrySignatureValid(indexEntry)) {
                         addEntryLocal(indexEntry);
                     } else {
+                        logger.warn("Unable to process Index Entry fetched via Index Hash Exchange.");
                     }
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
+            } catch (LuceneAdaptorException e) {
+                e.printStackTrace();
             }
         }
     };
@@ -1130,7 +1071,7 @@ public final class Search extends ComponentDefinition {
 
         trigger(new FailureDetectorPort.FailureDetectorEvent(self.getAddress()), fdPort);
 
-        for(VodAddress node: unresponsiveNodes) {
+        for (VodAddress node : unresponsiveNodes) {
             publishUnresponsiveNode(node);
         }
     }
@@ -1214,7 +1155,7 @@ public final class Search extends ComponentDefinition {
             newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
 
             String signature = generateSignedHash(newEntry, privateKey);
-            if(signature == null)
+            if (signature == null)
                 return;
 
             newEntry.setHash(signature);
@@ -1228,7 +1169,7 @@ public final class Search extends ComponentDefinition {
         public void handle(ViewSizeMessage.Response response) {
             int viewSize = response.getViewSize();
 
-            int majoritySize = (int)Math.ceil(viewSize/2) + 1;
+            int majoritySize = (int) Math.ceil(viewSize / 2) + 1;
 
             //awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
             replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
@@ -1242,7 +1183,7 @@ public final class Search extends ComponentDefinition {
      * @return a new id for a new {@link IndexEntry}
      */
     private long getNextInsertionId() {
-        if(nextInsertionId == Long.MAX_VALUE - 1)
+        if (nextInsertionId == Long.MAX_VALUE - 1)
             nextInsertionId = Long.MIN_VALUE;
 
         return nextInsertionId++;
@@ -1284,7 +1225,7 @@ public final class Search extends ComponentDefinition {
         public void handle(ReplicationPrepareCommitMessage.Request request) {
 
             IndexEntry entry = request.getEntry();
-            if(!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+            if (!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
             TimeoutId timeout = UUID.nextUUID();
@@ -1305,7 +1246,7 @@ public final class Search extends ComponentDefinition {
     final Handler<AwaitingForCommitTimeout> handleAwaitingForCommitTimeout = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
-            if(pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
+            if (pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
                 pendingForCommit.remove(awaitingForCommitTimeout.getEntry());
 
         }
@@ -1320,7 +1261,7 @@ public final class Search extends ComponentDefinition {
             TimeoutId timeout = response.getTimeoutId();
 
             ReplicationCount replicationCount = replicationRequests.get(timeout);
-            if(replicationCount == null  || !replicationCount.incrementAndCheckReceived())
+            if (replicationCount == null || !replicationCount.incrementAndCheckReceived())
                 return;
 
             CancelTimeout ct = new CancelTimeout(timeout);
@@ -1360,13 +1301,13 @@ public final class Search extends ComponentDefinition {
         public void handle(ReplicationCommitMessage.Request request) {
             long id = request.getEntryId();
 
-            if(leaderIds.isEmpty())
+            if (leaderIds.isEmpty())
                 return;
 
             ByteBuffer idBuffer = ByteBuffer.allocate(8);
             idBuffer.putLong(id);
             try {
-                if(!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size()-1), request.getSignature()))
+                if (!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
                     return;
             } catch (NoSuchAlgorithmException e) {
                 logger.error(self.getId() + " " + e.getMessage());
@@ -1378,13 +1319,13 @@ public final class Search extends ComponentDefinition {
 
             IndexEntry toCommit = null;
             for (IndexEntry entry : pendingForCommit.keySet()) {
-                if(entry.getId() == id) {
+                if (entry.getId() == id) {
                     toCommit = entry;
                     break;
                 }
             }
 
-            if(toCommit == null)
+            if (toCommit == null)
                 return;
 
             CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
@@ -1399,17 +1340,19 @@ public final class Search extends ComponentDefinition {
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
                 long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
-                while(currentMissingValue < toCommit.getId()) {
+                while (currentMissingValue < toCommit.getId()) {
                     missingIds.add(currentMissingValue);
                     currentMissingValue++;
                 }
 
-                if(missingIds.size() > 0) {
+                if (missingIds.size() > 0) {
                     RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingIds.toArray(new Long[missingIds.size()]));
                     trigger(repairMessage, networkPort);
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
+            } catch (LuceneAdaptorException e) {
+                e.printStackTrace();
             }
         }
     };
@@ -1428,13 +1371,13 @@ public final class Search extends ComponentDefinition {
             CancelTimeout ct = new CancelTimeout(commitId);
             trigger(ct, timerPort);
 
-            if(!commitRequests.containsKey(commitId))
+            if (!commitRequests.containsKey(commitId))
                 return;
 
             ReplicationCount replicationCount = commitRequests.get(commitId);
             try {
                 TimeoutId requestAddId = replicationTimeoutToAdd.get(commitId);
-                if(requestAddId == null)
+                if (requestAddId == null)
                     return;
 
                 addEntryLocal(replicationCount.getEntry());
@@ -1449,6 +1392,8 @@ public final class Search extends ComponentDefinition {
                 Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId), replicationCount.getEntry().getId());
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
+            } catch (LuceneAdaptorException e) {
+                e.printStackTrace();
             }
         }
     };
@@ -1456,7 +1401,7 @@ public final class Search extends ComponentDefinition {
     final Handler<CommitTimeout> handleCommitTimeout = new Handler<CommitTimeout>() {
         @Override
         public void handle(CommitTimeout commitTimeout) {
-            if(commitRequests.containsKey(commitTimeout.getTimeoutId())) {
+            if (commitRequests.containsKey(commitTimeout.getTimeoutId())) {
                 commitRequests.remove(commitTimeout.getTimeoutId());
                 replicationTimeoutToAdd.remove(commitTimeout.getTimeoutId());
             }
@@ -1473,7 +1418,7 @@ public final class Search extends ComponentDefinition {
             trigger(ct, timerPort);
 
             Long timeStarted = timeStoringMap.get(event.getTimeoutId());
-            if(timeStarted != null)
+            if (timeStarted != null)
                 Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
 
             timeStoringMap.remove(event.getTimeoutId());
@@ -1484,12 +1429,13 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Returns max stored id on a peer
+     *
      * @return max stored id on a peer
      */
     private long getMaxStoredId() {
         long currentIndexValue = lowestMissingIndexValue - 1;
 
-        if(existingEntries.isEmpty() || currentIndexValue > Collections.max(existingEntries))
+        if (existingEntries.isEmpty() || currentIndexValue > Collections.max(existingEntries))
             return currentIndexValue;
 
         return Collections.max(existingEntries);
@@ -1504,9 +1450,9 @@ public final class Search extends ComponentDefinition {
         public void handle(RepairMessage.Request request) {
             ArrayList<IndexEntry> missingEntries = new ArrayList<IndexEntry>();
             try {
-                for(int i=0; i<request.getMissingIds().length; i++) {
+                for (int i = 0; i < request.getMissingIds().length; i++) {
                     IndexEntry entry = findById(request.getMissingIds()[i]);
-                    if(entry != null) missingEntries.add(entry);
+                    if (entry != null) missingEntries.add(entry);
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
@@ -1525,10 +1471,12 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(RepairMessage.Response response) {
             try {
-                for(IndexEntry entry : response.getMissingEntries())
-                    if(entry != null) addEntryLocal(entry);
+                for (IndexEntry entry : response.getMissingEntries())
+                    if (entry != null) addEntryLocal(entry);
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
+            } catch (LuceneAdaptorException e) {
+                e.printStackTrace();
             }
         }
     };
@@ -1564,7 +1512,7 @@ public final class Search extends ComponentDefinition {
         public void handle(LeaderStatusPort.LeaderStatus event) {
             leader = event.isLeader();
 
-            if(!leader) return;
+            if (!leader) return;
 
             trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
         }
@@ -1572,13 +1520,12 @@ public final class Search extends ComponentDefinition {
 
     public void updateLeaderIds(PublicKey newLeaderPublicKey) {
 
-        if(newLeaderPublicKey != null) {
+        if (newLeaderPublicKey != null) {
             if (!leaderIds.contains(newLeaderPublicKey)) {
                 if (leaderIds.size() == config.getMaxLeaderIdHistorySize())
                     leaderIds.remove(leaderIds.get(0));
                 leaderIds.add(newLeaderPublicKey);
-            }
-            else {
+            } else {
                 //if leader already exists in the list, move it to the top
                 leaderIds.remove(newLeaderPublicKey);
                 leaderIds.add(newLeaderPublicKey);
@@ -1596,7 +1543,7 @@ public final class Search extends ComponentDefinition {
     final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
         public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
-             addEntryGlobal(addIndexEntryRequest.getEntry());
+            addEntryGlobal(addIndexEntryRequest.getEntry());
         }
     };
 
@@ -1616,16 +1563,17 @@ public final class Search extends ComponentDefinition {
      * @param pattern the search pattern
      */
     private void startSearch(SearchPattern pattern) {
-        searchRequest = new LocalSearchRequest(pattern);
-        searchIndex = new RAMDirectory();
 
-        // Can't open the index before committing a writer once
-        IndexWriter writer;
+        // TODO: Add check for the same request but a different page ( Implement Pagination ).
+        searchRequest = new LocalSearchRequest(pattern);
+        closeIndex(searchIndex);
+
+        searchIndex = new RAMDirectory();
+        searchRequestLuceneAdaptor = new LuceneAdaptorImpl(searchIndex, indexWriterConfig);
+
         try {
-            writer = new IndexWriter(searchIndex, indexWriterConfig);
-            writer.commit();
-            writer.close();
-        } catch (IOException e) {
+            searchRequestLuceneAdaptor.initialEmptyWriterCommit();
+        } catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
 
@@ -1634,7 +1582,26 @@ public final class Search extends ComponentDefinition {
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
-        trigger (new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+    }
+
+
+    /**
+     * Close opened indexes to prevent memory leak.
+     *
+     * @param index Index to close.
+     */
+    private void closeIndex(Directory index) {
+
+        if (index != null) {
+            logger.info("Closing previous opened search index to prevent memory leak.");
+            try {
+                index.close();
+            } catch (IOException e) {
+                logger.warn(" Unable to close previous search index.");
+                e.printStackTrace();
+            }
+        }
     }
 
     /**
@@ -1645,18 +1612,19 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchMessage.Request event) {
             try {
-                ArrayList<IndexEntry> result = searchLocal(index, event.getPattern(), config.getHitsPerQuery());
+                ArrayList<IndexEntry> result = searchLocal(writeLuceneAdaptor, event.getPattern(), config.getHitsPerQuery());
 
                 // Check the message and update the address in case of a Transport Protocol different than UDP.
                 // Check the isSimulation flag inside the TransportHelper before running the code in simulations.
-                SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(),0, 0, result, event.getPartitionId());
+                SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(), 0, 0, result, event.getPartitionId());
                 TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
                 trigger(searchMessageResponse, chunkManagerPort);
 
-            } catch (IOException ex) {
-                java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, ex);
             } catch (IllegalSearchString illegalSearchString) {
                 illegalSearchString.printStackTrace();
+            } catch (LuceneAdaptorException e) {
+                logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
+                e.printStackTrace();
             }
         }
     };
@@ -1665,41 +1633,16 @@ public final class Search extends ComponentDefinition {
     /**
      * Query the given index store with a given search pattern.
      *
-     * @param index the {@link Directory} to search in
+     * @param index   the {@link Directory} to search in
      * @param pattern the {@link SearchPattern} to use
-     * @param limit the maximal amount of entries to return
+     * @param limit   the maximal amount of entries to return
      * @return a list of matching entries
      * @throws IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(Directory index, SearchPattern pattern, int limit) throws IOException {
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
-            TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
-            searcher.search(pattern.getQuery(), collector);
-            ScoreDoc[] hits = collector.topDocs().scoreDocs;
-
-            ArrayList<IndexEntry> result = new ArrayList<IndexEntry>();
-            for (int i = 0; i < hits.length; ++i) {
-                int docId = hits[i].doc;
-                Document d = searcher.doc(docId);
-                // Check to avoid duplicate index entries in the response.
-                IndexEntry entry = createIndexEntry(d);
-                if(result.contains(entry))
-                    continue;
-                result.add(entry);
-            }
-
-            return result;
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                }
-            }
-        }
+    private ArrayList<IndexEntry> searchLocal(LuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+        TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
+        ArrayList<IndexEntry> result = (ArrayList<IndexEntry>) adaptor.searchIndexEntriesInLucene(pattern.getQuery(), collector);
+        return result;
     }
 
     /**
@@ -1721,7 +1664,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Add all entries from a {@link SearchMessage.Response} to the search index.
      *
-     * @param entries the entries to be added
+     * @param entries   the entries to be added
      * @param partition the partition from which the entries originate from
      */
     private void addSearchResponse(Collection<IndexEntry> entries, int partition, TimeoutId requestId) {
@@ -1730,7 +1673,7 @@ public final class Search extends ComponentDefinition {
         }
 
         try {
-            addIndexEntries(searchIndex, entries);
+            addIndexEntries(searchRequestLuceneAdaptor, entries);
         } catch (IOException e) {
             java.util.logging.Logger.getLogger(Search.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -1738,7 +1681,7 @@ public final class Search extends ComponentDefinition {
         searchRequest.addRespondedPartition(partition);
 
         Integer numOfPartitions = searchPartitionsNumber.get(requestId);
-        if(numOfPartitions == null)
+        if (numOfPartitions == null)
             return;
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
@@ -1751,15 +1694,15 @@ public final class Search extends ComponentDefinition {
 
     private void logSearchTimeResults(TimeoutId requestId, long timeCompleted, Integer numOfPartitions) {
         Pair<Long, Integer> searchIssued = searchRequestStarted.get(requestId);
-        if(searchIssued == null)
+        if (searchIssued == null)
             return;
 
-        if(searchIssued.getSecond() != numOfPartitions)
+        if (searchIssued.getSecond() != numOfPartitions)
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
                     config.getQueryTimeout(), numOfPartitions, searchIssued.getSecond()));
         else
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
-                timeCompleted - searchIssued.getFirst(), numOfPartitions, searchIssued.getSecond()));
+                    timeCompleted - searchIssued.getFirst(), numOfPartitions, searchIssued.getSecond()));
 
         searchRequestStarted.remove(requestId);
     }
@@ -1779,6 +1722,7 @@ public final class Search extends ComponentDefinition {
 
 
     /**
+     * FIXME: Fix the semantics in terms of error handling.
      * Removes IndexEntries that don't belong to your partition after a partition splits into two
      */
     void removeEntriesNotFromYourPartition(long middleId, boolean isPartition) {
@@ -1788,28 +1732,34 @@ public final class Search extends ComponentDefinition {
         indexExchangeTimeout = null;
         exchangeInProgress = false;
 
-        if(isPartition){
-            deleteDocumentsWithIdMoreThen(middleId, minStoredId, maxStoredId);
-            deleteHigherExistingEntries(middleId, existingEntries, false);
+        int numberOfStoredIndexEntries = 0;
+        try {
+
+            if (isPartition) {
+                deleteDocumentsWithIdMoreThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
+                deleteHigherExistingEntries(middleId, existingEntries, false);
+            } else {
+                deleteDocumentsWithIdLessThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
+                deleteLowerExistingEntries(middleId, existingEntries, true);
+            }
+
+            minStoredId = getMinStoredIdFromLucene(writeLuceneAdaptor);
+            maxStoredId = getMaxStoredIdFromLucene(writeLuceneAdaptor);
+
+            //Increment Max Store Id to keep in line with the original methodology.
+            maxStoredId += 1;
+            
+            // Update the number of entries in the system.
+            numberOfStoredIndexEntries = getTotalStoredEntriesCount(writeLuceneAdaptor);
+                
+        } catch (LuceneAdaptorException e) {
+            logger.error("{}: Unable to cleanly remove the entries from the partition.", self.getId());
+            e.printStackTrace();
         }
-
-        else{
-            deleteDocumentsWithIdLessThen(middleId, minStoredId, maxStoredId);
-            deleteLowerExistingEntries(middleId, existingEntries, true);
-        }
-
-        minStoredId = getMinStoredIdFromLucene();
-        maxStoredId = getMaxStoredIdFromLucene();
-
-        //Increment Max Store Id to keep in line with the original methodology.
-        maxStoredId +=1;
-
-        // Update the number of entries in the system.
-        int numberOfStoredIndexEntries = getNumberOfStoredIndexEntries();
         self.setNumberOfIndexEntries(numberOfStoredIndexEntries);
 
 
-        if(maxStoredId < minStoredId) {
+        if (maxStoredId < minStoredId) {
             long temp = maxStoredId;
             maxStoredId = minStoredId;
             minStoredId = temp;
@@ -1830,29 +1780,28 @@ public final class Search extends ComponentDefinition {
 
         // It will ensure that the values of last missing index entries and other values are not getting updated.
         partitionInProgress = false;
-        }
+    }
 
 
     /**
      * Modify the existingEntries set to remove the entries lower than mediaId.
+     *
      * @param medianId
      * @param existingEntries
      * @param including
      */
-    private void deleteLowerExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including){
+    private void deleteLowerExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including) {
 
         Iterator<Long> iterator = existingEntries.iterator();
 
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Long currEntry = iterator.next();
 
-            if(including){
-                if(currEntry.compareTo(medianId) <=0)
+            if (including) {
+                if (currEntry.compareTo(medianId) <= 0)
                     iterator.remove();
-            }
-
-            else{
-                if(currEntry.compareTo(medianId) <0)
+            } else {
+                if (currEntry.compareTo(medianId) < 0)
                     iterator.remove();
             }
         }
@@ -1860,24 +1809,23 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Modify the exstingEntries set to remove the entries higher than median Id.
+     *
      * @param medianId
      * @param existingEntries
      * @param including
      */
-    private void deleteHigherExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including){
+    private void deleteHigherExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including) {
 
         Iterator<Long> iterator = existingEntries.iterator();
 
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Long currEntry = iterator.next();
 
-            if(including){
-                if(currEntry.compareTo(medianId) >=0)
+            if (including) {
+                if (currEntry.compareTo(medianId) >= 0)
                     iterator.remove();
-            }
-
-            else{
-                if(currEntry.compareTo(medianId) >0)
+            } else {
+                if (currEntry.compareTo(medianId) > 0)
                     iterator.remove();
             }
         }
@@ -1891,32 +1839,30 @@ public final class Search extends ComponentDefinition {
      * @param entries a collection of index entries to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntries(Directory index, Collection<IndexEntry> entries)
+    private void addIndexEntries(LuceneAdaptor searchRequestLuceneAdaptor, Collection<IndexEntry> entries)
             throws IOException {
-        IndexWriter writer = null;
         try {
-            writer = new IndexWriter(index, indexWriterConfig);
             for (IndexEntry entry : entries) {
-                addIndexEntry(writer, entry);
+                addIndexEntry(searchRequestLuceneAdaptor, entry);
             }
-            writer.commit();
-        } finally {
-            if (writer != null) {
-                try {
-                    writer.close();
-                } catch (IOException e) {
-                }
-            }
+        } catch (LuceneAdaptorException e) {
+            logger.warn("{}: Unable to update search index with additional entries", self.getId());
+            e.printStackTrace();
         }
     }
 
     private void answerSearchRequest() {
+        ArrayList<IndexEntry> result = null;
         try {
-            ArrayList<IndexEntry> result = searchLocal(searchIndex, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+            result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
             logger.info("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
-            trigger(new UiSearchResponse(result), uiPort);
-        } catch (IOException e) {
+
+        } catch (LuceneAdaptorException e) {
+            result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
+            logger.warn("{} : Unable to search for the entries.", self.getId());
             e.printStackTrace();
+        } finally {
+            trigger(new UiSearchResponse(result), uiPort);
         }
     }
 
@@ -1928,12 +1874,12 @@ public final class Search extends ComponentDefinition {
      * @param entry the {@link IndexEntry} to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntry(Directory index, IndexEntry entry) throws IOException {
-
-        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
-        addIndexEntry(writer, entry);
-        writer.close();
-    }
+//    private void addIndexEntry(Directory index, IndexEntry entry) throws IOException, LuceneAdaptorException {
+//
+////        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
+//        addIndexEntry(writeLuceneAdaptor, entry);
+////        writer.close();
+//    }
 
     /**
      * Add the given {@link IndexEntry} to the Lucene index using the given
@@ -1943,7 +1889,7 @@ public final class Search extends ComponentDefinition {
      * @param entry  the {@link IndexEntry} to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntry(IndexWriter writer, IndexEntry entry) throws IOException {
+    private void addIndexEntry(LuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
         Document doc = new Document();
         doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
         doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
@@ -1952,7 +1898,7 @@ public final class Search extends ComponentDefinition {
         doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
         doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
         doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
-        if(entry.getLeaderId() == null)
+        if (entry.getLeaderId() == null)
             doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
         else
             doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
@@ -1970,8 +1916,11 @@ public final class Search extends ComponentDefinition {
             doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
         }
 
-        writer.addDocument(doc);
-    };
+        logger.warn("{} : Going to add entry in Lucene Instance." , self.getId());
+        adaptor.addDocumentToLucene(doc);
+    }
+
+    ;
 
     /**
      * Add a new {@link IndexEntry} to the local Lucene index.
@@ -1979,7 +1928,7 @@ public final class Search extends ComponentDefinition {
      * @param indexEntry the {@link IndexEntry} to be added
      * @throws IOException if the Lucene index fails to store the entry
      */
-    private void addEntryLocal(IndexEntry indexEntry) throws IOException {
+    private void addEntryLocal(IndexEntry indexEntry) throws IOException, LuceneAdaptorException {
         if (indexEntry.getId() < lowestMissingIndexValue
                 || existingEntries.contains(indexEntry.getId())) {
 
@@ -1987,13 +1936,13 @@ public final class Search extends ComponentDefinition {
             return;
         }
 
-        addIndexEntry(index, indexEntry);
+        addIndexEntry(writeLuceneAdaptor, indexEntry);
         self.incrementNumberOfIndexEntries();
-        
+
         // Inform other components about the IndexEntry Update.
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
-        
+        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
+
         Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
@@ -2016,7 +1965,7 @@ public final class Search extends ComponentDefinition {
         maxStoredId++;
 
         //update the counter, so we can check if partitioning is necessary
-        if(leader && self.getPartitionIdDepth() < config.getMaxPartitionIdLength())
+        if (leader && self.getPartitionIdDepth() < config.getMaxPartitionIdLength())
             checkPartitioning();
     }
 
@@ -2026,33 +1975,32 @@ public final class Search extends ComponentDefinition {
         /* Be careful of the mechanism in which the maxStoreId and minStoreId are updated. =========================== */
         numberOfEntries = Math.abs(maxStoredId - minStoredId);
 
-        if(numberOfEntries < config.getMaxEntriesOnPeer())
+        if (numberOfEntries < config.getMaxEntriesOnPeer())
             return;
 
         VodAddress.PartitioningType partitionsNumber = self.getPartitioningType();
         long medianId;
 
-        if(maxStoredId > minStoredId){
-            medianId = (maxStoredId - minStoredId)/2;
-        }
-        else {
-            long values = numberOfEntries/2;
+        if (maxStoredId > minStoredId) {
+            medianId = (maxStoredId - minStoredId) / 2;
+        } else {
+            long values = numberOfEntries / 2;
 
-            if(Long.MAX_VALUE - 1 - values > minStoredId)
+            if (Long.MAX_VALUE - 1 - values > minStoredId)
                 medianId = minStoredId + values;
             else {
-                long thisPart = Long.MAX_VALUE - minStoredId -1;
+                long thisPart = Long.MAX_VALUE - minStoredId - 1;
                 values -= thisPart;
                 medianId = Long.MIN_VALUE + values + 1;
             }
         }
 
         // Avoid start of partitioning in case if one is already going on.
-        if(!partitionInProgress){
+        if (!partitionInProgress) {
 
-            logger.info(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId +" and MaxStoreId: " + maxStoredId);
+            logger.info(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
             partitionInProgress = true;
-            trigger(new LeaderGroupInformation.Request((minStoredId + medianId) , partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
+            trigger(new LeaderGroupInformation.Request((minStoredId + medianId), partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
         }
 
 
@@ -2061,7 +2009,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Leader Group Information for the Two Phase Commit.
      */
-    Handler<LeaderGroupInformation.Response> handlerLeaderGroupInformationResponse = new Handler<LeaderGroupInformation.Response>(){
+    Handler<LeaderGroupInformation.Response> handlerLeaderGroupInformationResponse = new Handler<LeaderGroupInformation.Response>() {
 
         @Override
         public void handle(LeaderGroupInformation.Response event) {
@@ -2070,7 +2018,7 @@ public final class Search extends ComponentDefinition {
             List<VodAddress> leaderGroupAddresses = event.getLeaderGroupAddress();
 
             // Not enough nodes to continue.
-            if(leaderGroupAddresses.size() < config.getLeaderGroupSize()){
+            if (leaderGroupAddresses.size() < config.getLeaderGroupSize()) {
                 logger.warn(" Not enough nodes to start the two phase commit.");
                 partitionInProgress = false;
                 return;
@@ -2085,40 +2033,37 @@ public final class Search extends ComponentDefinition {
 
             // Generate the hash information of the partition info for security purposes.
             String signedHash = generatePartitionInfoSignedHash(partitionInfo, privateKey);
-            if(signedHash == null){
+            if (signedHash == null) {
                 logger.error(" Signed Hash for the Two Phase Commit Is not getting generated.");
             }
             partitionInfo.setHash(signedHash);
 
             // Send the partition requests to the leader group.
-            for(VodAddress destinationAddress : leaderGroupAddresses){
-                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress,new OverlayId(self.getOverlayId()),timeoutId, partitionInfo);
+            for (VodAddress destinationAddress : leaderGroupAddresses) {
+                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress, new OverlayId(self.getOverlayId()), timeoutId, partitionInfo);
                 trigger(partitionPrepareRequest, networkPort);
             }
 
             // Set the timeout for the responses.
             // TODO: Add the timeout entry in the config for the update.
             ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
-            PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st,self.getId(),partitionInfo);
+            PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st, self.getId(), partitionInfo);
 
             st.setTimeoutEvent(pt);
             st.getTimeoutEvent().setTimeoutId(timeoutId);
             trigger(st, timerPort);
 
             // Create a replication object to track responses.
-            PartitionReplicationCount count = new PartitionReplicationCount(config.getLeaderGroupSize(),partitionInfo);
+            PartitionReplicationCount count = new PartitionReplicationCount(config.getLeaderGroupSize(), partitionInfo);
             partitionPrepareReplicationCountMap.put(timeoutId, count);
         }
     };
 
 
-
-
     /**
      * Partition not successful, reset the information.
-     *
      */
-    Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>(){
+    Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Timeout event) {
@@ -2134,19 +2079,19 @@ public final class Search extends ComponentDefinition {
     /**
      * Handler for the PartitionPrepareRequest.
      */
-    Handler<PartitionPrepareMessage.Request> handlerPartitionPrepareRequest = new Handler<PartitionPrepareMessage.Request>(){
+    Handler<PartitionPrepareMessage.Request> handlerPartitionPrepareRequest = new Handler<PartitionPrepareMessage.Request>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Request event) {
 
 
             // Step1: Verify that the data is from the leader only.
-            if(!isPartitionUpdateValid(event.getPartitionInfo()) || !leaderIds.contains(event.getPartitionInfo().getKey())){
+            if (!isPartitionUpdateValid(event.getPartitionInfo()) || !leaderIds.contains(event.getPartitionInfo().getKey())) {
                 logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
                 return;
             }
 
-            if(!partitionOrderValid(event.getOverlayId()))
+            if (!partitionOrderValid(event.getOverlayId()))
                 return;
 
 
@@ -2157,13 +2102,13 @@ public final class Search extends ComponentDefinition {
 
             // Step3: Add this to the map of pending partition updates.
             PartitionHelper.PartitionInfo receivedPartitionInfo = event.getPartitionInfo();
-            TimeoutId timeoutId  = UUID.nextUUID();
-            partitionUpdatePendingCommit.put(receivedPartitionInfo,timeoutId);
+            TimeoutId timeoutId = UUID.nextUUID();
+            partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
 
 
             // Step4: Add timeout for this message.
             ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
-            PartitionCommitTimeout pct = new PartitionCommitTimeout(st,self.getId(), event.getPartitionInfo());
+            PartitionCommitTimeout pct = new PartitionCommitTimeout(st, self.getId(), event.getPartitionInfo());
             st.setTimeoutEvent(pct);
             st.getTimeoutEvent().setTimeoutId(timeoutId);
             trigger(st, timerPort);
@@ -2174,8 +2119,9 @@ public final class Search extends ComponentDefinition {
     /**
      * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
-     *
+     * <p/>
      * DO NOT REMOVE THIS. (Prevents a rare fault case).
+     *
      * @param source
      * @return applyPartitioningUpdate.
      */
@@ -2184,7 +2130,7 @@ public final class Search extends ComponentDefinition {
     }
 
 
-    Handler<PartitionCommitTimeout> handlePartitionCommitTimeout = new Handler<PartitionCommitTimeout>(){
+    Handler<PartitionCommitTimeout> handlePartitionCommitTimeout = new Handler<PartitionCommitTimeout>() {
 
         @Override
         public void handle(PartitionCommitTimeout event) {
@@ -2195,19 +2141,18 @@ public final class Search extends ComponentDefinition {
     };
 
 
-
-    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>(){
+    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Response event) {
 
             // Step1: Filter the responses based on id's passed.
             TimeoutId receivedTimeoutId = event.getTimeoutId();
-            PartitionReplicationCount count  =  partitionPrepareReplicationCountMap.get(receivedTimeoutId);
+            PartitionReplicationCount count = partitionPrepareReplicationCountMap.get(receivedTimeoutId);
 
-            if(partitionInProgress && count !=null){
+            if (partitionInProgress && count != null) {
 
-                if(count.incrementAndCheckResponse(event.getVodSource())){
+                if (count.incrementAndCheckResponse(event.getVodSource())) {
 
                     // Received the required responses. Start the commit phase.
                     logger.debug("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
@@ -2226,8 +2171,8 @@ public final class Search extends ComponentDefinition {
                     st.getTimeoutEvent().setTimeoutId(commitTimeoutId);
 
                     // Send the nodes commit messages with the commit timeoutid.
-                    for(VodAddress dest : leaderGroupAddress){
-                        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest , commitTimeoutId , count.getPartitionInfo().getRequestId());
+                    for (VodAddress dest : leaderGroupAddress) {
+                        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest, commitTimeoutId, count.getPartitionInfo().getRequestId());
                         trigger(partitionCommitRequest, networkPort);
                     }
 
@@ -2250,7 +2195,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Commit Phase Timeout Handler.
      */
-    Handler<PartitionCommitMessage.Timeout> handlerPartitionCommitTimeoutMessage = new Handler<PartitionCommitMessage.Timeout>(){
+    Handler<PartitionCommitMessage.Timeout> handlerPartitionCommitTimeoutMessage = new Handler<PartitionCommitMessage.Timeout>() {
 
         @Override
         public void handle(PartitionCommitMessage.Timeout event) {
@@ -2265,9 +2210,8 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Handler for the partition update commit.
-     *
      */
-    Handler<PartitionCommitMessage.Request> handlerPartitionCommitRequest = new Handler<PartitionCommitMessage.Request>(){
+    Handler<PartitionCommitMessage.Request> handlerPartitionCommitRequest = new Handler<PartitionCommitMessage.Request>() {
 
         @Override
         public void handle(PartitionCommitMessage.Request event) {
@@ -2278,16 +2222,16 @@ public final class Search extends ComponentDefinition {
             TimeoutId cancelTimeoutId = null;
             PartitionHelper.PartitionInfo partitionUpdate = null;
 
-            for(PartitionHelper.PartitionInfo partitionInfo : partitionUpdatePendingCommit.keySet()){
+            for (PartitionHelper.PartitionInfo partitionInfo : partitionUpdatePendingCommit.keySet()) {
 
-                if(partitionInfo.getRequestId().equals(receivedPartitionRequestId)){
+                if (partitionInfo.getRequestId().equals(receivedPartitionRequestId)) {
                     partitionUpdate = partitionInfo;
                     break;
                 }
             }
 
             // No partition update entry present.
-            if(partitionUpdate == null){
+            if (partitionUpdate == null) {
                 logger.warn(" Delayed Partition Message or False Partition Received by the Node.");
                 return;
             }
@@ -2306,7 +2250,7 @@ public final class Search extends ComponentDefinition {
             partitionUpdatePendingCommit.remove(partitionUpdate);               // Remove the partition update from the pending map.
 
             // Send a  conformation to the leader.
-            PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId() , event.getPartitionRequestId());
+            PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getPartitionRequestId());
             trigger(partitionCommitResponse, networkPort);
         }
     };
@@ -2315,7 +2259,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Partition Commit Responses.
      */
-    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponse = new Handler<PartitionCommitMessage.Response>(){
+    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponse = new Handler<PartitionCommitMessage.Response>() {
         @Override
         public void handle(PartitionCommitMessage.Response event) {
 
@@ -2323,7 +2267,7 @@ public final class Search extends ComponentDefinition {
             TimeoutId receivedTimeoutId = event.getTimeoutId();
             PartitionReplicationCount partitionReplicationCount = partitionCommitReplicationCountMap.get(receivedTimeoutId);
 
-            if (partitionInProgress && partitionReplicationCount != null){
+            if (partitionInProgress && partitionReplicationCount != null) {
 
                 logger.debug("{PartitionCommitMessage.Response} received from the nodes at the Leader");
 
@@ -2336,7 +2280,7 @@ public final class Search extends ComponentDefinition {
 
                 // Cancel the commit timeout.
                 CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
-                trigger(ct,timerPort);
+                trigger(ct, timerPort);
 
                 logger.debug("Partitioning complete at the leader : " + self.getId());
 
@@ -2351,25 +2295,23 @@ public final class Search extends ComponentDefinition {
     };
 
 
-
-private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
-    {
+    private IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
         IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
-                    Long.valueOf(d.get(IndexEntry.ID)),
-                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                    MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
+                Long.valueOf(d.get(IndexEntry.ID)),
+                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
+                MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
+                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
 
         String fileSize = d.get(IndexEntry.FILE_SIZE);
-        if(fileSize != null)
+        if (fileSize != null)
             indexEntry.setFileSize(Long.valueOf(fileSize));
 
         String uploadedDate = d.get(IndexEntry.UPLOADED);
-        if(uploadedDate != null)
+        if (uploadedDate != null)
             indexEntry.setUploaded(new Date(Long.valueOf(uploadedDate)));
 
         String language = d.get(IndexEntry.LANGUAGE);
-        if(language != null)
+        if (language != null)
             indexEntry.setLanguage(language);
 
         return indexEntry;
@@ -2423,7 +2365,7 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
      * @throws IOException if Lucene errors occur
      */
     private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = findIdRange(id, id, 1);
+        List<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor,id, id, 1);
         if (indexEntries.isEmpty()) {
             return null;
         }
@@ -2440,36 +2382,29 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
      * @return a list of the entries found
      * @throws IOException if Lucene errors occur
      */
-    private List<IndexEntry> findIdRange(long min, long max, int limit) throws IOException {
-        IndexReader reader = null;
+    private List<IndexEntry> findIdRange(LuceneAdaptor adaptor, long min, long max, int limit) throws IOException {
+        
+        List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
-
             Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
-            TopDocs topDocs = searcher.search(query, limit, new Sort(new SortField(IndexEntry.ID,
-                    Type.LONG)));
-            ArrayList<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document d = searcher.doc(scoreDoc.doc);
-                indexEntries.add(createIndexEntry(d));
-            }
-
-            return indexEntries;
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
+            indexEntries = adaptor.searchIndexEntriesInLucene(query,  new Sort(new SortField(IndexEntry.ID,Type.LONG)), limit);
+            
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            logger.error("{}: Exception while trying to fetch the index entries between specified range.", self.getId());
         }
+        
+        return indexEntries;
     }
 
     /**
      * Generates a SHA-1 hash on IndexEntry and signs it with a private key
+     *
      * @param newEntry
      * @return signed SHA-1 key
      */
     private static String generateSignedHash(IndexEntry newEntry, PrivateKey privateKey) {
-        if(newEntry.getLeaderId() == null)
+        if (newEntry.getLeaderId() == null)
             return null;
 
         //url
@@ -2492,13 +2427,14 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
     /**
      * Generates the SHA-1 Hash Of the partition update and sign with private key.
+     *
      * @param partitionInfo
      * @param privateKey
      * @return signed hash
      */
     private String generatePartitionInfoSignedHash(PartitionHelper.PartitionInfo partitionInfo, PrivateKey privateKey) {
 
-        if(partitionInfo.getKey() == null)
+        if (partitionInfo.getKey() == null)
             return null;
 
         // generate the byte array from the partitioning data.
@@ -2523,6 +2459,7 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
      * Generate the SHA-1 String.
      * TODO: For more efficiency don't convert it to string as it becomes greater than 256bytes and encoding mechanism fails for index hash exchange.
      * FIXME: Change the encoding hash mechanism.
+     *
      * @param data
      * @param privateKey
      * @return
@@ -2550,7 +2487,7 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     }
 
     private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
-        if(newEntry.getLeaderId() == null)
+        if (newEntry.getLeaderId() == null)
             return false;
         ByteBuffer dataBuffer = getByteDataFromIndexEntry(newEntry);
 
@@ -2571,12 +2508,13 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
     /**
      * Verify if the partition update is received from the leader itself only.
+     *
      * @param partitionUpdate
      * @return
      */
-    private static boolean isPartitionUpdateValid(PartitionHelper.PartitionInfo partitionUpdate){
+    private static boolean isPartitionUpdateValid(PartitionHelper.PartitionInfo partitionUpdate) {
 
-        if(partitionUpdate.getKey() == null)
+        if (partitionUpdate.getKey() == null)
             return false;
 
         ByteBuffer dataBuffer = getByteDataFromPartitionInfo(partitionUpdate);
@@ -2599,68 +2537,69 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     private static ByteBuffer getByteDataFromIndexEntry(IndexEntry newEntry) {
         //url
         byte[] urlBytes;
-        if(newEntry.getUrl() != null)
+        if (newEntry.getUrl() != null)
             urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
         else
             urlBytes = new byte[0];
 
         //filename
         byte[] fileNameBytes;
-        if(newEntry.getFileName() != null)
+        if (newEntry.getFileName() != null)
             fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
         else
             fileNameBytes = new byte[0];
 
         //language
         byte[] languageBytes;
-        if(newEntry.getLanguage() != null)
+        if (newEntry.getLanguage() != null)
             languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
         else
             languageBytes = new byte[0];
 
         //description
         byte[] descriptionBytes;
-        if(newEntry.getDescription() != null)
+        if (newEntry.getDescription() != null)
             descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
         else
             descriptionBytes = new byte[0];
 
         ByteBuffer dataBuffer;
-        if(newEntry.getUploaded() != null)
+        if (newEntry.getUploaded() != null)
             dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                languageBytes.length + descriptionBytes.length);
+                    languageBytes.length + descriptionBytes.length);
         else
             dataBuffer = ByteBuffer.allocate(8 * 2 + 4 + urlBytes.length + fileNameBytes.length +
                     languageBytes.length + descriptionBytes.length);
         dataBuffer.putLong(newEntry.getId());
         dataBuffer.putLong(newEntry.getFileSize());
-        if(newEntry.getUploaded() != null)
+        if (newEntry.getUploaded() != null)
             dataBuffer.putLong(newEntry.getUploaded().getTime());
         dataBuffer.putInt(newEntry.getCategory().ordinal());
-        if(newEntry.getUrl() != null)
+        if (newEntry.getUrl() != null)
             dataBuffer.put(urlBytes);
-        if(newEntry.getFileName() != null)
+        if (newEntry.getFileName() != null)
             dataBuffer.put(fileNameBytes);
-        if(newEntry.getLanguage() != null)
+        if (newEntry.getLanguage() != null)
             dataBuffer.put(languageBytes);
-        if(newEntry.getDescription() != null)
+        if (newEntry.getDescription() != null)
             dataBuffer.put(descriptionBytes);
         return dataBuffer;
     }
 
     /**
      * Converts the partitioning update in byte array.
+     *
      * @param paritionInfo
      * @return partitionInfo byte array.
      */
-    private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo){
+    private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo) {
 
         // Decide on a specific order.
-        ByteBuffer buffer = ByteBuffer.allocate(8+ (2*4));
+        ByteBuffer buffer = ByteBuffer.allocate(8 + (2 * 4));
 
         // Start filling the buffer with information.
         buffer.putLong(partitionInfo.getMedianId());
-        if(partitionInfo.getRequestId() instanceof NoTimeoutId)
+        if (partitionInfo.getRequestId() instanceof NoTimeoutId)
             buffer.putInt(-1);
         else
             buffer.putInt(partitionInfo.getRequestId().getId());
@@ -2686,169 +2625,100 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+                    + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
     }
 
     /**
      * Returns min id value stored in Lucene
+     *
      * @return min Id value stored in Lucene
      */
-    private long getMinStoredIdFromLucene() {
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
+    private long getMinStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
+        
+        long minStoreId =0;
+        Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+        int numofEntries = 1;
+        
+        Sort sort =  new Sort(new SortField(IndexEntry.ID, Type.LONG));
+        List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
 
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
-            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
-                    Type.LONG)));
-
-            if(topDocs.scoreDocs.length == 1) {
-                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
-
-                return createIndexEntry(doc).getId();
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        if (indexEntries.size() == 1) {
+            minStoreId = indexEntries.get(0).getId();
         }
-
-        return 0;
+        return minStoreId;
     }
 
     /**
      * Returns max id value stored in Lucene
+     *
      * @return max Id value stored in Lucene
      */
-    private long getMaxStoredIdFromLucene() {
-        IndexReader reader = null;
-        try {
-            reader = DirectoryReader.open(index);
-            IndexSearcher searcher = new IndexSearcher(reader);
+    private long getMaxStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
 
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
-            TopDocs topDocs = searcher.search(query, 1, new Sort(new SortField(IndexEntry.ID,
-                    Type.LONG, true)));
+        long maxStoreId =0;
+        Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+        int numofEntries = 1;
+        Sort sort =  new Sort(new SortField(IndexEntry.ID, Type.LONG, true));
+        List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
 
-            if(topDocs.scoreDocs.length == 1) {
-                Document doc = searcher.doc(topDocs.scoreDocs[0].doc);
-
-                return createIndexEntry(doc).getId();
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        if (indexEntries.size() == 1) {
+            maxStoreId = indexEntries.get(0).getId();
         }
-
-        return 0;
+        return maxStoreId;
     }
 
     /**
      * Deletes all documents from the index with ids less or equal then id
+     *
      * @param id
      * @param bottom
      * @param top
      * @return
      */
-    private boolean deleteDocumentsWithIdLessThen(long id, long bottom, long top) {
-        IndexWriter writer=null;
-        try {
-            writer = new IndexWriter(index, indexWriterConfig);
-            if(bottom < top) {
+    private void deleteDocumentsWithIdLessThen(LuceneAdaptor adaptor, long id, long bottom, long top) throws LuceneAdaptorException {
+
+        if (bottom < top) {
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
+            adaptor.deleteDocumentsFromLucene(query);
+        } else {
+            if (id < bottom) {
+                Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, Long.MAX_VALUE - 1, true, true);
+                Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, id, true, true);
+                adaptor.deleteDocumentsFromLucene(query1, query2);
+            } else {
                 Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
-                writer.deleteDocuments(query);
-                writer.commit();
-                return true;
+                adaptor.deleteDocumentsFromLucene(query);
             }
-            else {
-                if(id < bottom) {
-                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, Long.MAX_VALUE - 1, true, true);
-                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, id, true, true);
-                    writer.deleteDocuments(query1, query2);
-                }
-                else {
-                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
-                    writer.deleteDocuments(query);
-                }
-                writer.commit();
-                return true;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        finally {
-            if (writer != null)
-                try {
-                    writer.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
         }
 
-        return false;
     }
 
     /**
      * Deletes all documents from the index with ids bigger then id (not including)
+     *
      * @param id
      * @param bottom
      * @param top
-     * @return
      */
-    private boolean deleteDocumentsWithIdMoreThen(long id, long bottom, long top) {
-        IndexWriter writer=null;
-        try {
-            writer = new IndexWriter(index, indexWriterConfig);
-            if(bottom < top) {
-                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
-                writer.deleteDocuments(query);
-                writer.commit();
-                return true;
-            }
-            else {
-                if(id >= top) {
-                    Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, Long.MAX_VALUE - 1, true, true);
-                    Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, top, true, true);
-                    writer.deleteDocuments(query1, query2);
-                }
-                else {
-                    Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id+1, top, true, true);
-                    writer.deleteDocuments(query);
-                }
-                writer.commit();
-                return true;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        finally {
-            if (writer != null)
-                try {
-                    writer.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-        }
+    private void deleteDocumentsWithIdMoreThen(LuceneAdaptor adaptor, long id, long bottom, long top) throws LuceneAdaptorException {
 
-        return false;
+
+        if (bottom < top) {
+            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, top, true, true);
+            adaptor.deleteDocumentsFromLucene(query);
+
+        } else {
+            if (id >= top) {
+                Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, Long.MAX_VALUE - 1, true, true);
+                Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, top, true, true);
+                adaptor.deleteDocumentsFromLucene(query1, query2);
+            } else {
+                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, top, true, true);
+                adaptor.deleteDocumentsFromLucene(query);
+            }
+        }
     }
 
 
@@ -2858,7 +2728,7 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
      *
      * @return true in case the message from node ahead in terms of partitioning.
      */
-    private boolean isMessageFromNodeLaggingBehind(VodAddress address){
+    private boolean isMessageFromNodeLaggingBehind(VodAddress address) {
 
         boolean result = false;
 
@@ -2869,14 +2739,14 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
         OverlayAddress selfOverlayAddress = new OverlayAddress(self.getAddress());
 
         // Only go deep into checking if the overlay ids are different.
-        if(!receivedOverlayAddress.getOverlayId().equals(selfOverlayAddress.getOverlayId())){
+        if (!receivedOverlayAddress.getOverlayId().equals(selfOverlayAddress.getOverlayId())) {
 
             // Move ahead only in case I have partitioned, else accept the message from other nodes.
-            if(selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE){
+            if (selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
 
                 // Difference should never be less than or equal to zero as nodes start with partitioning depth =1.
-                if((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0){
-                    result =true;
+                if ((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0) {
+                    result = true;
                 }
             }
         }
@@ -2887,22 +2757,22 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     /**
      * Apply the partitioning updates received.
      */
-    public void applyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionUpdates){
+    public void applyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionUpdates) {
 
-        for(PartitionHelper.PartitionInfo update : partitionUpdates){
+        for (PartitionHelper.PartitionInfo update : partitionUpdates) {
 
             boolean duplicateFound = false;
-            for(PartitionHelper.PartitionInfo partitionInfo : partitionHistory){
-                if(partitionInfo.getRequestId().getId() == update.getRequestId().getId()){
+            for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory) {
+                if (partitionInfo.getRequestId().getId() == update.getRequestId().getId()) {
                     duplicateFound = true;
                     break;
                 }
             }
 
-            if(duplicateFound)
+            if (duplicateFound)
                 continue;
 
-            if(partitionHistory.size() >= HISTORY_LENGTH){
+            if (partitionHistory.size() >= HISTORY_LENGTH) {
                 partitionHistory.removeFirst();
             }
 
@@ -2916,9 +2786,9 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
             // Inform other components about the update.
             trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-            trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()),0,false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
+            trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-            
+
 //            trigger(new StatusAggregatorMessages.SearchUpdateEvent(new SearchStatusData()), statusAggregatorPortPositive);
         }
     }
@@ -2926,14 +2796,14 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
     /**
      * Based on the source address, provide the control message enum that needs to be associated with the control response object.
      */
-    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address, OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes){
+    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address, OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
 
         boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
 
         // for ONE_BEFORE
-        if(isOnePartition){
-            if(overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE){
-                for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
+        if (isOnePartition) {
+            if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+                for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory)
                     partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
             }
         }
@@ -2945,23 +2815,21 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
             if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
 
                 if (myDepth <= (HISTORY_LENGTH)) {
-                    for(PartitionHelper.PartitionInfo partitionInfo: partitionHistory)
+                    for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory)
                         partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
-                }
-                else
+                } else
                     return ControlMessageEnum.REJOIN;
-            }
-            else {
+            } else {
 
                 int receivedNodeDepth = overlayId.getPartitionIdDepth();
-                if(myDepth - receivedNodeDepth > HISTORY_LENGTH)
+                if (myDepth - receivedNodeDepth > HISTORY_LENGTH)
                     return ControlMessageEnum.REJOIN;
 
                 else if ((myDepth - receivedNodeDepth) <= (HISTORY_LENGTH) && (myDepth - receivedNodeDepth) > 0) {
 
                     // TODO : Test this condition.
-                    int j = partitionHistory.size() - (myDepth-receivedNodeDepth);
-                    for(int i = 0 ; i < (myDepth-receivedNodeDepth) && j < HISTORY_LENGTH ; i++){
+                    int j = partitionHistory.size() - (myDepth - receivedNodeDepth);
+                    for (int i = 0; i < (myDepth - receivedNodeDepth) && j < HISTORY_LENGTH; i++) {
                         partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionHistory.get(j)));
                         j++;
                     }
@@ -2996,10 +2864,10 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                    self.getPartitionIdDepth()+1, newPartitionId, selfCategory);
+                    self.getPartitionIdDepth() + 1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }
-        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() +" PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
         int partitionId = self.getPartitionId();
         Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getCategoryId(), partitionId));
@@ -3008,26 +2876,27 @@ private IndexEntry createIndexEntryInternal(Document d, PublicKey pub)
 
     /**
      * Based on the unique ids return the partition updates back.
+     *
      * @param partitionUpdatesIds
      * @return
      */
-    public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds){
+    public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds) {
 
         LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
 
         // Iterate over the available partition updates.
-        for(TimeoutId partitionUpdateId : partitionUpdatesIds){
+        for (TimeoutId partitionUpdateId : partitionUpdatesIds) {
 
             boolean found = false;
-            for(PartitionHelper.PartitionInfo partitionInfo : partitionHistory){
-                if(partitionInfo.getRequestId().equals(partitionUpdateId)){
+            for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory) {
+                if (partitionInfo.getRequestId().equals(partitionUpdateId)) {
                     partitionUpdates.add(partitionInfo);
                     found = true;
                     break;
                 }
             }
 
-            if(!found){
+            if (!found) {
                 // Stop The addition as there has been a missing piece.
                 break;
             }
