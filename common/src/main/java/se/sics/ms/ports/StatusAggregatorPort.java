@@ -2,7 +2,6 @@ package se.sics.ms.ports;
 
 import se.sics.kompics.PortType;
 import se.sics.ms.types.ComponentUpdateEvent;
-import se.sics.ms.types.StatusAggregatorMessages;
 
 /**
  * Status Aggregator Component Port.

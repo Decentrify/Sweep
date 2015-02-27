@@ -7,14 +7,15 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
-import se.sics.ms.data.ComponentStatus;
-import se.sics.ms.data.GradientStatusData;
-import se.sics.ms.data.SearchStatusData;
+import se.sics.ms.data.ComponentUpdate;
+import se.sics.ms.data.GradientComponentUpdate;
+import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.AggregatorUpdateMsg;
 import se.sics.ms.types.ComponentUpdateEvent;
-import se.sics.ms.types.StatusAggregatorMessages;
+import se.sics.ms.types.StatusAggregatorEvent;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,7 +27,7 @@ import java.util.Map;
  */
 public class StatusAggregator extends ComponentDefinition{
     
-    private Map<String, ComponentStatus> componentDataMap;  
+    private Map<String, ComponentUpdate> componentDataMap;
     private Logger logger = LoggerFactory.getLogger(StatusAggregator.class);
     private Negative<StatusAggregatorPort> statusAggregatorPort = provides(StatusAggregatorPort.class);
     private Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
@@ -35,7 +36,7 @@ public class StatusAggregator extends ComponentDefinition{
     private VodAddress self;
     private VodAddress simComponentAddress;
     private int timeout_seconds;
-    private SchedulePeriodicTimeout spt;
+    
     
     public StatusAggregator(StatusAggregatorInit init){
         doInit(init);
@@ -56,7 +57,7 @@ public class StatusAggregator extends ComponentDefinition{
         self = init.getSelf();
         timeout_seconds = init.getTimeout();
         simComponentAddress = init.getMainSimAddress();
-        componentDataMap = new HashMap<String, ComponentStatus>();
+        componentDataMap = new HashMap<String, ComponentUpdate>();
     }
     
     Handler<Start> startHandler = new Handler<Start>() {
@@ -68,6 +69,7 @@ public class StatusAggregator extends ComponentDefinition{
             if(simComponentAddress != null){  
                 // == Schedule Periodic Timeout, only if there is a component, listening updates.
                 logger.info("Aggregator: Triggering the timeout.");
+                SchedulePeriodicTimeout spt;
                 spt = new SchedulePeriodicTimeout(timeout_seconds, timeout_seconds);
                 spt.setTimeoutEvent(new AggregateStateUpdateTimeout(spt, self.getId()));
                 trigger(spt, timerPositive);
@@ -87,12 +89,12 @@ public class StatusAggregator extends ComponentDefinition{
             
             String mapKey = null;
             
-            if(event instanceof StatusAggregatorMessages.SearchUpdateEvent){
-                mapKey = SearchStatusData.SEARCH_KEY;
+            if(event instanceof StatusAggregatorEvent.SearchUpdateEvent){
+                mapKey = ComponentUpdateEnum.SEARCH.getName();
             }
             
-            else if(event instanceof StatusAggregatorMessages.GradientUpdateEvent){
-                mapKey = GradientStatusData.GRADIENT_KEY;
+            else if(event instanceof StatusAggregatorEvent.GradientUpdateEvent){
+                mapKey = ComponentUpdateEnum.GRADIENT.getName();
             }
             else{
                 logger.warn("Status update from unknown component.");
@@ -100,7 +102,7 @@ public class StatusAggregator extends ComponentDefinition{
             
             if(mapKey !=null){
                 logger.info("Adding data to component map with key {}", mapKey);
-                componentDataMap.put(mapKey, event.getComponentStatus());
+                componentDataMap.put(mapKey, event.getComponentUpdate());
             }
         }
     };

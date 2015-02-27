@@ -5,6 +5,6 @@ package se.sics.ms.data;
  * 
  * Created by babbarshaer on 2015-02-19.
  */
-public interface ComponentStatus {
+public interface ComponentUpdate {
     
 }

@@ -1,11 +1,10 @@
-package se.sics.p2p.simulator.simulation;
+package se.sics.ms.handlers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.KompicsEvent;
-import se.sics.ms.data.ComponentStatus;
-import se.sics.ms.data.GradientStatusData;
-import se.sics.ms.data.SearchStatusData;
+import se.sics.ms.data.ComponentUpdate;
+import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.types.AggregatorUpdateMsg;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.SystemStatusHandler;
@@ -19,7 +18,7 @@ import java.util.Map;
 public class AggregatorUpdateHandler implements SystemStatusHandler{
     
     Logger logger = LoggerFactory.getLogger(AggregatorUpdateHandler.class);
-    private Map<String, ComponentStatus> componentStatusMap;
+    private Map<String, ComponentUpdate> componentStatusMap;
     
     
     @Override
@@ -35,11 +34,7 @@ public class AggregatorUpdateHandler implements SystemStatusHandler{
             
             // Typecast message and create a copy of map.
             AggregatorUpdateMsg updateMsg = (AggregatorUpdateMsg)msg;
-            componentStatusMap = new HashMap<String, ComponentStatus>(updateMsg.getComponentStatusMap());
-
-            // TODO: Not sure if below is a good design decision.
-            // Start fetching the component data.
-            SearchStatusData searchStatusData = (SearchStatusData) componentStatusMap.get(SearchStatusData.SEARCH_KEY);
+            componentStatusMap = new HashMap<String, ComponentUpdate>(updateMsg.getComponentStatusMap());
             
             //Use SimulationContext.
             

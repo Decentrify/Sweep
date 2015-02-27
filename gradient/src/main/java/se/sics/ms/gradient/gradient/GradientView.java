@@ -61,7 +61,6 @@ public class GradientView {
 	protected void add(SearchDescriptor searchDescriptor) {
         if (searchDescriptor.getVodAddress().equals(self.getAddress())) {
             logger.warn("{} tried to add itself to its GradientView with number of Index Entries {}: ", self.getAddress());
-            logger.warn(" _ISSUE: Search Descriptor id: " + searchDescriptor.getId() + " Descriptor : Number of Index Entries: " + searchDescriptor.getNumberOfIndexEntries());
             return;
         }
 

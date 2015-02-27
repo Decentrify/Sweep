@@ -4,9 +4,8 @@ import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.ms.data.ComponentStatus;
+import se.sics.ms.data.ComponentUpdate;
 
 import java.util.Map;
 
@@ -18,14 +17,14 @@ import java.util.Map;
  */
 public class AggregatorUpdateMsg extends DirectMsgNetty.Oneway{
     
-    private final Map<String, ComponentStatus> componentStatusMap;
+    private final Map<String, ComponentUpdate> componentStatusMap;
     
-    public AggregatorUpdateMsg(VodAddress source, VodAddress destination, Map<String, ComponentStatus> componentStatusMap) {
+    public AggregatorUpdateMsg(VodAddress source, VodAddress destination, Map<String, ComponentUpdate> componentStatusMap) {
         super(source, destination);
         this.componentStatusMap = componentStatusMap;
     }
 
-    public Map<String, ComponentStatus> getComponentStatusMap(){
+    public Map<String, ComponentUpdate> getComponentStatusMap(){
         return this.componentStatusMap;
     }
     

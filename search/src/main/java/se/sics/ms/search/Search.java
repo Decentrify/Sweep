@@ -28,8 +28,6 @@ import se.sics.kompics.*;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
-import se.sics.ms.data.GradientStatusData;
-import se.sics.ms.data.SearchStatusData;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;

@@ -3,20 +3,22 @@ package se.sics.ms.data;
 import se.sics.ms.types.SearchDescriptor;
 
 /**
+ * 
+ * Represents data from the
  * Created by babbarshaer on 2015-02-19.
  */
-public class GradientStatusData implements ComponentStatus {
-
-    public static String GRADIENT_KEY = "gradient";
+public class SearchComponentUpdate implements ComponentUpdate {
+    
+    public static String SEARCH_KEY = "search";
 
     private final SearchDescriptor searchDesc;
 
-    public GradientStatusData(SearchDescriptor desc) {
+    public SearchComponentUpdate(SearchDescriptor desc) {
         this.searchDesc = desc;
     }
 
     public SearchDescriptor getSearchDescriptor(){
         return this.searchDesc;
     }
-
+    
 }

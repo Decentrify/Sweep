@@ -1,8 +1,8 @@
 package se.sics.ms.types;
 
-import se.sics.ms.data.ComponentStatus;
-import se.sics.ms.data.GradientStatusData;
-import se.sics.ms.data.SearchStatusData;
+import se.sics.ms.data.ComponentUpdate;
+import se.sics.ms.data.GradientComponentUpdate;
+import se.sics.ms.data.SearchComponentUpdate;
 
 /**
  * 
@@ -12,7 +12,7 @@ import se.sics.ms.data.SearchStatusData;
  *
  * Created by babbarshaer on 2015-02-19.
  */
-public class StatusAggregatorMessages {
+public class StatusAggregatorEvent {
 
 
     /**
@@ -20,15 +20,15 @@ public class StatusAggregatorMessages {
      */
     public static class SearchUpdateEvent implements ComponentUpdateEvent {
         
-        private final SearchStatusData searchStatusData;
+        private final SearchComponentUpdate searchComponentUpdate;
         
-        public SearchUpdateEvent(SearchStatusData searchStatusData){
-            this.searchStatusData = searchStatusData;
+        public SearchUpdateEvent(SearchComponentUpdate searchComponentUpdate){
+            this.searchComponentUpdate = searchComponentUpdate;
         }
 
         @Override
-        public ComponentStatus getComponentStatus() {
-            return searchStatusData;
+        public ComponentUpdate getComponentUpdate() {
+            return searchComponentUpdate;
         }
     }
 
@@ -37,15 +37,15 @@ public class StatusAggregatorMessages {
      */
     public static class GradientUpdateEvent implements ComponentUpdateEvent {
         
-        private final GradientStatusData gradientStatusData;
+        private final GradientComponentUpdate gradientComponentUpdate;
         
-        public GradientUpdateEvent(GradientStatusData gradientStatusData){
-            this.gradientStatusData = gradientStatusData;
+        public GradientUpdateEvent(GradientComponentUpdate gradientComponentUpdate){
+            this.gradientComponentUpdate = gradientComponentUpdate;
         }
 
         @Override
-        public ComponentStatus getComponentStatus() {
-            return gradientStatusData;
+        public ComponentUpdate getComponentUpdate() {
+            return gradientComponentUpdate;
         }
     }
 
@@ -59,7 +59,7 @@ public class StatusAggregatorMessages {
         }
         
         @Override
-        public ComponentStatus getComponentStatus() {
+        public ComponentUpdate getComponentUpdate() {
             return null;
         }
     }

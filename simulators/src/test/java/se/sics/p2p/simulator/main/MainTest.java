@@ -3,7 +3,7 @@ package se.sics.p2p.simulator.main;
 import org.junit.Test;
 import se.sics.kompics.Kompics;
 import se.sics.kompics.simulation.SimulatorScheduler;
-import se.sics.p2p.simulator.simulation.AggregatorUpdateHandler;
+import se.sics.ms.handlers.AggregatorUpdateHandler;
 import se.sics.p2ptoolbox.simulator.LauncherComp;
 
 /**
