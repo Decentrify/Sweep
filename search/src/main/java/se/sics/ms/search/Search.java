@@ -28,6 +28,7 @@ import se.sics.kompics.*;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
+import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -1938,9 +1939,7 @@ public final class Search extends ComponentDefinition {
         self.incrementNumberOfIndexEntries();
 
         // Inform other components about the IndexEntry Update.
-        trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
-
+        informListeningComponentsAboutUpdates(self);
         Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
@@ -2783,8 +2782,7 @@ public final class Search extends ComponentDefinition {
             removeEntriesNotFromYourPartition(update.getMedianId(), partition);
 
             // Inform other components about the update.
-            trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-            trigger(new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth())), croupierPortPositive);
+            informListeningComponentsAboutUpdates(self);
             trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
 
 //            trigger(new StatusAggregatorMessages.SearchUpdateEvent(new SearchStatusData()), statusAggregatorPortPositive);
@@ -2926,6 +2924,21 @@ public final class Search extends ComponentDefinition {
 
         // Trigger the partitioning update.
         return new CheckPartitionInfoHashUpdate.Response(event.getRoundId(), event.getVodSource(), partitionUpdateHashes, controlMessageEnum);
+    }
+
+
+    /**
+     * Push updated information to the listening components.
+     *
+     * @param self Updated Self
+     */
+    private void informListeningComponentsAboutUpdates(MsSelfImpl self){
+
+        SearchDescriptor updatedDesc = new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth());
+        
+        trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
+        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
+        trigger(new StatusAggregatorEvent.SearchUpdateEvent(new SearchComponentUpdate(updatedDesc)), statusAggregatorPortPositive);
     }
 
 }

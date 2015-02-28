@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.ms.data.ComponentUpdate;
@@ -43,6 +44,7 @@ public class StatusAggregator extends ComponentDefinition{
         subscribe(startHandler,control);
         subscribe(componentStatusUpdateHandler, statusAggregatorPort);
         subscribe(periodicStateUpdateDispenseEvent, timerPositive);
+        subscribe(oneTimeUpdateHandler, timerPositive);
     }
     
     
@@ -52,6 +54,15 @@ public class StatusAggregator extends ComponentDefinition{
             super(request, id);
         }
     }
+    
+    // Only for testing.
+    private class OneTimeUpdate extends IndividualTimeout{
+        
+        public OneTimeUpdate(ScheduleTimeout request , int id){
+            super(request, id);
+        }
+    }
+    
     
     private void doInit(StatusAggregatorInit init){
         self = init.getSelf();
@@ -66,7 +77,7 @@ public class StatusAggregator extends ComponentDefinition{
             
             logger.info("Aggregator: Started.");
             
-            if(simComponentAddress != null){  
+            if(false){
                 // == Schedule Periodic Timeout, only if there is a component, listening updates.
                 logger.info("Aggregator: Triggering the timeout.");
                 SchedulePeriodicTimeout spt;
@@ -91,6 +102,12 @@ public class StatusAggregator extends ComponentDefinition{
             
             if(event instanceof StatusAggregatorEvent.SearchUpdateEvent){
                 mapKey = ComponentUpdateEnum.SEARCH.getName();
+                
+                ScheduleTimeout st = new ScheduleTimeout(timeout_seconds);
+                OneTimeUpdate oneTimeUpdate = new OneTimeUpdate(st,self.getId());
+                
+                st.setTimeoutEvent(oneTimeUpdate);
+                trigger(st, timerPositive);
             }
             
             else if(event instanceof StatusAggregatorEvent.GradientUpdateEvent){
@@ -118,8 +135,14 @@ public class StatusAggregator extends ComponentDefinition{
             trigger(new AggregatorUpdateMsg(self, simComponentAddress,componentDataMap), networkPositive);
         }
     };
+
     
-    
+    Handler<OneTimeUpdate> oneTimeUpdateHandler = new Handler<OneTimeUpdate>() {
+        @Override
+        public void handle(OneTimeUpdate event) {
+            logger.info("Aggregator: Pushing One time update to the scheduler.");
+        }
+    };
     
     
     

@@ -5,6 +5,8 @@ import se.sics.ms.simulation.SweepOperations;
 
 
 /**
+ * Simple Testing Scenario.
+ *
  * Created by babbarshaer on 2015-02-04.
  */
 public class SimpleBootupScenario {
@@ -26,7 +28,7 @@ public class SimpleBootupScenario {
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1,SweepOperations.peerJoinCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(3, SweepOperations.peerJoinCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
                 

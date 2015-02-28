@@ -24,7 +24,7 @@ public class PartitioningScenario extends Scenario {
             SimulationScenario.StochasticProcess joinNodes = new SimulationScenario.StochasticProcess() {
                 {
                     eventInterArrivalTime(constant(3000));
-                    raise(10, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
+                    raise(2, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
 
 
                 }
@@ -47,7 +47,7 @@ public class PartitioningScenario extends Scenario {
 
 
             joinNodes.start();
-            addEntries.startAfterTerminationOf(10000, joinNodes);
+//            addEntries.startAfterTerminationOf(10000, joinNodes);
 //            searchEntries.startAfterTerminationOf(50000, addEntries);
 //            terminateProcess.startAfterTerminationOf(5000, addEntries);
         }
