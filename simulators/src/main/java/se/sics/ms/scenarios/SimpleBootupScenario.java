@@ -17,25 +17,22 @@ public class SimpleBootupScenario {
         SimulationScenario scenario = new SimulationScenario() {
             
             {
-                StochasticProcess startCommandCenter = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, SweepOperations.startNodeCmdOperation);
-                    }
-                };
-                
-                
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(3, SweepOperations.peerJoinCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(4 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
                 
-                
-                startCommandCenter.start();
-                peerJoin.startAfterTerminationOf(3000, startCommandCenter);
-//                terminateAfterTerminationOf(5000, startCommandCenter);
+                StochasticProcess addIndexEntryCommand = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(3000));
+                        raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+                peerJoin.start();
+                addIndexEntryCommand.startAfterTerminationOf(10000, peerJoin);
                 // === Add a termination event.
             }
         };
@@ -45,3 +42,4 @@ public class SimpleBootupScenario {
         return scenario;
     }
 }
+

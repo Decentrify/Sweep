@@ -16,12 +16,13 @@ import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.events.simEvents.PeerJoinP2pSimulated;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.simulation.ConsistentHashtable;
 import se.sics.ms.simulation.IndexEntryP2pSimulated;
-import se.sics.ms.simulation.PeerJoinP2pSimulated;
+
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
@@ -62,12 +63,12 @@ public class P2pSim extends ComponentDefinition{
     int counter =0;
     Logger logger = LoggerFactory.getLogger(P2pSim.class);
     private VodAddress bootstrappingNode;
-    
-    
+
+
     public P2pSim(P2pSimulatorInit init) throws IOException {
-        
+
         // === Main Initialization.
-        doInit(init);    
+        doInit(init);
 
        // === Handlers Subscriptions.
         subscribe(startHandler,control);
@@ -76,13 +77,13 @@ public class P2pSim extends ComponentDefinition{
     }
 
     private void doInit(P2pSimulatorInit init) {
-        
+
         self = init.getSelf();
         simulatorAddress = init.getSimulatorAddress();
         peers = new HashMap<Long, Component>();
         peersAddress = new HashMap<Long,VodAddress>();
         ringNodes = new ConsistentHashtable<Long>();
-        
+
         peers.clear();
         croupierConfiguration = init.getCroupierConfiguration();
         searchConfiguration = init.getSearchConfiguration();
@@ -91,23 +92,23 @@ public class P2pSim extends ComponentDefinition{
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         identifierSpaceSize = new Long(3000);
     }
-    
-    
+
+
     Handler<Start> startHandler = new Handler<Start>(){
         @Override
         public void handle(Start event) {
             logger.info("Executing Start Event.");
         }
     };
-    
-    
+
+
     Handler<PeerJoinP2pSimulated.Request> handlePeerJoin = new Handler<PeerJoinP2pSimulated.Request>(){
 
         @Override
         public void handle(PeerJoinP2pSimulated.Request event) {
 
             logger.info("Received Peer Join: -> " + event.getPeerId());
-            
+
             Long id = event.getPeerId();
             logger.info(" Handle Peer Join Received for id -> " + id);
             // join with the next id if this id is taken
@@ -120,7 +121,7 @@ public class P2pSim extends ComponentDefinition{
 
             createAndStartNewPeer(id);
             ringNodes.addNode(id);
-                
+
         }
 
     };
@@ -129,7 +130,7 @@ public class P2pSim extends ComponentDefinition{
     Handler<IndexEntryP2pSimulated.Request> handleAddIndexEntry = new Handler<IndexEntryP2pSimulated.Request>() {
         @Override
         public void handle(IndexEntryP2pSimulated.Request event) {
-            
+
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
@@ -140,7 +141,7 @@ public class P2pSim extends ComponentDefinition{
     };
 
 
-    
+
     /**
      * Boot up new instance of a peer.
      * @param id
@@ -199,6 +200,6 @@ public class P2pSim extends ComponentDefinition{
         counter++;
         return sb.toString();
     }
-    
-    
+
+
 }

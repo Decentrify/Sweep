@@ -383,7 +383,6 @@ public final class Search extends ComponentDefinition {
             trigger(rst, timerPort);
 
             // Bootup the croupier with default configuration.
-            logger.warn(" Trigger Initial Croupier Update for Id: " + self.getAddress().getId());
             CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, 0, 0));
             trigger(initialCroupierBootupUpdate, croupierPortPositive);
             
@@ -1914,8 +1913,6 @@ public final class Search extends ComponentDefinition {
         if (entry.getLanguage() != null) {
             doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
         }
-
-        logger.warn("{} : Going to add entry in Lucene Instance." , self.getId());
         adaptor.addDocumentToLucene(doc);
     }
 

@@ -12,6 +12,7 @@ import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.p2p.simulator.P2pSimulator;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.ms.common.StatusAggregator;
@@ -24,6 +25,8 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
+import se.sics.ms.events.simEvents.PeerJoinP2pSimulated;
 import se.sics.ms.gradient.gradient.Gradient;
 import se.sics.ms.gradient.gradient.GradientInit;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -180,6 +183,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
+        subscribe(addEntrySimulatorEventHandler, network);
     }
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
@@ -248,4 +252,20 @@ public final class SearchPeer extends ComponentDefinition {
             trigger(addIndexEntryUiResponse, externalUiPort);
         }
     };
+    
+    
+    // ===== 
+    //  Simulator Event Handlers.
+    // =====
+    
+    Handler<AddIndexEntryP2pSimulated.Request> addEntrySimulatorEventHandler = new Handler<AddIndexEntryP2pSimulated.Request>() {
+        
+        @Override
+        public void handle(AddIndexEntryP2pSimulated.Request event) {
+            
+            log.debug("{}: Received PeerJoin Simulated Event. ", self.getId());
+            trigger(new SimulationEventsPort.AddIndexSimulated(event.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
+        }
+    };
+    
 }

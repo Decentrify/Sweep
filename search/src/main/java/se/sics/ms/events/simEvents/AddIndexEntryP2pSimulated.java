@@ -1,23 +1,25 @@
-package se.sics.ms.simulation;
+package se.sics.ms.events.simEvents;
 
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.ms.types.IndexEntry;
 
 /**
- * Created by babbarshaer on 2015-02-04.
+ * Created by babbarshaer on 2015-03-01.
  */
-public class PeerJoinP2pSimulated {
+public class AddIndexEntryP2pSimulated {
+    
     
     public static class Request extends DirectMsgNetty.Request{
 
-        private final Long peerId;
-        
-        public Request(VodAddress source, VodAddress destination, Long peerId) {
+        private final IndexEntry entry;
+
+        public Request(VodAddress source, VodAddress destination, IndexEntry entry) {
             super(source, destination);
-            this.peerId = peerId;
+            this.entry = entry;
         }
 
         @Override
@@ -37,11 +39,10 @@ public class PeerJoinP2pSimulated {
         public byte getOpcode() {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
-        
-        
-        public Long getPeerId(){
-            return this.peerId;
+
+
+        public IndexEntry getIndexEntry(){
+            return this.entry;
         }
     }
-    
 }
