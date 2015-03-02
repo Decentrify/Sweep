@@ -3,6 +3,7 @@ package se.sics.ms.handlers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.KompicsEvent;
+import se.sics.ms.common.ComponentUpdateEnum;
 import se.sics.ms.data.ComponentUpdate;
 import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.types.AggregatorUpdateMsg;
@@ -19,6 +20,8 @@ public class AggregatorUpdateHandler implements SystemStatusHandler{
     
     Logger logger = LoggerFactory.getLogger(AggregatorUpdateHandler.class);
     private Map<String, ComponentUpdate> componentStatusMap;
+    private long currentIndexEntryCount;
+    private int currentPartitioningDepth;
     
     
     @Override
@@ -36,8 +39,20 @@ public class AggregatorUpdateHandler implements SystemStatusHandler{
             AggregatorUpdateMsg updateMsg = (AggregatorUpdateMsg)msg;
             componentStatusMap = new HashMap<String, ComponentUpdate>(updateMsg.getComponentStatusMap());
             
-            //Use SimulationContext.
-            
+            // check search data.
+            ComponentUpdate update = componentStatusMap.get(ComponentUpdateEnum.SEARCH.getName());
+            SearchComponentUpdate searchComponentUpdate = null;
+            if(update != null){
+                
+                if (ComponentUpdateEnum.SEARCH.getUpdateType().isInstance(update)){
+                    
+                    searchComponentUpdate = (SearchComponentUpdate)update;
+                    currentIndexEntryCount = searchComponentUpdate.getSearchDescriptor().getNumberOfIndexEntries();
+                    currentPartitioningDepth = searchComponentUpdate.getSearchDescriptor().getReceivedPartitionDepth();
+                    logger.warn("Aggregator Update: Index Entry : {}, Partitioning Depth: {}", currentIndexEntryCount,currentPartitioningDepth );
+                    
+                }
+            }
         }
         
         else{

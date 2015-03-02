@@ -141,6 +141,7 @@ public class StatusAggregator extends ComponentDefinition{
         @Override
         public void handle(OneTimeUpdate event) {
             logger.info("Aggregator: Pushing One time update to the scheduler.");
+            trigger(new AggregatorUpdateMsg(self, simComponentAddress,componentDataMap), networkPositive);
         }
     };
     
