@@ -496,7 +496,7 @@ public final class Gradient extends ComponentDefinition {
     };
     
     
-    private <T extends PeerView> void checkInstanceAndAdd(Class<T> classType, List<T> baseList, List<CroupierPeerView> sampleList){
+    private <T extends PeerView> void checkInstanceAndAdd(Class<T> classType, List<T> baseList, Collection<CroupierPeerView> sampleList){
         
         for(CroupierPeerView croupierPeerView : sampleList){
             
@@ -575,6 +575,7 @@ public final class Gradient extends ComponentDefinition {
     final private HashMap<VodAddress, Integer> locatedLeaders = new HashMap<VodAddress, Integer>();
     private List<VodAddress> leadersAlreadyComunicated = new ArrayList<VodAddress>();
 
+    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
@@ -652,6 +653,8 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+    
+    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.RequestTimeout> handleLeaderLookupRequestTimeout = new Handler<LeaderLookupMessage.RequestTimeout>() {
         @Override
         public void handle(LeaderLookupMessage.RequestTimeout event) {
@@ -667,6 +670,8 @@ public final class Gradient extends ComponentDefinition {
             logger.info("{}: {} did not response to LeaderLookupRequest", self.getAddress(), unresponsiveNode);
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
         @Override
         public void handle(LeaderLookupMessage.Request event) {
@@ -691,6 +696,8 @@ public final class Gradient extends ComponentDefinition {
             trigger(new LeaderLookupMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), leader, searchDescriptors), networkPort);
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
@@ -772,6 +779,8 @@ public final class Gradient extends ComponentDefinition {
         node.setConnected(true);
         shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
     }
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.ReplicationPrepareCommitRequest> handleReplicationPrepareCommit = new Handler<GradientRoutingPort.ReplicationPrepareCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepareCommitRequest event) {
@@ -780,6 +789,8 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationCommit event) {
@@ -788,6 +799,8 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.IndexHashExchangeRequest> handleIndexHashExchangeRequest = new Handler<GradientRoutingPort.IndexHashExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
@@ -814,6 +827,8 @@ public final class Gradient extends ComponentDefinition {
             trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
@@ -867,6 +882,8 @@ public final class Gradient extends ComponentDefinition {
             }
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
@@ -886,6 +903,8 @@ public final class Gradient extends ComponentDefinition {
             updateLatestRtts(rtt);
         }
     };
+
+    // TODO: {Abhi} Move it to separate component.
     final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
@@ -895,6 +914,7 @@ public final class Gradient extends ComponentDefinition {
             publishUnresponsiveNode(unresponsiveNode.getVodAddress());
         }
     };
+
     /**
      * Handles broadcast public key request from Search component
      */
@@ -911,6 +931,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Responses with peer's view size
      */
+    // TODO: {Abhi} Move it to separate component.
     final Handler<ViewSizeMessage.Request> handleViewSizeRequest = new Handler<ViewSizeMessage.Request>() {
         @Override
         public void handle(ViewSizeMessage.Request request) {
@@ -918,6 +939,7 @@ public final class Gradient extends ComponentDefinition {
         }
     };
 
+    // TODO: {Abhi} Move it to separate component.
     Handler<LeaderGroupInformation.Request> handleLeaderGroupInformationRequest = new Handler<LeaderGroupInformation.Request>() {
         @Override
         public void handle(LeaderGroupInformation.Request event) {
@@ -1034,6 +1056,7 @@ public final class Gradient extends ComponentDefinition {
     /**
      * Received the command to initiate the pull based control message exchange mechanism.
      */
+    // TODO: {Abhi} Move it to separate component.
     Handler<GradientRoutingPort.InitiateControlMessageExchangeRound> handlerControlMessageExchangeInitiation = new Handler<GradientRoutingPort.InitiateControlMessageExchangeRound>() {
         @Override
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
@@ -1092,6 +1115,7 @@ public final class Gradient extends ComponentDefinition {
         return uniqueRandomIntegerList;
     }
 
+    // TODO: {Abhi} Move it to separate component.
     Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
         @Override
         public void handle(LeaderInfoUpdate leaderInfoUpdate) {
@@ -1100,7 +1124,8 @@ public final class Gradient extends ComponentDefinition {
             leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
     };
-
+    
+    // TODO: {Abhi} Move it to separate component.
     Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>(){
         @Override
         public void handle(ControlMessageInternal.Request event) {

@@ -16,6 +16,7 @@ import se.sics.ms.types.IndexEntry;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -37,6 +38,8 @@ public class SweepOperationsHelper {
     private final static GradientConfiguration gradientConfiguration;
     private final static ElectionConfiguration electionConfiguration;
     private final static ChunkManagerConfiguration chunkManagerConfiguration;
+    private final static GradientConfig gradientConfig;
+    
     private static Logger logger = LoggerFactory.getLogger(SweepOperationsHelper.class);
     private static Long identifierSpaceSize;
     private static VodAddress bootstrapAddress = null;
@@ -54,6 +57,7 @@ public class SweepOperationsHelper {
         gradientConfiguration = GradientConfiguration.build();
         electionConfiguration = ElectionConfiguration.build();
         chunkManagerConfiguration = ChunkManagerConfiguration.build();
+        gradientConfig= new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE,MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
         
     }
 
@@ -94,7 +98,7 @@ public class SweepOperationsHelper {
         Self self = new MsSelfImpl(new VodAddress(address,
                 PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
-        SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration, bootstrapAddress, simulatorAddress);
+        SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration,gradientConfig, bootstrapAddress, simulatorAddress);
         
         ringNodes.addNode(id);
         peersAddressMap.put(id, self.getAddress());

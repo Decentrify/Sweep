@@ -8,6 +8,7 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
 
@@ -17,13 +18,14 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final GradientConfiguration gradientConfiguration;
     private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfiguration chunkManagerConfiguration;
+    private final GradientConfig gradientConfig;
     private final VodAddress bootstrappingNode;
     private final VodAddress simulatorAddress;
 
     public SearchPeerInit(Self self,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration gradientConfiguration, ElectionConfiguration electionConfiguration,
-            ChunkManagerConfiguration chunkManagerConfiguration,
+            ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig,
             VodAddress bootstrappingNode, VodAddress simulatorAddress) {
         super();
         this.self = self;
@@ -32,6 +34,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         this.gradientConfiguration = gradientConfiguration;
         this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
+        this.gradientConfig  = gradientConfig;
         this.bootstrappingNode = bootstrappingNode;
         this.simulatorAddress = simulatorAddress;
     }
@@ -59,7 +62,11 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     public VodAddress getBootstrappingNode() {
         return bootstrappingNode;
     }
-
+    
+    public GradientConfig getGradientConfig(){
+        return this.gradientConfig;
+    }
+    
     public ChunkManagerConfiguration getChunkManagerConfiguration() {
         return chunkManagerConfiguration;
     }

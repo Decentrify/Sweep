@@ -38,6 +38,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 public final class SearchSimulator extends ComponentDefinition {
 
@@ -51,6 +52,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private GradientConfiguration gradientConfiguration;
     private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfiguration chunkManagerConfiguration;
+    private GradientConfig gradientConfig;
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
     private AsIpGenerator ipGenerator;
@@ -73,6 +75,7 @@ public final class SearchSimulator extends ComponentDefinition {
         croupierConfiguration = init.getCroupierConfiguration();
         searchConfiguration = init.getSearchConfiguration();
         gradientConfiguration = init.getGradientConfiguration();
+        gradientConfig = init.getGradientConfig();
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         //TODO Alex/Croupier - what is this exactly? it was set to 3000 before
@@ -245,7 +248,7 @@ public final class SearchSimulator extends ComponentDefinition {
                 PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, bootstrappingNode, null));
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration,gradientConfig, bootstrappingNode, null));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
         connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
         connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));

@@ -41,9 +41,9 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
+import se.sics.ms.common.CommonEncodeDecode;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.croupier.CroupierEncodeDecode;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
@@ -51,6 +51,7 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 /**
  *
@@ -83,7 +84,7 @@ public class SystemMain extends ComponentDefinition {
         myComp = this;
         subscribe(handleStart, control);
         
-        CroupierEncodeDecode.init();
+        CommonEncodeDecode.init();
         
         resolveIp = create(ResolveIp.class, Init.NONE);
         timer = create(JavaTimer.class, Init.NONE);
@@ -153,9 +154,12 @@ public class SystemMain extends ComponentDefinition {
                             
                             CroupierConfig croupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
                                     MsConfig.CROUPIER_SHUFFLE_LENGTH, croupierPolicy);
+                            
+                            GradientConfig gradientConfig = new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE,MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
+                            
                             searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
                                             SearchConfiguration.build(), GradientConfiguration.build(),
-                                            ElectionConfiguration.build(), ChunkManagerConfiguration.build(),
+                                            ElectionConfiguration.build(), ChunkManagerConfiguration.build(), gradientConfig,
                                             ToVodAddr.bootstrap(bootstrapAddress),null));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);

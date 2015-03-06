@@ -51,6 +51,8 @@
         <nattraverser.version>1.2.1-SNAPSHOT</nattraverser.version>
         <kompics.version>0.6.1-SNAPSHOT</kompics.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <croupier.version>1.2-SNAPSHOT</croupier.version>
+        <gradient.version>1.0-SNAPSHOT</gradient.version>
     </properties>
 
 

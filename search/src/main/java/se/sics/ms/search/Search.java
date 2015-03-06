@@ -60,6 +60,8 @@ import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
+import se.sics.p2ptoolbox.gradient.api.GradientPort;
+import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -99,6 +101,7 @@ public final class Search extends ComponentDefinition {
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
+    Positive<GradientPort> gradientPort = requires(GradientPort.class);
 
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
@@ -295,6 +298,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
+        subscribe(gradientSampleHandler, gradientPort);
     }
 
     /**
@@ -2937,6 +2941,20 @@ public final class Search extends ComponentDefinition {
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
         trigger(new StatusAggregatorEvent.SearchUpdateEvent(new SearchComponentUpdate(updatedDesc)), statusAggregatorPortPositive);
     }
+
+
+    /**
+     * 
+     * Handle the sample from the gradient.
+     */
+    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
+        @Override
+        public void handle(GradientSample event) {
+            logger.info("Received Gradient Sample");
+                    
+        }
+    };
+    
 
 }
 
