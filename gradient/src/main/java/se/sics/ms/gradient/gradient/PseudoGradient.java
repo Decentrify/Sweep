@@ -6,6 +6,7 @@ import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
+import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -36,6 +37,9 @@ import java.security.PublicKey;
 import java.util.*;
 
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
+
+import se.sics.p2ptoolbox.croupier.api.CroupierPort;
+import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
@@ -65,6 +69,7 @@ public final class PseudoGradient extends ComponentDefinition {
     
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = positive(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = positive(GradientPort.class);
+    Positive<CroupierPort> croupierPort = positive(CroupierPort.class);
 
     private MsSelfImpl self;
     private GradientConfiguration config;
@@ -170,6 +175,7 @@ public final class PseudoGradient extends ComponentDefinition {
         subscribe(handlerControlMessageInternalRequest, gradientRoutingPort);
         subscribe(handlerSelfChanged, selfChangedPort);
         subscribe(gradientSampleHandler, gradientPort);
+        subscribe(croupierSampleHandler, croupierPort);
 
     }
     /**
@@ -200,7 +206,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         @Override
         public void handle(Start e) {
-            logger.debug("Pseudo Gradient Component Started ...");
+            logger.info("Pseudo Gradient Component Started ...");
         }
     };
 
@@ -270,21 +276,19 @@ public final class PseudoGradient extends ComponentDefinition {
      * Helper Method to test the instance type of entries in a list.
      * If match is found, then process the entry by adding to result list.
      *
-     * @param classType 
-     *                   Type of class to check for
      * @param baseList 
      *                   List to append entries to.                 
      * @param sampleList 
      *                   List to iterate over.
-     * @param <T> 
-     *                   Type of class.
      */
-    private <T extends PeerView> void checkInstanceAndAdd(Class<T> classType, Collection<T> baseList, Collection<CroupierPeerView> sampleList){
+    private void checkInstanceAndAdd(Collection<SearchDescriptor> baseList, Collection<CroupierPeerView> sampleList){
 
         for(CroupierPeerView croupierPeerView : sampleList){
 
-            if((classType).isInstance(croupierPeerView.pv)){
-                baseList.add((T)croupierPeerView.pv);
+            if(croupierPeerView.pv instanceof SearchDescriptor){
+                SearchDescriptor currentDescriptor = (SearchDescriptor)croupierPeerView.pv;
+                currentDescriptor.setAge(croupierPeerView.getAge());
+                baseList.add(currentDescriptor);
             }
         }
     }
@@ -761,16 +765,20 @@ public final class PseudoGradient extends ComponentDefinition {
         return MsConfig.Categories.values()[categoryId];
     }
 
+    /**
+     * Need to sort it every time because values like MsSelfImpl.RTT might have been changed
+     * @param searchDescriptors Descriptors
+     * @return Sorted Set.
+     */
     private TreeSet<SearchDescriptor> sortByConnectivity(Collection<SearchDescriptor> searchDescriptors) {
-        // Need to sort it every time because values like MsSelfImpl.RTT might have been changed
-        TreeSet<SearchDescriptor> sortedSearchDescriptors = new TreeSet<SearchDescriptor>(searchDescriptors);
-        return sortedSearchDescriptors;
+        return new TreeSet<SearchDescriptor>(searchDescriptors);
     }
 
+    
     private TreeSet<SearchDescriptor> getUnconnectedNodes(Collection<SearchDescriptor> searchDescriptors) {
         TreeSet<SearchDescriptor> unconnectedNodes = new TreeSet<SearchDescriptor>(peerConnectivityComparator);
         for (SearchDescriptor searchDescriptor : searchDescriptors) {
-            if (searchDescriptor.isConnected() == false) {
+            if (!searchDescriptor.isConnected()) {
                 unconnectedNodes.add(searchDescriptor);
             }
         }
@@ -867,29 +875,47 @@ public final class PseudoGradient extends ComponentDefinition {
 
 
     /**
-     * Handling of sample that will be received from gradient.
+     * Croupier used to supply information regarding the <b>nodes in other partitions</b>,
+     * incorporate the sample in the <b>routing table</b>.
      */
+    Handler<CroupierSample> croupierSampleHandler = new Handler<CroupierSample>() {
+        @Override
+        public void handle(CroupierSample event) {    
+            logger.info("{}: Pseudo Gradient Received Croupier Sample" , self.getId());
+            Collection<SearchDescriptor> filteredCroupierSample = new ArrayList<SearchDescriptor>();
+
+            if(event.publicSample.isEmpty())
+                logger.info("{}: Pseudo Gradient Received Empty Sample: " + self.getId());
+            
+            Collection<CroupierPeerView> rawCroupierSample = new ArrayList<CroupierPeerView>();
+            rawCroupierSample.addAll(event.publicSample);
+            rawCroupierSample.addAll(event.privateSample);
+
+            checkInstanceAndAdd(filteredCroupierSample, rawCroupierSample);
+            addRoutingTableEntries(filteredCroupierSample);
+            incrementRoutingTableAge();
+        }
+    };
+    
+    
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
             
-            logger.info("Received gradient sample");
-            
+            logger.debug("{}: Received gradient sample", self.getId());
             Collection<SearchDescriptor> oldGradientEntrySet = (Collection<SearchDescriptor>)gradientEntrySet.clone();
+            
             gradientEntrySet.clear();
-            
-            Collection<SearchDescriptor> newBaseList = new ArrayList<SearchDescriptor>();
-            checkInstanceAndAdd(SearchDescriptor.class, newBaseList , event.gradientSample);
-            
-            gradientEntrySet.addAll(newBaseList);
-            performAdditionalHouseKeepingTasks(newBaseList);
+            checkInstanceAndAdd(gradientEntrySet , event.gradientSample);
+            performAdditionalHouseKeepingTasks(oldGradientEntrySet);
             
         }
     };
 
 
     /**
-     * After every sample merge, perform some additional tasks.
+     * After every sample merge, perform some additional tasks 
+     * in a <b>predefined order</b>.
      *  
      * @param oldGradientEntrySet changed gradient set
      */
@@ -897,9 +923,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
         checkConvergence(oldGradientEntrySet, gradientEntrySet);
         sendGradientViewChange();
-        addRoutingTableEntries(gradientEntrySet);
-        
-        incrementRoutingTableAge();
         publishSample();
         
     }
@@ -920,7 +943,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
     /**
      * Fetch the current gradient sample.
-     *  
      * @return Most Recent Gradient Sample.
      */
     private SortedSet<SearchDescriptor> getGradientSample(){

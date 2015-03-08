@@ -15,7 +15,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final Self self;
     private final CroupierConfig croupierConfiguration;
     private final SearchConfiguration applicationConfiguration;
-    private final GradientConfiguration gradientConfiguration;
+    private final GradientConfiguration pseudoGradientConfiguration;
     private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfiguration chunkManagerConfiguration;
     private final GradientConfig gradientConfig;
@@ -24,14 +24,14 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 
     public SearchPeerInit(Self self,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
-            GradientConfiguration gradientConfiguration, ElectionConfiguration electionConfiguration,
+            GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
             ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig,
             VodAddress bootstrappingNode, VodAddress simulatorAddress) {
         super();
         this.self = self;
         this.croupierConfiguration = croupierConfiguration;
         this.applicationConfiguration = applicationConfiguration;
-        this.gradientConfiguration = gradientConfiguration;
+        this.pseudoGradientConfiguration = pseudoGradientConfiguration;
         this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig  = gradientConfig;
@@ -51,8 +51,8 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         return this.applicationConfiguration;
     }
 
-    public GradientConfiguration getGradientConfiguration() {
-        return this.gradientConfiguration;
+    public GradientConfiguration getPseudoGradientConfiguration() {
+        return this.pseudoGradientConfiguration;
     }
 
     public ElectionConfiguration getElectionConfiguration() {

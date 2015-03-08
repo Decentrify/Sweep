@@ -12,7 +12,7 @@ public class SweepGradientFilter implements GradientFilter<SearchDescriptor>{
     
     @Override
     public boolean retainOther(SearchDescriptor selfDescriptor, SearchDescriptor otherDescriptor) {
-        return false;
+        return true;
     }
 
     @Override

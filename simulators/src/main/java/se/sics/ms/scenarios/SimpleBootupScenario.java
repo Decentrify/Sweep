@@ -20,7 +20,7 @@ public class SimpleBootupScenario {
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(4 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
+                        raise(2 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
                 
@@ -32,7 +32,7 @@ public class SimpleBootupScenario {
                 };
 
                 peerJoin.start();
-                addIndexEntryCommand.startAfterTerminationOf(10000, peerJoin);
+//                addIndexEntryCommand.startAfterTerminationOf(10000, peerJoin);
                 // === Add a termination event.
             }
         };

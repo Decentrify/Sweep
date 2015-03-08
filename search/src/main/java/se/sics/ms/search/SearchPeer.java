@@ -78,7 +78,7 @@ public final class SearchPeer extends ComponentDefinition {
     private VodAddress simulatorAddress;
     private SearchConfiguration searchConfiguration;
 
-    private GradientConfiguration gradientConfiguration;
+    private GradientConfiguration pseudoGradientConfiguration;
     private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private VodAddress bootstrapingNode;
@@ -87,7 +87,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         self = init.getSelf();
         simulatorAddress = init.getSimulatorAddress();
-        gradientConfiguration = init.getGradientConfiguration();
+        pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
         searchConfiguration = init.getSearchConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
@@ -99,7 +99,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         natTraversal = create(NatTraverser.class,
                 new NatTraverserInit(self, new HashSet<Address>(),
-                        gradientConfiguration.getSeed(),
+                        pseudoGradientConfiguration.getSeed(),
                         NatTraverserConfiguration.build(),
                         HpClientConfiguration.build(),
                         RendezvousServerConfiguration.build().
@@ -108,14 +108,14 @@ public final class SearchPeer extends ComponentDefinition {
                         StunClientConfiguration.build(),
                         ParentMakerConfiguration.build(), true));
 
-        connectCroupier(init.getCroupierConfiguration(), gradientConfiguration.getSeed());
+        connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         
         // TODO: {Abhi} Change Made Here.
 //        gradient = create(Gradient.class, new GradientInit(self, gradientConfiguration));
-        connectGradient(init.getGradientConfig(), gradientConfiguration.getSeed());
+        connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         
         
-        pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, gradientConfiguration));
+        pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(Search.class, new SearchInit(self, searchConfiguration));
         electionLeader = create(ElectionLeader.class,
                 new ElectionInit<ElectionLeader>(self, electionConfiguration));
@@ -160,8 +160,12 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, electionFollower.getNegative(Timer.class));
         connect(timer, chunkManager.getNegative(Timer.class));
         connect(timer, aggregatorComponent.getNegative(Timer.class));
-        // Attach search and gradient with croupier.
         
+        // ===
+        // SEARCH + PSEUDO - GRADIENT <-- CROUPIER
+        //===
+        connect(croupier.getPositive(CroupierPort.class), 
+                pseudoGradient.getNegative(CroupierPort.class));
         connect(croupier.getPositive(CroupierPort.class),
                 search.getNegative(CroupierPort.class));
         

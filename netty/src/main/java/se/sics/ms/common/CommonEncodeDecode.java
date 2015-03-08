@@ -56,8 +56,8 @@ public class CommonEncodeDecode extends BaseMsgFrameDecoder{
     public static final byte HEADER_FIELD_CODE = (byte) 0x01;
     public static final byte PEER_VIEW_CODE = (byte) 0x02;
 
-    public static final String HEADER_FIELD_ALIAS = "MY_EXAMPLE_HEADER_FIELD";
-    public static final String PEER_VIEW_ALIAS = "MY_EXAMPLE_PEER_VIEW";
+    public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
+    public static final String PEER_VIEW_ALIAS = "SWEEP_PEER_VIEW";
 
     private static final SerializationContext context = new SerializationContextImpl();
     
@@ -65,8 +65,6 @@ public class CommonEncodeDecode extends BaseMsgFrameDecoder{
         
         NetMsg.setContext(context);
         SerializerAdapter.setContext(context);
-        CroupierNetworkSettings.oneTimeSetup(context, CROUPIER_REQUEST, CROUPIER_RESPONSE);
-        GradientNetworkSettings.oneTimeSetup(context, GRADIENT_REQUEST, GRADIENT_RESPONSE);
         
         try {
             context.registerAlias(HeaderField.class, HEADER_FIELD_ALIAS, HEADER_FIELD_CODE);
@@ -85,6 +83,8 @@ public class CommonEncodeDecode extends BaseMsgFrameDecoder{
         } catch (SerializationContext.MissingException ex) {
             throw new RuntimeException(ex);
         }
+        CroupierNetworkSettings.oneTimeSetup(context, CROUPIER_REQUEST, CROUPIER_RESPONSE);
+        GradientNetworkSettings.oneTimeSetup(context, GRADIENT_REQUEST, GRADIENT_RESPONSE);
     }
 
     public CommonEncodeDecode() {

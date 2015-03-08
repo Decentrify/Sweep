@@ -35,7 +35,7 @@
         <dependency>
             <groupId>se.sics.p2ptoolbox.croupier</groupId>
             <artifactId>croupier-core</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${croupier.version}</version>
             <type>jar</type>
         </dependency>
     </dependencies>
