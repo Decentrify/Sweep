@@ -31,7 +31,7 @@ public class AggregatorUpdateHandler implements SystemStatusHandler{
 
     @Override
     public void handle(KompicsEvent msg, SimulationContext context) {
-        logger.info(" Received periodic update from the aggregator component.");
+        logger.debug(" Received periodic update from the aggregator component.");
         
         if(msg instanceof AggregatorUpdateMsg){
             
@@ -49,7 +49,7 @@ public class AggregatorUpdateHandler implements SystemStatusHandler{
                     searchComponentUpdate = (SearchComponentUpdate)update;
                     currentIndexEntryCount = searchComponentUpdate.getSearchDescriptor().getNumberOfIndexEntries();
                     currentPartitioningDepth = searchComponentUpdate.getSearchDescriptor().getReceivedPartitionDepth();
-                    logger.warn("Aggregator Update: Index Entry : {}, Partitioning Depth: {}", currentIndexEntryCount,currentPartitioningDepth );
+                    logger.debug("Aggregator Update: Index Entry : {}, Partitioning Depth: {}", currentIndexEntryCount,currentPartitioningDepth );
                     
                 }
             }

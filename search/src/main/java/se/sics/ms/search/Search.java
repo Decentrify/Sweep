@@ -62,6 +62,7 @@ import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
+import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -2940,6 +2941,7 @@ public final class Search extends ComponentDefinition {
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
         trigger(new StatusAggregatorEvent.SearchUpdateEvent(new SearchComponentUpdate(updatedDesc)), statusAggregatorPortPositive);
+        trigger(new GradientUpdate(updatedDesc), gradientPort);
     }
 
 

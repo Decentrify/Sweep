@@ -104,6 +104,7 @@ public class ElectionFollower extends ComponentDefinition {
     public void doInit(ElectionInit init) {
         self = (MsSelfImpl)init.getSelf();
         config = init.getConfig();
+        higherUtilityNodes = new TreeSet<SearchDescriptor>();
     }
     /**
      * QueryLimit handler that will respond to voting requests sent from leader
