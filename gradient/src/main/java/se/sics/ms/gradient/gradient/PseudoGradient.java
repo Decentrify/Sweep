@@ -48,25 +48,24 @@ import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 /**
  * The class is simply a wrapper over the Gradient service.
  * It handles all the tasks provided to it by other components.
- *  
+ * <p/>
  * NOTE: Proper division of functionality is required. The class will soon be deprecated,
  * once the functionality move to there respective components.
- *  
  */
 public final class PseudoGradient extends ComponentDefinition {
 
     private static final Logger logger = LoggerFactory.getLogger(PseudoGradient.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<Timer> timerPort = positive(Timer.class);
-    
+
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-    
+
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
-    
+
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = positive(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = positive(GradientPort.class);
     Positive<CroupierPort> croupierPort = positive(CroupierPort.class);
@@ -74,17 +73,17 @@ public final class PseudoGradient extends ComponentDefinition {
     private MsSelfImpl self;
     private GradientConfiguration config;
     private Random random;
-    
+
 
     private boolean leader;
     private VodAddress leaderAddress;
     private PublicKey leaderPublicKey;
-    
+
     private Map<Integer, Long> shuffleTimes = new HashMap<Integer, Long>();
     int latestRttRingBufferPointer = 0;
     private long[] latestRtts;
     String compName;
-    
+
     private Map<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>> routingTable;
     private TreeSet<SearchDescriptor> gradientEntrySet;
     private SimpleUtilityComparator utilityComparator;
@@ -103,7 +102,7 @@ public final class PseudoGradient extends ComponentDefinition {
     final private HashMap<TimeoutId, SearchDescriptor> openRequests = new HashMap<TimeoutId, SearchDescriptor>();
     final private HashMap<VodAddress, Integer> locatedLeaders = new HashMap<VodAddress, Integer>();
     private List<VodAddress> leadersAlreadyComunicated = new ArrayList<VodAddress>();
-    
+
 
     Comparator<SearchDescriptor> peerConnectivityComparator = new Comparator<SearchDescriptor>() {
         @Override
@@ -144,58 +143,58 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
 
-
     public PseudoGradient(PseudoGradientInit init) {
-        
+
         doInit(init);
         subscribe(handleStart, control);
         subscribe(handleLeaderLookupRequest, networkPort);
         subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
-        
+
         subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
-        
+
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
         subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
-        
+
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchRequestTimeout, timerPort);
         subscribe(handleViewSizeRequest, gradientRoutingPort);
 
         subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
-        subscribe(handleFailureDetector, fdPort);        
+        subscribe(handleFailureDetector, fdPort);
         subscribe(handlerControlMessageExchangeInitiation, gradientRoutingPort);
-        
+
         subscribe(handlerControlMessageInternalRequest, gradientRoutingPort);
         subscribe(handlerSelfChanged, selfChangedPort);
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(croupierSampleHandler, croupierPort);
 
     }
+
     /**
      * Initialize the state of the component.
      */
     private void doInit(PseudoGradientInit init) {
 
-        self = ((MsSelfImpl)init.getSelf()).clone();
+        self = ((MsSelfImpl) init.getSelf()).clone();
         config = init.getConfiguration();
         random = new Random(init.getConfiguration().getSeed());
-        
+
         routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>>();
         leader = false;
         leaderAddress = null;
         latestRtts = new long[config.getLatestRttStoreLimit()];
-        
+
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
         gradientEntrySet = new TreeSet<SearchDescriptor>(utilityComparator);
-        
+
         this.converged = false;
         this.changed = false;
         this.convergenceTest = config.getConvergenceTest();
@@ -210,11 +209,10 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    private void removeNodeFromRoutingTable(OverlayAddress nodeToRemove)
-    {
+    private void removeNodeFromRoutingTable(OverlayAddress nodeToRemove) {
         MsConfig.Categories category = categoryFromCategoryId(nodeToRemove.getCategoryId());
         Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
-        if(categoryRoutingMap != null) {
+        if (categoryRoutingMap != null) {
             Set<SearchDescriptor> bucket = categoryRoutingMap.get(nodeToRemove.getPartitionId());
 
             if (bucket != null) {
@@ -233,18 +231,17 @@ public final class PseudoGradient extends ComponentDefinition {
 
     private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
 
-        for(VodAddress suspectedNode: nodesToRemove) {
+        for (VodAddress suspectedNode : nodesToRemove) {
             removeNodeFromLocalState(new OverlayAddress(suspectedNode));
         }
     }
-    
-    private void removeNodeFromLocalState(OverlayAddress overlayAddress)
-    {
+
+    private void removeNodeFromLocalState(OverlayAddress overlayAddress) {
         removeNodeFromRoutingTable(overlayAddress);
         RTTStore.removeSamples(overlayAddress.getId(), overlayAddress.getAddress());
     }
 
-    private void publishUnresponsiveNode(VodAddress nodeAddress){
+    private void publishUnresponsiveNode(VodAddress nodeAddress) {
         trigger(new FailureDetectorPort.FailureDetectorEvent(nodeAddress), fdPort);
     }
 
@@ -259,9 +256,7 @@ public final class PseudoGradient extends ComponentDefinition {
     /**
      * Broadcast the current view to the listening components.
      */
-    // TODO : When and where to use it ?
-    // TODO: Also we need to figure out a policy for sending the data to other components. Create copies or send immutable copies ?
-    
+
     void sendGradientViewChange() {
 
         if (isChanged()) {
@@ -276,17 +271,15 @@ public final class PseudoGradient extends ComponentDefinition {
      * Helper Method to test the instance type of entries in a list.
      * If match is found, then process the entry by adding to result list.
      *
-     * @param baseList 
-     *                   List to append entries to.                 
-     * @param sampleList 
-     *                   List to iterate over.
+     * @param baseList   List to append entries to.
+     * @param sampleList List to iterate over.
      */
-    private void checkInstanceAndAdd(Collection<SearchDescriptor> baseList, Collection<CroupierPeerView> sampleList){
+    private void checkInstanceAndAdd(Collection<SearchDescriptor> baseList, Collection<CroupierPeerView> sampleList) {
 
-        for(CroupierPeerView croupierPeerView : sampleList){
+        for (CroupierPeerView croupierPeerView : sampleList) {
 
-            if(croupierPeerView.pv instanceof SearchDescriptor){
-                SearchDescriptor currentDescriptor = (SearchDescriptor)croupierPeerView.pv;
+            if (croupierPeerView.pv instanceof SearchDescriptor) {
+                SearchDescriptor currentDescriptor = (SearchDescriptor) croupierPeerView.pv;
                 currentDescriptor.setAge(croupierPeerView.getAge());
                 baseList.add(currentDescriptor);
             }
@@ -294,7 +287,10 @@ public final class PseudoGradient extends ComponentDefinition {
     }
 
 
-    // TODO: To be called when handling the sample from the gradient.
+    /**
+     * On each of merge of the random samples,
+     * increment the age of routing table entries.
+     */
     private void incrementRoutingTableAge() {
         for (Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap : routingTable.values()) {
             for (HashSet<SearchDescriptor> bucket : categoryRoutingMap.values()) {
@@ -304,10 +300,15 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     }
-    
-    // TODO: To be called when handling the sample from the gradient.
+
+    /**
+     * Based on the collection of the peers supplied, update the current routing table.
+     * A mechanism to clean the routing table by removing the old entries.
+     *
+     * @param nodes collection of peers
+     */
     private void addRoutingTableEntries(Collection<SearchDescriptor> nodes) {
-        
+
         for (SearchDescriptor searchDescriptor : nodes) {
             MsConfig.Categories category = categoryFromCategoryId(searchDescriptor.getOverlayId().getCategoryId());
             int partition = searchDescriptor.getOverlayAddress().getPartitionId();
@@ -335,7 +336,7 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     }
-    
+
     /**
      * This handler listens to updates regarding the leader status
      */
@@ -345,8 +346,8 @@ public final class PseudoGradient extends ComponentDefinition {
             leader = event.isLeader();
         }
     };
-    
-    
+
+
     /**
      * Updates gradient's view by removing crashed nodes from it, eg. old
      * leaders
@@ -360,8 +361,7 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    
-    // TODO: {Abhi} Move it to separate component.
+
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
@@ -371,7 +371,7 @@ public final class PseudoGradient extends ComponentDefinition {
             indexEntryToAdd = event.getEntry();
             addIndexEntryRequestTimeoutId = event.getTimeoutId();
             locatedLeaders.clear();
-            
+
             queriedNodes.clear();
             openRequests.clear();
             leadersAlreadyComunicated.clear();
@@ -382,21 +382,17 @@ public final class PseudoGradient extends ComponentDefinition {
                 }
 
                 //if we have direct pointer to the leader
-                else if(leaderAddress != null) {
+                else if (leaderAddress != null) {
                     //sendLeaderLookupRequest(new SearchDescriptor(leaderAddress));
                     trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
-                }
-
-                else
-                {
+                } else {
                     NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
-                    // TODO: {Abhi} Change Made Here.
                     startNodes.addAll(getGradientSample());
 
                     Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
                     if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
-                        HashSet<SearchDescriptor> croupierNodes =  croupierPartitions.get(self.getPartitionId());
-                        if(croupierNodes != null && !croupierNodes.isEmpty()) {
+                        HashSet<SearchDescriptor> croupierNodes = croupierPartitions.get(self.getPartitionId());
+                        if (croupierNodes != null && !croupierNodes.isEmpty()) {
                             startNodes.addAll(croupierNodes);
                         }
                     }
@@ -408,8 +404,7 @@ public final class PseudoGradient extends ComponentDefinition {
                         sendLeaderLookupRequest(node);
                     }
                 }
-            }
-            else {
+            } else {
                 Map<Integer, HashSet<SearchDescriptor>> partitions = routingTable.get(addCategory);
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
@@ -438,7 +433,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.RequestTimeout> handleLeaderLookupRequestTimeout = new Handler<LeaderLookupMessage.RequestTimeout>() {
         @Override
         public void handle(LeaderLookupMessage.RequestTimeout event) {
@@ -455,12 +449,10 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.Request> handleLeaderLookupRequest = new Handler<LeaderLookupMessage.Request>() {
         @Override
         public void handle(LeaderLookupMessage.Request event) {
-            
-            //TODO: {Abhi} Change Made Here.
+
             TreeSet<SearchDescriptor> higherNodes = new TreeSet<SearchDescriptor>(getHigherUtilityNodes());
             ArrayList<SearchDescriptor> searchDescriptors = new ArrayList<SearchDescriptor>();
 
@@ -470,8 +462,7 @@ public final class PseudoGradient extends ComponentDefinition {
             }
 
             if (searchDescriptors.size() < LeaderLookupMessage.ResponseLimit) {
-                
-                // TODO: {Abhi} Change Made Here.
+
                 TreeSet<SearchDescriptor> lowerNodes = new TreeSet<SearchDescriptor>(getLowerUtilityNodes());
                 iterator = lowerNodes.iterator();
                 while (searchDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
@@ -483,7 +474,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<LeaderLookupMessage.Response> handleLeaderLookupResponse = new Handler<LeaderLookupMessage.Response>() {
         @Override
         public void handle(LeaderLookupMessage.Response event) {
@@ -541,7 +531,7 @@ public final class PseudoGradient extends ComponentDefinition {
             for (VodAddress locatedLeader : locatedLeaders.keySet()) {
                 if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2) {
 
-                    if(!leadersAlreadyComunicated.contains(locatedLeader)){
+                    if (!leadersAlreadyComunicated.contains(locatedLeader)) {
                         trigger(new AddIndexEntryMessage.Request(self.getAddress(), locatedLeader, addIndexEntryRequestTimeoutId, indexEntryToAdd), networkPort);
                         leadersAlreadyComunicated.add(locatedLeader);
                     }
@@ -550,6 +540,12 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
+    /**
+     * Relaying of the look up request. I am not leader or doesn't know anyone therefore I route the lookup request,
+     * higher in the gradient in hope of other nodes knowing the information.
+     *
+     * @param node Peer
+     */
     private void sendLeaderLookupRequest(SearchDescriptor node) {
         ScheduleTimeout scheduleTimeout = new ScheduleTimeout(config.getLeaderLookupTimeout());
         scheduleTimeout.setTimeoutEvent(new LeaderLookupMessage.RequestTimeout(scheduleTimeout, self.getId()));
@@ -564,37 +560,35 @@ public final class PseudoGradient extends ComponentDefinition {
         shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
     }
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.ReplicationPrepareCommitRequest> handleReplicationPrepareCommit = new Handler<GradientRoutingPort.ReplicationPrepareCommitRequest>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationPrepareCommitRequest event) {
-            
-            // TODO: {Abhi} Change Made Here.
+
             for (SearchDescriptor peer : getLowerUtilityNodes()) {
                 trigger(new ReplicationPrepareCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
             }
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<GradientRoutingPort.ReplicationCommit> handleReplicationCommit = new Handler<GradientRoutingPort.ReplicationCommit>() {
         @Override
         public void handle(GradientRoutingPort.ReplicationCommit event) {
-            
-            // TODO: {Abhi} Change Made Here.
+
             for (SearchDescriptor peer : getLowerUtilityNodes()) {
                 trigger(new ReplicationCommitMessage.Request(self.getAddress(), peer.getVodAddress(), event.getTimeoutId(), event.getIndexEntryId(), event.getSignature()), networkPort);
             }
-            
+
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
+    /**
+     * Index Exchange mechanism requires the information of the higher utility nodes,
+     * which have high chances of having the data as they are already above in the gradient.
+     */
     final Handler<GradientRoutingPort.IndexHashExchangeRequest> handleIndexHashExchangeRequest = new Handler<GradientRoutingPort.IndexHashExchangeRequest>() {
         @Override
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
-            
-            //TODO: {Abhi} Change Made Here.
+
             ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
                 logger.debug(" {}: Not enough nodes to perform Index Hash Exchange." + self.getAddress().getId());
@@ -618,7 +612,10 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
+    /**
+     * During searching for text, request sent to look into the routing table and
+     * fetch the nodes from the neighbouring partitions and also from other categories.
+     */
     final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
@@ -672,7 +669,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
@@ -692,7 +688,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
     final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
         @Override
         public void handle(SearchMessage.RequestTimeout event) {
@@ -709,49 +704,47 @@ public final class PseudoGradient extends ComponentDefinition {
     final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
         @Override
         public void handle(PublicKeyBroadcast publicKeyBroadcast) {
-
-            //leaderAddress is used by a non leader node to directly send AddIndex request to leader. Since the
-            //current node is now a leader, this information is not invalid.
+            // NOTE: LeaderAddress is used by a non leader node to directly send AddIndex request to leader.
+            // Since the current node is now a leader, this information is not invalid.
             leaderPublicKey = publicKeyBroadcast.getPublicKey();
             leaderAddress = null;
         }
     };
-    
+
     /**
      * Responses with peer's view size
      */
-    // TODO: {Abhi} Move it to separate component.
     final Handler<ViewSizeMessage.Request> handleViewSizeRequest = new Handler<ViewSizeMessage.Request>() {
         @Override
         public void handle(ViewSizeMessage.Request request) {
-            // TODO: {Abhi} Change Made Here.
             trigger(new ViewSizeMessage.Response(request.getTimeoutId(), request.getNewEntry(), getGradientSample().size(), request.getSource()), gradientRoutingPort);
         }
     };
-    
 
-    // TODO: {Abhi} Move it to separate component.
+
+    /**
+     * Request Received to provide other component with information regarding the nodes
+     * neighbouring the leader.
+     */
     Handler<LeaderGroupInformation.Request> handleLeaderGroupInformationRequest = new Handler<LeaderGroupInformation.Request>() {
         @Override
         public void handle(LeaderGroupInformation.Request event) {
 
             logger.debug(" Partitioning Protocol Initiated at Leader." + self.getAddress().getId());
             int leaderGroupSize = event.getLeaderGroupSize();
-            //TODO: {Abhi} Change Made Here.
-            NavigableSet<SearchDescriptor> lowerUtilityNodes = ((NavigableSet)getLowerUtilityNodes()).descendingSet();
+            NavigableSet<SearchDescriptor> lowerUtilityNodes = ((NavigableSet) getLowerUtilityNodes()).descendingSet();
             List<VodAddress> leaderGroupAddresses = new ArrayList<VodAddress>();
 
-            // TODO: {Abhi} Change Made Here.
-            if((getGradientSample().size() < config.getViewSize())|| (lowerUtilityNodes.size() < leaderGroupSize)){
-                trigger(new LeaderGroupInformation.Response(event.getMedianId(),event.getPartitioningType(), leaderGroupAddresses), gradientRoutingPort);
+            if ((getGradientSample().size() < config.getViewSize()) || (lowerUtilityNodes.size() < leaderGroupSize)) {
+                trigger(new LeaderGroupInformation.Response(event.getMedianId(), event.getPartitioningType(), leaderGroupAddresses), gradientRoutingPort);
                 return;
             }
-            
 
-            int i=0;
-            for(SearchDescriptor desc : lowerUtilityNodes){
 
-                if(i == leaderGroupSize)
+            int i = 0;
+            for (SearchDescriptor desc : lowerUtilityNodes) {
+
+                if (i == leaderGroupSize)
                     break;
                 leaderGroupAddresses.add(desc.getVodAddress());
                 i++;
@@ -767,6 +760,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
     /**
      * Need to sort it every time because values like MsSelfImpl.RTT might have been changed
+     *
      * @param searchDescriptors Descriptors
      * @return Sorted Set.
      */
@@ -774,7 +768,12 @@ public final class PseudoGradient extends ComponentDefinition {
         return new TreeSet<SearchDescriptor>(searchDescriptors);
     }
 
-    
+    /**
+     * Fetch the nodes that are unconnected in the system.
+     *
+     * @param searchDescriptors Search Descriptor Collection
+     * @return Unconnected Nodes
+     */
     private TreeSet<SearchDescriptor> getUnconnectedNodes(Collection<SearchDescriptor> searchDescriptors) {
         TreeSet<SearchDescriptor> unconnectedNodes = new TreeSet<SearchDescriptor>(peerConnectivityComparator);
         for (SearchDescriptor searchDescriptor : searchDescriptors) {
@@ -815,22 +814,19 @@ public final class PseudoGradient extends ComponentDefinition {
     /**
      * Received the command to initiate the pull based control message exchange mechanism.
      */
-    // TODO: {Abhi} Move it to separate component.
     Handler<GradientRoutingPort.InitiateControlMessageExchangeRound> handlerControlMessageExchangeInitiation = new Handler<GradientRoutingPort.InitiateControlMessageExchangeRound>() {
         @Override
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
-            //TODO:{Abhi} Change Made Here.
             ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
 
-            if(preferredNodes.size() < event.getControlMessageExchangeNumber())
-                //TODO:{Abhi} Change Made Here.
+            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
                 preferredNodes.addAll(getLowerUtilityNodes());
 
-            if(preferredNodes.size() < event.getControlMessageExchangeNumber())
+            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
                 return;
 
-            for(int i = 0; i < event.getControlMessageExchangeNumber(); i++){
+            for (int i = 0; i < event.getControlMessageExchangeNumber(); i++) {
                 VodAddress destination = preferredNodes.get(i).getVodAddress();
                 trigger(new ControlMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), event.getRoundId()), networkPort);
             }
@@ -838,22 +834,19 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
 
-    // TODO: {Abhi} Move it to separate component.
     Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
         @Override
         public void handle(LeaderInfoUpdate leaderInfoUpdate) {
-
             leaderAddress = leaderInfoUpdate.getLeaderAddress();
             leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
     };
 
-    // TODO: {Abhi} Move it to separate component.
-    Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>(){
+    Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>() {
         @Override
         public void handle(ControlMessageInternal.Request event) {
 
-            if(event instanceof  CheckLeaderInfoUpdate.Request)
+            if (event instanceof CheckLeaderInfoUpdate.Request)
                 handleCheckLeaderInfoInternalControlMessage((CheckLeaderInfoUpdate.Request) event);
         }
     };
@@ -866,7 +859,7 @@ public final class PseudoGradient extends ComponentDefinition {
                 leader ? self.getAddress() : leaderAddress, leaderPublicKey), gradientRoutingPort);
     }
 
-    Handler<SelfChangedPort.SelfChangedEvent> handlerSelfChanged = new Handler<SelfChangedPort.SelfChangedEvent>(){
+    Handler<SelfChangedPort.SelfChangedEvent> handlerSelfChanged = new Handler<SelfChangedPort.SelfChangedEvent>() {
         @Override
         public void handle(SelfChangedPort.SelfChangedEvent event) {
             self = event.getSelf().clone();
@@ -880,13 +873,13 @@ public final class PseudoGradient extends ComponentDefinition {
      */
     Handler<CroupierSample> croupierSampleHandler = new Handler<CroupierSample>() {
         @Override
-        public void handle(CroupierSample event) {    
-            logger.info("{}: Pseudo Gradient Received Croupier Sample" , self.getId());
+        public void handle(CroupierSample event) {
+            logger.info("{}: Pseudo Gradient Received Croupier Sample", self.getId());
             Collection<SearchDescriptor> filteredCroupierSample = new ArrayList<SearchDescriptor>();
 
-            if(event.publicSample.isEmpty())
+            if (event.publicSample.isEmpty())
                 logger.info("{}: Pseudo Gradient Received Empty Sample: " + self.getId());
-            
+
             Collection<CroupierPeerView> rawCroupierSample = new ArrayList<CroupierPeerView>();
             rawCroupierSample.addAll(event.publicSample);
             rawCroupierSample.addAll(event.privateSample);
@@ -896,40 +889,40 @@ public final class PseudoGradient extends ComponentDefinition {
             incrementRoutingTableAge();
         }
     };
-    
-    
+
+
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
-            
+
             logger.debug("{}: Received gradient sample", self.getId());
-            Collection<SearchDescriptor> oldGradientEntrySet = (Collection<SearchDescriptor>)gradientEntrySet.clone();
-            
+            Collection<SearchDescriptor> oldGradientEntrySet = (Collection<SearchDescriptor>) gradientEntrySet.clone();
+
             gradientEntrySet.clear();
-            checkInstanceAndAdd(gradientEntrySet , event.gradientSample);
+            checkInstanceAndAdd(gradientEntrySet, event.gradientSample);
             performAdditionalHouseKeepingTasks(oldGradientEntrySet);
-            
+
         }
     };
 
 
     /**
-     * After every sample merge, perform some additional tasks 
+     * After every sample merge, perform some additional tasks
      * in a <b>predefined order</b>.
-     *  
+     *
      * @param oldGradientEntrySet changed gradient set
      */
-    private void performAdditionalHouseKeepingTasks(Collection<SearchDescriptor> oldGradientEntrySet){
+    private void performAdditionalHouseKeepingTasks(Collection<SearchDescriptor> oldGradientEntrySet) {
 
         checkConvergence(oldGradientEntrySet, gradientEntrySet);
         sendGradientViewChange();
         publishSample();
-        
+
     }
-    
-    
+
+
     private void publishSample() {
-        
+
         Set<SearchDescriptor> nodes = getGradientSample();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
@@ -940,12 +933,12 @@ public final class PseudoGradient extends ComponentDefinition {
         logger.warn(compName + sb);
     }
 
-
     /**
      * Fetch the current gradient sample.
+     *
      * @return Most Recent Gradient Sample.
      */
-    private SortedSet<SearchDescriptor> getGradientSample(){
+    private SortedSet<SearchDescriptor> getGradientSample() {
         return gradientEntrySet;
     }
 
@@ -954,22 +947,22 @@ public final class PseudoGradient extends ComponentDefinition {
      * Based on the changed gradient set, check the local convergence of the gradient.
      *
      * @param oldGradientEntrySet Old Entry Set
-     * @param gradientEntrySet Current Entry Set
+     * @param gradientEntrySet    Current Entry Set
      */
-    private void checkConvergence(Collection<SearchDescriptor> oldGradientEntrySet, Collection<SearchDescriptor> gradientEntrySet){
-        
+    private void checkConvergence(Collection<SearchDescriptor> oldGradientEntrySet, Collection<SearchDescriptor> gradientEntrySet) {
+
         int oldSize = oldGradientEntrySet.size();
         int newSize = gradientEntrySet.size();
 
 
         oldGradientEntrySet.retainAll(gradientEntrySet);
-        
+
         if (oldSize == newSize && oldSize > convergenceTest * newSize) {
             currentConvergedRounds++;
         } else {
             currentConvergedRounds = 0;
         }
-        
+
         if (currentConvergedRounds > convergenceTestRounds) {
             if (!converged) {
                 this.changed = true;
@@ -982,36 +975,39 @@ public final class PseudoGradient extends ComponentDefinition {
 
     /**
      * Get the nodes which have the higher utility from the node.
+     *
      * @return The Sorted Set.
      */
-    private SortedSet<SearchDescriptor> getHigherUtilityNodes(){
-        return gradientEntrySet.tailSet(new SearchDescriptor(self.getAddress()));
+    private SortedSet<SearchDescriptor> getHigherUtilityNodes() {
+        return gradientEntrySet.tailSet(new SearchDescriptor(self.getDescriptor()));
     }
 
     /**
      * Get the nodes which have lower utility as compared to node.
+     *
      * @return Lower Utility Nodes.
      */
-    private SortedSet<SearchDescriptor> getLowerUtilityNodes(){
+    private SortedSet<SearchDescriptor> getLowerUtilityNodes() {
         return gradientEntrySet.headSet(new SearchDescriptor(self.getDescriptor()));
     }
 
     /**
-     * Has the node converged i.e the change within the gradient 
-     * is within the specified limits. 
-     *  
+     * Has the node converged i.e the change within the gradient
+     * is within the specified limits.
+     *
      * @return local convergence
      */
-    private boolean isConverged(){
+    private boolean isConverged() {
         return converged;
     }
 
 
     /**
      * Has gradient sample changed within successive iterations.
+     *
      * @return gradient change
      */
-    private boolean isChanged(){
+    private boolean isChanged() {
         return changed;
     }
 }
