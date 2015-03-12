@@ -25,6 +25,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
+import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.serializer.SearchDescriptorSerializer;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
@@ -45,12 +46,7 @@ import java.util.UUID;
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class CommonEncodeDecode extends BaseMsgFrameDecoder{
-
-    public static final byte CROUPIER_REQUEST = (byte) 0x90;
-    public static final byte CROUPIER_RESPONSE = (byte) 0x91;
-    public static final byte GRADIENT_REQUEST = (byte) 0x92;
-    public static final byte GRADIENT_RESPONSE = (byte) 0x93;
+public class CommonEncodeDecode {
 
     //other aliases
     public static final byte HEADER_FIELD_CODE = (byte) 0x01;
@@ -83,40 +79,8 @@ public class CommonEncodeDecode extends BaseMsgFrameDecoder{
         } catch (SerializationContext.MissingException ex) {
             throw new RuntimeException(ex);
         }
-        CroupierNetworkSettings.oneTimeSetup(context, CROUPIER_REQUEST, CROUPIER_RESPONSE);
-        GradientNetworkSettings.oneTimeSetup(context, GRADIENT_REQUEST, GRADIENT_RESPONSE);
+        CroupierNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.CROUPIER_REQUEST, MessageFrameDecoder.CROUPIER_RESPONSE);
+        GradientNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.GRADIENT_REQUEST, MessageFrameDecoder.GRADIENT_RESPONSE);
     }
-
-    public CommonEncodeDecode() {
-        super();
-    }
-
-    @Override
-    protected RewriteableMsg decodeMsg(ChannelHandlerContext ctx, ByteBuf buffer) throws MessageDecodingException {
-        // See if msg is part of parent project, if yes then return it.
-        // Otherwise decode the msg here.
-        RewriteableMsg msg = super.decodeMsg(ctx, buffer);
-        if (msg != null) {
-            return msg;
-        }
-
-        switch (opKod) {
-            case CROUPIER_REQUEST:
-                SerializerAdapter.Request cReqS = new SerializerAdapter.Request();
-                return cReqS.decodeMsg(buffer);
-            case CROUPIER_RESPONSE:
-                SerializerAdapter.Response cRespS = new SerializerAdapter.Response();
-                return cRespS.decodeMsg(buffer);
-            case GRADIENT_REQUEST:
-                SerializerAdapter.Request gReqS = new SerializerAdapter.Request();
-                return gReqS.decodeMsg(buffer);
-            case GRADIENT_RESPONSE:
-                SerializerAdapter.Response gRespS = new SerializerAdapter.Response();
-                return gRespS.decodeMsg(buffer);
-            default:
-                return null;
-        }
-    }
-    
     
 }

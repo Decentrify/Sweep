@@ -70,6 +70,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     
     public static final byte CROUPIER_REQUEST = -0x06;
     public static final byte CROUPIER_RESPONSE = -0x07;
+    public static final byte GRADIENT_REQUEST = -0x08;
+    public static final byte GRADIENT_RESPONSE = -0x09;
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
@@ -181,6 +183,12 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case CROUPIER_RESPONSE:
                 SerializerAdapter.Response responseS = new SerializerAdapter.Response();
                 return responseS.decodeMsg(buffer);
+            case GRADIENT_REQUEST:
+                SerializerAdapter.Request gReqS = new SerializerAdapter.Request();
+                return gReqS.decodeMsg(buffer);
+            case GRADIENT_RESPONSE:
+                SerializerAdapter.Response gRespS = new SerializerAdapter.Response();
+                return gRespS.decodeMsg(buffer);
             default:
                 break;
         }
