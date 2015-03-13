@@ -23,6 +23,7 @@ import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
+import se.sics.ms.serializer.SearchDescriptorSerializer;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
@@ -106,6 +107,7 @@ public class ElectionFollower extends ComponentDefinition {
         config = init.getConfig();
         higherUtilityNodes = new TreeSet<SearchDescriptor>();
     }
+    
     /**
      * QueryLimit handler that will respond to voting requests sent from leader
      * candidates. It checks if that leader candidate is a suitable leader
@@ -134,6 +136,13 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
 
+    
+    /**
+     * Search stored node set and see we can find any higher utility node.
+     * Else return the self descriptor.
+     *  
+     * @return Highest Utility Node.
+     */
     private SearchDescriptor getHighestUtilityNode() {
         //removeNodesFromOtherPartitions();
         SearchDescriptor searchDescriptor;
@@ -146,6 +155,13 @@ public class ElectionFollower extends ComponentDefinition {
         return  searchDescriptor;
     }
 
+    
+    /**
+     * Iterate over the sample set and compare the utility with the supplied value.
+     *  
+     * @param searchDescriptor Descriptor to check utility again.
+     * @return Descriptor with Biggest Utility.
+     */
     private SearchDescriptor getHighestUtilityNode(SearchDescriptor searchDescriptor) {
         //removeNodesFromOtherPartitions();
         if (higherUtilityNodes.size() != 0) {
@@ -165,8 +181,11 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(GradientViewChangePort.GradientViewChanged event) {
             isConverged = event.isConverged();
 
-            //create a copy so other component  receiving the same copy of the object is not effected.
-            higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
+            // WARNING: Always create copy of set and then calculate tail set. 
+            // If you directly try to add tail set to constructor, sometimes weird exceptions come.
+            
+            SortedSet<SearchDescriptor> gradientSet = new TreeSet<SearchDescriptor>(event.getGradientView());
+            higherUtilityNodes = gradientSet.tailSet(new SearchDescriptor(self.getDescriptor()));
         }
     };
     /**
@@ -200,6 +219,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
         }
     };
+    
     /**
      * QueryLimit handler responsible for the actions taken when the node has not
      * received a heart beat message from the leader for a certain amount of
@@ -207,12 +227,13 @@ public class ElectionFollower extends ComponentDefinition {
      * the leader's view. If there is no response from the leader it will call
      * for a leader death vote. It won't call for a leader death vote right away
      * in case the local version of the leaver's view is completely outdated,
-     * because that could result in valid leaders being rejected
+     * because that could result in valid leaders being rejected.
      */
     final Handler<HeartbeatTimeout> handleHeartbeatTimeout = new Handler<HeartbeatTimeout>() {
         @Override
         public void handle(HeartbeatTimeout event) {
-            if (leaderIsAlive == true) {
+            if (leaderIsAlive) {
+                
                 leaderIsAlive = false;
 
                 RejectFollowerMessage.Request msg = new RejectFollowerMessage.Request(self.getAddress(), leader.getVodAddress(), UUID.nextUUID());
@@ -236,6 +257,8 @@ public class ElectionFollower extends ComponentDefinition {
             }
         }
     };
+    
+
     /**
      * QueryLimit handler that receives rejected confirmation messages from the leader.
      * The node will reject the leader in case it has been kicked from the
@@ -244,7 +267,7 @@ public class ElectionFollower extends ComponentDefinition {
     final Handler<RejectFollowerMessage.Response> handleRejectionConfirmation = new Handler<RejectFollowerMessage.Response>() {
         @Override
         public void handle(RejectFollowerMessage.Response event) {
-            if (event.isNodeInView() == true) {
+            if (event.isNodeInView()) {
                 leaderIsAlive = true;
             } else {
                 resetLeader();
@@ -253,6 +276,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
         }
     };
+    
     /**
      * QueryLimit handler that will respond whether it thinks that the leader is dead or
      * not
@@ -272,6 +296,7 @@ public class ElectionFollower extends ComponentDefinition {
             trigger(msg, networkPort);
         }
     };
+    
     /**
      * QueryLimit handler that counts how many death responses have been received. If the
      * number of votes are the same as the number of nodes in the leader's view,
@@ -295,6 +320,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
         }
     };
+    
     /**
      * QueryLimit handler that listens for DeathTimeout event and will then call for an
      * evaluation of death responses
@@ -427,6 +453,11 @@ public class ElectionFollower extends ComponentDefinition {
         trigger(msg, networkPort);
     }
 
+    /**
+     * The nodes to be removed from the sample set as they are believed to be dead.
+     *  
+     * @param nodesToRemove Set which is believed to be dead.
+     */
     private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
         for(VodAddress suspectedNode: nodesToRemove) {
             removeNodeFromLocalState(suspectedNode);
@@ -461,6 +492,10 @@ public class ElectionFollower extends ComponentDefinition {
         }
     };
 
+
+    /**
+     * Reset the values identified with the leader.
+     */
     void resetLeader() {
 
         leader = null;

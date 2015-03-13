@@ -2,9 +2,11 @@ package se.sics.ms.gradient.ports;
 
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
+import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.types.SearchDescriptor;
 
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 /**
  * This class is a port created for the purpose of broadcasting gradient's view
@@ -18,6 +20,7 @@ public class GradientViewChangePort extends PortType {
 	 * An event that contains the Gradient's view
 	 */
 	public static class GradientViewChanged extends Event {
+        
 		private final boolean isConverged;
 		private final SortedSet<SearchDescriptor> gradientView;
 
@@ -51,24 +54,6 @@ public class GradientViewChangePort extends PortType {
          */
         public SortedSet<SearchDescriptor> getGradientView() {
             return gradientView;
-        }
-
-        /**
-         * The set is backed by the view of this event so changes to one of them affects the other.
-         *
-         * @return all nodes with a higher preference value than the given descriptor in ascending order
-         */
-        public SortedSet<SearchDescriptor> getHigherUtilityNodes(SearchDescriptor searchDescriptor) {
-            return gradientView.tailSet(searchDescriptor);
-        }
-
-        /**
-         * The set is backed by the view of this event so changes to one of them affects the other
-         *
-         * @return all nodes with a lower preference value than the given descriptor in ascending order
-         */
-        public SortedSet<SearchDescriptor> getLowerUtilityNodes(SearchDescriptor searchDescriptor) {
-            return gradientView.headSet(searchDescriptor);
         }
 	}
 }

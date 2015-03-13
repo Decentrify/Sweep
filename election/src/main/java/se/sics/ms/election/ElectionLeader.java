@@ -118,9 +118,14 @@ public class ElectionLeader extends ComponentDefinition {
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
 
             //create a copy so other component  receiving the same copy of the object is not effected.
-            higherUtilityNodes = new TreeSet<SearchDescriptor>(event.getHigherUtilityNodes(new SearchDescriptor(self.getDescriptor())));
-            lowerUtilityNodes = new TreeSet<SearchDescriptor>(event.getLowerUtilityNodes(new SearchDescriptor(self.getDescriptor())));
+            SearchDescriptor currentDesc = new SearchDescriptor(self.getDescriptor());
 
+            // We ran into some weird problems by creating a new set from the view of a tree set. Do not try that again.
+            // Use the following approach in which you create copy of the whole set and then calculate the lower and higher utilities.
+            SortedSet<SearchDescriptor> gradientSet = new TreeSet<SearchDescriptor>(event.getGradientView());
+
+            higherUtilityNodes = gradientSet.tailSet(currentDesc);
+            lowerUtilityNodes = gradientSet.headSet(currentDesc);
 
             // Create view for Snapshot
 			StringBuilder builder = new StringBuilder();
@@ -137,9 +142,10 @@ public class ElectionLeader extends ComponentDefinition {
 					&& !electionInProgress
 					&& higherUtilityNodes.size() == 0
 					&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()) {
-
+                logger.warn("_Abhi: Going to start voting .... {}", self.getId());
 				startVote();
 			} else if (iAmLeader && higherUtilityNodes.size() != 0) {
+                logger.warn("_Abhi: {} I was Leader and I am rejected ... ", self.getId());
                 rejected();
             }
 		}
@@ -260,6 +266,13 @@ public class ElectionLeader extends ComponentDefinition {
 		// they are above a certain ratio of the total number of nodes,
 		// then the leader candidate will be elected leader
 
+//        logger.warn("_Abhi: Yes == total: {}, Size of higher {}, lowerUtilityNodes > min election group {}, converged Nodes counter > min {}, final : {}", new Object[]{yesVotes == totalVotes
+//                , higherUtilityNodes.size() == 0
+//                , lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()
+//                , convergedNodesCounter >= config.getMinNumberOfConvergedNodes()
+//                , ((float) yesVotes >= Math.ceil((float) lowerUtilityNodes.size() * config.getMinPercentageOfVotes()))});
+        
+        
 		if (yesVotes == totalVotes
 				&& higherUtilityNodes.size() == 0
 				&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()
@@ -279,6 +292,7 @@ public class ElectionLeader extends ComponentDefinition {
 				variableReset();
 				iAmLeader = true;
 
+                logger.warn("_Abhi: {}:  I am the leader. Deal with it", self.getId());
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(config.getHeartbeatTimeoutDelay(), config.getHeartbeatTimeoutInterval());
 				timeout.setTimeoutEvent(new HeartbeatSchedule(timeout, self.getId()));

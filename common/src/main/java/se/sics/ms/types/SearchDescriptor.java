@@ -124,7 +124,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
     @Override
     public String toString() {
-        return this.overlayAddress.toString();
+        return (this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries());
     }
 
     public OverlayAddress getOverlayAddress() {

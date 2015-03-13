@@ -54,6 +54,6 @@ public class SimpleUtilityComparator implements Comparator<PeerView>{
             return 0;
         }
         
-        return 0;
+        throw new ClassCastException("Comparator's Not Valid for the Object.");
     }
 }
