@@ -142,10 +142,10 @@ public class ElectionLeader extends ComponentDefinition {
 					&& !electionInProgress
 					&& higherUtilityNodes.size() == 0
 					&& lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()) {
-                logger.warn("_Abhi: Going to start voting .... {}", self.getId());
+                logger.debug("Going to start voting to be a leader");
 				startVote();
 			} else if (iAmLeader && higherUtilityNodes.size() != 0) {
-                logger.warn("_Abhi: {} I was Leader and I am rejected ... ", self.getId());
+                logger.warn("{}: I was Leader and now I am rejected", self.getId());
                 rejected();
             }
 		}
@@ -259,19 +259,13 @@ public class ElectionLeader extends ComponentDefinition {
 	 * start collecting index messages
 	 */
 	private void evaluateVotes() {
+
 		// If all the returned votes are yes votes AND
 		// there are nodes above the leader candidate in the tree AND
 		// there are at least a certain number of nodes in the view AND
 		// most of the voters are converged AND
 		// they are above a certain ratio of the total number of nodes,
 		// then the leader candidate will be elected leader
-
-//        logger.warn("_Abhi: Yes == total: {}, Size of higher {}, lowerUtilityNodes > min election group {}, converged Nodes counter > min {}, final : {}", new Object[]{yesVotes == totalVotes
-//                , higherUtilityNodes.size() == 0
-//                , lowerUtilityNodes.size() >= config.getMinSizeOfElectionGroup()
-//                , convergedNodesCounter >= config.getMinNumberOfConvergedNodes()
-//                , ((float) yesVotes >= Math.ceil((float) lowerUtilityNodes.size() * config.getMinPercentageOfVotes()))});
-        
         
 		if (yesVotes == totalVotes
 				&& higherUtilityNodes.size() == 0
@@ -292,7 +286,7 @@ public class ElectionLeader extends ComponentDefinition {
 				variableReset();
 				iAmLeader = true;
 
-                logger.warn("_Abhi: {}:  I am the leader. Deal with it", self.getId());
+                logger.info("I am the new elected leader for partition: {}", self.getPartitionId());
 				// Start heart beat timeout
 				SchedulePeriodicTimeout timeout = new SchedulePeriodicTimeout(config.getHeartbeatTimeoutDelay(), config.getHeartbeatTimeoutInterval());
 				timeout.setTimeoutEvent(new HeartbeatSchedule(timeout, self.getId()));
