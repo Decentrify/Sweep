@@ -103,11 +103,12 @@ public class StatusAggregator extends ComponentDefinition{
             if(event instanceof StatusAggregatorEvent.SearchUpdateEvent){
                 mapKey = ComponentUpdateEnum.SEARCH.getName();
                 
-                ScheduleTimeout st = new ScheduleTimeout(timeout_seconds);
-                OneTimeUpdate oneTimeUpdate = new OneTimeUpdate(st,self.getId());
-                
-                st.setTimeoutEvent(oneTimeUpdate);
-                trigger(st, timerPositive);
+                if(simComponentAddress != null){
+                    ScheduleTimeout st = new ScheduleTimeout(timeout_seconds);
+                    OneTimeUpdate oneTimeUpdate = new OneTimeUpdate(st,self.getId());
+                    st.setTimeoutEvent(oneTimeUpdate);
+                    trigger(st, timerPositive);
+                }
             }
             
             else if(event instanceof StatusAggregatorEvent.GradientUpdateEvent){
