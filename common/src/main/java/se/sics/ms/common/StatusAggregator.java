@@ -13,12 +13,13 @@ import se.sics.ms.data.GradientComponentUpdate;
 import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.AggregatorUpdateMsg;
-import se.sics.ms.types.ComponentUpdateEvent;
-import se.sics.ms.types.StatusAggregatorEvent;
+import se.sics.ms.types.*;
+import se.sics.p2ptoolbox.aggregator.api.msg.AggregatedStateContainer;
+import se.sics.p2ptoolbox.aggregator.core.msg.AggregatorNetMsg;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Status Aggregator Component responsible for collecting status of the components inside the peer.
@@ -35,7 +36,7 @@ public class StatusAggregator extends ComponentDefinition{
     private Positive<Timer> timerPositive = requires(Timer.class);
     
     private VodAddress self;
-    private VodAddress simComponentAddress;
+    private VodAddress globalAggregatorAddress;
     private int timeout_seconds;
     
     
@@ -67,7 +68,7 @@ public class StatusAggregator extends ComponentDefinition{
     private void doInit(StatusAggregatorInit init){
         self = init.getSelf();
         timeout_seconds = init.getTimeout();
-        simComponentAddress = init.getMainSimAddress();
+        globalAggregatorAddress = init.getMainSimAddress();
         componentDataMap = new HashMap<String, ComponentUpdate>();
     }
     
@@ -75,10 +76,10 @@ public class StatusAggregator extends ComponentDefinition{
         @Override
         public void handle(Start event) {
             
-            logger.info("Aggregator: Started.");
+            logger.info("Local Aggregator: Started.");
             
-            if(false){
-                // == Schedule Periodic Timeout, only if there is a component, listening updates.
+            if(globalAggregatorAddress != null){
+
                 logger.info("Aggregator: Triggering the timeout.");
                 SchedulePeriodicTimeout spt;
                 spt = new SchedulePeriodicTimeout(timeout_seconds, timeout_seconds);
@@ -92,7 +93,9 @@ public class StatusAggregator extends ComponentDefinition{
     
     /**
      * Status Update from different components are handled by this handler.
-     * Simply push the update to the map.
+     * Simply push the update to the map for now.
+     *
+     * Also in order to keep things simple, the component must send a copy of the update in order to prevent references floating around.
      */
     Handler<ComponentUpdateEvent> componentStatusUpdateHandler = new Handler<ComponentUpdateEvent>() {
         @Override
@@ -102,13 +105,6 @@ public class StatusAggregator extends ComponentDefinition{
             
             if(event instanceof StatusAggregatorEvent.SearchUpdateEvent){
                 mapKey = ComponentUpdateEnum.SEARCH.getName();
-                
-                if(simComponentAddress != null){
-                    ScheduleTimeout st = new ScheduleTimeout(timeout_seconds);
-                    OneTimeUpdate oneTimeUpdate = new OneTimeUpdate(st,self.getId());
-                    st.setTimeoutEvent(oneTimeUpdate);
-                    trigger(st, timerPositive);
-                }
             }
             
             else if(event instanceof StatusAggregatorEvent.GradientUpdateEvent){
@@ -122,6 +118,9 @@ public class StatusAggregator extends ComponentDefinition{
                 logger.info("Adding data to component map with key {}", mapKey);
                 componentDataMap.put(mapKey, event.getComponentUpdate());
             }
+            else{
+                logger.warn("Received Update from unrecognizable component.");
+            }
         }
     };
 
@@ -132,8 +131,14 @@ public class StatusAggregator extends ComponentDefinition{
     Handler<AggregateStateUpdateTimeout> periodicStateUpdateDispenseEvent = new Handler<AggregateStateUpdateTimeout>(){
         @Override
         public void handle(AggregateStateUpdateTimeout event) {
-            logger.info("Aggregator: Pushing periodic data update.");
-            trigger(new AggregatorUpdateMsg(self, simComponentAddress,componentDataMap), networkPositive);
+
+            logger.info("Sending Periodic Update to Global Aggregator Component");
+
+            SweepAggregatedPacket sap = createCondensedStatusUpdate(componentDataMap);
+            AggregatedStateContainer container = new AggregatedStateContainer(self, sap);
+
+            trigger(new AggregatorNetMsg.OneWay(self, globalAggregatorAddress, UUID.randomUUID(), container), networkPositive);
+
         }
     };
 
@@ -142,10 +147,40 @@ public class StatusAggregator extends ComponentDefinition{
         @Override
         public void handle(OneTimeUpdate event) {
             logger.info("Aggregator: Pushing One time update to the scheduler.");
-            trigger(new AggregatorUpdateMsg(self, simComponentAddress,componentDataMap), networkPositive);
+            trigger(new AggregatorUpdateMsg(self, globalAggregatorAddress,componentDataMap), networkPositive);
         }
     };
-    
-    
+
+
+    /**
+     * Based on the provided map, extract the values
+     * and create a condensed packet information to be sent to the Aggregator Component.
+     *
+     * @param componentUpdateMap component update map.
+     * @return packet containing state information.
+     */
+    private SweepAggregatedPacket createCondensedStatusUpdate(Map<String, ComponentUpdate> componentUpdateMap){
+
+        SweepAggregatedPacket sap = new SweepAggregatedPacket(self.getId());
+
+        for(Map.Entry<String, ComponentUpdate> entry : componentUpdateMap.entrySet()){
+
+            String key = entry.getKey();
+            ComponentUpdate value = entry.getValue();
+
+            if(key.equals(ComponentUpdateEnum.SEARCH.getName()) && value instanceof SearchComponentUpdate){
+                SearchComponentUpdate scup = (SearchComponentUpdate)value;
+                SearchDescriptor desc  = scup.getSearchDescriptor();
+
+                if(desc != null){
+                    sap.setPartitionId(desc.getOverlayId().getPartitionId());
+                    sap.setPartitionDepth(desc.getOverlayId().getPartitionIdDepth());
+                    sap.setNumberOfEntries(desc.getNumberOfIndexEntries());
+                }
+            }
+        }
+
+        return sap;
+    }
     
 }

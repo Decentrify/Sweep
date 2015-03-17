@@ -53,6 +53,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <croupier.version>1.2-SNAPSHOT</croupier.version>
         <gradient.version>1.0-SNAPSHOT</gradient.version>
+        <global.aggregator.version>1.0-SNAPSHOT</global.aggregator.version>
     </properties>
 
 

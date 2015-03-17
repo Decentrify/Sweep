@@ -8,8 +8,6 @@ import se.sics.ms.types.SearchDescriptor;
  * Created by babbarshaer on 2015-02-19.
  */
 public class SearchComponentUpdate implements ComponentUpdate {
-    
-    public static String SEARCH_KEY = "search";
 
     private final SearchDescriptor searchDesc;
 

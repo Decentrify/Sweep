@@ -3,11 +3,11 @@ package se.sics.ms.data;
 import se.sics.ms.types.SearchDescriptor;
 
 /**
+ * Update from the gradient component.
+ * 
  * Created by babbarshaer on 2015-02-19.
  */
 public class GradientComponentUpdate implements ComponentUpdate {
-
-    public static String GRADIENT_KEY = "gradient";
 
     private final SearchDescriptor searchDesc;
 

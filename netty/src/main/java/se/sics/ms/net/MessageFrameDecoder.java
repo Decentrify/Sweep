@@ -73,6 +73,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte GRADIENT_REQUEST = -0x08;
     public static final byte GRADIENT_RESPONSE = -0x09;
 
+
+    // Global Aggregator Message.
+    public static final byte AGGREGATOR_ONE_WAY = -0x10;
+
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
         super();
@@ -189,6 +193,10 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case GRADIENT_RESPONSE:
                 SerializerAdapter.Response gRespS = new SerializerAdapter.Response();
                 return gRespS.decodeMsg(buffer);
+            case AGGREGATOR_ONE_WAY:
+                SerializerAdapter.OneWay oneWay = new SerializerAdapter.OneWay();
+                return oneWay.decodeMsg(buffer);
+
             default:
                 break;
         }

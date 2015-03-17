@@ -27,7 +27,11 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.serializer.SearchDescriptorSerializer;
+import se.sics.ms.serializer.SweepPacketSerializer;
 import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.SweepAggregatedPacket;
+import se.sics.p2ptoolbox.aggregator.api.model.AggregatedStatePacket;
+import se.sics.p2ptoolbox.aggregator.core.AggregatorNetworkSettings;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.croupier.core.CroupierNetworkSettings;
 import se.sics.p2ptoolbox.gradient.core.GradientNetworkSettings;
@@ -51,9 +55,11 @@ public class CommonEncodeDecode {
     //other aliases
     public static final byte HEADER_FIELD_CODE = (byte) 0x01;
     public static final byte PEER_VIEW_CODE = (byte) 0x02;
+    public static final byte AGGREGATED_STATE_PACKET_CODE = (byte) 0x03;
 
     public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
     public static final String PEER_VIEW_ALIAS = "SWEEP_PEER_VIEW";
+    public static final String AGGREGATED_STATE_PACKET_ALIAS = "MY_STATE_PACKET";
 
     private static final SerializationContext context = new SerializationContextImpl();
     
@@ -73,14 +79,21 @@ public class CommonEncodeDecode {
             context.registerAlias(PeerView.class, PEER_VIEW_ALIAS, PEER_VIEW_CODE);
             context.registerSerializer(SearchDescriptor.class, new SearchDescriptorSerializer());
             context.multiplexAlias(PEER_VIEW_ALIAS, SearchDescriptor.class, (byte)0x01);
+
+            context.registerAlias(AggregatedStatePacket.class, AGGREGATED_STATE_PACKET_ALIAS, AGGREGATED_STATE_PACKET_CODE);
+            context.registerSerializer(SweepAggregatedPacket.class, new SweepPacketSerializer());
+            context.multiplexAlias(AGGREGATED_STATE_PACKET_ALIAS, SweepAggregatedPacket.class, (byte) 0x01);
+
             
         } catch (SerializationContext.DuplicateException ex) {
             throw new RuntimeException(ex);
         } catch (SerializationContext.MissingException ex) {
             throw new RuntimeException(ex);
         }
+        
         CroupierNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.CROUPIER_REQUEST, MessageFrameDecoder.CROUPIER_RESPONSE);
         GradientNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.GRADIENT_REQUEST, MessageFrameDecoder.GRADIENT_RESPONSE);
+        AggregatorNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.AGGREGATOR_ONE_WAY);
     }
     
 }

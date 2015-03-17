@@ -105,6 +105,16 @@
             <artifactId>croupier-api</artifactId>
             <version>${croupier.version}</version>
         </dependency>
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.aggregator</groupId>
+            <artifactId>aggregator-api</artifactId>
+            <version>${global.aggregator.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.aggregator</groupId>
+            <artifactId>aggregator-core</artifactId>
+            <version>${global.aggregator.version}</version>
+        </dependency>
     </dependencies>
 
 
