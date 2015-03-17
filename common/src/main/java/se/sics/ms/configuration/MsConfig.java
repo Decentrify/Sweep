@@ -52,7 +52,7 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 10;
+    public static final long MAX_ENTRIES_ON_PEER = 1000;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
@@ -68,6 +68,12 @@ public class MsConfig extends VodConfig {
     public static final int PARTITION_COMMIT_TIMEOUT= 5*1000;
 
 
+    //overrides.
+    public static final int GRADIENT_VIEW_SIZE = 10;
+    public static final int GRADIENT_CONVERGENCE_TEST_ROUNDS = 8;
+    public static final int GRADIENT_SHUFFLE_PERIOD = 3000;
+    public static final double GRADIENT_CONVERGENCE_TEST = 0.8d;
+    
     protected MsConfig(String[] args) throws IOException {
         super(args);
     }
