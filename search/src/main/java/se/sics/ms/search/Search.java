@@ -308,6 +308,7 @@ public final class Search extends ComponentDefinition {
     private void doInit(SearchInit init) {
 
         self = (MsSelfImpl) init.getSelf();
+        informListeningComponentsAboutUpdates(self);
 
         config = init.getConfiguration();
         KeyPairGenerator keyGen;

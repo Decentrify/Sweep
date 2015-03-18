@@ -137,6 +137,9 @@ public class StatusAggregator extends ComponentDefinition{
             SweepAggregatedPacket sap = createCondensedStatusUpdate(componentDataMap);
             AggregatedStateContainer container = new AggregatedStateContainer(self, sap);
 
+            logger.warn(" Trying to trigger update to , {}", globalAggregatorAddress);
+            logger.warn(" Sending the below information, {}", sap);
+
             trigger(new AggregatorNetMsg.OneWay(self, globalAggregatorAddress, UUID.randomUUID(), container), networkPositive);
 
         }

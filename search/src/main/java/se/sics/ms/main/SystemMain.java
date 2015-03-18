@@ -8,10 +8,10 @@ package se.sics.ms.main;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
+
+import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.cm.ChunkManagerConfiguration;
@@ -68,9 +68,23 @@ public class SystemMain extends ComponentDefinition {
     private Self self;
     private Address myAddr;
     private SystemMain myComp;
-//    private String publicBootstrapNode = "cloud7.sics.se";
     private Address bootstrapAddress;
     private int bindCount = 0; //
+
+    // Create Options for Command Line Parsing.
+    private Options options = new Options();
+    private CommandLine line;
+    private CommandLineParser parser;
+
+    private static String[] arguments;
+
+
+    // Aggregator Component Information.
+    private String aggregatorIp = "cloud7.sics.se";
+    private int aggregatorId = 0;
+    private int aggregatorPort = 54321;
+    private Address aggregatorAddress;
+
 
     public static class PsPortBindResponse extends PortBindResponse {
 
@@ -81,10 +95,8 @@ public class SystemMain extends ComponentDefinition {
 
     public SystemMain() {
 
-        myComp = this;
+        init();
         subscribe(handleStart, control);
-        
-        CommonEncodeDecode.init();
         
         resolveIp = create(ResolveIp.class, Init.NONE);
         timer = create(JavaTimer.class, Init.NONE);
@@ -93,6 +105,56 @@ public class SystemMain extends ComponentDefinition {
         subscribe(handleGetIpResponse, resolveIp.getPositive(ResolveIpPort.class));
 
     }
+
+
+
+    public void init(){
+
+        myComp = this;
+        CommonEncodeDecode.init();
+
+        List<String> argList = new ArrayList<String>();
+        for (int i = 0; i < arguments.length; i++) {
+            if (arguments[i].startsWith("-X")) {
+                argList.add(arguments[i]);
+            }
+        }
+
+        Option aggregatorIpOption = new Option("XaIp", true, "Aggregator Ip Address");
+        Option aggregatorIdOption = new Option("XaId", true, "Aggregator Component Id");
+        Option aggregatorPortOption = new Option("XaPort", true, "Aggregator Port");
+
+        options.addOption(aggregatorIpOption);
+        options.addOption(aggregatorIdOption);
+        options.addOption(aggregatorPortOption);
+
+        parser = new GnuParser();
+
+        try{
+            line = parser.parse(options,argList.toArray(new String[argList.size()]));
+
+        } catch (ParseException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+
+        if(line.hasOption(aggregatorIpOption.getOpt())){
+            aggregatorIp = line.getOptionValue(aggregatorIpOption.getOpt());
+            logger.warn(" Aggregator Ip Option Set: {}", aggregatorIp);
+        }
+
+        if(line.hasOption(aggregatorIdOption.getOpt())){
+            aggregatorId = Integer.parseInt(line.getOptionValue(aggregatorIdOption.getOpt()));
+            logger.warn(" Aggregator Id Option Set: {}", aggregatorId);
+        }
+
+        if(line.hasOption(aggregatorPortOption.getOpt())){
+            aggregatorPort = Integer.parseInt(line.getOptionValue(aggregatorPortOption.getOpt()));
+            logger.warn(" Aggregator Port Option Set: {}", aggregatorPort);
+        }
+
+    }
+
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(Start event) {
@@ -157,10 +219,12 @@ public class SystemMain extends ComponentDefinition {
                             
                             GradientConfig gradientConfig = new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE,MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
                             
+                            aggregatorAddress = getAggregatorAddress();
+                            
                             searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
                                             SearchConfiguration.build(), GradientConfiguration.build(),
                                             ElectionConfiguration.build(), ChunkManagerConfiguration.build(), gradientConfig,
-                                            ToVodAddr.bootstrap(bootstrapAddress),null));
+                                            ToVodAddr.bootstrap(bootstrapAddress),  (aggregatorAddress!= null) ? ToVodAddr.systemAddr(aggregatorAddress) : null ));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
@@ -188,6 +252,28 @@ public class SystemMain extends ComponentDefinition {
                     }
                 }
             };
+
+    /**
+     * Based on the parameters passed, construct the aggregator address.
+     * @return Aggregator Address.
+     */
+    private Address getAggregatorAddress(){
+
+        Address aggregatorAddress = null;
+        try {
+
+            InetAddress ipAddr = InetAddress.getByName(aggregatorIp);
+            aggregatorAddress = new Address(ipAddr, aggregatorPort, aggregatorId);
+
+        }
+        catch (UnknownHostException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return aggregatorAddress;
+    }
+
     public Handler<GetIpResponse> handleGetIpResponse = new Handler<GetIpResponse>() {
         @Override
         public void handle(GetIpResponse event) {
@@ -264,6 +350,7 @@ public class SystemMain extends ComponentDefinition {
         System.setProperty("java.net.preferIPv4Stack", "true");
         try {
             // Initialize the MsConfig Component.
+            arguments = args;
             MsConfig.init(args);
         } catch (IOException ex) {
             ex.printStackTrace();
