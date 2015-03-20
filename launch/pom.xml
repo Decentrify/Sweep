@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>se.kth.ms</groupId>
+        <artifactId>mediasearch-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <groupId>se.kth.ms</groupId>
+    <artifactId>launch</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    
+    
+    <properties>
+        <ms.search.version>1.0-SNAPSHOT</ms.search.version>
+        <local.aggregator.version>1.0-SNAPSHOT</local.aggregator.version>
+        <netty.version>1.0-SNAPSHOT</netty.version>
+    </properties>
+    
+
+    <dependencies>
+
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>ms-search</artifactId>
+            <version>${ms.search.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>local-aggregator</artifactId>
+            <version>${local.aggregator.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ms</groupId>
+            <artifactId>netty</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+
+    </dependencies>
+
+
+</project>

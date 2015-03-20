@@ -1,4 +1,4 @@
-package se.sics.ms.common;
+package se.sics.ms.aggregator.core;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;

@@ -3,13 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package se.sics.ms.main;
-
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.*;
-import java.util.logging.Level;
+package se.sics.ms.launch;
 
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
@@ -20,18 +14,12 @@ import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.common.util.ToVodAddr;
-import se.sics.gvod.config.CroupierConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.filters.MsgDestFilterAddress;
 import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.NatNetworkControl;
-import se.sics.gvod.net.NettyInit;
-import se.sics.gvod.net.NettyNetwork;
-import se.sics.gvod.net.Transport;
-import se.sics.gvod.net.VodNetwork;
+import se.sics.gvod.net.*;
 import se.sics.gvod.net.events.PortBindRequest;
 import se.sics.gvod.net.events.PortBindResponse;
 import se.sics.gvod.timer.Timer;
@@ -41,17 +29,21 @@ import se.sics.kompics.nat.utils.getip.ResolveIp;
 import se.sics.kompics.nat.utils.getip.ResolveIpPort;
 import se.sics.kompics.nat.utils.getip.events.GetIpRequest;
 import se.sics.kompics.nat.utils.getip.events.GetIpResponse;
-import se.sics.ms.common.CommonEncodeDecode;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.*;
+import java.util.logging.Level;
 
 /**
  *
@@ -340,7 +332,7 @@ public class SystemMain extends ComponentDefinition {
      * Starts the execution of the program
      *
      * @param args the command line arguments
-     * @throws IOException in case the configuration file couldn't be created
+     * @throws java.io.IOException in case the configuration file couldn't be created
      */
     public static void main(String[] args) throws IOException {
 

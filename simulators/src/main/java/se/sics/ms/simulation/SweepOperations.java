@@ -6,8 +6,8 @@ import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
-import se.sics.ms.common.CommonEncodeDecode;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
+import se.sics.ms.main.SimulatorEncodeDecode;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
@@ -33,7 +33,7 @@ public class SweepOperations {
         
         try {
             VodConfig.init(new String[0]);
-            CommonEncodeDecode.init();
+            SimulatorEncodeDecode.init();
         } 
         catch (UnknownHostException e) {
             e.printStackTrace();

@@ -29,7 +29,9 @@
         <module>gradient</module>
         <module>election</module>
         <module>netty</module>
-    <module>simulators</module>
+        <module>simulators</module>
+        <module>local-aggregator</module>
+        <module>launch</module>
     </modules>
     
     <distributionManagement>

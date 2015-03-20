@@ -25,10 +25,12 @@ import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
+import se.sics.ms.aggregator.SearchComponentUpdate;
+import se.sics.ms.aggregator.SearchComponentUpdateEvent;
+import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
-import se.sics.ms.data.SearchComponentUpdate;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -47,7 +49,6 @@ import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
-import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
@@ -131,6 +132,9 @@ public final class Search extends ComponentDefinition {
     private LocalSearchRequest searchRequest;
     private Directory searchIndex;
 
+    // Aggregator Variable.
+    private int defaultComponentOverlayId = 0;
+    
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
@@ -308,7 +312,6 @@ public final class Search extends ComponentDefinition {
     private void doInit(SearchInit init) {
 
         self = (MsSelfImpl) init.getSelf();
-        informListeningComponentsAboutUpdates(self);
 
         config = init.getConfiguration();
         KeyPairGenerator keyGen;
@@ -377,6 +380,7 @@ public final class Search extends ComponentDefinition {
     final Handler<Start> handleStart = new Handler<Start>() {
         public void handle(Start init) {
 
+            informListeningComponentsAboutUpdates(self);
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
@@ -2941,7 +2945,7 @@ public final class Search extends ComponentDefinition {
         
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
-        trigger(new StatusAggregatorEvent.SearchUpdateEvent(new SearchComponentUpdate(updatedDesc)), statusAggregatorPortPositive);
+        trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate(updatedDesc), gradientPort);
     }
 

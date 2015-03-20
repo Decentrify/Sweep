@@ -1,19 +1,17 @@
-package se.sics.ms.common;
+package se.sics.ms.aggregator.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
-import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
-import se.sics.ms.data.ComponentUpdate;
-import se.sics.ms.data.GradientComponentUpdate;
-import se.sics.ms.data.SearchComponentUpdate;
-import se.sics.ms.ports.StatusAggregatorPort;
+import se.sics.ms.aggregator.data.ComponentUpdate;
+import se.sics.ms.aggregator.data.SweepAggregatedPacket;
+import se.sics.ms.aggregator.port.StatusAggregatorPort;
+import se.sics.ms.aggregator.type.ComponentUpdateEvent;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.*;
 import se.sics.p2ptoolbox.aggregator.api.msg.AggregatedStateContainer;
 import se.sics.p2ptoolbox.aggregator.core.msg.AggregatorNetMsg;
 
@@ -29,7 +27,7 @@ import java.util.UUID;
  */
 public class StatusAggregator extends ComponentDefinition{
     
-    private Map<String, ComponentUpdate> componentDataMap;
+    private Map<Class, Map<Integer, ComponentUpdate>> componentDataMap;
     private Logger logger = LoggerFactory.getLogger(StatusAggregator.class);
     private Negative<StatusAggregatorPort> statusAggregatorPort = provides(StatusAggregatorPort.class);
     private Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
@@ -45,7 +43,6 @@ public class StatusAggregator extends ComponentDefinition{
         subscribe(startHandler,control);
         subscribe(componentStatusUpdateHandler, statusAggregatorPort);
         subscribe(periodicStateUpdateDispenseEvent, timerPositive);
-        subscribe(oneTimeUpdateHandler, timerPositive);
     }
     
     
@@ -56,20 +53,13 @@ public class StatusAggregator extends ComponentDefinition{
         }
     }
     
-    // Only for testing.
-    private class OneTimeUpdate extends IndividualTimeout{
-        
-        public OneTimeUpdate(ScheduleTimeout request , int id){
-            super(request, id);
-        }
-    }
-    
     
     private void doInit(StatusAggregatorInit init){
         self = init.getSelf();
         timeout_seconds = init.getTimeout();
         globalAggregatorAddress = init.getMainSimAddress();
-        componentDataMap = new HashMap<String, ComponentUpdate>();
+        componentDataMap = new HashMap<Class, Map<Integer, ComponentUpdate>>();
+        
     }
     
     Handler<Start> startHandler = new Handler<Start>() {
@@ -101,25 +91,21 @@ public class StatusAggregator extends ComponentDefinition{
         @Override
         public void handle(ComponentUpdateEvent event) {
             
-            String mapKey = null;
-            
-            if(event instanceof StatusAggregatorEvent.SearchUpdateEvent){
-                mapKey = ComponentUpdateEnum.SEARCH.getName();
-            }
-            
-            else if(event instanceof StatusAggregatorEvent.GradientUpdateEvent){
-                mapKey = ComponentUpdateEnum.GRADIENT.getName();
-            }
-            else{
-                logger.warn("Status update from unknown component.");
-            }
-            
-            if(mapKey !=null){
-                logger.info("Adding data to component map with key {}", mapKey);
-                componentDataMap.put(mapKey, event.getComponentUpdate());
+            if(event.getComponentUpdate() != null){
+                
+                Class updateClassType = event.getComponentUpdate().getClass();
+                
+                if(componentDataMap.get(updateClassType)== null){
+                      componentDataMap.put(updateClassType, new HashMap<Integer, ComponentUpdate>());
+                }
+                
+                Map<Integer, ComponentUpdate> keyValue = componentDataMap.get(updateClassType);
+                keyValue.put(event.getComponentUpdate().getComponentOverlay(), event.getComponentUpdate());
+                
+                componentDataMap.put(updateClassType, keyValue);
             }
             else{
-                logger.warn("Received Update from unrecognizable component.");
+                logger.warn("Unrecognized Component Update Received");
             }
         }
     };
@@ -134,7 +120,7 @@ public class StatusAggregator extends ComponentDefinition{
 
             logger.info("Sending Periodic Update to Global Aggregator Component");
 
-            SweepAggregatedPacket sap = createCondensedStatusUpdate(componentDataMap);
+            SweepAggregatedPacket sap = new SweepAggregatedPacket(componentDataMap);
             AggregatedStateContainer container = new AggregatedStateContainer(self, sap);
 
             logger.warn(" Trying to trigger update to , {}", globalAggregatorAddress);
@@ -144,46 +130,5 @@ public class StatusAggregator extends ComponentDefinition{
 
         }
     };
-
-    
-    Handler<OneTimeUpdate> oneTimeUpdateHandler = new Handler<OneTimeUpdate>() {
-        @Override
-        public void handle(OneTimeUpdate event) {
-            logger.info("Aggregator: Pushing One time update to the scheduler.");
-            trigger(new AggregatorUpdateMsg(self, globalAggregatorAddress,componentDataMap), networkPositive);
-        }
-    };
-
-
-    /**
-     * Based on the provided map, extract the values
-     * and create a condensed packet information to be sent to the Aggregator Component.
-     *
-     * @param componentUpdateMap component update map.
-     * @return packet containing state information.
-     */
-    private SweepAggregatedPacket createCondensedStatusUpdate(Map<String, ComponentUpdate> componentUpdateMap){
-
-        SweepAggregatedPacket sap = new SweepAggregatedPacket(self.getId());
-
-        for(Map.Entry<String, ComponentUpdate> entry : componentUpdateMap.entrySet()){
-
-            String key = entry.getKey();
-            ComponentUpdate value = entry.getValue();
-
-            if(key.equals(ComponentUpdateEnum.SEARCH.getName()) && value instanceof SearchComponentUpdate){
-                SearchComponentUpdate scup = (SearchComponentUpdate)value;
-                SearchDescriptor desc  = scup.getSearchDescriptor();
-
-                if(desc != null){
-                    sap.setPartitionId(desc.getOverlayId().getPartitionId());
-                    sap.setPartitionDepth(desc.getOverlayId().getPartitionIdDepth());
-                    sap.setNumberOfEntries(desc.getNumberOfIndexEntries());
-                }
-            }
-        }
-
-        return sap;
-    }
     
 }

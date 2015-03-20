@@ -13,7 +13,6 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.common.StatusAggregator;
 import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
@@ -28,7 +27,6 @@ import se.sics.ms.gradient.ports.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
-import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
@@ -59,8 +57,7 @@ public final class Gradient extends ComponentDefinition {
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
-    Positive<StatusAggregatorPort> statusAggregatorPortPositive = positive(StatusAggregatorPort.class);
-    
+
     private MsSelfImpl self;
     private GradientConfiguration config;
     private Random random;

@@ -13,8 +13,8 @@ import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
+import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.common.StatusAggregator;
 import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
@@ -29,7 +29,6 @@ import se.sics.ms.gradient.ports.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
-import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
 

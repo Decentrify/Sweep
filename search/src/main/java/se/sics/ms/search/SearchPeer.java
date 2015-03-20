@@ -16,8 +16,9 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.p2p.simulator.P2pSimulator;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
-import se.sics.ms.common.StatusAggregator;
-import se.sics.ms.common.StatusAggregatorInit;
+import se.sics.ms.aggregator.core.StatusAggregator;
+import se.sics.ms.aggregator.core.StatusAggregatorInit;
+import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -38,7 +39,6 @@ import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
-import se.sics.ms.ports.StatusAggregatorPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -151,6 +151,9 @@ public final class SearchPeer extends ComponentDefinition {
                 search.getNegative(StatusAggregatorPort.class));
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
                 pseudoGradient.getNegative(StatusAggregatorPort.class));
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
+                electionLeader.getNegative(StatusAggregatorPort.class));
+        
         
         connect(timer, natTraversal.getNegative(Timer.class));
         connect(timer, search.getNegative(Timer.class));

@@ -3,7 +3,6 @@ package se.sics.p2p.simulator.main;
 import org.junit.Test;
 import se.sics.kompics.Kompics;
 import se.sics.kompics.simulation.SimulatorScheduler;
-import se.sics.ms.handlers.AggregatorUpdateHandler;
 import se.sics.p2ptoolbox.simulator.LauncherComp;
 
 /**
@@ -24,7 +23,6 @@ public class MainTest {
     public void myTest() {
         LauncherComp.scheduler = new SimulatorScheduler();
         LauncherComp.scenario = SimpleBootupScenario.boot(seed);
-        LauncherComp.systemStatusHandlers.add(new AggregatorUpdateHandler());    // Register the aggregator update handler.
 
         Kompics.setScheduler(LauncherComp.scheduler);
         Kompics.createAndStart(LauncherComp.class, 1);

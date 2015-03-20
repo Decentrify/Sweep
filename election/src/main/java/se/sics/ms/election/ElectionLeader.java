@@ -3,18 +3,17 @@ package se.sics.ms.election;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
-import se.sics.kompics.ComponentDefinition;
-import se.sics.kompics.Handler;
-import se.sics.kompics.Negative;
-import se.sics.kompics.Positive;
+import se.sics.kompics.*;
+import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.MsSelfImpl;
+import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
+import se.sics.ms.election.aggregation.ElectionLeaderUpdateEvent;
 import se.sics.ms.gradient.events.PublicKeyBroadcast;
 import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
@@ -27,7 +26,6 @@ import se.sics.ms.messages.RejectFollowerMessage;
 import se.sics.ms.messages.RejectLeaderMessage;
 import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -51,6 +49,7 @@ public class ElectionLeader extends ComponentDefinition {
     Positive<LeaderStatusPort> leaderStatusPort = positive(LeaderStatusPort.class);
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
 	Negative<GradientViewChangePort> gradientViewChangePort = negative(GradientViewChangePort.class);
+    Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
 
 	private ElectionConfiguration config;
 	private int numberOfNodesAtVotingTime;
@@ -61,6 +60,7 @@ public class ElectionLeader extends ComponentDefinition {
 	private SortedSet<SearchDescriptor> lowerUtilityNodes, higherUtilityNodes;
 	private TimeoutId heartbeatTimeoutId, voteTimeoutId;
     private final UtilityComparator utilityComparator = new UtilityComparator();
+    private int defaultComponentOverlayId = 0;
 
 	/**
 	 * QueryLimit customised timeout class for when to send heart beats etc
@@ -85,6 +85,7 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
     public ElectionLeader(ElectionInit<ElectionLeader> init) {
         doInit(init);
+        subscribe(startHandler, control);
 		subscribe(handleHeartbeats, timerPort);
 		subscribe(handleVoteTimeout, timerPort);
 		subscribe(handleVotingResponse, networkPort);
@@ -108,6 +109,28 @@ public class ElectionLeader extends ComponentDefinition {
         electionInProgress = false;
     }
 
+
+    
+    Handler<Start> startHandler = new Handler<Start>() {
+        @Override
+        public void handle(Start event) {
+            logger.debug("Component Started");
+            disperseUpdate(self);
+        }
+    };
+    
+    
+    /**
+     * Inform listening components about the state of component.
+     * @param self
+     */
+    private void disperseUpdate(MsSelfImpl self){
+        
+        trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+        trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(iAmLeader,defaultComponentOverlayId)), statusAggregatorPortPositive);
+    }
+    
+    
 	/**
 	 * Handler for the periodic Gradient views that are being sent. It checks if the
 	 * node fulfills the requirements in order to become a leader, and in that
@@ -245,7 +268,7 @@ public class ElectionLeader extends ComponentDefinition {
             voteTimeoutId = null;
             heartbeatTimeoutId = null;
 
-            trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+           disperseUpdate(self);
 
             PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
                     self.getPartitionIdDepth(), self.getPartitionId());
@@ -293,7 +316,7 @@ public class ElectionLeader extends ComponentDefinition {
 			    heartbeatTimeoutId = timeout.getTimeoutEvent().getTimeoutId();
 				trigger(timeout, timerPort);
 
-                trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+                disperseUpdate(self);
 
                 PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
                         self.getPartitionIdDepth(), self.getPartitionId());
@@ -375,7 +398,8 @@ public class ElectionLeader extends ComponentDefinition {
 	 */
 	private void rejected() {
         iAmLeader = false;
-        trigger(new LeaderStatus(iAmLeader), leaderStatusPort);
+        
+        disperseUpdate(self);
         //Snapshot.setLeaderStatus(self.getDescriptor(), false);
 		variableReset();
 	}
