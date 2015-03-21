@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import com.sun.xml.bind.v2.TODO;
 import se.sics.cm.ChunkManager;
 import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.cm.ChunkManagerInit;
@@ -13,7 +12,6 @@ import se.sics.gvod.nat.traversal.NatTraverser;
 import se.sics.gvod.nat.traversal.events.NatTraverserInit;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.p2p.simulator.P2pSimulator;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.ms.aggregator.core.StatusAggregator;
@@ -31,7 +29,6 @@ import se.sics.ms.gradient.gradient.PseudoGradient;
 import se.sics.ms.gradient.gradient.PseudoGradientInit;
 import se.sics.ms.gradient.gradient.SweepGradientFilter;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
-import se.sics.ms.gradient.misc.UtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
@@ -54,7 +51,6 @@ import se.sics.p2ptoolbox.croupier.api.msg.CroupierJoin;
 import se.sics.p2ptoolbox.croupier.core.Croupier;
 import se.sics.p2ptoolbox.croupier.core.Croupier.CroupierInit;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
-import se.sics.p2ptoolbox.gradient.api.GradientFilter;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
 import se.sics.p2ptoolbox.gradient.core.Gradient;
@@ -109,9 +105,6 @@ public final class SearchPeer extends ComponentDefinition {
                         ParentMakerConfiguration.build(), true));
 
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
-        
-        // TODO: {Abhi} Change Made Here.
-//        gradient = create(Gradient.class, new GradientInit(self, gradientConfiguration));
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         
         
@@ -174,9 +167,7 @@ public final class SearchPeer extends ComponentDefinition {
         
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
 
-        // TODO: {Abhi} Change Made Here.
-//        connect(gradient.getNegative(PublicKeyPort.class),
-//                search.getPositive(PublicKeyPort.class));
+
         connect(pseudoGradient.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
         connect(electionLeader.getNegative(PublicKeyPort.class),
@@ -184,48 +175,31 @@ public final class SearchPeer extends ComponentDefinition {
         connect(electionFollower.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
 
-        // TODO: {Abhi} Change Made Here
-//        connect(gradient.getNegative(GradientViewChangePort.class),
-//                electionLeader.getPositive(GradientViewChangePort.class));
-//        connect(gradient.getNegative(GradientViewChangePort.class),
-//                electionFollower.getPositive(GradientViewChangePort.class));
-        
         connect(pseudoGradient.getNegative(GradientViewChangePort.class),
                 electionLeader.getPositive(GradientViewChangePort.class));
         connect(pseudoGradient.getNegative(GradientViewChangePort.class),
                 electionFollower.getPositive(GradientViewChangePort.class));
-        
-        // TODO: {Abhi} Change Made Here.
-//        connect(electionLeader.getNegative(LeaderStatusPort.class),
-//                gradient.getPositive(LeaderStatusPort.class));
+
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 pseudoGradient.getPositive(LeaderStatusPort.class));
         connect(electionLeader.getNegative(LeaderStatusPort.class),
                 search.getPositive(LeaderStatusPort.class));
-        
-        // TODO: {Abhi} Change Made Here
-//        connect(electionFollower.getNegative(LeaderStatusPort.class),
-//                gradient.getPositive(LeaderStatusPort.class));
+
         connect(electionFollower.getNegative(LeaderStatusPort.class),
                 pseudoGradient.getPositive(LeaderStatusPort.class));
         connect(electionFollower.getNegative(LeaderStatusPort.class),
                 search.getPositive(LeaderStatusPort.class));
-        // TODO: {Abhi} Change Made Here.
-//        connect(gradient.getPositive(GradientRoutingPort.class),
-//                search.getNegative(GradientRoutingPort.class));
+        
         connect(pseudoGradient.getPositive(GradientRoutingPort.class),
                 search.getNegative(GradientRoutingPort.class));
         connect(internalUiPort, search.getPositive(UiPort.class));
 
         connect(search.getNegative(FailureDetectorPort.class), fdPort);
-        // TODO: {Abhi} Change Made Here
-//        connect(gradient.getNegative(FailureDetectorPort.class), fdPort);
+        
         connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
         connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
         connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
-        
-        // TODO: {Abhi} Change Made Here
-//        connect(search.getPositive(SelfChangedPort.class), gradient.getNegative(SelfChangedPort.class));
+
         connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
 
         connect(search.getNegative(ChunkManagerPort.class), chunkManager.getPositive(ChunkManagerPort.class));
