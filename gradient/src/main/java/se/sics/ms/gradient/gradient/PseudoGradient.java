@@ -37,6 +37,7 @@ import java.security.PublicKey;
 import java.util.*;
 
 import static se.sics.ms.util.PartitionHelper.getPartitionIdOtherHalf;
+import static se.sics.ms.util.PartitionHelper.removeOldBuckets;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 
 import se.sics.ms.util.PartitionHelper;
@@ -403,9 +404,10 @@ public final class PseudoGradient extends ComponentDefinition {
     private void checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap){
 
         Pair<Integer, HashSet<SearchDescriptor>> newPartitionBucket = Pair.with( partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
+        removeOldBuckets(partitionInfo, categoryRoutingMap);
         categoryRoutingMap.put(partitionInfo.getPartitionId(), newPartitionBucket);
 
-        int otherPartitionId = PartitionHelper.getPreviousPartitionId(partitionInfo);
+        int otherPartitionId = PartitionHelper.getPartitionIdOtherHalf(partitionInfo);
         Pair<Integer, HashSet<SearchDescriptor>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
         categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
     }
