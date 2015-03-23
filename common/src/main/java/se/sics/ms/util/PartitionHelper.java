@@ -1,5 +1,10 @@
 package se.sics.ms.util;
 
+
+import org.javatuples.*;
+import org.javatuples.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.types.OverlayAddress;
@@ -17,7 +22,9 @@ import java.util.*;
  */
 public class PartitionHelper {
     
-    
+
+    private static Logger logger = LoggerFactory.getLogger(PartitionHelper.class);
+
     /**
      * Returns next bit of the partitionId after partitioning is performed
      * @param yourNodeId node id
@@ -211,6 +218,59 @@ public class PartitionHelper {
             }
         }
 
+    }
+
+    /**
+     * Helper method to spill the contents in new bucket as a new partition is detected.
+     * Based on the new partition id passed, look at the previous buckets and then remove the contents.
+     * Create new buckets for left spill and right spill. <br\><br\>
+     *
+     * <b>CAUTION:</b> For now given that partition is an event which would happen after a long time, we will be only looking at the bucket before us.
+     * If the bucket is present then move the contents to new buckets respectively. For the case in which the difference between the buckets
+     * is greater than 1, needs to be handled separpartitionIdately.
+     *
+     * @param partition Updated Partition Id.
+     * @param categoryRoutingMap Current Routing Map.
+     */
+    public static void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap){
+
+
+        if( partition== null ){
+            throw new IllegalArgumentException("Partition Id is null");
+        }
+
+        if(partition.getPartitionIdDepth() == 0)
+            return;
+
+        int oldPartitionId = getPreviousPartitionId(partition);
+
+        if(categoryRoutingMap.get(oldPartitionId) == null){
+            logger.warn("Unable to find partition bucket for previous partition: {}", oldPartitionId);
+            return;
+        }
+
+        // Simply remove the old map. We can remove here the old map because the method is called when we couldn't find any map with the id passed.
+        categoryRoutingMap.remove(oldPartitionId);
+    }
+
+    /**
+     * Based on the partitionId value provided, you actually flip the at the position given by the partition depth.
+     * Flipping the bit will give the partition Id of the other half at that level.
+     *
+     * @param partitionId
+     * @return
+     */
+    public static int getPartitionIdOtherHalf(PartitionId partitionId) {
+
+        int requiredPartitionId = 0;
+
+        if (partitionId.getPartitionIdDepth() == 0) {
+            return requiredPartitionId;
+        }
+
+        // Simply flip the bit of the partition at the required position.
+        requiredPartitionId = partitionId.getPartitionId() ^ ( 1 <<  (partitionId.getPartitionIdDepth() - 1 ));
+        return requiredPartitionId;
     }
 
     public static int getPreviousPartitionId(PartitionId partitionId) {

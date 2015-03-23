@@ -1,5 +1,6 @@
 package se.sics.ms.gradient.gradient;
 
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
@@ -35,8 +36,10 @@ import se.sics.ms.types.OverlayId;
 import java.security.PublicKey;
 import java.util.*;
 
+import static se.sics.ms.util.PartitionHelper.getPartitionIdOtherHalf;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 
+import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
@@ -101,6 +104,11 @@ public final class PseudoGradient extends ComponentDefinition {
     final private HashMap<TimeoutId, SearchDescriptor> openRequests = new HashMap<TimeoutId, SearchDescriptor>();
     final private HashMap<VodAddress, Integer> locatedLeaders = new HashMap<VodAddress, Integer>();
     private List<VodAddress> leadersAlreadyComunicated = new ArrayList<VodAddress>();
+
+
+    // Routing Table Update Information.
+    private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>>> routingTableUpdated;
+
 
 
     Comparator<SearchDescriptor> peerConnectivityComparator = new Comparator<SearchDescriptor>() {
@@ -198,6 +206,8 @@ public final class PseudoGradient extends ComponentDefinition {
         this.changed = false;
         this.convergenceTest = config.getConvergenceTest();
         this.convergenceTestRounds = config.getConvergenceTestRounds();
+
+        this.routingTableUpdated = new HashMap<MsConfig.Categories, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>>>();
     }
 
     public Handler<Start> handleStart = new Handler<Start>() {
@@ -336,6 +346,69 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     }
 
+
+    /**
+     * Based on the provided collection of the nodes, update the routing table information.
+     *
+     * @param nodes Collection of nodes.
+     */
+    private void addRoutingTableEntriesUpdated (Collection<SearchDescriptor> nodes){
+
+        for (SearchDescriptor descriptor : nodes){
+
+            MsConfig.Categories category = categoryFromCategoryId(descriptor.getOverlayId().getCategoryId());
+
+            PartitionId partitionInfo = new PartitionId(descriptor.getOverlayAddress().getPartitioningType(),
+                    descriptor.getOverlayAddress().getPartitionIdDepth(), descriptor.getOverlayAddress().getPartitionId());
+
+            Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap = routingTableUpdated.get(category);
+
+            if(categoryRoutingMap == null){
+                categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashSet<SearchDescriptor>>>();
+                routingTableUpdated.put(category, categoryRoutingMap);
+            }
+            Pair<Integer, HashSet<SearchDescriptor>> partitionBucket = categoryRoutingMap.get(partitionInfo.getPartitionId());
+
+            if(partitionBucket == null){
+                checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
+                continue;
+            }
+
+            int comparisonResult = new Integer(partitionInfo.getPartitionIdDepth()).compareTo(partitionBucket.getValue0());
+            if(comparisonResult > 0){
+                logger.debug("Need to remove the old bucket and create own");
+                checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
+            }
+
+            else if(comparisonResult < 0){
+                logger.debug("Received a node with lower partition depth, not incorporating it.");
+            }
+
+            else{
+                logger.debug("Add node and then remove the weakest node in terms of age or RTT.");
+                partitionBucket.getValue1().add(descriptor);
+                logger.warn("Need to check for the size and remove the nodes with oldest age or RTT.");
+            }
+
+        }
+    }
+
+
+    /**
+     * Based on the partition and routing map information, check for old  buckets, clean them up and add new buckets with updated
+     * partition information.
+     * @param partitionInfo
+     * @param categoryRoutingMap
+     */
+    private void checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap){
+
+        Pair<Integer, HashSet<SearchDescriptor>> newPartitionBucket = Pair.with( partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
+        categoryRoutingMap.put(partitionInfo.getPartitionId(), newPartitionBucket);
+
+        int otherPartitionId = PartitionHelper.getPreviousPartitionId(partitionInfo);
+        Pair<Integer, HashSet<SearchDescriptor>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
+        categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
+    }
     /**
      * This handler listens to updates regarding the leader status
      */
