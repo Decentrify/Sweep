@@ -64,7 +64,7 @@ public class SweepOperations {
 
                     @Override
                     public SearchPeerInit getNodeComponentInit(VodAddress statusServer) {
-                        return SweepOperationsHelper.generatePeerInit(statusServer, nodeId);
+                        return SweepOperationsHelper.generatePeerInit(null, nodeId);
                     }
                 };
             }

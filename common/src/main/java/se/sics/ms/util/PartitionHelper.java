@@ -10,6 +10,7 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
+import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -232,7 +233,7 @@ public class PartitionHelper {
      * @param partition Updated Partition Id.
      * @param categoryRoutingMap Current Routing Map.
      */
-    public static void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap){
+    public static void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap){
 
 
         if( partition== null ){

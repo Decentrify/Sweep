@@ -1662,7 +1662,7 @@ public final class Search extends ComponentDefinition {
 
             // NOTE: For Simulation, check the simulation check inside the transport helper which should be true, for now.
             TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
-            if (searchRequest == null || event.getSearchTimeoutId().equals(searchRequest.getTimeoutId()) == false) {
+            if (searchRequest == null || !event.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
                 return;
             }
             addSearchResponse(event.getResults(), event.getPartitionId(), event.getSearchTimeoutId());

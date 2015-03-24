@@ -40,7 +40,9 @@ import static se.sics.ms.util.PartitionHelper.getPartitionIdOtherHalf;
 import static se.sics.ms.util.PartitionHelper.removeOldBuckets;
 import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 
+import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.ms.util.SamplingServiceHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
@@ -108,9 +110,8 @@ public final class PseudoGradient extends ComponentDefinition {
 
 
     // Routing Table Update Information.
-    private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>>> routingTableUpdated;
-
-
+    private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>>> routingTableUpdated;
+    private Comparator<CroupierPeerView> ageComparator = new ComparatorCollection.AgeComparator();
 
     Comparator<SearchDescriptor> peerConnectivityComparator = new Comparator<SearchDescriptor>() {
         @Override
@@ -208,7 +209,7 @@ public final class PseudoGradient extends ComponentDefinition {
         this.convergenceTest = config.getConvergenceTest();
         this.convergenceTestRounds = config.getConvergenceTestRounds();
 
-        this.routingTableUpdated = new HashMap<MsConfig.Categories, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>>>();
+        this.routingTableUpdated = new HashMap<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>>>();
     }
 
     public Handler<Start> handleStart = new Handler<Start>() {
@@ -230,7 +231,7 @@ public final class PseudoGradient extends ComponentDefinition {
                 while (i.hasNext()) {
                     SearchDescriptor descriptor = i.next();
 
-                    if (descriptor.getVodAddress().equals(nodeToRemove)) {
+                    if (descriptor.getVodAddress().equals(nodeToRemove.getAddress())) {
                         i.remove();
                         break;
                     }
@@ -312,6 +313,22 @@ public final class PseudoGradient extends ComponentDefinition {
     }
 
     /**
+     * Iterate over the routing table and increment the ages of the descriptor.
+     * Help to remove the old nodes in the system.
+     */
+    private void incrementRoutingTableDescriptorAges() {
+
+        for (Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap : routingTableUpdated.values()) {
+            for (Pair<Integer, HashMap<VodAddress, CroupierPeerView>> bucket : categoryRoutingMap.values()) {
+                for (CroupierPeerView cpv : bucket.getValue1().values()) {
+                    cpv.incrementAge();
+                }
+            }
+        }
+    }
+
+
+    /**
      * Based on the collection of the peers supplied, update the current routing table.
      * A mechanism to clean the routing table by removing the old entries.
      *
@@ -353,70 +370,100 @@ public final class PseudoGradient extends ComponentDefinition {
      *
      * @param nodes Collection of nodes.
      */
-    private void addRoutingTableEntriesUpdated (Collection<SearchDescriptor> nodes){
+    private void addRoutingTableEntriesUpdated(Collection<CroupierPeerView> nodes) {
 
-        for (SearchDescriptor descriptor : nodes){
+        for (CroupierPeerView cpv : nodes) {
 
+            if (cpv.pv == null || !(cpv.pv instanceof SearchDescriptor)) {
+                continue;
+            }
+
+
+            SearchDescriptor descriptor = (SearchDescriptor) cpv.pv;
             MsConfig.Categories category = categoryFromCategoryId(descriptor.getOverlayId().getCategoryId());
 
             PartitionId partitionInfo = new PartitionId(descriptor.getOverlayAddress().getPartitioningType(),
                     descriptor.getOverlayAddress().getPartitionIdDepth(), descriptor.getOverlayAddress().getPartitionId());
 
-            Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap = routingTableUpdated.get(category);
+            Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap = routingTableUpdated.get(category);
 
-            if(categoryRoutingMap == null){
-                categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashSet<SearchDescriptor>>>();
+            if (categoryRoutingMap == null) {
+                categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>>();
                 routingTableUpdated.put(category, categoryRoutingMap);
             }
-            Pair<Integer, HashSet<SearchDescriptor>> partitionBucket = categoryRoutingMap.get(partitionInfo.getPartitionId());
 
-            if(partitionBucket == null){
-                checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
-                continue;
-            }
+            Pair<Integer, HashMap<VodAddress, CroupierPeerView>> partitionBucket = categoryRoutingMap.get(partitionInfo.getPartitionId());
 
-            int comparisonResult = new Integer(partitionInfo.getPartitionIdDepth()).compareTo(partitionBucket.getValue0());
-            if(comparisonResult > 0){
-                logger.debug("Need to remove the old bucket and create own");
-                checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
-            }
+            if (partitionBucket == null) {
+                partitionBucket = checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
+            } else {
+                int comparisonResult = new Integer(partitionInfo.getPartitionIdDepth()).compareTo(partitionBucket.getValue0());
 
-            else if(comparisonResult < 0){
-                logger.debug("Received a node with lower partition depth, not incorporating it.");
-            }
-
-            else{
-                
-                logger.debug("Add node and then remove the weakest node in terms of age or RTT.");
-                partitionBucket.getValue1().add(descriptor);
-                
-                logger.warn("Need to check for the size and remove the nodes with oldest age or RTT.");
-                if(partitionBucket.getValue1().size() > config.getMaxNumRoutingEntries()){
-                    TreeSet<SearchDescriptor> sortedBucket = sortByConnectivity(partitionBucket.getValue1());
-                    partitionBucket.getValue1().remove(sortedBucket.pollLast());
+                if (comparisonResult > 0) {
+                    logger.debug("Need to remove the old bucket and create own");
+                    partitionBucket = checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
+                } else if (comparisonResult < 0) {
+                    logger.debug("Received a node with lower partition depth, not incorporating it.");
+                    continue;
                 }
             }
 
+            addToPartitionBucket(cpv, partitionBucket);
         }
     }
 
 
     /**
+     * Based on the sample supplied, check if the same entry is located in the bucket.
+     * Replace based on newer age.<br\>
+     * <p/>
+     * <b>CAUTION:</b> It might be possible that you may replace a newer sample by an old one because of this
+     * but eventually the old sample should be removed as the node will be constantly pushing the sample in network with zero age.
+     *
+     * @param cpv             CroupierPeerView
+     * @param partitionBucket PartitionBucket for a particular partition id and partitioning depth.
+     */
+    private void addToPartitionBucket(CroupierPeerView cpv, Pair<Integer, HashMap<VodAddress, CroupierPeerView>> partitionBucket) {
+
+        CroupierPeerView cpvInfo = partitionBucket.getValue1().get(cpv.src);
+
+        if (cpvInfo != null) {
+
+            if (cpvInfo.getAge() >= cpv.getAge()) {
+                partitionBucket.getValue1().remove(cpvInfo.src);
+            } else
+                return;
+        }
+
+        partitionBucket.getValue1().put(cpv.src, cpv);
+        logger.warn("Need to check for the size and remove the nodes with oldest age or RTT.");
+
+        if (partitionBucket.getValue1().size() > config.getMaxNumRoutingEntries()) {
+            TreeSet<CroupierPeerView> ageSortedBucket = sortByAge(partitionBucket.getValue1().values());
+            partitionBucket.getValue1().remove(ageSortedBucket.pollFirst().src);
+        }
+    }
+
+    /**
      * Based on the partition and routing map information, check for old  buckets, clean them up and add new buckets with updated
      * partition information.
-     * @param partitionInfo
-     * @param categoryRoutingMap
+     *
+     * @param partitionInfo      Partition Id of the new sample.
+     * @param categoryRoutingMap Current Routing Map.
      */
-    private void checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap){
+    private Pair<Integer, HashMap<VodAddress, CroupierPeerView>> checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap) {
 
-        Pair<Integer, HashSet<SearchDescriptor>> newPartitionBucket = Pair.with( partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
+        Pair<Integer, HashMap<VodAddress, CroupierPeerView>> newPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<VodAddress, CroupierPeerView>());
         removeOldBuckets(partitionInfo, categoryRoutingMap);
         categoryRoutingMap.put(partitionInfo.getPartitionId(), newPartitionBucket);
 
         int otherPartitionId = PartitionHelper.getPartitionIdOtherHalf(partitionInfo);
-        Pair<Integer, HashSet<SearchDescriptor>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashSet<SearchDescriptor>());
+        Pair<Integer, HashMap<VodAddress, CroupierPeerView>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<VodAddress, CroupierPeerView>());
         categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
+
+        return newPartitionBucket;
     }
+
     /**
      * This handler listens to updates regarding the leader status
      */
@@ -749,6 +796,57 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
+    /**
+     * During searching for text, request sent to look into the routing table and
+     * fetch the nodes from the neighbouring partitions and also from other categories.
+     */
+    final Handler<GradientRoutingPort.SearchRequest> searchRequestHandler = new Handler<GradientRoutingPort.SearchRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.SearchRequest event) {
+            MsConfig.Categories category = event.getPattern().getCategory();
+            Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap = routingTableUpdated.get(category);
+
+            if (categoryRoutingMap == null) {
+                return;
+            }
+            trigger(new NumberOfPartitions(event.getTimeoutId(), categoryRoutingMap.keySet().size()), gradientRoutingPort);
+
+            for (Integer partition : categoryRoutingMap.keySet()) {
+                if (partition == self.getPartitionId()
+                        && category == categoryFromCategoryId(self.getCategoryId())) {
+                    trigger(new SearchMessage.Request(self.getAddress(), self.getAddress(),
+                            event.getTimeoutId(), event.getTimeoutId(), event.getPattern(),
+                            partition), networkPort);
+
+                    continue;
+                }
+
+                TreeSet<CroupierPeerView> bucket = sortByAge(categoryRoutingMap.get(partition).getValue1().values());
+                Iterator<CroupierPeerView> iterator = bucket.iterator();
+                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
+
+                    CroupierPeerView croupierPeerView = iterator.next();
+                    if (!(croupierPeerView.pv instanceof SearchDescriptor)) {
+                        throw new IllegalArgumentException("Routing Table containing unrecognized peer views.");
+                    }
+
+                    SearchDescriptor searchDescriptor = (SearchDescriptor) croupierPeerView.pv;
+
+                    ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
+                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), (SearchDescriptor) croupierPeerView.pv));
+
+                    trigger(scheduleTimeout, timerPort);
+                    trigger(new SearchMessage.Request(self.getAddress(), croupierPeerView.src,
+                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
+                            partition), networkPort);
+
+                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
+                    searchDescriptor.setConnected(true);
+                }
+            }
+        }
+    };
+
     final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
         @Override
         public void handle(SearchMessage.Response event) {
@@ -765,6 +863,16 @@ public final class PseudoGradient extends ComponentDefinition {
             long rtt = System.currentTimeMillis() - timeStarted;
             RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
             updateLatestRtts(rtt);
+        }
+    };
+
+
+    final Handler<SearchMessage.Response> searchResponseHandler = new Handler<SearchMessage.Response>() {
+        @Override
+        public void handle(SearchMessage.Response event) {
+
+            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            trigger(cancelTimeout, timerPort);
         }
     };
 
@@ -846,6 +954,18 @@ public final class PseudoGradient extends ComponentDefinition {
      */
     private TreeSet<SearchDescriptor> sortByConnectivity(Collection<SearchDescriptor> searchDescriptors) {
         return new TreeSet<SearchDescriptor>(searchDescriptors);
+    }
+
+    /**
+     * Based on the
+     *
+     * @param croupierPVCollection
+     * @return
+     */
+    private TreeSet<CroupierPeerView> sortByAge(Collection<CroupierPeerView> croupierPVCollection) {
+        TreeSet<CroupierPeerView> set = new TreeSet<CroupierPeerView>(ageComparator);
+        set.addAll(croupierPVCollection);
+        return set;
     }
 
     /**
@@ -967,6 +1087,14 @@ public final class PseudoGradient extends ComponentDefinition {
             checkInstanceAndAdd(filteredCroupierSample, rawCroupierSample);
             addRoutingTableEntries(filteredCroupierSample);
             incrementRoutingTableAge();
+
+
+            addRoutingTableEntriesUpdated(SamplingServiceHelper.createCroupierSampleCopy(rawCroupierSample));
+            incrementRoutingTableDescriptorAges();
+
+
+            publishUpdatedRoutingTable();
+//            publishRoutingTable();
         }
     };
 
@@ -1010,7 +1138,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.warn(compName + sb);
+        logger.debug(compName + sb);
     }
 
     /**
@@ -1089,5 +1217,38 @@ public final class PseudoGradient extends ComponentDefinition {
      */
     private boolean isChanged() {
         return changed;
+    }
+
+
+    /**
+     * Print the current routing table information.
+     */
+    private void publishRoutingTable() {
+
+
+        for (Map<Integer, HashSet<SearchDescriptor>> categoryMap : routingTable.values()) {
+            for (Map.Entry<Integer, HashSet<SearchDescriptor>> bucket : categoryMap.entrySet()) {
+
+                for (SearchDescriptor descriptor : bucket.getValue()) {
+                    logger.debug("RoutingTable: PartitionId: {} DescriptorId: {}", bucket.getKey(), descriptor.getId());
+                }
+            }
+        }
+    }
+
+
+    private void publishUpdatedRoutingTable() {
+
+        for (Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryMap : routingTableUpdated.values()) {
+
+            for (Map.Entry<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> bucket : categoryMap.entrySet()) {
+
+                Pair<Integer, HashMap<VodAddress, CroupierPeerView>> depthBucket = bucket.getValue();
+
+                for (VodAddress addr : depthBucket.getValue1().keySet()) {
+                    logger.debug(" Updated RoutingTable: PartitionId: {} PartitionDepth: {}  NodeId: {}", new Object[]{bucket.getKey(), depthBucket.getValue0(), addr.getId()});
+                }
+            }
+        }
     }
 }

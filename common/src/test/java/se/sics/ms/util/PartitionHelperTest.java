@@ -56,15 +56,15 @@ public class PartitionHelperTest {
 
 
 
-    @Test
-    public void removeOldBucketsTest() {
-        
-        Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> routingMap= init();
-        PartitionId testPartitionId = new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, 2, 3);
-        
-        PartitionHelper.removeOldBuckets(testPartitionId, routingMap);
-        Assert.assertEquals("Map size test", 1, routingMap.size());
-    }
+//    @Test
+//    public void removeOldBucketsTest() {
+//
+//        Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> routingMap= init();
+//        PartitionId testPartitionId = new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, 2, 3);
+//
+//        PartitionHelper.removeOldBuckets(testPartitionId, routingMap);
+//        Assert.assertEquals("Map size test", 1, routingMap.size());
+//    }
 
     /**
      * Initialize Method.
