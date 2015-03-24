@@ -1,18 +1,20 @@
 package se.sics.ms.util;
 
 import junit.framework.Assert;
+import org.javatuples.*;
+import org.javatuples.Pair;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.OverlayAddress;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Class to test the functionality of the partition helper class.
@@ -55,25 +57,60 @@ public class PartitionHelperTest {
 
 
     @Test
-    public void removeOldBucketsTest(){
-
+    public void removeOldBucketsTest() {
+        
+        Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> routingMap= init();
+        PartitionId testPartitionId = new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, 2, 3);
+        
+        PartitionHelper.removeOldBuckets(testPartitionId, routingMap);
+        Assert.assertEquals("Map size test", 1, routingMap.size());
     }
-
 
     /**
-     * Based on the quantity supplied create test search descriptors.
-     * @param quantity
-     * @return
+     * Initialize Method.
      */
-    private HashSet<SearchDescriptor> createSearchDescriptorSet(int quantity, int seed){
+    private Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> init() {
 
-        HashSet<SearchDescriptor> searchDescriptorSet = new HashSet<SearchDescriptor>();
-        Random random = new Random(seed);
-
-        while(quantity > 0){
-            quantity--;
-        }
-        return searchDescriptorSet;
+        int  ovid1 = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1, 0);
+        int  ovid2 = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 0, 0);
+        
+        Address ad1 = new Address(ipAddress, 9000, 10000);
+        VodAddress vod1 = new VodAddress(ad1, 0);
+        SearchDescriptor sd1 = new SearchDescriptor(vod1, ovid1);
+        HashSet<SearchDescriptor> hs1 = new HashSet<SearchDescriptor>();
+        hs1.add(sd1);
+        
+        Address ad2 = new Address(ipAddress, 10000, 110000);
+        VodAddress vod2 = new VodAddress(ad2, 0);
+        SearchDescriptor sd2 = new SearchDescriptor(vod2, ovid2);
+        HashSet<SearchDescriptor> hs2 = new HashSet<SearchDescriptor>();
+        hs2.add(sd2);
+        
+        Map<Integer, org.javatuples.Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashSet<SearchDescriptor>>>();
+        categoryRoutingMap.put(new Integer(1), Pair.with(1,hs1));
+        
+        categoryRoutingMap.put(0, Pair.with(1, hs2));
+        return categoryRoutingMap;
     }
+
+
+    @Test
+    public void encodePartitionDataAsIntTest(){
+        
+        int partitionId = 3;
+        int partitionDepth = 2;
+        VodAddress.PartitioningType partitionType = VodAddress.PartitioningType.MANY_BEFORE;
+        int categoryId = 0;
+
+        int overlayIdInt = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(partitionType, partitionDepth, partitionId, categoryId);
+        OverlayId overlayId = new OverlayId(overlayIdInt);
+        
+        
+        Assert.assertEquals("partition id check", partitionId, overlayId.getPartitionId());
+        Assert.assertEquals("partition depth check", partitionDepth, overlayId.getPartitionIdDepth());
+        Assert.assertEquals("category Id check", categoryId, overlayId.getCategoryId());
+        Assert.assertEquals("partition type check", partitionType, overlayId.getPartitioningType());
+    }
+
 
 }
