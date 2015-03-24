@@ -386,9 +386,15 @@ public final class PseudoGradient extends ComponentDefinition {
             }
 
             else{
+                
                 logger.debug("Add node and then remove the weakest node in terms of age or RTT.");
                 partitionBucket.getValue1().add(descriptor);
+                
                 logger.warn("Need to check for the size and remove the nodes with oldest age or RTT.");
+                if(partitionBucket.getValue1().size() > config.getMaxNumRoutingEntries()){
+                    TreeSet<SearchDescriptor> sortedBucket = sortByConnectivity(partitionBucket.getValue1());
+                    partitionBucket.getValue1().remove(sortedBucket.pollLast());
+                }
             }
 
         }
