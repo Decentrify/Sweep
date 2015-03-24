@@ -7,7 +7,6 @@ import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Created by alidar on 8/11/14.
@@ -143,13 +142,33 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
     @Override
     public int compareTo(SearchDescriptor that) {
-        if (this.age > that.age) {
-            return 1;
+
+        if(that == null){
+            throw new RuntimeException("Can't compare to a null descriptor.");
         }
-        if (this.age < that.age) {
-            return -1;
+
+        if(equals(that)){
+            return 0;
         }
-        return 0;
+
+        if(this.getOverlayAddress() == null || that.getOverlayAddress() == null){
+            throw new IllegalArgumentException(" Parameters to compare are null");
+        }
+
+        int partitionDepthCompareResult = Integer.compare(this.overlayAddress.getOverlayId().getPartitionIdDepth(), that.overlayAddress.getPartitionIdDepth());
+
+        if(partitionDepthCompareResult !=  0){
+            return partitionDepthCompareResult;
+        }
+
+        int indexEntryCompareResult = Long.compare(this.numberOfIndexEntries, that.numberOfIndexEntries);
+
+        if(indexEntryCompareResult != 0){
+            return indexEntryCompareResult;
+        }
+
+        // NOTE: Fix this because internally it uses the VodAddress compareTo , which uses overlay Id as the tie breaker.
+        return this.overlayAddress.getAddress().compareTo(that.overlayAddress.getAddress());
     }
 
     @Override
@@ -160,18 +179,34 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         return result;
     }
 
+    /**
+     *  In order to keep the contract synchronized and include all the fields, the equality
+     *  check also incorporates the index entries in system.
+     *
+     *  As index entries are dynamic i.e keep changing with each iteration, this check will prevent
+     *  the detection of the old entries with same address but different entry strength.
+     *
+     *  Care needs to be taken in terms of explicitly iterating over the sample set to remove the duplicates in terms
+     *  of nodes with similar address.
+     *
+     * @param obj Other Object to compare to.
+     * @return true/false in case entry is equal or not.
+     */
     @Override
     public boolean equals(Object obj) {
+
         if (this == obj) {
             return true;
         }
         if (obj == null) {
             return false;
         }
+
         if (getClass() != obj.getClass()) {
             return false;
         }
         SearchDescriptor other = (SearchDescriptor) obj;
+
         if (this.overlayAddress == null) {
             if (other.getOverlayAddress() != null) {
                 return false;
@@ -180,7 +215,13 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return false;
         }
 
-        return this.overlayAddress.equals(other.getOverlayAddress());
+        if (this.overlayAddress.equals(other.overlayAddress)) {
+
+            if (this.numberOfIndexEntries == other.numberOfIndexEntries) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public long getNumberOfIndexEntries() {
