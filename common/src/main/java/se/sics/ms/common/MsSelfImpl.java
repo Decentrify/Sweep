@@ -7,6 +7,7 @@ import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.OverlayId;
+import se.sics.ms.util.OverlayIdHelper;
 
 import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicLong;
@@ -48,19 +49,19 @@ public class MsSelfImpl extends SelfImpl {
     }
 
     public int getCategoryId() {
-        return OverlayId.getCategoryId(overlayId);
+        return OverlayIdHelper.getCategoryId(overlayId);
     }
 
     public int getPartitionId() {
-        return OverlayId.getPartitionId(overlayId);
+        return OverlayIdHelper.getPartitionId(overlayId);
     }
 
     public int getPartitionIdDepth() {
-        return OverlayId.getPartitionIdDepth(overlayId);
+        return OverlayIdHelper.getPartitionIdDepth(overlayId);
     }
 
     public VodAddress.PartitioningType getPartitioningType() {
-        return OverlayId.getPartitioningType(overlayId);
+        return OverlayIdHelper.getPartitioningType(overlayId);
     }
 
     public long getNumberOfIndexEntries(){

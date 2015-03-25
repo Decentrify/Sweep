@@ -71,8 +71,8 @@ public class PartitionHelperTest {
      */
     private Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> init() {
 
-        int  ovid1 = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1, 0);
-        int  ovid2 = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 0, 0);
+        int  ovid1 = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1, 0);
+        int  ovid2 = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 0, 0);
         
         Address ad1 = new Address(ipAddress, 9000, 10000);
         VodAddress vod1 = new VodAddress(ad1, 0);
@@ -102,7 +102,7 @@ public class PartitionHelperTest {
         VodAddress.PartitioningType partitionType = VodAddress.PartitioningType.MANY_BEFORE;
         int categoryId = 0;
 
-        int overlayIdInt = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(partitionType, partitionDepth, partitionId, categoryId);
+        int overlayIdInt = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(partitionType, partitionDepth, partitionId, categoryId);
         OverlayId overlayId = new OverlayId(overlayIdInt);
         
         

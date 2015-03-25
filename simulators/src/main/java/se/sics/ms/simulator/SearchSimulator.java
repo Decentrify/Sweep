@@ -28,6 +28,7 @@ import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitionHelper;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -245,7 +246,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         // FIXME: Changing the initial partitioning depth as zero.
         Self self = new MsSelfImpl(new VodAddress(address, 
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
+                OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
                 gradientConfiguration, electionConfiguration, chunkManagerConfiguration,gradientConfig, bootstrappingNode, null));

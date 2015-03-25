@@ -13,6 +13,7 @@ import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
@@ -96,7 +97,7 @@ public class SweepOperationsHelper {
 
         Address address = new Address(ip, 9999, (int) id);
         Self self = new MsSelfImpl(new VodAddress(address,
-                PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
+                OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
         SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration,gradientConfig, bootstrapAddress, simulatorAddress);
         

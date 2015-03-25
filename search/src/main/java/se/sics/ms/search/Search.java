@@ -57,6 +57,7 @@ import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
+import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
@@ -1641,7 +1642,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Query the given index store with a given search pattern.
      *
-     * @param index   the {@link Directory} to search in
+     * @param adaptor  adaptor to use
      * @param pattern the {@link SearchPattern} to use
      * @param limit   the maximal amount of entries to return
      * @return a list of matching entries
@@ -1843,7 +1844,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Add the given {@link IndexEntry}s to the given Lucene directory
      *
-     * @param index   the directory to which the given entries should be added
+     * @param searchRequestLuceneAdaptor  adaptor
      * @param entries a collection of index entries to be added
      * @throws IOException in case the adding operation failed
      */
@@ -1863,7 +1864,7 @@ public final class Search extends ComponentDefinition {
         ArrayList<IndexEntry> result = null;
         try {
             result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
-            logger.info("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
+            logger.warn("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
 
         } catch (LuceneAdaptorException e) {
             result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
@@ -1893,7 +1894,7 @@ public final class Search extends ComponentDefinition {
      * Add the given {@link IndexEntry} to the Lucene index using the given
      * writer.
      *
-     * @param writer the writer used to add the {@link IndexEntry}
+     * @param adaptor the adaptor used to add the {@link IndexEntry}
      * @param entry  the {@link IndexEntry} to be added
      * @throws IOException in case the adding operation failed
      */
@@ -2126,7 +2127,7 @@ public final class Search extends ComponentDefinition {
      * <p/>
      * DO NOT REMOVE THIS. (Prevents a rare fault case).
      *
-     * @param source
+     * @param overlayId OverlayId
      * @return applyPartitioningUpdate.
      */
     private boolean partitionOrderValid(OverlayId overlayId) {
@@ -2593,7 +2594,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Converts the partitioning update in byte array.
      *
-     * @param paritionInfo
+     * @param partitionInfo
      * @return partitionInfo byte array.
      */
     private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo) {
@@ -2854,11 +2855,10 @@ public final class Search extends ComponentDefinition {
             int partitionId = (partitionSubId ? 1 : 0);
 
             int selfCategory = self.getCategoryId();
-            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+            int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
                     1, partitionId, selfCategory);
 
-            // TODO - all existing VodAddresses in Sets, Maps, etc are now invalid.
-            // Do we replace them or what do we do with them?
+            // CAUTION: Do not remove the below check.  Hell will break loose ...
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
 
         } else {
@@ -2866,7 +2866,7 @@ public final class Search extends ComponentDefinition {
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
-            int newOverlayId = PartitionHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+            int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                     self.getPartitionIdDepth() + 1, newPartitionId, selfCategory);
             ((MsSelfImpl) self).setOverlayId(newOverlayId);
         }

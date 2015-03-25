@@ -1,90 +1,120 @@
 package se.sics.ms.types;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.util.OverlayIdHelper;
 
 /**
- * Created by alidar on 9/11/14.
+ * Handling the overlay information of the node in the system.
+ * @author babbar
  */
 public class OverlayId implements Comparable<OverlayId> {
 
-    protected int id;
 
-    static public int getCategoryId(int overlayId) {
-        return overlayId & 65535;
-    }
-    static public int getPartitionId(int overlayId) {
-        return (overlayId & 67043328) >>> 16;
-    }
-    static public int getPartitionIdDepth(int overlayId) {
-        return (overlayId & 1006632960) >>> 26;
-    }
-    static public VodAddress.PartitioningType getPartitioningType(int overlayId) {
-        return VodAddress.PartitioningType.values()[(overlayId & -1073741824) >>> 30];
-    }
+    public int categoryId;
+    public int partitionId;
+    public int partitionIdDepth;
+    public VodAddress.PartitioningType partitioningType;        //CAUTION: This filed needs to be removed eventually as the information is redundant but being used everywhere.
 
-    public  OverlayId(int overlayId) {
-        this.id = overlayId;
+
+    public OverlayId(int overlayId){
+
+        this.categoryId = OverlayIdHelper.getCategoryId(overlayId);
+        this.partitionId = OverlayIdHelper.getPartitionId(overlayId);
+        this.partitionIdDepth = OverlayIdHelper.getPartitionIdDepth(overlayId);
+        this.partitioningType = OverlayIdHelper.getPartitioningType(overlayId);
+
     }
 
-    public int getId() {
-        return id;
+    public OverlayId(int categoryId, int partitionId, int partitionIdDepth, VodAddress.PartitioningType partitioningType){
+        this.categoryId = categoryId;
+        this.partitionId = partitionId;
+        this.partitionIdDepth = partitionIdDepth;
+        this.partitioningType = partitioningType;
     }
 
     public int getCategoryId() {
-        return OverlayId.getCategoryId(this.id);
+        return categoryId;
     }
 
     public int getPartitionId() {
-        return OverlayId.getPartitionId(this.id);
+        return partitionId;
     }
 
     public int getPartitionIdDepth() {
-        return OverlayId.getPartitionIdDepth(this.id);
+        return partitionIdDepth;
     }
 
     public VodAddress.PartitioningType getPartitioningType() {
-        return OverlayId.getPartitioningType(this.id);
+        return partitioningType;
     }
 
-    public int compareTo(OverlayId o) {
-        if (equals(o)) {
-            return 0;
-        }
-        OverlayId other = (OverlayId)o;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OverlayId)) return false;
 
-        if (this.id > other.getId()) {
-            return 1;
-        }
-        return -1;
-    }
+        OverlayId that = (OverlayId) o;
 
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        OverlayId other = (OverlayId) obj;
-
-        if (this.id != other.getId()) {
-            return false;
-        }
-
+        if (categoryId != that.categoryId) return false;
+        if (partitionIdDepth != that.partitionIdDepth) return false;
+        if (partitionId != that.partitionId) return false;
+//        if (partitioningType != that.partitioningType) return false;
         return true;
     }
 
+    @Override
     public int hashCode() {
-        final int prime = 7;
-        int result = prime + (this.id * prime);
+        int result = categoryId;
+        result = 31 * result + partitionId;
+        result = 31 * result + partitionIdDepth;
+        result = 31 * result + partitioningType.hashCode();
         return result;
+    }
+
+    /**
+     * The compareTo method currently is not including PartitionType field check
+     * because the field is equivalent to the partition depth and therefore doesn't
+     * make any sense to include it.
+     *
+     * @param o
+     * @return comparison result.
+     */
+    @Override
+    public int compareTo(OverlayId o) {
+
+        if(o == null){
+            throw new IllegalArgumentException("Can't compare to null element");
+        }
+
+        int categoryCompareResult = Integer.compare(this.categoryId , o.categoryId);
+        if(categoryCompareResult != 0){
+            return categoryCompareResult;
+        }
+
+        int partitionDepthCompareResult  = Integer.compare(this.partitionIdDepth, o.partitionIdDepth);
+        if(partitionDepthCompareResult != 0){
+            return partitionDepthCompareResult;
+        }
+
+        return Integer.compare(this.partitionId, o.partitionId);
     }
 
     @Override
     public String toString() {
-        return Integer.toString(this.id);
+        return "OverlayIdUpdated{" +
+                "categoryId=" + categoryId +
+                ", partitionId=" + partitionId +
+                ", partitionDepth=" + partitionIdDepth +
+                ", partitioningType=" + partitioningType +
+                '}';
+    }
+
+
+    /**
+     * Based on the information present in the class, convert it into int value through bit shifting.
+     * @return combined int value.
+     */
+    public int getId(){
+        return OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(this.partitioningType, this.partitionIdDepth, this.partitionId, this.categoryId);
     }
 }

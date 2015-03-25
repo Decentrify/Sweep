@@ -20,6 +20,7 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.messages.*;
 import se.sics.ms.types.*;
+import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitionHelper;
 
 import java.net.InetAddress;
@@ -832,7 +833,7 @@ public class EncodingDecodingTest {
         int depth = 3;
         int partitionId = 4;
         int categoryId = (int) Math.pow(2, 16) - 2;
-        OverlayId overlayId = new OverlayId(PartitionHelper.encodePartitionDataAndCategoryIdAsInt(type,
+        OverlayId overlayId = new OverlayId(OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(type,
                 depth, partitionId, categoryId));
 
         assert overlayId.getCategoryId() == categoryId;
