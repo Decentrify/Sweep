@@ -112,6 +112,7 @@ public final class PseudoGradient extends ComponentDefinition {
     // Routing Table Update Information.
     private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>>> routingTableUpdated;
     private Comparator<CroupierPeerView> ageComparator = new ComparatorCollection.AgeComparator();
+    private Comparator<CroupierPeerView> invertedAgeComparator = new ComparatorCollection.InvertedAgeComparator();
 
     Comparator<SearchDescriptor> peerConnectivityComparator = new Comparator<SearchDescriptor>() {
         @Override
@@ -167,12 +168,9 @@ public final class PseudoGradient extends ComponentDefinition {
 
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
-        subscribe(handleSearchRequest, gradientRoutingPort);
         subscribe(handleReplicationCommit, gradientRoutingPort);
 
         subscribe(handleLeaderLookupRequestTimeout, timerPort);
-        subscribe(handleSearchResponse, networkPort);
-        subscribe(handleSearchRequestTimeout, timerPort);
         subscribe(handleViewSizeRequest, gradientRoutingPort);
 
         subscribe(handleLeaderGroupInformationRequest, gradientRoutingPort);
@@ -184,6 +182,9 @@ public final class PseudoGradient extends ComponentDefinition {
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(croupierSampleHandler, croupierPort);
 
+        subscribe(searchRequestHandler, gradientRoutingPort);
+        subscribe(searchResponseHandler, networkPort);
+        subscribe(searchRequestTimeoutHandler, timerPort);
     }
 
     /**
@@ -430,17 +431,22 @@ public final class PseudoGradient extends ComponentDefinition {
         if (cpvInfo != null) {
 
             if (cpvInfo.getAge() >= cpv.getAge()) {
-                partitionBucket.getValue1().remove(cpvInfo.src);
+                partitionBucket.getValue1().remove(cpv.src);
             } else
                 return;
         }
 
         partitionBucket.getValue1().put(cpv.src, cpv);
-        logger.warn("Need to check for the size and remove the nodes with oldest age or RTT.");
 
         if (partitionBucket.getValue1().size() > config.getMaxNumRoutingEntries()) {
-            TreeSet<CroupierPeerView> ageSortedBucket = sortByAge(partitionBucket.getValue1().values());
-            partitionBucket.getValue1().remove(ageSortedBucket.pollFirst().src);
+
+            List<CroupierPeerView> sortedList = (List<CroupierPeerView>)sortCollection(partitionBucket.getValue1().values(), ageComparator);
+
+            if(sortedList != null && sortedList.size() > 0){
+                // Remove the first element in case we exceed the size.
+                partitionBucket.getValue1().remove(sortedList.get(0).src);
+            }
+
         }
     }
 
@@ -821,7 +827,7 @@ public final class PseudoGradient extends ComponentDefinition {
                     continue;
                 }
 
-                TreeSet<CroupierPeerView> bucket = sortByAge(categoryRoutingMap.get(partition).getValue1().values());
+                Collection<CroupierPeerView> bucket = sortByAgeAndInvert(categoryRoutingMap.get(partition).getValue1().values());
                 Iterator<CroupierPeerView> iterator = bucket.iterator();
                 for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
 
@@ -840,7 +846,7 @@ public final class PseudoGradient extends ComponentDefinition {
                             scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
                             partition), networkPort);
 
-                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
+//                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
                     searchDescriptor.setConnected(true);
                 }
             }
@@ -885,6 +891,16 @@ public final class PseudoGradient extends ComponentDefinition {
             publishUnresponsiveNode(unresponsiveNode.getVodAddress());
         }
     };
+
+    final Handler<SearchMessage.RequestTimeout> searchRequestTimeoutHandler = new Handler<SearchMessage.RequestTimeout>() {
+        @Override
+        public void handle(SearchMessage.RequestTimeout requestTimeout) {
+            // Probably do something with the RTT here.
+            logger.warn("Search Request to the node: {} timed out.", requestTimeout.getSearchDescriptor().getId());
+        }
+    };
+
+
 
     /**
      * Handles broadcast public key request from Search component
@@ -957,7 +973,7 @@ public final class PseudoGradient extends ComponentDefinition {
     }
 
     /**
-     * Based on the
+     * Based on the age of the collection sample, apply a simple sort.
      *
      * @param croupierPVCollection
      * @return
@@ -966,6 +982,38 @@ public final class PseudoGradient extends ComponentDefinition {
         TreeSet<CroupierPeerView> set = new TreeSet<CroupierPeerView>(ageComparator);
         set.addAll(croupierPVCollection);
         return set;
+    }
+
+
+    /**
+     * Based on the values collection provided sort and then reverse the collection.
+     * @param cpvCollection
+     * @return Sorted Collection.
+     */
+    private Collection<CroupierPeerView> sortByAgeAndInvert(Collection<CroupierPeerView> cpvCollection){
+
+        List<CroupierPeerView> list = new ArrayList<CroupierPeerView>();
+        list.addAll(cpvCollection);
+        Collections.sort(list, invertedAgeComparator);
+        return list;
+    }
+
+
+    /**
+     * Generic method used to return a sorted list.
+     * @param collection Any Collection of samples.
+     * @param comparator Comparator for sorting.
+     * @param <E> Collection Type
+     *
+     * @return Sorted Collection
+     */
+    private <E> Collection<E> sortCollection(Collection<E> collection, Comparator<E> comparator){
+
+        List<E> list = new ArrayList<E>();
+        list.addAll(collection);
+        Collections.sort(list, comparator);
+
+        return list;
     }
 
     /**
@@ -1085,9 +1133,6 @@ public final class PseudoGradient extends ComponentDefinition {
             rawCroupierSample.addAll(event.privateSample);
 
             checkInstanceAndAdd(filteredCroupierSample, rawCroupierSample);
-            addRoutingTableEntries(filteredCroupierSample);
-            incrementRoutingTableAge();
-
 
             addRoutingTableEntriesUpdated(SamplingServiceHelper.createCroupierSampleCopy(rawCroupierSample));
             incrementRoutingTableDescriptorAges();
