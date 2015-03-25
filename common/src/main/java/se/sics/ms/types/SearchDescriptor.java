@@ -155,10 +155,12 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             throw new IllegalArgumentException(" Parameters to compare are null");
         }
 
-        int partitionDepthCompareResult = Integer.compare(this.overlayAddress.getOverlayId().getPartitionIdDepth(), that.overlayAddress.getPartitionIdDepth());
+//        int partitionDepthCompareResult = Integer.compare(this.overlayAddress.getOverlayId().getPartitionIdDepth(), that.overlayAddress.getPartitionIdDepth());
 
-        if(partitionDepthCompareResult !=  0){
-            return partitionDepthCompareResult;
+        int overlayIdComparisonResult = this.overlayAddress.getOverlayId().compareTo(that.overlayAddress.getOverlayId());
+
+        if(overlayIdComparisonResult != 0){
+            return overlayIdComparisonResult;
         }
 
         int indexEntryCompareResult = Long.compare(this.numberOfIndexEntries, that.numberOfIndexEntries);
