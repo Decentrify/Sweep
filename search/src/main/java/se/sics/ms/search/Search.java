@@ -1662,7 +1662,7 @@ public final class Search extends ComponentDefinition {
         public void handle(SearchMessage.Response event) {
 
             // NOTE: For Simulation, check the simulation check inside the transport helper which should be true, for now.
-            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
+//            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
             if (searchRequest == null || !event.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
                 return;
             }
@@ -1690,8 +1690,9 @@ public final class Search extends ComponentDefinition {
         searchRequest.addRespondedPartition(partition);
 
         Integer numOfPartitions = searchPartitionsNumber.get(requestId);
-        if (numOfPartitions == null)
+        if (numOfPartitions == null){
             return;
+        }
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
             logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);

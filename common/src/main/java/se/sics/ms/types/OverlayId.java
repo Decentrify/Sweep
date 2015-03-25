@@ -86,17 +86,17 @@ public class OverlayId implements Comparable<OverlayId> {
             throw new IllegalArgumentException("Can't compare to null element");
         }
 
-        int categoryCompareResult = Integer.compare(this.categoryId , o.categoryId);
+        int categoryCompareResult = Integer.valueOf(this.categoryId).compareTo( Integer.valueOf(o.categoryId));
         if(categoryCompareResult != 0){
             return categoryCompareResult;
         }
 
-        int partitionDepthCompareResult  = Integer.compare(this.partitionIdDepth, o.partitionIdDepth);
+        int partitionDepthCompareResult  = Integer.valueOf(this.partitionIdDepth).compareTo(Integer.valueOf(o.partitionIdDepth));
         if(partitionDepthCompareResult != 0){
             return partitionDepthCompareResult;
         }
 
-        return Integer.compare(this.partitionId, o.partitionId);
+        return Integer.valueOf(this.partitionId).compareTo(Integer.valueOf(o.partitionId));
     }
 
     @Override

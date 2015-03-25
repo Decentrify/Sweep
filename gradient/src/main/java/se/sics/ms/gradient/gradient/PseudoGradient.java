@@ -462,12 +462,28 @@ public final class PseudoGradient extends ComponentDefinition {
         Pair<Integer, HashMap<VodAddress, CroupierPeerView>> newPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<VodAddress, CroupierPeerView>());
         removeOldBuckets(partitionInfo, categoryRoutingMap);
         categoryRoutingMap.put(partitionInfo.getPartitionId(), newPartitionBucket);
+        logger.debug("Creating new bucket for the partition id: {}, partitiondepth: {}",  partitionInfo.getPartitionId(), partitionInfo.getPartitionIdDepth());
 
-        int otherPartitionId = PartitionHelper.getPartitionIdOtherHalf(partitionInfo);
-        Pair<Integer, HashMap<VodAddress, CroupierPeerView>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<VodAddress, CroupierPeerView>());
-        categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
 
+        // If not the first bucket, then push in the bucket for other partition also.
+
+        if(!isFirstBucket(partitionInfo)){
+            
+            int otherPartitionId = PartitionHelper.getPartitionIdOtherHalf(partitionInfo);
+            Pair<Integer, HashMap<VodAddress, CroupierPeerView>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<VodAddress, CroupierPeerView>());
+            categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
+            logger.debug("Creating new bucket for the partition id: {}, partitiondepth: {}",  otherPartitionId, partitionInfo.getPartitionIdDepth());
+        }
+        
         return newPartitionBucket;
+    }
+
+    
+    private boolean isFirstBucket(PartitionId partitionInfo) {
+        if(partitionInfo.getPartitionIdDepth() == 0){
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -827,7 +843,7 @@ public final class PseudoGradient extends ComponentDefinition {
                     continue;
                 }
 
-                Collection<CroupierPeerView> bucket = sortByAgeAndInvert(categoryRoutingMap.get(partition).getValue1().values());
+                Collection<CroupierPeerView> bucket = sortCollection(categoryRoutingMap.get(partition).getValue1().values(), invertedAgeComparator);
                 Iterator<CroupierPeerView> iterator = bucket.iterator();
                 for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
 

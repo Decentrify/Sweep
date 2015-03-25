@@ -163,7 +163,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return overlayIdComparisonResult;
         }
 
-        int indexEntryCompareResult = Long.compare(this.numberOfIndexEntries, that.numberOfIndexEntries);
+        int indexEntryCompareResult = Long.valueOf(this.numberOfIndexEntries).compareTo(Long.valueOf(that.numberOfIndexEntries));
 
         if(indexEntryCompareResult != 0){
             return indexEntryCompareResult;
