@@ -32,6 +32,7 @@
         <module>simulators</module>
         <module>local-aggregator</module>
         <module>launch</module>
+        <module>leader-election</module>
     </modules>
     
     <distributionManagement>
