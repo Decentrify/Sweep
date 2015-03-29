@@ -20,8 +20,9 @@ public class ElectionConfig {
     private final int convergenceRounds;
     private final double convergenceTest;
     private final long voteTimeout;
+    private final int maxLeaderGroupSize;
     
-    private ElectionConfig (long leaseTime, Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout) {
+    private ElectionConfig(long leaseTime, Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout, int maxLeaderGroupSize) {
         this.leaseTime = leaseTime;
         this.utilityComparator = utilityComparator;
         this.viewSize = viewSize;
@@ -30,6 +31,7 @@ public class ElectionConfig {
         this.convergenceRounds = convergenceRounds;
         this.convergenceTest = convergenceTest;
         this.voteTimeout = voteTimeout;
+        this.maxLeaderGroupSize = maxLeaderGroupSize;
     }
 
 
@@ -57,6 +59,13 @@ public class ElectionConfig {
         return this.voteTimeout;
     }
     
+    public int getMaxLeaderGroupSize(){
+        return this.maxLeaderGroupSize;
+    }
+    
+    public PublicKey getPublicKey(){
+        return this.publicKey;
+    }
     
     /**
      * Builder Class for the Election Configuration.
@@ -72,6 +81,7 @@ public class ElectionConfig {
         private int convergenceRounds = 6;
         private double convergenceTest = 0.8d;
         private long voteTimeout = 20000;
+        private int maxLeaderGroupSize = 10;
 
         public ElectionConfigBuilder(Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
             this.utilityComparator = utilityComparator;
@@ -100,8 +110,13 @@ public class ElectionConfig {
             return this;
         }
 
+        public ElectionConfigBuilder setMaxLeaderGroupSize(int maxLeaderGroupSize){
+            this.maxLeaderGroupSize= maxLeaderGroupSize;
+            return this;
+        }        
+        
         public ElectionConfig buildElectionConfig(){
-            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, voteTimeout);
+            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, voteTimeout, this.maxLeaderGroupSize);
         }
     }
     

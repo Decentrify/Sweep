@@ -2,8 +2,6 @@ package se.sics.p2ptoolbox.election.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -12,10 +10,14 @@ import se.sics.kompics.*;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
+import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.data.VotingRequest;
 import se.sics.p2ptoolbox.election.core.data.VotingResponse;
+import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
+import se.sics.p2ptoolbox.election.core.msg.PromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.VotingMessage;
-import se.sics.p2ptoolbox.election.core.util.LeaderView;
+import se.sics.p2ptoolbox.election.core.util.PromiseResponseTracker;
 import se.sics.p2ptoolbox.election.core.util.VotingResponseTracker;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
@@ -23,11 +25,12 @@ import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * Leader Election Component.
  *  
- * This is the core component which is responsible for election and the maintainence of the leader in the system.
+ * This is the core component which is responsible for election and the maintenance of the leader in the system.
  * The nodes are constantly analyzing the samples from the sampling service and based on the convergence tries to assert themselves
  * as the leader.
  * 
@@ -44,9 +47,9 @@ import java.util.UUID;
  * <b>CAUTION: </b> Under development, so unstable to use as it is.
  * Created by babbarshaer on 2015-03-27.
  */
-public class LeaderElection extends ComponentDefinition{
+public class ELectionLeader extends ComponentDefinition {
 
-    Logger logger = LoggerFactory.getLogger(LeaderElection.class);
+    Logger logger = LoggerFactory.getLogger(ELectionLeader.class);
     
     private PeerView selfPV;
     private ElectionConfig config;
@@ -59,10 +62,20 @@ public class LeaderElection extends ComponentDefinition{
     private boolean amILeader;
     private VodAddress leaderAddress;
     private PublicKey leaderPublicKey;
-    private UUID voteId;
-    private TimeoutId votingTimeout;
-    private VotingResponseTracker responseTracker;
     
+    private PeerView currentPromiseView;
+    private VodAddress currentPromiseAddress;
+    
+    // Promise Sub Protocol.
+    private UUID promiseRoundId;
+    private TimeoutId promiseRoundTimeout;
+    private VotingResponseTracker responseTracker;
+    private PromiseResponseTracker promiseResponseTracker;
+    
+    // Lease Commit Sub Protocol.
+    private TimeoutId awaitLeaseCommit;
+    private TimeoutId leaseCommitResponseTimeout;
+    private UUID leaseCommitRequestId;
     
     // Convergence Variables.
     private Set<VodAddress> viewAddressSet;
@@ -82,16 +95,22 @@ public class LeaderElection extends ComponentDefinition{
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     
-    public LeaderElection(LeaderElectionInit init){
+    public ELectionLeader(LeaderElectionInit init){
         
         doInit(init);
         subscribe(startHandler, control);
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(leaseTimeoutHandler, timerPositive);
         
-        // Voting Subscriptions.
-        subscribe(votingTimeoutHandler, timerPositive);
-        subscribe(electionRequestHandler, networkPositive);
+        // Promise Subscriptions.
+        subscribe(promiseRequestHandler, networkPositive);
+        subscribe(promiseResponseHandler, networkPositive);
+        subscribe(promiseRoundTimeoutHandler, timerPositive);
+        
+        
+        // Lease Commit Subscriptions.
+        subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
+        subscribe(commitResponseTimeoutHandler, timerPositive);
     }
 
 
@@ -105,16 +124,27 @@ public class LeaderElection extends ComponentDefinition{
         }
     }
 
+    public class PromiseRoundTimeout extends Timeout{
 
-    /**
-     * Timeout representing when the voting expires.
-     */
-    public class VoteTimeout extends Timeout{
-        
-        public VoteTimeout(ScheduleTimeout request) {
+        public PromiseRoundTimeout(ScheduleTimeout request) {
             super(request);
         }
     }
+    
+    public class AwaitLeaseCommitTimeout extends Timeout{
+        
+        public AwaitLeaseCommitTimeout(ScheduleTimeout request){
+            super(request);
+        }
+    }
+        
+    public class LeaseCommitResponseTimeout extends Timeout{
+
+        protected LeaseCommitResponseTimeout(ScheduleTimeout request) {
+            super(request);
+        }
+    }
+    
     
     // Init method.
     private void doInit(LeaderElectionInit init) {
@@ -183,85 +213,170 @@ public class LeaderElection extends ComponentDefinition{
      */
     private void startVoting() {
 
-        voteId = UUID.randomUUID();
-        VotingRequest request = new VotingRequest(selfPV);
-        responseTracker.startTracking(voteId);
+        Promise.Request request = new Promise.Request(selfPV);
+        promiseRoundId = UUID.randomUUID();
         
-        for(VodAddress dest : viewMap.keySet()){
-            VotingMessage.Request votingRequestMessage = new VotingMessage.Request(selfAddress,dest, voteId,request);
-            trigger(votingRequestMessage, networkPositive);
+        List<VodAddress> leaderGroupNodes = new ArrayList<VodAddress>();
+        int leaderGroupSize = Math.min(lowerUtilityNodes.size()/2, config.getMaxLeaderGroupSize());
+        
+        Iterator<CroupierPeerView> iterator = lowerUtilityNodes.iterator();
+        while(iterator.hasNext() && leaderGroupSize > 0){
+            
+            VodAddress lgMemberAddr = iterator.next().src;
+            leaderGroupNodes.add(lgMemberAddr);
+            
+            PromiseMessage.Request promiseRequest = new PromiseMessage.Request(selfAddress, lgMemberAddr,promiseRoundId, request);
+            trigger(promiseRequest, networkPositive);
+            leaderGroupSize --;
         }
 
-        ScheduleTimeout st = new ScheduleTimeout(config.getVoteTimeout());
-        st.setTimeoutEvent(new VoteTimeout(st));
-        votingTimeout = st.getTimeoutEvent().getTimeoutId();
+        promiseResponseTracker.startTracking(promiseRoundId, leaderGroupNodes);
         
+        ScheduleTimeout st = new ScheduleTimeout(config.getVoteTimeout());
+        st.setTimeoutEvent(new PromiseRoundTimeout(st));
+        promiseRoundTimeout = st.getTimeoutEvent().getTimeoutId();
+
         trigger(st, timerPositive);
     }
-    
-    
-    Handler<VotingMessage.Request> electionRequestHandler = new Handler<VotingMessage.Request>() {
-        @Override
-        public void handle(VotingMessage.Request event) {
-            
-            logger.debug("Received voting request from : {}", event.getVodDestination().getId());
-            VotingMessage.Response response;
-            boolean acceptCandidate = true;
 
-            if(isUnderLease){
-                acceptCandidate = false;
-            }
+
+    /**
+     * Promise request from the node trying to assert itself as leader.
+     * 
+     */
+    Handler<PromiseMessage.Request> promiseRequestHandler = new Handler<PromiseMessage.Request>() {
+        @Override
+        public void handle(PromiseMessage.Request event) {
             
-            else {
+            logger.debug("Received promise request from : {}", event.getSource().getId());
+            PromiseMessage.Response response;
+            PeerView requestLeaderView = event.content.leaderView;
+            
+            boolean acceptCandidate = false;
+            
+            if(!isUnderLease){
+                PeerView nodeToCompareTo;
                 
-                PeerView highestPreset = getHighestUtilityNode();
-                if(pvUtilityComparator.compare(highestPreset, event.content.leaderSelfView) > 0){
-                    acceptCandidate = false;
+                if(currentPromiseAddress != null){
+                    nodeToCompareTo = currentPromiseView;
+                }
+                else{
+                    nodeToCompareTo = getHighestUtilityNode();
+                }
+                
+                if(pvUtilityComparator.compare(requestLeaderView, nodeToCompareTo) >0){
+                    
+                    acceptCandidate = true;
+                    currentPromiseView = requestLeaderView;
+                    currentPromiseAddress = event.getVodSource();
+                    
+                    // Cancel Current Timeout and Trigger a new one.
+                    if(awaitLeaseCommit != null){
+                        CancelTimeout cancelTimeout = new CancelTimeout(awaitLeaseCommit);
+                        trigger(cancelTimeout, timerPositive);
+                    }
+                    
+                    ScheduleTimeout st = new ScheduleTimeout(3000);
+                    st.setTimeoutEvent(new AwaitLeaseCommitTimeout(st));
+                    
+                    awaitLeaseCommit = st.getTimeoutEvent().getTimeoutId();
+                    trigger(st, timerPositive);
                 }
             }
-            
-            response = new VotingMessage.Response(selfAddress, event.getVodSource(), event.id, new VotingResponse(acceptCandidate, isConverged));
+
+            response = new PromiseMessage.Response(selfAddress, event.getVodSource(), event.id, new Promise.Response(acceptCandidate, isConverged));
             trigger(response, networkPositive);
-            
         }
     };
+
     
-    
-    Handler<VotingMessage.Response> votingMessageResponse = new Handler<VotingMessage.Response>() {
+    Handler<PromiseMessage.Response> promiseResponseHandler = new Handler<PromiseMessage.Response>() {
         @Override
-        public void handle(VotingMessage.Response event) {
+        public void handle(PromiseMessage.Response event) {
+            logger.debug("{}: Received Promise Response from : {}", selfAddress.getId(), event.getSource().getId());
             
-            logger.info("{} Received voting message response from : {}" , selfAddress.getId(), event.getVodSource().getId());
-            
-            if(responseTracker.addVotingResponseAndIncrement(event) == config.getViewSize()){
+            int numPromises = promiseResponseTracker.addResponseAndGetSize(event);
+            if(numPromises > promiseResponseTracker.getLeaderGroupInformationSize()/2){
                 
-                logger.debug("{}: All of the responses are received. ", selfAddress.getId());
-                
-                if(responseTracker.isAccepted() &&  (responseTracker.getConvergenceCount() * config.getConvergenceTest() > config.getViewSize()/2) ){
-                    logger.debug("All nodes replied yes and most of them are converged");   
+                // If Quorum has reached.
+                CancelTimeout cancelTimeout = new CancelTimeout(promiseRoundTimeout);
+                trigger(cancelTimeout, timerPositive);
+
+                if(promiseResponseTracker.isAccepted()){
+                    logger.debug("{}: Majority of promises received and they say yes.");
+                    
+                    leaseCommitRequestId = UUID.randomUUID();
+                    for(VodAddress address : promiseResponseTracker.getLeaderGroupInformation()){
+                        
+                        LeaseCommit.Request requestContent = new LeaseCommit.Request(selfAddress, config.getPublicKey(), selfPV);
+                        LeaseCommitMessage.Request commitRequest = new LeaseCommitMessage.Request(selfAddress, address, leaseCommitRequestId, requestContent);
+                        trigger(commitRequest, networkPositive);
+                    }
+                    
+                    ScheduleTimeout st = new ScheduleTimeout(3000);
+                    st.setTimeoutEvent(new LeaseCommitResponseTimeout(st));
+                    
+                    leaseCommitResponseTimeout = st.getTimeoutEvent().getTimeoutId();
+                    trigger(st, timerPositive);
                 }
                 
+                // Reset the tracker information to prevent the behaviour again and again.
+                promiseResponseTracker.resetTracker();
             }
         }
-        
     };
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    Handler<VoteTimeout> votingTimeoutHandler = new Handler<VoteTimeout>() {
+
+
+    /**
+     * Received the lease commit request from the node trying to assert itself as leader.
+     */
+    Handler<LeaseCommitMessage.Request> commitMessageRequestHandler = new Handler<LeaseCommitMessage.Request>() {
         @Override
-        public void handle(VoteTimeout event) {
-            logger.debug("{}: Voting event timed out now.", selfAddress.getId());
+        public void handle(LeaseCommitMessage.Request event) {
+            logger.debug("{}: Received lease commit message request from : {}", selfAddress.getId(), event.getSource().getId());
+
+            
+            
         }
     };
+    
+    
+    
+    
+    
+    
+   Handler<LeaseCommitResponseTimeout> commitResponseTimeoutHandler = new Handler<LeaseCommitResponseTimeout>() {
+       @Override
+       public void handle(LeaseCommitResponseTimeout event) {
+           logger.debug("{}: Lease Commit Request Timed out.", selfAddress.getId());
+           leaseCommitRequestId = null;
+       }
+   };
+    
+    
+    
+    
+    
+    Handler<PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<PromiseRoundTimeout>() {
+        @Override
+        public void handle(PromiseRoundTimeout event) {
+            logger.debug("{}: Promise Round Timed out.", selfAddress.getId());
+        }
+    };
+    
+    
+    
+    Handler<AwaitLeaseCommitTimeout> awaitLeaseCommitTimeoutHandler = new Handler<AwaitLeaseCommitTimeout>() {
+        @Override
+        public void handle(AwaitLeaseCommitTimeout event) {
+            
+            logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
+            currentPromiseView = null;
+            currentPromiseAddress = null;
+        }
+    };
+    
+
     
     
     
@@ -373,7 +488,7 @@ public class LeaderElection extends ComponentDefinition{
     /**
      * Initialization Class for the Leader Election Component.
      */
-    public static class LeaderElectionInit extends Init<LeaderElection>{
+    public static class LeaderElectionInit extends Init<ELectionLeader>{
         
         VodAddress selfAddress;
         PeerView selfView;
