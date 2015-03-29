@@ -1226,7 +1226,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         oldGradientEntrySet.retainAll(gradientEntrySet);
 
-        if (oldSize == newSize && oldSize > convergenceTest * newSize) {
+        if (oldSize == newSize && oldGradientEntrySet.size() > convergenceTest * newSize) {
             currentConvergedRounds++;
         } else {
             currentConvergedRounds = 0;

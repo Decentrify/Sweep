@@ -17,13 +17,19 @@ public class ElectionConfig {
     private int viewSize;
     private final PublicKey publicKey;
     private final PrivateKey privateKey;
+    private final int convergenceRounds;
+    private final double convergenceTest;
+    private final long voteTimeout;
     
-    private ElectionConfig (long leaseTime, Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey) {
+    private ElectionConfig (long leaseTime, Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout) {
         this.leaseTime = leaseTime;
         this.utilityComparator = utilityComparator;
         this.viewSize = viewSize;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
+        this.convergenceRounds = convergenceRounds;
+        this.convergenceTest = convergenceTest;
+        this.voteTimeout = voteTimeout;
     }
 
 
@@ -39,7 +45,17 @@ public class ElectionConfig {
         return this.leaseTime;
     }
 
+    public int getConvergenceRounds(){
+        return this.convergenceRounds;
+    }
     
+    public double getConvergenceTest(){
+        return this.convergenceTest;
+    }
+    
+    public long getVoteTimeout(){
+        return this.voteTimeout;
+    }
     
     
     /**
@@ -53,6 +69,9 @@ public class ElectionConfig {
         private PublicKey publicKey;
         private PrivateKey privateKey;
         private long leaseTime = 120000; // 120 seconds
+        private int convergenceRounds = 6;
+        private double convergenceTest = 0.8d;
+        private long voteTimeout = 20000;
 
         public ElectionConfigBuilder(Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
             this.utilityComparator = utilityComparator;
@@ -65,9 +84,24 @@ public class ElectionConfig {
             this.leaseTime = leaseTime;
             return this;
         }
+        
+        public ElectionConfigBuilder setConvergenceRounds(int convergenceRounds){
+            this.convergenceRounds = convergenceRounds;
+            return this;
+        }
+        
+        public ElectionConfigBuilder setConvergenceTest(double convergenceTest){
+            this.convergenceTest = convergenceTest;
+            return this;
+        }
+        
+        public ElectionConfigBuilder setVoteTimeout(long voteTimeout){
+            this.voteTimeout = voteTimeout;
+            return this;
+        }
 
         public ElectionConfig buildElectionConfig(){
-            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey);
+            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, voteTimeout);
         }
     }
     
