@@ -5,6 +5,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 import java.security.PublicKey;
+import java.util.UUID;
 
 /**
  * Container class for the information exchanged between the node trying to 
@@ -20,12 +21,12 @@ public class LeaseCommit {
         
         public VodAddress leaderAddress;
         public PublicKey leaderPublicKey;
-        public PeerView selfView;
-        
-        public Request(VodAddress leaderAddress, PublicKey publicKey, PeerView selfView){
+        public PeerView leaderView;
+
+        public Request(VodAddress leaderAddress, PublicKey publicKey, PeerView leaderView){
             this.leaderAddress = leaderAddress;
             this.leaderPublicKey = publicKey;
-            this.selfView = selfView;
+            this.leaderView = leaderView;
         }
     }
     

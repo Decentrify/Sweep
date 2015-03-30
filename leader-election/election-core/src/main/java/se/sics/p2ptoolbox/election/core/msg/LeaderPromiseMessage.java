@@ -13,7 +13,7 @@ import java.util.UUID;
  *
  * Created by babbarshaer on 2015-03-29.
  */
-public class PromiseMessage {
+public class LeaderPromiseMessage {
     
     public static class Request extends NetContentMsg.Request<Promise.Request>{
 

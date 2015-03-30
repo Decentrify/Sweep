@@ -1,5 +1,6 @@
 package se.sics.p2ptoolbox.election.core.data;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 /**
@@ -15,8 +16,10 @@ public class Promise {
     public static class Request{
         
         public final PeerView leaderView;
-        
-        public Request(PeerView leaderView){
+        public final VodAddress leaderAddress;
+
+        public Request(VodAddress leaderAddress, PeerView leaderView) {
+            this.leaderAddress = leaderAddress;
             this.leaderView = leaderView;
         }
     }

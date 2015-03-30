@@ -261,14 +261,13 @@ public class ElectionLeader extends ComponentDefinition {
     final Handler<LeaderStatusPort.TerminateBeingLeader> handleTerminateBeingLeader = new Handler<LeaderStatusPort.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderStatusPort.TerminateBeingLeader terminateBeingLeader) {
+
             iAmLeader = false;
             electionInProgress = false;
-//            higherUtilityNodes.clear();
-//            lowerUtilityNodes.clear();
             voteTimeoutId = null;
-            heartbeatTimeoutId = null;
 
-           disperseUpdate(self);
+            heartbeatTimeoutId = null;
+            disperseUpdate(self);
 
             PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
                     self.getPartitionIdDepth(), self.getPartitionId());
@@ -298,7 +297,7 @@ public class ElectionLeader extends ComponentDefinition {
 
 			// if you won the election while you were already a leader for some
 			// reason skip the following
-			if (iAmLeader == false) {
+			if (!iAmLeader) {
 				// Create view for Snapshot
 				StringBuilder builder = new StringBuilder();
 				for (SearchDescriptor node : lowerUtilityNodes) {

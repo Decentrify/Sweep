@@ -3,11 +3,8 @@ package se.sics.p2ptoolbox.election.core.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.core.data.Promise;
-import se.sics.p2ptoolbox.election.core.data.VotingResponse;
-import se.sics.p2ptoolbox.election.core.msg.PromiseMessage;
-import se.sics.p2ptoolbox.election.core.msg.VotingMessage;
+import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,7 +56,7 @@ public class PromiseResponseTracker {
      *
      * @param response Voting response from peer.
      */
-    public int addResponseAndGetSize (PromiseMessage.Response response){
+    public int addResponseAndGetSize (LeaderPromiseMessage.Response response){
         
         if(promiseRoundId == null || !response.id.equals(promiseRoundId)){
             logger.warn("Received a response that is not currently tracked.");
@@ -87,7 +84,11 @@ public class PromiseResponseTracker {
         
         return size;
     }
-    
+
+
+    public UUID getRoundId(){
+        return this.promiseRoundId;
+    }
 
     /**
      * Completely reset the state.
