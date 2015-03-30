@@ -227,6 +227,8 @@ public class ELectionLeader extends ComponentDefinition {
 
     /**
      * Promise request from the node trying to assert itself as leader.
+     * The request is sent to all the nodes in the system that the originator of request seems fit
+     * and wants them to be a part of the leader group.
      * 
      */
     Handler<LeaderPromiseMessage.Request> promiseRequestHandler = new Handler<LeaderPromiseMessage.Request>() {
@@ -302,6 +304,7 @@ public class ELectionLeader extends ComponentDefinition {
                     // 3) Start the lease time.
 
                     // Election Round Changes at Leader.
+                    amILeader = true;
                     isUnderLease = true;
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
@@ -373,6 +376,25 @@ public class ELectionLeader extends ComponentDefinition {
             electionRoundId = null;
         }
     };
+
+
+    /**
+     * Lease for the current round timed out.
+     * Now we need to reset some parameters in order to let other nodes to try and assert themselves as leader.
+     */
+
+    Handler<LeaseTimeout> leaseTimeoutHandler = new Handler<LeaseTimeout>() {
+        @Override
+        public void handle(LeaseTimeout event) {
+            logger.debug("Lease for the current leader: {} timed out", leaderAddress );
+
+            if(amILeader){
+            }
+
+            resetLeaderInformation();
+        }
+    };
+
     
 
 
@@ -438,13 +460,7 @@ public class ELectionLeader extends ComponentDefinition {
     }
 
 
-    Handler<LeaseTimeout> leaseTimeoutHandler = new Handler<LeaseTimeout>() {
-        @Override
-        public void handle(LeaseTimeout event) {
-            logger.debug("Lease for the current leader: {} timed out", leaderAddress );
-            resetLeaderInformation();
-        }
-    };
+
 
     /**
      * In case the lease expires or if the leader dies 
