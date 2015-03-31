@@ -2,6 +2,7 @@ package se.sics.p2ptoolbox.election.api.msg;
 
 import se.sics.kompics.KompicsEvent;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 /**
  * Event from application in the system, indicating
@@ -11,9 +12,9 @@ import se.sics.p2ptoolbox.croupier.api.util.PeerView;
  */
 public class ViewUpdate implements KompicsEvent{
     
-    public final PeerView selfPv;
+    public final LCPeerView selfPv;
     
-    public ViewUpdate(PeerView pv){
+    public ViewUpdate(LCPeerView pv){
         this.selfPv = pv;
     }
 }

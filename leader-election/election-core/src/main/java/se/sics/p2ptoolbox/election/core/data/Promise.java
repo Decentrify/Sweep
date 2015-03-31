@@ -2,6 +2,7 @@ package se.sics.p2ptoolbox.election.core.data;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 /**
  * Promise Message Object which is 
@@ -15,10 +16,10 @@ public class Promise {
     
     public static class Request{
         
-        public final PeerView leaderView;
+        public final LCPeerView leaderView;
         public final VodAddress leaderAddress;
 
-        public Request(VodAddress leaderAddress, PeerView leaderView) {
+        public Request(VodAddress leaderAddress, LCPeerView leaderView) {
             this.leaderAddress = leaderAddress;
             this.leaderView = leaderView;
         }

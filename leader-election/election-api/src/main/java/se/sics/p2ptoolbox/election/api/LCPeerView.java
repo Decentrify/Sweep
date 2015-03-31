@@ -1,7 +1,7 @@
 package se.sics.p2ptoolbox.election.api;
 
 /**
- * Interface for the Leader Election Peer View.
+ * Interface for the Leader Election Capable Peer View.
  * 
  * Created by babbarshaer on 2015-03-29.
  */

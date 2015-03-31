@@ -1,5 +1,6 @@
 package se.sics.p2ptoolbox.election.core;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 
 import java.security.PrivateKey;
@@ -13,7 +14,7 @@ import java.util.Comparator;
 public class ElectionConfig {
     
     private long leaseTime;
-    private Comparator<PeerView> utilityComparator;
+    private Comparator<LCPeerView> utilityComparator;
     private int viewSize;
     private final PublicKey publicKey;
     private final PrivateKey privateKey;
@@ -22,7 +23,7 @@ public class ElectionConfig {
     private final long voteTimeout;
     private final int maxLeaderGroupSize;
     
-    private ElectionConfig(long leaseTime, Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout, int maxLeaderGroupSize) {
+    private ElectionConfig(long leaseTime, Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout, int maxLeaderGroupSize) {
         this.leaseTime = leaseTime;
         this.utilityComparator = utilityComparator;
         this.viewSize = viewSize;
@@ -35,7 +36,7 @@ public class ElectionConfig {
     }
 
 
-    public Comparator<PeerView> getUtilityComparator() {
+    public Comparator<LCPeerView> getUtilityComparator() {
         return utilityComparator;
     }
 
@@ -74,7 +75,7 @@ public class ElectionConfig {
     public class ElectionConfigBuilder {
 
         private int viewSize;
-        private Comparator<PeerView> utilityComparator;
+        private Comparator<LCPeerView> utilityComparator;
         private PublicKey publicKey;
         private PrivateKey privateKey;
         private long leaseTime = 120000; // 120 seconds
@@ -83,7 +84,7 @@ public class ElectionConfig {
         private long voteTimeout = 20000;
         private int maxLeaderGroupSize = 10;
 
-        public ElectionConfigBuilder(Comparator<PeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
+        public ElectionConfigBuilder(Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
             this.utilityComparator = utilityComparator;
             this.viewSize = viewSize;
             this.publicKey = publicKey;

@@ -1,5 +1,6 @@
 package se.sics.p2ptoolbox.election.core;
 
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
@@ -12,9 +13,15 @@ import se.sics.kompics.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
+import se.sics.p2ptoolbox.election.api.LEContainer;
+import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
+import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
+import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
+import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
 import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
@@ -30,20 +37,21 @@ public class ElectionFollower extends ComponentDefinition{
     Logger logger = LoggerFactory.getLogger(ElectionFollower.class);
     
     VodAddress selfAddress;
-    PeerView selfPV;
+    LCPeerView selfLCView;
+    LEContainer selfContainer;
 
     private ElectionConfig config;
-    private SortedSet<CroupierPeerView> higherUtilityNodes;
-    private SortedSet<CroupierPeerView> lowerUtilityNodes;
+    private SortedSet<LEContainer> higherUtilityNodes;
+    private SortedSet<LEContainer> lowerUtilityNodes;
 
-    private Comparator<PeerView> pvUtilityComparator;
-    private Comparator<CroupierPeerView> cpvUtilityComparator;
+    private Comparator<LCPeerView> lcPeerViewComparator;
+    private Comparator<LEContainer> leContainerComparator;
 
     // Gradient Sample.
-    Set<VodAddress> viewAddressSet;
     int convergenceCounter =0;
     private boolean isConverged;
-    
+    private Map<VodAddress, LEContainer> addressContainerMap;
+
     // Leader Election.
     private UUID electionRoundId;
     private boolean isUnderLease;
@@ -54,12 +62,16 @@ public class ElectionFollower extends ComponentDefinition{
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
     Positive<Timer> timerPositive = requires(Timer.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
-    
+    Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
+
+
     public ElectionFollower(ElectionFollowerInit init){
         
         doInit(init);
+
         subscribe(startHandler, control);
         subscribe(gradientSampleHandler, gradientPort);
+        subscribe(viewUpdateHandler, electionPort);
         
         subscribe(promiseRequestHandler, networkPositive);
         subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
@@ -71,15 +83,29 @@ public class ElectionFollower extends ComponentDefinition{
 
         config = init.electionConfig;
         selfAddress = init.selfAddress;
-        selfPV = init.selfView;
+        addressContainerMap = new HashMap<VodAddress, LEContainer>();
 
-        viewAddressSet = new HashSet<VodAddress>();
-        
-        pvUtilityComparator = init.electionConfig.getUtilityComparator();
-        cpvUtilityComparator = new UtilityComparator();
-        
-        lowerUtilityNodes = new TreeSet<CroupierPeerView>(cpvUtilityComparator);
-        higherUtilityNodes = new TreeSet<CroupierPeerView>(cpvUtilityComparator);
+        selfLCView = init.selfView;
+        selfContainer = new LEContainer(selfAddress, selfLCView);
+
+        lcPeerViewComparator = config.getUtilityComparator();
+        this.leContainerComparator = new Comparator<LEContainer>() {
+            @Override
+            public int compare(LEContainer o1, LEContainer o2) {
+
+                if(o1 == null || o2 == null){
+                    throw new IllegalArgumentException("Can't compare null values");
+                }
+
+                LCPeerView view1 = o1.getLCPeerView();
+                LCPeerView view2 = o2.getLCPeerView();
+
+                return lcPeerViewComparator.compare(view1, view2);
+            }
+        };
+
+        lowerUtilityNodes = new TreeSet<LEContainer>(leContainerComparator);
+        higherUtilityNodes = new TreeSet<LEContainer>(leContainerComparator);
     }
 
     
@@ -91,18 +117,51 @@ public class ElectionFollower extends ComponentDefinition{
         }
     };
 
-    
+
+
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
             
             logger.debug("{}: Received gradient sample");
-            
-            CroupierPeerView selfCPV = new CroupierPeerView(selfPV, selfAddress);       // TODO: Calculate the CPV, when you update the PV.
-            incorporateSample(event.gradientSample, selfCPV);
+
+            // Incorporate the new sample.
+            Map<VodAddress, LEContainer> oldContainerMap = addressContainerMap;
+            addressContainerMap = ElectionHelper.addGradientSample(event.gradientSample);
+
+            // Check how much the sample changed.
+            if(ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
+                convergenceCounter++;
+                if (convergenceCounter > config.getConvergenceRounds()) {
+                    isConverged = true;
+                }
+            }
+            else{
+                convergenceCounter = 0;
+                if(isConverged){
+                    isConverged = false;
+                }
+            }
+
+            // Update the views.
+            Pair<SortedSet<LEContainer>, SortedSet<LEContainer>> lowerAndHigherViewPair = ElectionHelper.getHigherAndLowerViews(addressContainerMap.values(), leContainerComparator, selfContainer);
+            lowerUtilityNodes = lowerAndHigherViewPair.getValue0();
+            higherUtilityNodes = lowerAndHigherViewPair.getValue1();
+
         }
     };
-            
+
+
+    Handler<ViewUpdate> viewUpdateHandler = new Handler<ViewUpdate>() {
+        @Override
+        public void handle(ViewUpdate viewUpdate) {
+
+            selfLCView = viewUpdate.selfPv;
+            selfContainer = new LEContainer(selfAddress, selfLCView);
+        }
+    };
+
+
     /**
      * Promise request from the node trying to assert itself as leader.
      * The request is sent to all the nodes in the system that the originator of request seems fit
@@ -116,7 +175,7 @@ public class ElectionFollower extends ComponentDefinition{
             logger.debug("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
             
             LeaderPromiseMessage.Response response;
-            PeerView requestLeaderView = event.content.leaderView;
+            LCPeerView requestLeaderView = event.content.leaderView;
 
             boolean acceptCandidate = true;
 
@@ -127,8 +186,8 @@ public class ElectionFollower extends ComponentDefinition{
             
             else{
                 
-                PeerView nodeToCompareTo = getHighestUtilityNode();
-                if(pvUtilityComparator.compare(requestLeaderView, nodeToCompareTo) >= 0){
+                LCPeerView nodeToCompareTo = getHighestUtilityNode();
+                if(lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0){
 
                     electionRoundId = event.id;
                     ScheduleTimeout st = new ScheduleTimeout(3000);
@@ -205,73 +264,6 @@ public class ElectionFollower extends ComponentDefinition{
             logger.debug("{}: Lease timed out.", selfAddress.getId());
         }
     };
-
-
-
-    /**
-     * In order to incorporate the sample, first check if the convergence is reached.
-     * After that, recalculate the lower and higher utility nodes based on the current
-     * self view.
-     *
-     * @param cpvCollection collection
-     * @param selfCPV self view
-     */
-    private void incorporateSample(Collection<CroupierPeerView> cpvCollection, CroupierPeerView selfCPV){
-
-        // check for convergence of the nodes in system.
-        updateViewAndConvergence(cpvCollection);
-
-        // update the lower and higher utility nodes.
-        SortedSet<CroupierPeerView> cpvSet = new TreeSet<CroupierPeerView>(cpvUtilityComparator);
-        cpvSet.addAll(cpvCollection);
-
-        lowerUtilityNodes = cpvSet.headSet(selfCPV);
-        higherUtilityNodes = cpvSet.tailSet(selfCPV);
-    }
-
-
-    /**
-     * Based on the collection provided, update the view held by the component
-     * and also check for the convergence, which is decided by how much the view changed.
-     *
-     * @param cpvCollection view collection
-     */
-    private void updateViewAndConvergence(Collection<CroupierPeerView> cpvCollection){
-
-        Set<VodAddress> oldAddressSet = new HashSet<VodAddress>(viewAddressSet);
-        viewAddressSet.clear();
-
-        for(CroupierPeerView cpv : cpvCollection){
-            viewAddressSet.add(cpv.src);
-        }
-
-        int oldAddressSetSize = oldAddressSet.size();
-        int newAddressSetSize = viewAddressSet.size();
-
-        oldAddressSet.retainAll(viewAddressSet);
-
-        if( (oldAddressSetSize == newAddressSetSize) &&  (oldAddressSet.size() > config.getConvergenceTest() * newAddressSetSize)) {
-
-            convergenceCounter++;
-            if(convergenceCounter > config.getConvergenceRounds()){
-                isConverged =  true;
-            }
-        }
-
-        else{
-
-            // Detected some instability in system. So restart the convergence.
-            convergenceCounter = 0;
-            if(isConverged){
-                isConverged = false;
-            }
-        }
-    }
-    
-    
-    
-    
-    
     
     
     /**
@@ -280,13 +272,13 @@ public class ElectionFollower extends ComponentDefinition{
      *
      * @return Highest utility Node.
      */
-    public PeerView getHighestUtilityNode(){
+    public LCPeerView getHighestUtilityNode(){
 
         if(higherUtilityNodes.size() != 0){
-            return higherUtilityNodes.last().pv;
+            return higherUtilityNodes.last().getLCPeerView();
         }
         
-        return selfPV;
+        return selfLCView;
     }
 
 
@@ -296,39 +288,22 @@ public class ElectionFollower extends ComponentDefinition{
     public void storeCurrentLeaderInformation(){
 
     }
-    
-    
-    
+
     /**
      * Initialization Class for the Leader Election Component.
      */
     public static class ElectionFollowerInit extends Init<ElectionFollower> {
 
         VodAddress selfAddress;
-        PeerView selfView;
+        LCPeerView selfView;
         long seed;
         ElectionConfig electionConfig;
 
-        public ElectionFollowerInit(VodAddress selfAddress, PeerView selfView, long seed, ElectionConfig electionConfig){
+        public ElectionFollowerInit(VodAddress selfAddress, LCPeerView selfView, long seed, ElectionConfig electionConfig){
             this.selfAddress = selfAddress;
             this.selfView = selfView;
             this.seed = seed;
             this.electionConfig = electionConfig;
-        }
-    }
-
-
-    private class UtilityComparator implements Comparator<CroupierPeerView> {
-
-        @Override
-        public int compare(CroupierPeerView o1, CroupierPeerView o2) {
-
-            double compareToValue = Math.signum(pvUtilityComparator.compare(o1.pv, o2.pv));
-            if (compareToValue == 0) {
-                //should use CroupierPeerView compareTo to be equal consistent
-                return (int) compareToValue;
-            }
-            return (int) compareToValue;
         }
     }
     
