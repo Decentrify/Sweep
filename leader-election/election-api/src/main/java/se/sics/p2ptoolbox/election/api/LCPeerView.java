@@ -12,13 +12,13 @@ public interface LCPeerView {
      * Indicates the view is now a part
      * of Leader Group.
      */
-    public void enableLGMembership();
+    public LCPeerView enableLGMembership();
 
 
     /**
      * Indicates node has been removed from
      * the Leader Group.
      */
-    public void disableLGMembership();
+    public LCPeerView disableLGMembership();
     
 }

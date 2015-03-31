@@ -12,10 +12,13 @@ import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
+import se.sics.p2ptoolbox.election.api.msg.ElectionState;
+import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
 import se.sics.p2ptoolbox.election.core.data.Promise;
+import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
@@ -60,7 +63,6 @@ public class ELectionLeader extends ComponentDefinition {
     private Map<VodAddress, LEContainer> addressContainerMap;
     
     // Leader Selection Variables.
-    private boolean amILeader;
     private VodAddress leaderAddress;
     private PublicKey leaderPublicKey;
     
@@ -122,7 +124,6 @@ public class ELectionLeader extends ComponentDefinition {
 
         // voting protocol.
         isConverged = false;
-        amILeader = false;
         promiseResponseTracker = new PromiseResponseTracker();
 
         this.selfLCView = init.selfView;
@@ -238,22 +239,30 @@ public class ELectionLeader extends ComponentDefinition {
 
         Promise.Request request = new Promise.Request(selfAddress, selfLCView);
         promiseRoundId = UUID.randomUUID();
-        
-        List<VodAddress> leaderGroupNodes = new ArrayList<VodAddress>();
-        int leaderGroupSize = Math.min(lowerUtilityNodes.size()/2, config.getMaxLeaderGroupSize());
-        
+
+        int leaderGroupSize = Math.min(config.getViewSize()/2 + 1, config.getMaxLeaderGroupSize());;
+        Collection<LEContainer> leaderGroupNodes = createLeaderGroupNodes(leaderGroupSize);
+
+
+        if(leaderGroupNodes.size() < leaderGroupSize){
+            logger.error(" {} : Not asserting self as leader as the leader group size is less than required.", selfAddress.getId());
+            return;
+        }
+
+        Collection<VodAddress> leaderGroupAddress = new ArrayList<VodAddress>();
+
         Iterator<LEContainer> iterator = lowerUtilityNodes.iterator();
         while(iterator.hasNext() && leaderGroupSize > 0){
             
             VodAddress lgMemberAddr = iterator.next().getSource();
-            leaderGroupNodes.add(lgMemberAddr);
+            leaderGroupAddress.add(lgMemberAddr);
             
             LeaderPromiseMessage.Request promiseRequest = new LeaderPromiseMessage.Request(selfAddress, lgMemberAddr, promiseRoundId, request);
             trigger(promiseRequest, networkPositive);
             leaderGroupSize --;
         }
 
-        promiseResponseTracker.startTracking(promiseRoundId, leaderGroupNodes);
+        promiseResponseTracker.startTracking(promiseRoundId, leaderGroupAddress);
         
         ScheduleTimeout st = new ScheduleTimeout(config.getVoteTimeout());
         st.setTimeoutEvent(new TimeoutCollection.PromiseRoundTimeout(st));
@@ -279,7 +288,6 @@ public class ELectionLeader extends ComponentDefinition {
                 if(promiseResponseTracker.isAccepted()){
 
                     logger.debug("{}: All the leader group nodes have promised.");
-
                     // IMPORTANT : Send the commit request with the same id as the promise, as the listening nodes are looking for this id only.
                     UUID commitRequestId = promiseResponseTracker.getRoundId();
 
@@ -290,15 +298,14 @@ public class ELectionLeader extends ComponentDefinition {
                         trigger(commitRequest, networkPositive);
                     }
 
-                    // === More Steps:
-                    // 1) Inform local components on being the leader and also the leader group information to which you will commit.
-                    // 2) Inform you view to switch on the leader group check.
-                    // 3) Start the lease time.
+                    // Leader Update.
+                    trigger(new LeaderState.ElectedAsLeader(promiseResponseTracker.getLeaderGroupInformation()), electionPort);
 
-                    // Election Round Changes at Leader.
-                    amILeader = true;
+                    // Lease Update.
                     isUnderLease = true;
+                    trigger(new ElectionState.EnableLGMembership(), electionPort);
 
+                    // Trigger the lease timeout.
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
@@ -329,13 +336,110 @@ public class ELectionLeader extends ComponentDefinition {
     Handler<TimeoutCollection.LeaseTimeout> leaseTimeoutHandler = new Handler<TimeoutCollection.LeaseTimeout>() {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
-            logger.debug("Lease for the current leader: {} timed out", leaderAddress );
 
-            if(amILeader){
+            logger.debug(" Lease Timed out at Leader End: {} , trying to extend the lease", selfAddress.getId());
+            if(isExtensionPossible()){
+
+                logger.debug("Trying to extend the leadership.");
+
+                int leaderGroupSize = Math.min(config.getViewSize()/2 + 1, config.getMaxLeaderGroupSize());;
+                Collection<LEContainer> lowerNodes = createLeaderGroupNodes(leaderGroupSize);
+
+                if(lowerNodes.size() < leaderGroupSize){
+
+                    logger.error("{}: Terminate being the leader as state seems to be corrupted.");
+                    terminateBeingLeader();
+                    return;
+                }
+
+                for(LEContainer container : lowerNodes){
+                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new LeaseCommit.Request(selfAddress, leaderPublicKey, selfLCView)), networkPositive);
+                }
+
+                // Extend the lease.
+                ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+                st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
+                trigger(st, timerPositive);
+
+            }
+            else{
+                terminateBeingLeader();
             }
         }
     };
-    
+
+
+    /**
+     * In case the leader sees some node above himself, then
+     * keeping in mind the fairness policy the node should terminate.
+     */
+    private void terminateBeingLeader(){
+
+        // Disable leadership and membership.
+        isUnderLease = false;
+        trigger(new LeaderState.TerminateBeingLeader(), electionPort);
+        trigger(new ElectionState.DisableLGMembership(), electionPort);
+    }
+
+
+
+    /**
+     * Check if the leader is still suited to be the leader.
+     *
+     * @return extension possible
+     */
+    private boolean isExtensionPossible(){
+
+        boolean extensionPossible = true;
+
+        if(addressContainerMap.size() < config.getViewSize()){
+            extensionPossible = false;
+        }
+
+        else {
+
+            SortedSet<LCPeerView> updatedSortedContainerSet = new TreeSet<LCPeerView>(lcPeerViewComparator);
+
+            for(LEContainer container : addressContainerMap.values()){
+                updatedSortedContainerSet.add(container.getLCPeerView().disableLGMembership());
+            }
+            LCPeerView updatedTempSelfView = selfLCView.disableLGMembership();
+
+            if(updatedSortedContainerSet.tailSet(updatedTempSelfView).size() != 0){
+                extensionPossible = false;
+            }
+        }
+
+        return extensionPossible;
+    }
+
+
+    /**
+     * Construct a collection of nodes which the leader thinks should be in the leader group
+     * @param size size of the leader group
+     *
+     * @return Leader Group Collection.
+     */
+    private Collection<LEContainer> createLeaderGroupNodes (int size){
+
+        Collection<LEContainer> collection = new ArrayList<LEContainer>();
+
+        if(size <= lowerUtilityNodes.size()){
+
+            Iterator<LEContainer> iterator = lowerUtilityNodes.iterator();
+            while(iterator.hasNext() && size > 0){
+
+                collection.add(iterator.next());
+                size --;
+            }
+        }
+
+        return collection;
+    }
+
+
+
+
     /**
      * Initialization Class for the Leader Election Component.
      */

@@ -21,14 +21,10 @@ import java.util.Collection;
  */
 public class LeaderUpdate implements KompicsEvent{
 
-    public final Collection<Address> groupMembersCollection;
-    public final long currentLease;
     public final PublicKey leaderPublicKey;
     public final VodAddress leaderAddress;
     
-    public LeaderUpdate(Collection<Address> groupMembersCollection, long currentLease, PublicKey leaderPublicKey, VodAddress leaderAddress){
-        this.groupMembersCollection = groupMembersCollection;
-        this.currentLease = currentLease;
+    public LeaderUpdate(PublicKey leaderPublicKey, VodAddress leaderAddress){
         this.leaderPublicKey = leaderPublicKey;
         this.leaderAddress = leaderAddress;
     }

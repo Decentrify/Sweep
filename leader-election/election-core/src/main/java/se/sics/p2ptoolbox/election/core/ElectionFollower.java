@@ -15,10 +15,12 @@ import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
+import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.data.Promise;
+import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
@@ -26,6 +28,7 @@ import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
+import java.security.PublicKey;
 import java.util.*;
 
 /**
@@ -57,6 +60,8 @@ public class ElectionFollower extends ComponentDefinition{
     private boolean isUnderLease;
     private TimeoutId awaitLeaseCommitId;
     private TimeoutId leaseTimeoutId;
+    private VodAddress leaderAddress;
+    private PublicKey leaderPublicKey;
     
     // Ports.
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
@@ -77,6 +82,8 @@ public class ElectionFollower extends ComponentDefinition{
         subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
         subscribe(leaseCommitRequestHandler, networkPositive);
         subscribe(leaseTimeoutHandler, networkPositive);
+
+        subscribe(leaderExtensionRequestHandler, networkPositive);
     }
 
     private void doInit(ElectionFollowerInit init) {
@@ -237,15 +244,11 @@ public class ElectionFollower extends ComponentDefinition{
             // Cancel the existing awaiting for lease commit timeout.
             CancelTimeout timeout = new CancelTimeout(awaitLeaseCommitId);
             trigger(timeout, networkPositive);
-            
-            
-            // Steps:
-            // 1) Enable the leader group inclusion check.
-            // 2) Start the lease timeout.
-            
-            // Updating the lease parameters.
+
             isUnderLease = true;
-            electionRoundId = null;
+            trigger(new ElectionState.EnableLGMembership(), electionPort);
+            trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
+
 
             ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
             st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
@@ -255,16 +258,66 @@ public class ElectionFollower extends ComponentDefinition{
 
         }
     };
-    
-    
-    
+
+
+    /**
+     * As soon as the lease expires reset all the parameters related to the node being under lease.
+     * CHECK : If we also need to reset the parameters associated with the current leader. (YES I THINK SO)
+     *
+     */
     Handler<TimeoutCollection.LeaseTimeout> leaseTimeoutHandler = new Handler<TimeoutCollection.LeaseTimeout>() {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
+
             logger.debug("{}: Lease timed out.", selfAddress.getId());
+            isUnderLease = false;
+            electionRoundId = null;
+
+            trigger(new ElectionState.DisableLGMembership(), electionPort);
         }
     };
-    
+
+
+    /**
+     * Leader Extension request received. Node which is currently the leader is trying to reassert itself as the leader again.
+     * The protocol with the extension simply follows is that the leader should be allowed to continue as leader.
+     */
+    Handler<LeaderExtensionRequest> leaderExtensionRequestHandler = new Handler<LeaderExtensionRequest>() {
+
+        @Override
+        public void handle(LeaderExtensionRequest leaderExtensionRequest) {
+            logger.debug("{}: Received leader extension request from the node: {}", selfAddress.getId(), leaderExtensionRequest.getVodSource().getId());
+
+            if(isUnderLease){
+
+                if(leaderAddress != null && !leaderExtensionRequest.content.leaderAddress.equals(leaderAddress)){
+                    logger.warn("{}: There might be a problem with the leader extension as I received lease extension from the node other than current leader. ", selfAddress.getId());
+                }
+
+                CancelTimeout cancelTimeout = new CancelTimeout(leaseTimeoutId);
+                trigger(cancelTimeout, timerPositive);
+            }
+
+            else{
+
+                isUnderLease = true;
+                trigger(new ElectionState.EnableLGMembership(), electionPort);
+            }
+
+            // Inform the component listening about the leader and schedule a new lease.
+            trigger(new LeaderUpdate(leaderExtensionRequest.content.leaderPublicKey, leaderExtensionRequest.content.leaderAddress), electionPort);
+
+            ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+            st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
+            leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
+
+            trigger(st, timerPositive);
+        }
+    };
+
+
+
+
     
     /**
      * Analyze the views present locally and
