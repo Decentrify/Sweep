@@ -62,19 +62,10 @@ public class ELectionLeader extends ComponentDefinition {
     private VodAddress selfAddress;
     private Map<VodAddress, LEContainer> addressContainerMap;
     
-    // Leader Selection Variables.
-    private VodAddress leaderAddress;
-    private PublicKey leaderPublicKey;
-    
-    private UUID electionRoundId;
-    
     // Promise Sub Protocol.
     private UUID promiseRoundId;
     private TimeoutId promiseRoundTimeout;
     private PromiseResponseTracker promiseResponseTracker;
-    
-    // Lease Commit Sub Protocol.
-    private TimeoutId leaseTimeoutId;
     
     // Convergence Variables.
     int convergenceCounter;
@@ -309,7 +300,6 @@ public class ELectionLeader extends ComponentDefinition {
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
-                    leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, networkPositive);
 
                 }
@@ -353,7 +343,7 @@ public class ELectionLeader extends ComponentDefinition {
                 }
 
                 for(LEContainer container : lowerNodes){
-                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new LeaseCommit.Request(selfAddress, leaderPublicKey, selfLCView)), networkPositive);
+                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new LeaseCommit.Request(selfAddress, config.getPublicKey(), selfLCView)), networkPositive);
                 }
 
                 // Extend the lease.
