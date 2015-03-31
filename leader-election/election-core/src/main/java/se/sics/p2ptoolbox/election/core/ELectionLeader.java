@@ -15,7 +15,7 @@ import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.util.PromiseResponseTracker;
-import se.sics.p2ptoolbox.election.core.util.VotingResponseTracker;
+import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
@@ -87,6 +87,7 @@ public class ELectionLeader extends ComponentDefinition {
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     
+    
     public ELectionLeader(LeaderElectionInit init){
         
         doInit(init);
@@ -95,39 +96,9 @@ public class ELectionLeader extends ComponentDefinition {
         subscribe(leaseTimeoutHandler, timerPositive);
         
         // Promise Subscriptions.
-        subscribe(promiseRequestHandler, networkPositive);
         subscribe(promiseResponseHandler, networkPositive);
         subscribe(promiseRoundTimeoutHandler, timerPositive);
-        
-        
-        // Lease Commit Subscriptions.
-        subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
-        subscribe(leaseCommitRequestHandler, networkPositive);
-    }
 
-
-    /**
-     * Timeout representing when the lease expires.
-     */
-    public class LeaseTimeout extends Timeout{
-        
-        public LeaseTimeout(ScheduleTimeout request) {
-            super(request);
-        }
-    }
-
-    public class PromiseRoundTimeout extends Timeout{
-
-        public PromiseRoundTimeout(ScheduleTimeout request) {
-            super(request);
-        }
-    }
-    
-    public class AwaitLeaseCommitTimeout extends Timeout{
-        
-        public AwaitLeaseCommitTimeout(ScheduleTimeout request){
-            super(request);
-        }
     }
     
     
@@ -218,57 +189,11 @@ public class ELectionLeader extends ComponentDefinition {
         promiseResponseTracker.startTracking(promiseRoundId, leaderGroupNodes);
         
         ScheduleTimeout st = new ScheduleTimeout(config.getVoteTimeout());
-        st.setTimeoutEvent(new PromiseRoundTimeout(st));
+        st.setTimeoutEvent(new TimeoutCollection.PromiseRoundTimeout(st));
         promiseRoundTimeout = st.getTimeoutEvent().getTimeoutId();
 
         trigger(st, timerPositive);
     }
-
-
-    /**
-     * Promise request from the node trying to assert itself as leader.
-     * The request is sent to all the nodes in the system that the originator of request seems fit
-     * and wants them to be a part of the leader group.
-     * 
-     */
-    Handler<LeaderPromiseMessage.Request> promiseRequestHandler = new Handler<LeaderPromiseMessage.Request>() {
-        @Override
-        public void handle(LeaderPromiseMessage.Request event) {
-            
-            logger.debug("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
-
-            LeaderPromiseMessage.Response response;
-            PeerView requestLeaderView = event.content.leaderView;
-
-            boolean acceptCandidate = true;
-
-            if(isUnderLease || (electionRoundId != null)) {
-                // If part of leader group or already promised by setting election round id, I deny promise.
-                acceptCandidate = false;
-            }
-
-            else{
-
-                PeerView nodeToCompareTo = getHighestUtilityNode();
-
-                if(pvUtilityComparator.compare(requestLeaderView, nodeToCompareTo) >= 0){
-
-                    electionRoundId = event.id;
-
-                    ScheduleTimeout st = new ScheduleTimeout(3000);
-                    st.setTimeoutEvent(new AwaitLeaseCommitTimeout(st));
-
-                    awaitLeaseCommit = st.getTimeoutEvent().getTimeoutId();
-                    trigger(st, timerPositive);
-                }
-                else
-                    acceptCandidate = false;
-            }
-
-            response = new LeaderPromiseMessage.Response(selfAddress, event.getVodSource(), event.id, new Promise.Response(acceptCandidate, isConverged));
-            trigger(response, networkPositive);
-        }
-    };
 
     
     Handler<LeaderPromiseMessage.Response> promiseResponseHandler = new Handler<LeaderPromiseMessage.Response>() {
@@ -308,7 +233,7 @@ public class ELectionLeader extends ComponentDefinition {
                     isUnderLease = true;
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
-                    st.setTimeoutEvent(new LeaseTimeout(st));
+                    st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
                     leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, networkPositive);
@@ -319,79 +244,28 @@ public class ELectionLeader extends ComponentDefinition {
             }
         }
     };
-
-
-    /**
-     * Received the lease commit request from the node trying to assert itself as leader.
-     */
-    Handler<LeaseCommitMessage.Request> leaseCommitRequestHandler = new Handler<LeaseCommitMessage.Request>() {
-        @Override
-        public void handle(LeaseCommitMessage.Request event) {
-
-            logger.debug("{}: Received lease commit message request from : {}", selfAddress.getId(), event.getSource().getId());
-
-
-            if(electionRoundId == null || !electionRoundId.equals(event.id)){
-                logger.warn("{}: Received an election response for the round id which has expired", selfAddress.getId());
-                return;
-            }
-
-
-            // Cancel the existing awaiting for lease timeout.
-            CancelTimeout timeout = new CancelTimeout(awaitLeaseCommit);
-            trigger(timeout, networkPositive);
-
-
-            // Steps:
-            // 1) Enable the leader group inclusion check.
-            // 2) Start the lease timeout.
-
-            isUnderLease = true;
-            electionRoundId = null;
-
-            ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
-            st.setTimeoutEvent(new LeaseTimeout(st));
-
-            leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
-            trigger(st, networkPositive);
-
-        }
-    };
     
     
-    Handler<PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<PromiseRoundTimeout>() {
+    Handler<TimeoutCollection.PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<TimeoutCollection.PromiseRoundTimeout>() {
         @Override
-        public void handle(PromiseRoundTimeout event) {
+        public void handle(TimeoutCollection.PromiseRoundTimeout event) {
             logger.debug("{}: Promise Round Timed out. Resetting the tracker ... ", selfAddress.getId());
             promiseResponseTracker.resetTracker();
         }
     };
-    
-    
-    
-    Handler<AwaitLeaseCommitTimeout> awaitLeaseCommitTimeoutHandler = new Handler<AwaitLeaseCommitTimeout>() {
-        @Override
-        public void handle(AwaitLeaseCommitTimeout event) {
-            logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
-            electionRoundId = null;
-        }
-    };
-
 
     /**
      * Lease for the current round timed out.
      * Now we need to reset some parameters in order to let other nodes to try and assert themselves as leader.
      */
 
-    Handler<LeaseTimeout> leaseTimeoutHandler = new Handler<LeaseTimeout>() {
+    Handler<TimeoutCollection.LeaseTimeout> leaseTimeoutHandler = new Handler<TimeoutCollection.LeaseTimeout>() {
         @Override
-        public void handle(LeaseTimeout event) {
+        public void handle(TimeoutCollection.LeaseTimeout event) {
             logger.debug("Lease for the current leader: {} timed out", leaderAddress );
 
             if(amILeader){
             }
-
-            resetLeaderInformation();
         }
     };
 
@@ -459,41 +333,6 @@ public class ELectionLeader extends ComponentDefinition {
         
     }
 
-
-
-
-    /**
-     * In case the lease expires or if the leader dies 
-     * reset the information regarding the details about the current  
-     * leader.
-     * <br/>
-     * <b>CAUTION: </b> We don't have any failure detection mechanism, 
-     * so unable to detect for now if the leader is dead. 
-     * We detect it when the lease expires.
-     */
-    public void resetLeaderInformation(){
-        leaderAddress = null;
-        leaderPublicKey = null;
-    }
-
-
-    /**
-     * Analyze the views present locally and 
-     * return the highest utility node.
-     *  
-     * @return Highest utility Node.
-     */
-    public PeerView getHighestUtilityNode(){
-        
-        if(higherUtilityNodes.size() != 0){
-            return higherUtilityNodes.last().pv;
-        }
-        return selfPV;
-    }
-    
-    
-    
-    
     
     /**
      * Initialization Class for the Leader Election Component.

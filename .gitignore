@@ -55,6 +55,8 @@ pocs
 /launch/target/
 /local-aggregator/target/
 
+leader-election/election-api/target/
+leader-election/election-core/target/
 
 #lib
 lib
