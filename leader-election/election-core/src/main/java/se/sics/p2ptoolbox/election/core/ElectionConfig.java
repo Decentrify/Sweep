@@ -20,10 +20,9 @@ public class ElectionConfig {
     private final PrivateKey privateKey;
     private final int convergenceRounds;
     private final double convergenceTest;
-    private final long voteTimeout;
     private final int maxLeaderGroupSize;
     
-    private ElectionConfig(long leaseTime, Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, long voteTimeout, int maxLeaderGroupSize) {
+    private ElectionConfig(long leaseTime, Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, int maxLeaderGroupSize) {
         this.leaseTime = leaseTime;
         this.utilityComparator = utilityComparator;
         this.viewSize = viewSize;
@@ -31,7 +30,6 @@ public class ElectionConfig {
         this.privateKey = privateKey;
         this.convergenceRounds = convergenceRounds;
         this.convergenceTest = convergenceTest;
-        this.voteTimeout = voteTimeout;
         this.maxLeaderGroupSize = maxLeaderGroupSize;
     }
 
@@ -55,11 +53,7 @@ public class ElectionConfig {
     public double getConvergenceTest(){
         return this.convergenceTest;
     }
-    
-    public long getVoteTimeout(){
-        return this.voteTimeout;
-    }
-    
+
     public int getMaxLeaderGroupSize(){
         return this.maxLeaderGroupSize;
     }
@@ -72,7 +66,7 @@ public class ElectionConfig {
      * Builder Class for the Election Configuration.
      * Created by babbarshaer on 2015-03-27.
      */
-    public class ElectionConfigBuilder {
+    public static class ElectionConfigBuilder {
 
         private int viewSize;
         private Comparator<LCPeerView> utilityComparator;
@@ -81,7 +75,6 @@ public class ElectionConfig {
         private long leaseTime = 120000; // 120 seconds
         private int convergenceRounds = 6;
         private double convergenceTest = 0.8d;
-        private long voteTimeout = 20000;
         private int maxLeaderGroupSize = 10;
 
         public ElectionConfigBuilder(Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
@@ -105,11 +98,6 @@ public class ElectionConfig {
             this.convergenceTest = convergenceTest;
             return this;
         }
-        
-        public ElectionConfigBuilder setVoteTimeout(long voteTimeout){
-            this.voteTimeout = voteTimeout;
-            return this;
-        }
 
         public ElectionConfigBuilder setMaxLeaderGroupSize(int maxLeaderGroupSize){
             this.maxLeaderGroupSize= maxLeaderGroupSize;
@@ -117,7 +105,7 @@ public class ElectionConfig {
         }        
         
         public ElectionConfig buildElectionConfig(){
-            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, voteTimeout, this.maxLeaderGroupSize);
+            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, this.maxLeaderGroupSize);
         }
     }
     

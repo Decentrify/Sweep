@@ -9,7 +9,6 @@ import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -27,7 +26,6 @@ import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
-import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
 
@@ -51,9 +49,9 @@ import java.util.UUID;
  * <b>CAUTION: </b> Under development, so unstable to use as it is.
  *
  */
-public class ELectionLeader extends ComponentDefinition {
+public class ElectionLeader extends ComponentDefinition {
 
-    Logger logger = LoggerFactory.getLogger(ELectionLeader.class);
+    Logger logger = LoggerFactory.getLogger(ElectionLeader.class);
     
     private LCPeerView selfLCView;
     private LEContainer selfLEContainer;
@@ -88,7 +86,7 @@ public class ELectionLeader extends ComponentDefinition {
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     
     
-    public ELectionLeader(LeaderElectionInit init){
+    public ElectionLeader(LeaderElectionInit init){
         
         doInit(init);
         subscribe(startHandler, control);
@@ -101,8 +99,6 @@ public class ELectionLeader extends ComponentDefinition {
 
         // Lease Subscriptions.
         subscribe(leaseTimeoutHandler, timerPositive);
-
-
     }
     
     
@@ -255,7 +251,7 @@ public class ELectionLeader extends ComponentDefinition {
 
         promiseResponseTracker.startTracking(promiseRoundId, leaderGroupAddress);
         
-        ScheduleTimeout st = new ScheduleTimeout(config.getVoteTimeout());
+        ScheduleTimeout st = new ScheduleTimeout(5000);
         st.setTimeoutEvent(new TimeoutCollection.PromiseRoundTimeout(st));
         promiseRoundTimeout = st.getTimeoutEvent().getTimeoutId();
 
@@ -433,7 +429,7 @@ public class ELectionLeader extends ComponentDefinition {
     /**
      * Initialization Class for the Leader Election Component.
      */
-    public static class LeaderElectionInit extends Init<ELectionLeader>{
+    public static class LeaderElectionInit extends Init<ElectionLeader>{
         
         VodAddress selfAddress;
         LCPeerView selfView;
