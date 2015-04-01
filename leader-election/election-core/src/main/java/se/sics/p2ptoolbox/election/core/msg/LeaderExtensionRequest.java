@@ -20,6 +20,6 @@ public class LeaderExtensionRequest extends NetContentMsg.OneWay<LeaseCommit.Req
 
     @Override
     public RewriteableMsg copy() {
-        return null;
+        return new LeaderExtensionRequest(vodSrc, vodDest, id, content);
     }
 }

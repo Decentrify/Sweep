@@ -23,7 +23,7 @@ public class LeaderPromiseMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return null;
+            return new Request(vodSrc, vodDest, id, content);
         }
     }
     
@@ -35,7 +35,7 @@ public class LeaderPromiseMessage {
 
         @Override
         public RewriteableMsg copy() {
-            return null;
+            return new Response(vodSrc, vodDest, id, content);
         }
     }
     
