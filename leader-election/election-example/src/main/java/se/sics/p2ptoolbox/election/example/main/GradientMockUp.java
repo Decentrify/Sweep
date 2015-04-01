@@ -16,7 +16,7 @@ import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.example.data.PeersUpdate;
-import se.sics.p2ptoolbox.election.example.mockup.ports.ApplicationPort;
+import se.sics.p2ptoolbox.election.example.ports.ApplicationPort;
 
 import java.util.ArrayList;
 import java.util.Collection;

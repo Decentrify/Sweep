@@ -12,8 +12,8 @@ import se.sics.p2ptoolbox.election.core.ElectionLeader;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
 import se.sics.p2ptoolbox.election.example.data.PeersUpdate;
-import se.sics.p2ptoolbox.election.example.mockup.ports.ApplicationPort;
 import se.sics.p2ptoolbox.election.example.msg.AddPeers;
+import se.sics.p2ptoolbox.election.example.ports.ApplicationPort;
 
 import java.util.Comparator;
 

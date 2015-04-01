@@ -1,4 +1,4 @@
-package se.sics.p2ptoolbox.election.example.mockup.ports;
+package se.sics.p2ptoolbox.election.example.ports;
 
 import se.sics.kompics.PortType;
 import se.sics.p2ptoolbox.election.example.data.PeersUpdate;
