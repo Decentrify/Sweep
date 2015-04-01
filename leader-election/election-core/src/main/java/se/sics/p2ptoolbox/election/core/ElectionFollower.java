@@ -230,9 +230,9 @@ public class ElectionFollower extends ComponentDefinition{
     /**
      * Received the lease commit request from the node trying to assert itself as leader.
      */
-    Handler<LeaseCommitMessage.Request> leaseCommitRequestHandler = new Handler<LeaseCommitMessage.Request>() {
+    Handler<LeaseCommitMessage> leaseCommitRequestHandler = new Handler<LeaseCommitMessage>() {
         @Override
-        public void handle(LeaseCommitMessage.Request event) {
+        public void handle(LeaseCommitMessage event) {
 
             logger.debug("{}: Received lease commit message request from : {}", selfAddress.getId(), event.getSource().getId());
 

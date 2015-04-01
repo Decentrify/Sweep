@@ -11,34 +11,17 @@ import java.util.UUID;
  * Container class for the Lease Commit message Communication.
  * Created by babbarshaer on 2015-03-29.
  */
-public class LeaseCommitMessage {
-    
-    
-    public static class Request extends NetContentMsg.Request<LeaseCommit.Request>{
+public class LeaseCommitMessage extends NetContentMsg.OneWay<LeaseCommit>{
 
 
-        public Request(VodAddress src, VodAddress dest, UUID id, LeaseCommit.Request content) {
-            super(src, dest, id, content);
-        }
-
-        @Override
-        public RewriteableMsg copy() {
-            return new Request(vodSrc, vodDest, id, content);
-        }
+    public LeaseCommitMessage(VodAddress src, VodAddress dest, UUID id, LeaseCommit content) {
+        super(src, dest, id, content);
     }
-    
-    public static class Response extends NetContentMsg.Response<LeaseCommit.Response>{
 
-        public Response(VodAddress src, VodAddress dest, UUID id, LeaseCommit.Response content) {
-            super(src, dest, id, content);
-        }
-
-        @Override
-        public RewriteableMsg copy() {
-            return new Response(vodSrc, vodDest, id, content);
-        }
+    @Override
+    public RewriteableMsg copy() {
+        return new LeaseCommitMessage(vodSrc, vodDest, id, content);
     }
-    
     
     
 }

@@ -15,6 +15,7 @@ import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.p2ptoolbox.election.core.data.ExtensionRequest;
 import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
@@ -280,8 +281,8 @@ public class ElectionLeader extends ComponentDefinition {
 
                     for(VodAddress address : promiseResponseTracker.getLeaderGroupInformation()){
                         
-                        LeaseCommit.Request requestContent = new LeaseCommit.Request(selfAddress, config.getPublicKey(), selfLCView);
-                        LeaseCommitMessage.Request commitRequest = new LeaseCommitMessage.Request(selfAddress, address, commitRequestId, requestContent);
+                        LeaseCommit requestContent = new LeaseCommit (selfAddress, config.getPublicKey(), selfLCView);
+                        LeaseCommitMessage commitRequest = new LeaseCommitMessage (selfAddress, address, commitRequestId, requestContent);
                         trigger(commitRequest, networkPositive);
                     }
 
@@ -339,7 +340,7 @@ public class ElectionLeader extends ComponentDefinition {
                 }
 
                 for(LEContainer container : lowerNodes){
-                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new LeaseCommit.Request(selfAddress, config.getPublicKey(), selfLCView)), networkPositive);
+                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new ExtensionRequest(selfAddress, config.getPublicKey(), selfLCView)), networkPositive);
                 }
 
                 // Extend the lease.
