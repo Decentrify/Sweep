@@ -18,14 +18,14 @@ public class LeaderElectionScenario {
                 StochasticProcess startHostManager = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(5, LeaderElectionOperations.startHostManager, uniform(0, Integer.MAX_VALUE));
+                        raise(3, LeaderElectionOperations.startHostManager, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 
                 StochasticProcess updatePeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(3000));
-                        raise(5, LeaderElectionOperations.updatePeersAddress);
+                        raise(3, LeaderElectionOperations.updatePeersAddress);
                     }
                 };
 

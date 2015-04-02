@@ -14,7 +14,9 @@ import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
+import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.core.data.ExtensionRequest;
 import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
 import se.sics.p2ptoolbox.election.core.data.Promise;
@@ -85,7 +87,7 @@ public class ElectionLeader extends ComponentDefinition {
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
-    
+    Negative<TestPort> testPortNegative = provides(TestPort.class);
     
     public ElectionLeader(LeaderElectionInit init){
         
@@ -93,7 +95,10 @@ public class ElectionLeader extends ComponentDefinition {
         subscribe(startHandler, control);
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(viewUpdateHandler, electionPort);
-        
+
+        // Test Sample
+        subscribe(mockedUpdateHandler, testPortNegative);
+
         // Promise Subscriptions.
         subscribe(promiseResponseHandler, networkPositive);
         subscribe(promiseRoundTimeoutHandler, timerPositive);
@@ -143,11 +148,41 @@ public class ElectionLeader extends ComponentDefinition {
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
-            logger.debug("Started the Leader Election Component ...");
+            logger.trace("{}: Leader Election Component is up", selfAddress.getId());
         }
     };
 
 
+    Handler<MockedGradientUpdate> mockedUpdateHandler = new Handler<MockedGradientUpdate>() {
+        @Override
+        public void handle(MockedGradientUpdate event) {
+
+            // Incorporate the new sample.
+            Map<VodAddress, LEContainer> oldContainerMap = addressContainerMap;
+            addressContainerMap = ElectionHelper.addGradientSample(event.cpvCollection);
+
+            // Check how much the sample changed.
+            if(ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
+                convergenceCounter++;
+                if (convergenceCounter > config.getConvergenceRounds()) {
+                    isConverged = true;
+                }
+            }
+            else{
+                convergenceCounter = 0;
+                if(isConverged){
+                    isConverged = false;
+                }
+            }
+
+            // Update the views.
+            Pair<SortedSet<LEContainer>, SortedSet<LEContainer>> lowerAndHigherViewPair = ElectionHelper.getHigherAndLowerViews(addressContainerMap.values(), leContainerComparator, selfLEContainer);
+            lowerUtilityNodes = lowerAndHigherViewPair.getValue0();
+            higherUtilityNodes = lowerAndHigherViewPair.getValue1();
+
+            checkIfLeader();
+        }
+    };
 
 
 
@@ -203,17 +238,18 @@ public class ElectionLeader extends ComponentDefinition {
      * is in a position to assert itself as a leader.
      */
     private void checkIfLeader() {
-        
-        if(addressContainerMap.size() < config.getViewSize()){
-            logger.debug(" {}: I think I am leader but the view less than the minimum requirement, so returning.", selfAddress.getId());
-            return;
-        }
 
         // I don't see anybody above me, so should start voting.
         // Addition lease check is required because for the nodes which are in the node group will be acting under
         // lease of the leader, with special variable check.
         
         if(isConverged && higherUtilityNodes.size() == 0 && !isUnderLease){
+
+            if(addressContainerMap.size() < config.getViewSize()){
+                logger.debug(" {}: I think I am leader but the view less than the minimum requirement, so returning.", selfAddress.getId());
+                return;
+            }
+
             startVoting();
         }
     }
@@ -224,6 +260,9 @@ public class ElectionLeader extends ComponentDefinition {
      * it initiates voting.
      */
     private void startVoting() {
+
+
+        logger.debug("{}: Starting with the voting .. ", selfAddress.getId());
 
         Promise.Request request = new Promise.Request(selfAddress, selfLCView);
         promiseRoundId = UUID.randomUUID();
@@ -275,7 +314,8 @@ public class ElectionLeader extends ComponentDefinition {
 
                 if(promiseResponseTracker.isAccepted()){
 
-                    logger.debug("{}: All the leader group nodes have promised.");
+                    logger.debug("{}: All the leader group nodes have promised.", selfAddress.getId());
+
                     // IMPORTANT : Send the commit request with the same id as the promise, as the listening nodes are looking for this id only.
                     UUID commitRequestId = promiseResponseTracker.getRoundId();
 
@@ -297,7 +337,7 @@ public class ElectionLeader extends ComponentDefinition {
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
-                    trigger(st, networkPositive);
+                    trigger(st, timerPositive);
 
                 }
                 // Reset the tracker information to prevent the behaviour again and again.
@@ -324,7 +364,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
-            logger.debug(" Lease Timed out at Leader End: {} , trying to extend the lease", selfAddress.getId());
+            logger.debug(" Special : Lease Timed out at Leader End: {} , trying to extend the lease", selfAddress.getId());
             if(isExtensionPossible()){
 
                 logger.debug("Trying to extend the leadership.");

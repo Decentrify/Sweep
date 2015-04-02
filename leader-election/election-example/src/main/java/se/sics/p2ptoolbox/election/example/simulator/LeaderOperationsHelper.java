@@ -14,6 +14,8 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ * Helper Class for the Leader Election Protocol Operations Simulation.
+ *
  * Created by babbar on 2015-04-01.
  */
 public class LeaderOperationsHelper {
@@ -42,7 +44,7 @@ public class LeaderOperationsHelper {
         addressCollection.add(selfAddress);
         copy.add(selfAddress);
 
-        HostManagerComp.HostManagerCompInit init = new HostManagerComp.HostManagerCompInit(selfAddress, 30000,  new LCPComparator(), 4);
+        HostManagerComp.HostManagerCompInit init = new HostManagerComp.HostManagerCompInit(selfAddress, 30000,  new LCPComparator(), 2);
         return init;
     }
 

@@ -23,7 +23,6 @@ import java.util.Collection;
 public class LeaderElectionOperations {
 
     private static Logger logger = LoggerFactory.getLogger(LeaderElectionOperations.class);
-    private static Collection<Integer> nodeIds = new ArrayList<Integer>();
 
     public static Operation1<StartNodeCmd, Long> startHostManager = new Operation1<StartNodeCmd, Long>() {
 

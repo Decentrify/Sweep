@@ -66,7 +66,7 @@ public class GradientMockUp extends ComponentDefinition {
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start start) {
-            logger.debug("Started the mock component.");
+            logger.trace("{}: Mock Component is up.", selfAddress.getId());
         }
     };
 
@@ -83,6 +83,8 @@ public class GradientMockUp extends ComponentDefinition {
     Handler<PeersUpdate> peersUpdateHandler = new Handler<PeersUpdate>() {
         @Override
         public void handle(PeersUpdate peersUpdate) {
+
+            logger.debug("{}: Received event from the application.", selfAddress.getId());
 
             for(VodAddress address : peersUpdate.peers){
                 if(address.equals(selfAddress))
@@ -140,7 +142,7 @@ public class GradientMockUp extends ComponentDefinition {
     Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
         @Override
         public void handle(LeaderUpdate leaderUpdate) {
-            logger.debug("{}: New leader has been chosen with the Id as: ", leaderUpdate.leaderAddress.getId());
+            logger.debug("{}: New leader has been chosen with id: {}", selfAddress.getId(),  leaderUpdate.leaderAddress.getId());
         }
     };
 

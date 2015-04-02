@@ -1,5 +1,6 @@
 package se.sics.p2ptoolbox.election.example.main;
 
+import junit.framework.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
@@ -8,6 +9,7 @@ import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.core.ElectionLeader;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
@@ -44,7 +46,7 @@ public class HostManagerComp extends ComponentDefinition{
 
         // Create Configuration for election components.
         ElectionConfig.ElectionConfigBuilder builder = new ElectionConfig.ElectionConfigBuilder(init.lcpComparator, init.viewSize, null, null);
-        builder.setLeaseTime(30000)
+        builder.setLeaseTime(leaseTimeout)
                 .setConvergenceRounds(4)
                 .setConvergenceTest(0.9d);
 
@@ -67,9 +69,13 @@ public class HostManagerComp extends ComponentDefinition{
         connect(electionFollower.getPositive(LeaderElectionPort.class), gradientMockUp.getNegative(LeaderElectionPort.class));
 
         connect(gradientMockUp.getNegative(Timer.class), timerPositive);
-        connect(applicationPort, gradientMockUp.getPositive(ApplicationPort.class));
 
+        connect(electionLeader.getPositive(TestPort.class), gradientMockUp.getNegative(TestPort.class));
+        connect(electionFollower.getPositive(TestPort.class), gradientMockUp.getNegative(TestPort.class));
+
+        // Handlers.
         subscribe(startHandler, control);
+        subscribe(addPeershandler, networkPositive);
     }
 
     private void doInit(HostManagerCompInit init) {
@@ -78,7 +84,6 @@ public class HostManagerComp extends ComponentDefinition{
         leaseTimeout = init.leaseTimeout;
         selfView = new LeaderDescriptor(selfAddress.getId());
 
-        // TODO: Add Common Encode Decode for the Leader Election Mechanism.
     }
 
 
@@ -95,7 +100,8 @@ public class HostManagerComp extends ComponentDefinition{
         @Override
         public void handle(AddPeers addPeers) {
 
-            trigger(new PeersUpdate(addPeers.peers), applicationPort);
+            logger.trace("Received add peers event from the simulator.... ");
+            trigger(new PeersUpdate(addPeers.peers), gradientMockUp.getNegative(ApplicationPort.class));
         }
     };
 

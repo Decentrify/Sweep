@@ -5,20 +5,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.CancelTimeout;
-import se.sics.gvod.timer.ScheduleTimeout;
-import se.sics.gvod.timer.Timeout;
-import se.sics.gvod.timer.TimeoutId;
+import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
-import se.sics.kompics.timer.Timer;
-import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
+import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
@@ -30,6 +26,8 @@ import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
 import java.security.PublicKey;
 import java.util.*;
+import java.util.Timer;
+import java.util.UUID;
 
 /**
  * Election Follower part of the Leader Election Protocol.
@@ -65,10 +63,10 @@ public class ElectionFollower extends ComponentDefinition{
     
     // Ports.
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
-    Positive<Timer> timerPositive = requires(Timer.class);
+    Positive<se.sics.gvod.timer.Timer> timerPositive = requires(se.sics.gvod.timer.Timer.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
-
+    Negative<TestPort> testPortNegative = provides(TestPort.class);
 
     public ElectionFollower(ElectionFollowerInit init){
         
@@ -77,11 +75,13 @@ public class ElectionFollower extends ComponentDefinition{
         subscribe(startHandler, control);
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(viewUpdateHandler, electionPort);
-        
+
+        subscribe(mockedUpdateHandler, testPortNegative);
+
         subscribe(promiseRequestHandler, networkPositive);
         subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
         subscribe(leaseCommitRequestHandler, networkPositive);
-        subscribe(leaseTimeoutHandler, networkPositive);
+        subscribe(leaseTimeoutHandler, timerPositive);
 
         subscribe(leaderExtensionRequestHandler, networkPositive);
     }
@@ -120,7 +120,39 @@ public class ElectionFollower extends ComponentDefinition{
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
-            logger.debug(" Started the election follower component with address: {}", selfAddress);
+            logger.trace("{}: Election Follower Component is up.", selfAddress.getId());
+        }
+    };
+
+
+    Handler<MockedGradientUpdate> mockedUpdateHandler = new Handler<MockedGradientUpdate>() {
+        @Override
+        public void handle(MockedGradientUpdate event) {
+            logger.trace("Received mocked update from the gradient");
+
+            // Incorporate the new sample.
+            Map<VodAddress, LEContainer> oldContainerMap = addressContainerMap;
+            addressContainerMap = ElectionHelper.addGradientSample(event.cpvCollection);
+
+            // Check how much the sample changed.
+            if(ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
+                convergenceCounter++;
+                if (convergenceCounter > config.getConvergenceRounds()) {
+                    isConverged = true;
+                }
+            }
+            else{
+                convergenceCounter = 0;
+                if(isConverged){
+                    isConverged = false;
+                }
+            }
+
+            // Update the views.
+            Pair<SortedSet<LEContainer>, SortedSet<LEContainer>> lowerAndHigherViewPair = ElectionHelper.getHigherAndLowerViews(addressContainerMap.values(), leContainerComparator, selfContainer);
+            lowerUtilityNodes = lowerAndHigherViewPair.getValue0();
+            higherUtilityNodes = lowerAndHigherViewPair.getValue1();
+
         }
     };
 
@@ -180,7 +212,7 @@ public class ElectionFollower extends ComponentDefinition{
         public void handle(LeaderPromiseMessage.Request event) {
 
             logger.debug("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
-            
+
             LeaderPromiseMessage.Response response;
             LCPeerView requestLeaderView = event.content.leaderView;
 
@@ -243,7 +275,9 @@ public class ElectionFollower extends ComponentDefinition{
 
             // Cancel the existing awaiting for lease commit timeout.
             CancelTimeout timeout = new CancelTimeout(awaitLeaseCommitId);
-            trigger(timeout, networkPositive);
+            trigger(timeout, timerPositive);
+
+            logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
 
             isUnderLease = true;
             trigger(new ElectionState.EnableLGMembership(), electionPort);
@@ -254,7 +288,7 @@ public class ElectionFollower extends ComponentDefinition{
             st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
             leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
-            trigger(st, networkPositive);
+            trigger(st, timerPositive);
 
         }
     };
@@ -269,7 +303,7 @@ public class ElectionFollower extends ComponentDefinition{
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
-            logger.debug("{}: Lease timed out.", selfAddress.getId());
+            logger.debug("{}: Special : Lease timed out.", selfAddress.getId());
             isUnderLease = false;
             electionRoundId = null;
 

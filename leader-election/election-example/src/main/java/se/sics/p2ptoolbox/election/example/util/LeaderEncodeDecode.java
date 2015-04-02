@@ -42,7 +42,7 @@ public class LeaderEncodeDecode extends BaseMsgFrameDecoder{
     public static final byte EXTENSION_REQUEST= (byte)0x03;
     public static final byte LEASE_COMMIT = (byte)0x04;
 
-    public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
+//    public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
     public static final String LEADER_VIEW = "LEADER_VIEW";
 
 
@@ -55,9 +55,9 @@ public class LeaderEncodeDecode extends BaseMsgFrameDecoder{
 
 
         try {
-            context.registerAlias(HeaderField.class, HEADER_FIELD_ALIAS, HEADER_FIELD_CODE);
-            context.registerSerializer(OverlayHeaderField.class, new OverlayHeaderFieldSerializer());
-            context.multiplexAlias(HEADER_FIELD_ALIAS, OverlayHeaderField.class, (byte)0x01);
+//            context.registerAlias(HeaderField.class, HEADER_FIELD_ALIAS, HEADER_FIELD_CODE);
+//            context.registerSerializer(OverlayHeaderField.class, new OverlayHeaderFieldSerializer());
+//            context.multiplexAlias(HEADER_FIELD_ALIAS, OverlayHeaderField.class, (byte)0x01);
 
             context.registerSerializer(UUID.class, new UUIDSerializer());
             context.registerSerializer(VodAddress.class, new VodAddressSerializer());

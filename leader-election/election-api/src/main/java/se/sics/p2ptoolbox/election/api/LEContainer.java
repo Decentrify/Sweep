@@ -25,4 +25,12 @@ public class LEContainer {
     public LCPeerView getLCPeerView(){
         return this.lcp;
     }
+
+    @Override
+    public String toString() {
+        return "LEContainer{" +
+                "source=" + source +
+                ", lcp=" + lcp +
+                '}';
+    }
 }

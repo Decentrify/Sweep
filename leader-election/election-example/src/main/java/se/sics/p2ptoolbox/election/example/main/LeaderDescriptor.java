@@ -62,6 +62,14 @@ public class LeaderDescriptor implements PeerView, LCPeerView, Comparable<Leader
             }
         }
 
-        return Integer.valueOf(this.utility).compareTo(o.utility);
+        return -1 * Integer.valueOf(this.utility).compareTo(o.utility);
+    }
+
+    @Override
+    public String toString() {
+        return "LeaderDescriptor{" +
+                "utility=" + utility +
+                ", membership=" + membership +
+                '}';
     }
 }
