@@ -9,6 +9,8 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import java.util.Collection;
 
 /**
+ * Message sent by the simulator to the application informing about the peers in the system.
+ *
  * Created by babbar on 2015-04-01.
  */
 public class AddPeers extends DirectMsgNetty.Request {

@@ -11,8 +11,8 @@ import se.sics.p2ptoolbox.election.api.LCPeerView;
 public class LeaderDescriptor implements PeerView, LCPeerView, Comparable<LeaderDescriptor>{
 
 
-    private int utility;
-    private boolean membership;
+    public int utility;
+    public boolean membership;
 
     public LeaderDescriptor(int utility){
         this.utility = utility;
