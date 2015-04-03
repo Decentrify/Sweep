@@ -87,6 +87,35 @@ public class LeaderElectionOperations {
         }
     };
 
+    
+    public static Operation1<StartNodeCmd, Long> startTrueLeader = new Operation1<StartNodeCmd, Long>() {
+
+        public StartNodeCmd generate(final Long id){
+
+            return new StartNodeCmd<HostManagerComp>() {
+
+                int nodeId = Integer.MIN_VALUE;
+                
+                @Override
+                public Integer getNodeId() {
+                    return nodeId;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return HostManagerComp.class;
+                }
+
+                @Override
+                public HostManagerComp.HostManagerCompInit getNodeComponentInit(VodAddress statusServer) {
+                    return LeaderOperationsHelper.generateComponentInit(nodeId);
+                }
+            };
+        }
+    };
+    
+    
+    
 
 
 

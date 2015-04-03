@@ -267,7 +267,7 @@ public class ElectionLeader extends ComponentDefinition {
         Promise.Request request = new Promise.Request(selfAddress, selfLCView);
         promiseRoundId = UUID.randomUUID();
 
-        int leaderGroupSize = Math.min(config.getViewSize()/2 + 1, config.getMaxLeaderGroupSize());;
+        int leaderGroupSize = Math.min(config.getViewSize()/2 + 1, config.getMaxLeaderGroupSize());
         Collection<LEContainer> leaderGroupNodes = createLeaderGroupNodes(leaderGroupSize);
 
 
@@ -278,15 +278,14 @@ public class ElectionLeader extends ComponentDefinition {
 
         Collection<VodAddress> leaderGroupAddress = new ArrayList<VodAddress>();
 
-        Iterator<LEContainer> iterator = lowerUtilityNodes.iterator();
-        while(iterator.hasNext() && leaderGroupSize > 0){
+        for (LEContainer leaderGroupNode : leaderGroupNodes) {
             
-            VodAddress lgMemberAddr = iterator.next().getSource();
+            VodAddress lgMemberAddr = leaderGroupNode.getSource();
             leaderGroupAddress.add(lgMemberAddr);
-            
+
             LeaderPromiseMessage.Request promiseRequest = new LeaderPromiseMessage.Request(selfAddress, lgMemberAddr, promiseRoundId, request);
             trigger(promiseRequest, networkPositive);
-            leaderGroupSize --;
+            leaderGroupSize--;
         }
 
         promiseResponseTracker.startTracking(promiseRoundId, leaderGroupAddress);
@@ -303,7 +302,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(LeaderPromiseMessage.Response event) {
 
-            logger.debug("{}: Received Promise Response from : {}", selfAddress.getId(), event.getSource().getId());
+            logger.debug("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
             int numPromises = promiseResponseTracker.addResponseAndGetSize(event);
 
             if(numPromises >= promiseResponseTracker.getLeaderGroupInformationSize()){
@@ -390,6 +389,7 @@ public class ElectionLeader extends ComponentDefinition {
 
             }
             else{
+                logger.debug("{}: Will Not extend the lease anymore.", selfAddress.getId());
                 terminateBeingLeader();
             }
         }
@@ -453,7 +453,7 @@ public class ElectionLeader extends ComponentDefinition {
 
         if(size <= lowerUtilityNodes.size()){
 
-            Iterator<LEContainer> iterator = lowerUtilityNodes.iterator();
+            Iterator<LEContainer> iterator = ((TreeSet)lowerUtilityNodes).descendingIterator();
             while(iterator.hasNext() && size > 0){
 
                 collection.add(iterator.next());

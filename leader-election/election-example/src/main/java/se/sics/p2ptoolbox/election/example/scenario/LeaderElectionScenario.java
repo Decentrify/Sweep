@@ -29,9 +29,25 @@ public class LeaderElectionScenario {
                     }
                 };
 
+                StochasticProcess startTrueLeader = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1, LeaderElectionOperations.startHostManager, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+
+                StochasticProcess updatePeersAgain = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(4, LeaderElectionOperations.updatePeersAddress);
+                    }
+                };
+
                 startHostManager.start();
                 updatePeers.startAfterTerminationOf(10000, startHostManager);
-
+                startTrueLeader.startAfterTerminationOf(30000, updatePeers);
+                updatePeersAgain.startAfterTerminationOf(10000, startTrueLeader);
             }
         };
 

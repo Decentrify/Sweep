@@ -11,6 +11,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -25,7 +26,7 @@ public class LeaderOperationsHelper {
     private static Long identifierSpaceSize = (long) 3000;
 
     private static Collection<VodAddress> addressCollection = new ArrayList<VodAddress>();
-    private static List<VodAddress> copy = new ArrayList<VodAddress>();
+    private static LinkedList<VodAddress> copy = new LinkedList<VodAddress>();
 
     public static HostManagerComp.HostManagerCompInit generateComponentInit (long id){
 
@@ -66,13 +67,22 @@ public class LeaderOperationsHelper {
     }
 
 
+    /**
+     * Simply cycle through the linked list.
+     *
+     * @return Address in rotation.
+     */
     public static VodAddress getUniqueAddress(){
 
         if(copy == null || copy.size() == 0){
             throw new IllegalStateException("No entries in the list to return to");
         }
 
-        return copy.remove(0);
+        
+        VodAddress currentAddress = copy.removeFirst();
+        copy.addLast(currentAddress);
+        
+        return currentAddress;
     }
 
 }
