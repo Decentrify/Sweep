@@ -13,6 +13,7 @@ import se.sics.p2ptoolbox.election.core.ElectionInit;
 import se.sics.p2ptoolbox.election.core.ElectionLeader;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
+import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 import se.sics.p2ptoolbox.election.example.data.PeersUpdate;
 import se.sics.p2ptoolbox.election.example.msg.AddPeers;
 import se.sics.p2ptoolbox.election.example.ports.ApplicationPort;
@@ -45,7 +46,7 @@ public class HostManagerComp extends ComponentDefinition{
         doInit(init);
 
         // Create Configuration for election components.
-        ElectionConfig.ElectionConfigBuilder builder = new ElectionConfig.ElectionConfigBuilder(init.lcpComparator, init.viewSize, null, null);
+        ElectionConfig.ElectionConfigBuilder builder = new ElectionConfig.ElectionConfigBuilder(init.lcpComparator, init.viewSize, null, null, init.filter);
         builder.setLeaseTime(leaseTimeout)
                 .setConvergenceRounds(4)
                 .setConvergenceTest(0.9d);
@@ -115,13 +116,16 @@ public class HostManagerComp extends ComponentDefinition{
         long leaseTimeout;
         Comparator<LCPeerView> lcpComparator;
         private int viewSize;
+        private LeaderFilter filter;
 
-        public HostManagerCompInit(VodAddress selfAddress, long leaseTimeout, Comparator<LCPeerView> lcpComparator, int viewSize){
+
+        public HostManagerCompInit(VodAddress selfAddress, long leaseTimeout, Comparator<LCPeerView> lcpComparator, int viewSize, LeaderFilter filter){
 
             this.selfAddress = selfAddress;
             this.leaseTimeout = leaseTimeout;
             this.lcpComparator = lcpComparator;
-            this.viewSize = viewSize;
+            this.viewSize = viewSize;\
+            this.filter = filter;
 
         }
     }

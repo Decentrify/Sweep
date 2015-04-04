@@ -20,6 +20,7 @@ import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
+import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
@@ -39,6 +40,7 @@ public class ElectionFollower extends ComponentDefinition {
     VodAddress selfAddress;
     LCPeerView selfLCView;
     LEContainer selfContainer;
+    private LeaderFilter filter;
 
     private ElectionConfig config;
     private SortedSet<LEContainer> higherUtilityNodes;
@@ -93,6 +95,7 @@ public class ElectionFollower extends ComponentDefinition {
 
         selfLCView = init.initialView;
         selfContainer = new LEContainer(selfAddress, selfLCView);
+        filter = this.config.getFilter();
 
         lcPeerViewComparator = config.getUtilityComparator();
         this.leContainerComparator = new Comparator<LEContainer>() {
@@ -194,8 +197,25 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(ViewUpdate viewUpdate) {
 
+
+            LCPeerView oldView = selfLCView;
             selfLCView = viewUpdate.selfPv;
             selfContainer = new LEContainer(selfAddress, selfLCView);
+
+
+            if (filter.terminateLeader(oldView, selfLCView)) {
+
+                if(isUnderLease){
+                    logger.debug("{}: Terminate the leader information.", selfAddress.getId());
+
+                    if(leaseTimeoutId != null){
+                        CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
+                        trigger(ct, timerPositive);
+                    }
+                    terminateLeaderInformation();
+                }
+
+            }
         }
     };
 
@@ -303,12 +323,19 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
             logger.debug("{}: Special : Lease timed out.", selfAddress.getId());
-            isUnderLease = false;
-            electionRoundId = null;
-
-            trigger(new ElectionState.DisableLGMembership(), electionPort);
+            terminateLeaderInformation();
         }
     };
+
+
+
+    private void terminateLeaderInformation(){
+
+        isUnderLease = false;
+        electionRoundId = null;
+        trigger(new ElectionState.DisableLGMembership(), electionPort);
+    }
+
 
 
     /**

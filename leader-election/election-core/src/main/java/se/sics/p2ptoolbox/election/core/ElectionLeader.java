@@ -23,6 +23,7 @@ import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
+import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 import se.sics.p2ptoolbox.election.core.util.PromiseResponseTracker;
 import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
@@ -61,12 +62,14 @@ public class ElectionLeader extends ComponentDefinition {
     private long seed;
     private VodAddress selfAddress;
     private Map<VodAddress, LEContainer> addressContainerMap;
-    
+    private LeaderFilter filter;
     // Promise Sub Protocol.
     private UUID promiseRoundId;
     private TimeoutId promiseRoundTimeout;
     private PromiseResponseTracker promiseResponseTracker;
-    
+
+    private TimeoutId leaseTimeoutId;
+
     // Convergence Variables.
     int convergenceCounter;
     boolean isConverged;
@@ -111,7 +114,7 @@ public class ElectionLeader extends ComponentDefinition {
         this.config = init.electionConfig;
         this.seed = init.seed;
         this.selfAddress = init.selfAddress;
-
+        this.filter = config.getFilter();
         // voting protocol.
         isConverged = false;
         promiseResponseTracker = new PromiseResponseTracker();
@@ -187,8 +190,21 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(ViewUpdate viewUpdate) {
 
+            LCPeerView oldView = selfLCView;
             selfLCView = viewUpdate.selfPv;
             selfLEContainer = new LEContainer(selfAddress, selfLCView);
+
+            if (filter.terminateLeader(oldView, selfLCView)) {
+
+                if(isUnderLease){
+
+                    logger.debug("{}: Terminate being the leader.", selfAddress.getId());
+                    CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
+                    trigger(ct, timerPositive);
+
+                    terminateBeingLeader();
+                }
+            }
         }
     };
 
@@ -333,6 +349,7 @@ public class ElectionLeader extends ComponentDefinition {
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
+                    leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, timerPositive);
 
                 }

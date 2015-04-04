@@ -1,6 +1,7 @@
 package se.sics.p2ptoolbox.election.core;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
+import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 
 
 import java.security.PrivateKey;
@@ -21,8 +22,9 @@ public class ElectionConfig {
     private final int convergenceRounds;
     private final double convergenceTest;
     private final int maxLeaderGroupSize;
-    
-    private ElectionConfig(long leaseTime, Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, int maxLeaderGroupSize) {
+    private final LeaderFilter filter;
+
+    private ElectionConfig(long leaseTime, Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, int convergenceRounds, double convergenceTest, int maxLeaderGroupSize, LeaderFilter filter) {
         this.leaseTime = leaseTime;
         this.utilityComparator = utilityComparator;
         this.viewSize = viewSize;
@@ -31,6 +33,7 @@ public class ElectionConfig {
         this.convergenceRounds = convergenceRounds;
         this.convergenceTest = convergenceTest;
         this.maxLeaderGroupSize = maxLeaderGroupSize;
+        this.filter = filter;
     }
 
 
@@ -61,7 +64,10 @@ public class ElectionConfig {
     public PublicKey getPublicKey(){
         return this.publicKey;
     }
-    
+
+    public LeaderFilter getFilter(){
+        return this.filter;
+    }
     /**
      * Builder Class for the Election Configuration.
      * Created by babbarshaer on 2015-03-27.
@@ -76,12 +82,14 @@ public class ElectionConfig {
         private int convergenceRounds = 6;
         private double convergenceTest = 0.8d;
         private int maxLeaderGroupSize = 10;
+        private LeaderFilter filter;
 
-        public ElectionConfigBuilder(Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey){
+        public ElectionConfigBuilder(Comparator<LCPeerView> utilityComparator, int viewSize, PublicKey publicKey, PrivateKey privateKey, LeaderFilter filter){
             this.utilityComparator = utilityComparator;
             this.viewSize = viewSize;
             this.publicKey = publicKey;
             this.privateKey = privateKey;
+            this.filter = filter;
         }
         
         public ElectionConfigBuilder setLeaseTime(long leaseTime){
@@ -105,7 +113,7 @@ public class ElectionConfig {
         }        
         
         public ElectionConfig buildElectionConfig(){
-            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, this.maxLeaderGroupSize);
+            return new ElectionConfig(this.leaseTime, this.utilityComparator, this.viewSize, publicKey, privateKey, convergenceRounds, convergenceTest, this.maxLeaderGroupSize, this.filter);
         }
     }
     

@@ -18,6 +18,6 @@ public interface LeaderFilter {
      * @param updated current view
      * @return terminate leadership
      */
-    public boolean doTerminateBeingLeader(LCPeerView old , LCPeerView updated);
+    public boolean terminateLeader(LCPeerView old, LCPeerView updated);
 
 }

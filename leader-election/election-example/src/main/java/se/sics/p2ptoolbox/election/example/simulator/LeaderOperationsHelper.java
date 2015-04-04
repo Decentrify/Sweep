@@ -6,6 +6,7 @@ import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.election.example.main.LCPComparator;
 import se.sics.p2ptoolbox.election.example.main.HostManagerComp;
+import se.sics.p2ptoolbox.election.example.main.TestFilter;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -45,7 +46,7 @@ public class LeaderOperationsHelper {
         addressCollection.add(selfAddress);
         copy.add(selfAddress);
 
-        HostManagerComp.HostManagerCompInit init = new HostManagerComp.HostManagerCompInit(selfAddress, 30000,  new LCPComparator(), 2);
+        HostManagerComp.HostManagerCompInit init = new HostManagerComp.HostManagerCompInit(selfAddress, 30000,  new LCPComparator(), 2, new TestFilter());
         return init;
     }
 
