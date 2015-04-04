@@ -57,6 +57,7 @@ pocs
 
 leader-election/election-api/target/
 leader-election/election-core/target/
+leader-election/election-example/target/
 
 #lib
 lib

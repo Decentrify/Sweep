@@ -4,9 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.Timeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
-import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
@@ -70,9 +70,9 @@ public class GradientMockUp extends ComponentDefinition {
         }
     };
 
-    public class PeriodicUpdate extends IndividualTimeout{
-        public PeriodicUpdate(se.sics.gvod.timer.SchedulePeriodicTimeout request, int id) {
-            super(request, id);
+    public class PeriodicUpdate extends Timeout{
+        public PeriodicUpdate(se.sics.gvod.timer.SchedulePeriodicTimeout request) {
+            super(request);
         }
     }
 
@@ -97,7 +97,7 @@ public class GradientMockUp extends ComponentDefinition {
             if(cpvCollection.size() > 0){
 
                 SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(2000, 2000);
-                spt.setTimeoutEvent(new PeriodicUpdate(spt, selfAddress.getId()));
+                spt.setTimeoutEvent(new PeriodicUpdate(spt));
                 trigger(spt, timerPort);
 
                 trigger(new MockedGradientUpdate(cpvCollection), testPort);

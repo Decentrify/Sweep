@@ -124,7 +124,7 @@ public class HostManagerComp extends ComponentDefinition{
             this.selfAddress = selfAddress;
             this.leaseTimeout = leaseTimeout;
             this.lcpComparator = lcpComparator;
-            this.viewSize = viewSize;\
+            this.viewSize = viewSize;
             this.filter = filter;
 
         }
