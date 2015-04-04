@@ -26,14 +26,13 @@ import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
 import java.security.PublicKey;
 import java.util.*;
-import java.util.Timer;
 import java.util.UUID;
 
 /**
  * Election Follower part of the Leader Election Protocol.
  * 
  */
-public class ElectionFollower extends ComponentDefinition{
+public class ElectionFollower extends ComponentDefinition {
 
     Logger logger = LoggerFactory.getLogger(ElectionFollower.class);
     
@@ -68,7 +67,7 @@ public class ElectionFollower extends ComponentDefinition{
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
     Negative<TestPort> testPortNegative = provides(TestPort.class);
 
-    public ElectionFollower(ElectionFollowerInit init){
+    public ElectionFollower(ElectionInit<ElectionFollower> init){
         
         doInit(init);
 
@@ -86,13 +85,13 @@ public class ElectionFollower extends ComponentDefinition{
         subscribe(leaderExtensionRequestHandler, networkPositive);
     }
 
-    private void doInit(ElectionFollowerInit init) {
+    private void doInit(ElectionInit<ElectionFollower> init) {
 
         config = init.electionConfig;
         selfAddress = init.selfAddress;
         addressContainerMap = new HashMap<VodAddress, LEContainer>();
 
-        selfLCView = init.selfView;
+        selfLCView = init.initialView;
         selfContainer = new LEContainer(selfAddress, selfLCView);
 
         lcPeerViewComparator = config.getUtilityComparator();
@@ -374,24 +373,6 @@ public class ElectionFollower extends ComponentDefinition{
      */
     public void storeCurrentLeaderInformation(){
 
-    }
-
-    /**
-     * Initialization Class for the Leader Election Component.
-     */
-    public static class ElectionFollowerInit extends Init<ElectionFollower> {
-
-        VodAddress selfAddress;
-        LCPeerView selfView;
-        long seed;
-        ElectionConfig electionConfig;
-
-        public ElectionFollowerInit(VodAddress selfAddress, LCPeerView selfView, long seed, ElectionConfig electionConfig){
-            this.selfAddress = selfAddress;
-            this.selfView = selfView;
-            this.seed = seed;
-            this.electionConfig = electionConfig;
-        }
     }
     
 }

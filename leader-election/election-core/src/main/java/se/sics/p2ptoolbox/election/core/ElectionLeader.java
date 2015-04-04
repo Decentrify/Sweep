@@ -8,7 +8,6 @@ import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
-import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -80,8 +79,6 @@ public class ElectionLeader extends ComponentDefinition {
     private Comparator<LCPeerView> lcPeerViewComparator;
     private Comparator<LEContainer> leContainerComparator;
 
-    private Comparator<CroupierPeerView> cpvUtilityComparator;
-    
     // Ports.
     Positive<Timer> timerPositive = requires(Timer.class);
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
@@ -89,7 +86,7 @@ public class ElectionLeader extends ComponentDefinition {
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Negative<TestPort> testPortNegative = provides(TestPort.class);
     
-    public ElectionLeader(LeaderElectionInit init){
+    public ElectionLeader(ElectionInit<ElectionLeader> init){
         
         doInit(init);
         subscribe(startHandler, control);
@@ -109,7 +106,7 @@ public class ElectionLeader extends ComponentDefinition {
     
     
     // Init method.
-    private void doInit(LeaderElectionInit init) {
+    private void doInit(ElectionInit<ElectionLeader> init) {
 
         this.config = init.electionConfig;
         this.seed = init.seed;
@@ -119,7 +116,7 @@ public class ElectionLeader extends ComponentDefinition {
         isConverged = false;
         promiseResponseTracker = new PromiseResponseTracker();
 
-        this.selfLCView = init.selfView;
+        this.selfLCView = init.initialView;
         this.selfLEContainer = new LEContainer(selfAddress, selfLCView);
         this.addressContainerMap = new HashMap<VodAddress, LEContainer>();
 
@@ -464,24 +461,4 @@ public class ElectionLeader extends ComponentDefinition {
         return collection;
     }
 
-
-
-
-    /**
-     * Initialization Class for the Leader Election Component.
-     */
-    public static class LeaderElectionInit extends Init<ElectionLeader>{
-        
-        VodAddress selfAddress;
-        LCPeerView selfView;
-        long seed;
-        ElectionConfig electionConfig;
-        
-        public LeaderElectionInit(VodAddress selfAddress, LCPeerView selfView, long seed, ElectionConfig electionConfig){
-            this.selfAddress = selfAddress;
-            this.selfView = selfView;
-            this.seed = seed;
-            this.electionConfig = electionConfig;
-        }
-    }
 }

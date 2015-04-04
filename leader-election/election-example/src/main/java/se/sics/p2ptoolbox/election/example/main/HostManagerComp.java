@@ -1,6 +1,5 @@
 package se.sics.p2ptoolbox.election.example.main;
 
-import junit.framework.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
@@ -10,6 +9,7 @@ import se.sics.kompics.*;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.api.ports.TestPort;
+import se.sics.p2ptoolbox.election.core.ElectionInit;
 import se.sics.p2ptoolbox.election.core.ElectionLeader;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
@@ -53,8 +53,8 @@ public class HostManagerComp extends ComponentDefinition{
         ElectionConfig config = builder.buildElectionConfig();
 
         // Create necessary components.
-        electionLeader = create(ElectionLeader.class, new ElectionLeader.LeaderElectionInit(selfAddress, selfView, 100, config));
-        electionFollower = create(ElectionFollower.class, new ElectionFollower.ElectionFollowerInit(selfAddress, selfView, 100, config));
+        electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(selfAddress, selfView, 100, config));
+        electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(selfAddress, selfView, 100, config));
         gradientMockUp = create(GradientMockUp.class, new GradientMockUp.GradientMockUpInit(selfAddress));
 
         // Make the necessary connections.
