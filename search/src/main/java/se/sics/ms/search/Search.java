@@ -394,7 +394,7 @@ public final class Search extends ComponentDefinition {
             trigger(rst, timerPort);
 
             // Bootup the croupier with default configuration.
-            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, 0, 0));
+            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), new SearchDescriptor(new OverlayAddress(self.getAddress()), false, 0, 0));
             trigger(initialCroupierBootupUpdate, croupierPortPositive);
             
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
@@ -2942,7 +2942,7 @@ public final class Search extends ComponentDefinition {
      */
     private void informListeningComponentsAboutUpdates(MsSelfImpl self){
 
-        SearchDescriptor updatedDesc = new SearchDescriptor(new OverlayAddress(self.getAddress()), 0, false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth());
+        SearchDescriptor updatedDesc = new SearchDescriptor(new OverlayAddress(self.getAddress()), false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth());
         
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);

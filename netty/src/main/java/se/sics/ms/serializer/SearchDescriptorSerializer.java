@@ -34,7 +34,7 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         try {
             
             UserTypesEncoderFactory.writeVodAddress(buffer, descriptor.getVodAddress());
-            buffer.writeInt(descriptor.getAge());
+//            buffer.writeInt(descriptor.getAge());
             buffer.writeLong(descriptor.getNumberOfIndexEntries());
             buffer.writeInt(descriptor.getReceivedPartitionDepth());
             
@@ -63,11 +63,11 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         try {
 
             VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
-            int age = byteBuf.readInt();
+//            int age = byteBuf.readInt();
             long numberOfIndexEntries = byteBuf.readLong();
             int partitioningDepth = byteBuf.readInt();
             
-            descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),age,false,numberOfIndexEntries,partitioningDepth);
+            descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries,partitioningDepth);
             
             
         } catch (MessageDecodingException e) {
@@ -91,7 +91,7 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         size += (addr.getParents().isEmpty() ? 2 : 2 + addr.getParents().size() * UserTypesEncoderFactory.ADDRESS_LEN);
         
         // Age.
-        size+= Integer.SIZE/8;
+//        size+= Integer.SIZE/8;
         
         // Index Entries.
         size += Long.SIZE/8;

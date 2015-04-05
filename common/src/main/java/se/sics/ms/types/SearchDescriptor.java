@@ -9,22 +9,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Main descriptor used by application to indicate the current state of the 
+ * node.
+ *
  * Created by alidar on 8/11/14.
  */
 public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, PeerView {
 
-    private int age;
+//    private int age;
     private transient boolean connected;
     private OverlayAddress overlayAddress;
     private final long numberOfIndexEntries;
 
     private int receivedPartitionDepth;
 
-    //// Conversion functions
     // FIXME: Do we still need VodDescriptor. If not Fix it. ?
     public static VodDescriptor toVodDescriptor(SearchDescriptor searchDescriptor) {
         VodDescriptor descriptor = new VodDescriptor(searchDescriptor.getVodAddress(), searchDescriptor.getNumberOfIndexEntries());
-        descriptor.setAge(searchDescriptor.getAge());
+//        descriptor.setAge(searchDescriptor.getAge());
         descriptor.setConnected(searchDescriptor.isConnected());
 
         return descriptor;
@@ -54,41 +56,41 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     ////
 
     public SearchDescriptor(VodDescriptor descriptor) {
-        this(descriptor.getVodAddress(), descriptor.getAge(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
+        this(descriptor.getVodAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress) {
-        this(vodAddress, 0, false,0,0);
+        this(vodAddress, false,0,0);
     }
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age) {
-        this(vodAddress, age, false,0,0);
-    }
+//    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age) {
+//        this(vodAddress, false,0,0);
+//
+//    }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, SearchDescriptor searchDescriptor) {
-        this(vodAddress, searchDescriptor.getAge(), searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getReceivedPartitionDepth());
+        this(vodAddress, searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getReceivedPartitionDepth());
     }
 
-    public SearchDescriptor(VodAddress vodAddress, int age, boolean connected, long numberOfIndexEntries){
-        this(new OverlayAddress(vodAddress), age, connected , numberOfIndexEntries);
+    public SearchDescriptor(VodAddress vodAddress, boolean connected, long numberOfIndexEntries){
+        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries);
     }
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, int age, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
-        this(new OverlayAddress(vodAddress), age, connected , numberOfIndexEntries, receivedPartitionDepth);
+    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
+        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries, receivedPartitionDepth);
     }
 
     // Convenience Constructor to create the SearchDescriptor from the VodDescriptor and use same Partitioning Depth.
-    public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries){
-        this(overlayAddress, age, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
+    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
+        this(overlayAddress, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
     }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(descriptor.getOverlayAddress(), descriptor.getAge(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.getReceivedPartitionDepth());
+        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.getReceivedPartitionDepth());
     }
 
-    public SearchDescriptor(OverlayAddress overlayAddress, int age, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth){
+    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth){
         this.overlayAddress = overlayAddress;
-        setAge(age);
         this.connected = connected;
         this.numberOfIndexEntries = numberOfIndexEntries;
         this.receivedPartitionDepth  = receivedPartitionDepth;
@@ -99,17 +101,17 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         return this.overlayAddress.getAddress();
     }
 
-    public int getAge() {
-        return age;
-    }
+//    public int getAge() {
+//        return age;
+//    }
 
     public int getId() {
         return this.overlayAddress.getId();
     }
 
-    public int incrementAndGetAge() {
-        return ++age;
-    }
+//    public int incrementAndGetAge() {
+//        return ++age;
+//    }
 
     public boolean isConnected() {
         return connected;
@@ -130,15 +132,15 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         return overlayAddress;
     }
 
-    public void setAge(int age) {
-        if (age > 65535) {
-            age = 65535;
-        }
-        if (age < 0) {
-            age = 0;
-        }
-        this.age = age;
-    }
+//    public void setAge(int age) {
+//        if (age > 65535) {
+//            age = 65535;
+//        }
+//        if (age < 0) {
+//            age = 0;
+//        }
+//        this.age = age;
+//    }
 
     @Override
     public int compareTo(SearchDescriptor that) {
@@ -245,6 +247,6 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     
     @Override
     public SearchDescriptor deepCopy() {
-        return new SearchDescriptor(this.getOverlayAddress(), this.getAge() , this.isConnected(), this.getNumberOfIndexEntries(), this.getReceivedPartitionDepth());
+        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.getReceivedPartitionDepth());
     }
 }

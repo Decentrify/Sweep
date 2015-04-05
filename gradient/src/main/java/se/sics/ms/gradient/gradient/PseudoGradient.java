@@ -89,7 +89,6 @@ public final class PseudoGradient extends ComponentDefinition {
     private long[] latestRtts;
     String compName;
 
-    private Map<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>> routingTable;
     private TreeSet<SearchDescriptor> gradientEntrySet;
     private SimpleUtilityComparator utilityComparator;
 
@@ -125,9 +124,11 @@ public final class PseudoGradient extends ComponentDefinition {
                 return 1;
             } else if (t0.isConnected() && !t1.isConnected()) {
                 return -1;
-            } else if (t0.getAge() > t1.getAge()) {
-                return 1;
-            } else {
+            } 
+//            else if (t0.getAge() > t1.getAge()) {
+//                return 1;
+//            }
+            else {
                 return -1;
             }
         }
@@ -196,7 +197,6 @@ public final class PseudoGradient extends ComponentDefinition {
         config = init.getConfiguration();
         random = new Random(init.getConfiguration().getSeed());
 
-        routingTable = new HashMap<MsConfig.Categories, Map<Integer, HashSet<SearchDescriptor>>>();
         leader = false;
         leaderAddress = null;
         latestRtts = new long[config.getLatestRttStoreLimit()];
@@ -222,23 +222,7 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
     private void removeNodeFromRoutingTable(OverlayAddress nodeToRemove) {
-        MsConfig.Categories category = categoryFromCategoryId(nodeToRemove.getCategoryId());
-        Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
-        if (categoryRoutingMap != null) {
-            Set<SearchDescriptor> bucket = categoryRoutingMap.get(nodeToRemove.getPartitionId());
-
-            if (bucket != null) {
-                Iterator<SearchDescriptor> i = bucket.iterator();
-                while (i.hasNext()) {
-                    SearchDescriptor descriptor = i.next();
-
-                    if (descriptor.getVodAddress().equals(nodeToRemove.getAddress())) {
-                        i.remove();
-                        break;
-                    }
-                }
-            }
-        }
+        //TODO: Implement the removal of node from the routing table.
     }
 
     private void removeNodesFromLocalState(HashSet<VodAddress> nodesToRemove) {
@@ -261,7 +245,10 @@ public final class PseudoGradient extends ComponentDefinition {
 
         @Override
         public void handle(FailureDetectorPort.FailureDetectorEvent event) {
-            removeNodesFromLocalState(event.getSuspectedNodes());
+            
+//            removeNodesFromLocalState(event.getSuspectedNodes());
+            logger.debug("Need to implement this functionality");
+            //TODO: Implement it for the new routing table.
         }
     };
 
@@ -292,23 +279,8 @@ public final class PseudoGradient extends ComponentDefinition {
 
             if (croupierPeerView.pv instanceof SearchDescriptor) {
                 SearchDescriptor currentDescriptor = (SearchDescriptor) croupierPeerView.pv;
-                currentDescriptor.setAge(croupierPeerView.getAge());
+//                currentDescriptor.setAge(croupierPeerView.getAge());
                 baseList.add(currentDescriptor);
-            }
-        }
-    }
-
-
-    /**
-     * On each of merge of the random samples,
-     * increment the age of routing table entries.
-     */
-    private void incrementRoutingTableAge() {
-        for (Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap : routingTable.values()) {
-            for (HashSet<SearchDescriptor> bucket : categoryRoutingMap.values()) {
-                for (SearchDescriptor descriptor : bucket) {
-                    descriptor.incrementAndGetAge();
-                }
             }
         }
     }
@@ -327,44 +299,6 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     }
-
-
-    /**
-     * Based on the collection of the peers supplied, update the current routing table.
-     * A mechanism to clean the routing table by removing the old entries.
-     *
-     * @param nodes collection of peers
-     */
-    private void addRoutingTableEntries(Collection<SearchDescriptor> nodes) {
-
-        for (SearchDescriptor searchDescriptor : nodes) {
-            MsConfig.Categories category = categoryFromCategoryId(searchDescriptor.getOverlayId().getCategoryId());
-            int partition = searchDescriptor.getOverlayAddress().getPartitionId();
-
-            Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
-            if (categoryRoutingMap == null) {
-                categoryRoutingMap = new HashMap<Integer, HashSet<SearchDescriptor>>();
-                routingTable.put(category, categoryRoutingMap);
-            }
-
-            HashSet<SearchDescriptor> bucket = categoryRoutingMap.get(partition);
-            if (bucket == null) {
-                bucket = new HashSet<SearchDescriptor>();
-                categoryRoutingMap.put(partition, bucket);
-
-                PartitionId newPartitionId = new PartitionId(searchDescriptor.getOverlayAddress().getPartitioningType(),
-                        searchDescriptor.getOverlayAddress().getPartitionIdDepth(), searchDescriptor.getOverlayAddress().getPartitionId());
-                updateBucketsInRoutingTable(newPartitionId, categoryRoutingMap, bucket);
-            }
-
-            bucket.add(searchDescriptor);
-            TreeSet<SearchDescriptor> sortedBucket = sortByConnectivity(bucket);
-            while (bucket.size() > config.getMaxNumRoutingEntries()) {
-                bucket.remove(sortedBucket.pollLast());
-            }
-        }
-    }
-
 
     /**
      * Based on the provided collection of the nodes, update the routing table information.
@@ -504,16 +438,95 @@ public final class PseudoGradient extends ComponentDefinition {
     final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
         @Override
         public void handle(NodeCrashEvent event) {
+            
             VodAddress deadNode = event.getDeadNode();
-
             publishUnresponsiveNode(deadNode);
         }
     };
 
 
+//    final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
+//        @Override
+//        public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
+//
+//            MsConfig.Categories selfCategory = categoryFromCategoryId(self.getCategoryId());
+//            MsConfig.Categories addCategory = event.getEntry().getCategory();
+//
+//            indexEntryToAdd = event.getEntry();
+//            addIndexEntryRequestTimeoutId = event.getTimeoutId();
+//            locatedLeaders.clear();
+//
+//            queriedNodes.clear();
+//            openRequests.clear();
+//            leadersAlreadyComunicated.clear();
+//
+//            if (addCategory == selfCategory) {
+//                if (leader) {
+//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
+//                }
+//
+//                //if we have direct pointer to the leader
+//                else if (leaderAddress != null) {
+//                    //sendLeaderLookupRequest(new SearchDescriptor(leaderAddress));
+//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
+//                } else {
+//                    NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
+//                    startNodes.addAll(getGradientSample());
+//
+//                    Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
+//                    if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
+//                        HashSet<SearchDescriptor> croupierNodes = croupierPartitions.get(self.getPartitionId());
+//                        if (croupierNodes != null && !croupierNodes.isEmpty()) {
+//                            startNodes.addAll(croupierNodes);
+//                        }
+//                    }
+//
+//                    Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
+//
+//                    for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+//                        SearchDescriptor node = iterator.next();
+//                        sendLeaderLookupRequest(node);
+//                    }
+//                }
+//            } else {
+//                Map<Integer, HashSet<SearchDescriptor>> partitions = routingTable.get(addCategory);
+//                if (partitions == null || partitions.isEmpty()) {
+//                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
+//                    return;
+//                }
+//
+//                ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
+//                int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
+//
+//                HashSet<SearchDescriptor> startNodes = partitions.get(categoryPartitionsIds.get(categoryPartitionId));
+//                if (startNodes == null) {
+//                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(),
+//                            categoryPartitionsIds.get(categoryPartitionId));
+//                    return;
+//                }
+//
+//                // Need to sort it every time because values like RTT might have been changed
+//                SortedSet<SearchDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
+//                Iterator iterator = sortedStartNodes.iterator();
+//
+//                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+//                    SearchDescriptor node = (SearchDescriptor) iterator.next();
+//                    sendLeaderLookupRequest(node);
+//                }
+//            }
+//        }
+//    };
+
+
+    /**
+     * Received an add entry request event from the application which requires the gradient
+     * component to identify the parameters of the index entry to be added and take appropriate action.
+     */
+    
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
+
             MsConfig.Categories selfCategory = categoryFromCategoryId(self.getCategoryId());
             MsConfig.Categories addCategory = event.getEntry().getCategory();
 
@@ -525,36 +538,36 @@ public final class PseudoGradient extends ComponentDefinition {
             openRequests.clear();
             leadersAlreadyComunicated.clear();
 
+            
+            
             if (addCategory == selfCategory) {
+                
+                // If the node is from the same category.    
                 if (leader) {
                     trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
                 }
 
-                //if we have direct pointer to the leader
+                // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
-                    //sendLeaderLookupRequest(new SearchDescriptor(leaderAddress));
                     trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
-                } else {
+                }
+                // Ask nodes above me for the leader pointer.
+                else {
+                    
                     NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
                     startNodes.addAll(getGradientSample());
 
-                    Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
-                    if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
-                        HashSet<SearchDescriptor> croupierNodes = croupierPartitions.get(self.getPartitionId());
-                        if (croupierNodes != null && !croupierNodes.isEmpty()) {
-                            startNodes.addAll(croupierNodes);
-                        }
-                    }
-
                     Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
-
                     for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
                         SearchDescriptor node = iterator.next();
                         sendLeaderLookupRequest(node);
                     }
                 }
-            } else {
-                Map<Integer, HashSet<SearchDescriptor>> partitions = routingTable.get(addCategory);
+            }
+            // In case the request is to add entry for a different category.
+            else {
+                Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> partitions = routingTableUpdated.get(addCategory);
+                
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
                     return;
@@ -562,11 +575,10 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
                 int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
-
-                HashSet<SearchDescriptor> startNodes = partitions.get(categoryPartitionsIds.get(categoryPartitionId));
-                if (startNodes == null) {
-                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(),
-                            categoryPartitionsIds.get(categoryPartitionId));
+                
+                HashSet<SearchDescriptor> startNodes = getSearchDescriptorSet(partitions.get(categoryPartitionsIds.get(categoryPartitionId)).getValue1().values());
+                if (startNodes == null || startNodes.isEmpty()) {
+                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), categoryPartitionsIds.get(categoryPartitionId));
                     return;
                 }
 
@@ -581,6 +593,26 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     };
+
+    /**
+     * Helper method to construct a set of the search descriptor collection from the
+     * @param cpvCollection
+     * @return
+     */
+    private HashSet<SearchDescriptor> getSearchDescriptorSet(Collection<CroupierPeerView> cpvCollection){
+     
+        HashSet<SearchDescriptor> descriptorSet = new HashSet<SearchDescriptor>();
+        for(CroupierPeerView cpv : cpvCollection){
+            
+            if(cpv.pv instanceof  SearchDescriptor){
+                descriptorSet.add((SearchDescriptor)cpv.pv);    
+            }
+        }
+        
+        return descriptorSet;
+    }
+    
+    
 
     final Handler<LeaderLookupMessage.RequestTimeout> handleLeaderLookupRequestTimeout = new Handler<LeaderLookupMessage.RequestTimeout>() {
         @Override
@@ -696,6 +728,7 @@ public final class PseudoGradient extends ComponentDefinition {
      * @param node Peer
      */
     private void sendLeaderLookupRequest(SearchDescriptor node) {
+        
         ScheduleTimeout scheduleTimeout = new ScheduleTimeout(config.getLeaderLookupTimeout());
         scheduleTimeout.setTimeoutEvent(new LeaderLookupMessage.RequestTimeout(scheduleTimeout, self.getId()));
         scheduleTimeout.getTimeoutEvent().setTimeoutId(UUID.nextUUID());
@@ -765,63 +798,6 @@ public final class PseudoGradient extends ComponentDefinition {
      * During searching for text, request sent to look into the routing table and
      * fetch the nodes from the neighbouring partitions and also from other categories.
      */
-    final Handler<GradientRoutingPort.SearchRequest> handleSearchRequest = new Handler<GradientRoutingPort.SearchRequest>() {
-        @Override
-        public void handle(GradientRoutingPort.SearchRequest event) {
-            MsConfig.Categories category = event.getPattern().getCategory();
-            Map<Integer, HashSet<SearchDescriptor>> categoryRoutingMap = routingTable.get(category);
-
-            if (categoryRoutingMap == null) {
-                return;
-            }
-            trigger(new NumberOfPartitions(event.getTimeoutId(), categoryRoutingMap.keySet().size()), gradientRoutingPort);
-
-            for (Integer partition : categoryRoutingMap.keySet()) {
-                if (partition == self.getPartitionId()
-                        && category == categoryFromCategoryId(self.getCategoryId())) {
-                    trigger(new SearchMessage.Request(self.getAddress(), self.getAddress(),
-                            event.getTimeoutId(), event.getTimeoutId(), event.getPattern(),
-                            partition), networkPort);
-
-                    continue;
-                }
-
-                TreeSet<SearchDescriptor> bucket = sortByConnectivity(categoryRoutingMap.get(partition));
-                TreeSet<SearchDescriptor> unconnectedNodes = null;
-                Iterator<SearchDescriptor> iterator = bucket.iterator();
-                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
-                    SearchDescriptor searchDescriptor = iterator.next();
-
-                    RTTStore.RTT rtt = RTTStore.getRtt(searchDescriptor.getId(), searchDescriptor.getVodAddress());
-                    double latestRttsAvg = getLatestRttsAvg();
-                    if (rtt != null && latestRttsAvg != 0 && rtt.getRttStats().getAvgRTT() > (config.getRttAnomalyTolerance() * latestRttsAvg)) {
-                        if (unconnectedNodes == null) {
-                            unconnectedNodes = getUnconnectedNodes(bucket);
-                        }
-
-                        if (!unconnectedNodes.isEmpty()) {
-                            searchDescriptor = unconnectedNodes.pollFirst();
-                        }
-                    }
-
-                    ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
-                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));
-                    trigger(scheduleTimeout, timerPort);
-                    trigger(new SearchMessage.Request(self.getAddress(), searchDescriptor.getVodAddress(),
-                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
-                            partition), networkPort);
-
-                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
-                    searchDescriptor.setConnected(true);
-                }
-            }
-        }
-    };
-
-    /**
-     * During searching for text, request sent to look into the routing table and
-     * fetch the nodes from the neighbouring partitions and also from other categories.
-     */
     final Handler<GradientRoutingPort.SearchRequest> searchRequestHandler = new Handler<GradientRoutingPort.SearchRequest>() {
         @Override
         public void handle(GradientRoutingPort.SearchRequest event) {
@@ -869,25 +845,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
-        @Override
-        public void handle(SearchMessage.Response event) {
-
-            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
-
-            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
-            trigger(cancelTimeout, timerPort);
-
-            Long timeStarted = shuffleTimes.remove(event.getTimeoutId().getId());
-            if (timeStarted == null) {
-                return;
-            }
-            long rtt = System.currentTimeMillis() - timeStarted;
-            RTTStore.addSample(self.getId(), event.getVodSource(), rtt);
-            updateLatestRtts(rtt);
-        }
-    };
-
 
     final Handler<SearchMessage.Response> searchResponseHandler = new Handler<SearchMessage.Response>() {
         @Override
@@ -895,16 +852,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
             CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
             trigger(cancelTimeout, timerPort);
-        }
-    };
-
-    final Handler<SearchMessage.RequestTimeout> handleSearchRequestTimeout = new Handler<SearchMessage.RequestTimeout>() {
-        @Override
-        public void handle(SearchMessage.RequestTimeout event) {
-            SearchDescriptor unresponsiveNode = event.getSearchDescriptor();
-
-            shuffleTimes.remove(event.getTimeoutId().getId());
-            publishUnresponsiveNode(unresponsiveNode.getVodAddress());
         }
     };
 
@@ -987,33 +934,6 @@ public final class PseudoGradient extends ComponentDefinition {
     private TreeSet<SearchDescriptor> sortByConnectivity(Collection<SearchDescriptor> searchDescriptors) {
         return new TreeSet<SearchDescriptor>(searchDescriptors);
     }
-
-    /**
-     * Based on the age of the collection sample, apply a simple sort.
-     *
-     * @param croupierPVCollection
-     * @return
-     */
-    private TreeSet<CroupierPeerView> sortByAge(Collection<CroupierPeerView> croupierPVCollection) {
-        TreeSet<CroupierPeerView> set = new TreeSet<CroupierPeerView>(ageComparator);
-        set.addAll(croupierPVCollection);
-        return set;
-    }
-
-
-    /**
-     * Based on the values collection provided sort and then reverse the collection.
-     * @param cpvCollection
-     * @return Sorted Collection.
-     */
-    private Collection<CroupierPeerView> sortByAgeAndInvert(Collection<CroupierPeerView> cpvCollection){
-
-        List<CroupierPeerView> list = new ArrayList<CroupierPeerView>();
-        list.addAll(cpvCollection);
-        Collections.sort(list, invertedAgeComparator);
-        return list;
-    }
-
 
     /**
      * Generic method used to return a sorted list.
@@ -1195,7 +1115,7 @@ public final class PseudoGradient extends ComponentDefinition {
         Set<SearchDescriptor> nodes = getGradientSample();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
-            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getReceivedPartitionDepth() + ":" + d.getAge()).append(", ");
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getReceivedPartitionDepth()).append(", ");
 
         }
         sb.append("}");
@@ -1279,24 +1199,6 @@ public final class PseudoGradient extends ComponentDefinition {
     private boolean isChanged() {
         return changed;
     }
-
-
-    /**
-     * Print the current routing table information.
-     */
-    private void publishRoutingTable() {
-
-
-        for (Map<Integer, HashSet<SearchDescriptor>> categoryMap : routingTable.values()) {
-            for (Map.Entry<Integer, HashSet<SearchDescriptor>> bucket : categoryMap.entrySet()) {
-
-                for (SearchDescriptor descriptor : bucket.getValue()) {
-                    logger.debug("RoutingTable: PartitionId: {} DescriptorId: {}", bucket.getKey(), descriptor.getId());
-                }
-            }
-        }
-    }
-
 
     private void publishUpdatedRoutingTable() {
 
