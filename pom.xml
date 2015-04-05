@@ -57,6 +57,7 @@
         <croupier.version>1.2-SNAPSHOT</croupier.version>
         <gradient.version>1.0-SNAPSHOT</gradient.version>
         <global.aggregator.version>1.0-SNAPSHOT</global.aggregator.version>
+        <election.version>1.0-SNAPSHOT</election.version>
     </properties>
 
 
