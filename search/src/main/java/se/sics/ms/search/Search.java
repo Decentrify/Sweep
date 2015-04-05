@@ -257,51 +257,61 @@ public final class Search extends ComponentDefinition {
         subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
+        
         subscribe(handleGradientIndexHashExchangeResponse, gradientRoutingPort);
         subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleIndexExchangeResponse, chunkManagerPort);
+        
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, chunkManagerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
+        
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(handleLeaderStatus, leaderStatusPort);
         subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(searchRequestHandler, uiPort);
+        
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
         subscribe(handlePrepareCommitResponse, networkPort);
+        
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
         subscribe(addIndexEntryRequestHandler, uiPort);
+        
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
+        
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
         subscribe(handlerPartitionPrepareResponse, networkPort);
         subscribe(handlePartitionCommitTimeout, timerPort);
+        
         subscribe(handlerPartitionCommitRequest, networkPort);
         subscribe(handlerPartitionCommitResponse, networkPort);
         subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
+        
         // Generic Control message exchange mechanism
         subscribe(handlerControlMessageExchangeRound, timerPort);
         subscribe(handlerControlMessageRequest, networkPort);
         subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
+        
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
         subscribe(gradientSampleHandler, gradientPort);

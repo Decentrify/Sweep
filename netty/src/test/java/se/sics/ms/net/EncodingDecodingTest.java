@@ -75,7 +75,7 @@ public class EncodingDecodingTest {
         inetDest = new InetSocketAddress(self, 65535);
         gSrc = new VodAddress(src, VodConfig.SYSTEM_OVERLAY_ID);
         gDest = new VodAddress(dest, VodConfig.SYSTEM_OVERLAY_ID);
-        nodeDescriptor = new SearchDescriptor(gSrc, age);
+        nodeDescriptor = new SearchDescriptor(gSrc);
         descriptors.add(nodeDescriptor);
         nat = new Nat(Nat.Type.NAT,
                 Nat.MappingPolicy.HOST_DEPENDENT,

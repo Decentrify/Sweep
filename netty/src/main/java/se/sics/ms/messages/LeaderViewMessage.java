@@ -56,7 +56,8 @@ public class LeaderViewMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(leaderSearchDescriptor));
+//        UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(leaderSearchDescriptor));
+        ApplicationTypesEncoderFactory.writeSearchDescriptor(buffer, leaderSearchDescriptor);
         ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, searchDescriptors);
         ApplicationTypesEncoderFactory.writePublicKey(buffer, leaderPublicKey);
         return buffer;

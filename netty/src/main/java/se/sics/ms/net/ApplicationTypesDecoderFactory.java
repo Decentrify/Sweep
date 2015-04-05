@@ -166,12 +166,29 @@ public class ApplicationTypesDecoderFactory {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
         Set<SearchDescriptor> addrs = new HashSet<SearchDescriptor>();
         for (int i = 0; i < len; i++) {
-            SearchDescriptor currentSearchDescriptor = new SearchDescriptor(readVodNodeDescriptor(buffer));
-            int receivedPartitionDepth = buffer.readInt();
-            currentSearchDescriptor.setReceivedPartitionDepth(receivedPartitionDepth);
+            SearchDescriptor currentSearchDescriptor = readSearchDescriptor(buffer);
             addrs.add(currentSearchDescriptor);
         }
         return addrs;
+    }
+
+    /**
+     * Based on the buffer passed, create a search descriptor instance.
+     * @param byteBuf buffer
+     * @return decoded search descriptor
+     *
+     * @throws MessageDecodingException
+     */
+    public static SearchDescriptor readSearchDescriptor(ByteBuf byteBuf) throws MessageDecodingException {
+        
+        SearchDescriptor descriptor;
+        
+        VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
+        long numberOfIndexEntries = byteBuf.readLong();
+        int partitioningDepth = byteBuf.readInt();
+
+        descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries,partitioningDepth);
+        return descriptor;
     }
 
 

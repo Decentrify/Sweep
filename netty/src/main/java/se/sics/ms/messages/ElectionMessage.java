@@ -7,6 +7,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -55,8 +56,9 @@ public class ElectionMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeInt(voteID);
-            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer,
-                    SearchDescriptor.toVodDescriptor(leaderCandicateDescriptor));
+//            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer,
+//                    SearchDescriptor.toVodDescriptor(leaderCandicateDescriptor));
+            ApplicationTypesEncoderFactory.writeSearchDescriptor(buffer, leaderCandicateDescriptor);
             return buffer;
         }
     }
@@ -102,7 +104,8 @@ public class ElectionMessage {
             buffer.writeInt(voteId);
             UserTypesEncoderFactory.writeBoolean(buffer, isConvereged);
             UserTypesEncoderFactory.writeBoolean(buffer, vote);
-            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(highestUtilityNode));
+//            UserTypesEncoderFactory.writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(highestUtilityNode));
+            ApplicationTypesEncoderFactory.writeSearchDescriptor(buffer, highestUtilityNode);
             return buffer;
         }
 

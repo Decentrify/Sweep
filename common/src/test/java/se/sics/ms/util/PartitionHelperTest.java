@@ -54,18 +54,6 @@ public class PartitionHelperTest {
         Assert.assertEquals(3, otherPartitionId);
     }
 
-
-
-//    @Test
-//    public void removeOldBucketsTest() {
-//
-//        Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> routingMap= init();
-//        PartitionId testPartitionId = new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, 2, 3);
-//
-//        PartitionHelper.removeOldBuckets(testPartitionId, routingMap);
-//        Assert.assertEquals("Map size test", 1, routingMap.size());
-//    }
-
     /**
      * Initialize Method.
      */
@@ -75,14 +63,14 @@ public class PartitionHelperTest {
         int  ovid2 = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 0, 0);
         
         Address ad1 = new Address(ipAddress, 9000, 10000);
-        VodAddress vod1 = new VodAddress(ad1, 0);
-        SearchDescriptor sd1 = new SearchDescriptor(vod1, ovid1);
+        VodAddress vod1 = new VodAddress(ad1, ovid1);
+        SearchDescriptor sd1 = new SearchDescriptor(vod1);
         HashSet<SearchDescriptor> hs1 = new HashSet<SearchDescriptor>();
         hs1.add(sd1);
         
         Address ad2 = new Address(ipAddress, 10000, 110000);
-        VodAddress vod2 = new VodAddress(ad2, 0);
-        SearchDescriptor sd2 = new SearchDescriptor(vod2, ovid2);
+        VodAddress vod2 = new VodAddress(ad2, ovid2);
+        SearchDescriptor sd2 = new SearchDescriptor(vod2);
         HashSet<SearchDescriptor> hs2 = new HashSet<SearchDescriptor>();
         hs2.add(sd2);
         

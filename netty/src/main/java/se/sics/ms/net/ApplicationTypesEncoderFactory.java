@@ -139,11 +139,18 @@ public class ApplicationTypesEncoderFactory {
         }
         writeUnsignedintAsTwoBytes(buffer, nodeDescriptors.size());
         for (SearchDescriptor node : nodeDescriptors) {
-            writeVodNodeDescriptor(buffer, SearchDescriptor.toVodDescriptor(node));
-            buffer.writeInt(node.getReceivedPartitionDepth());
+            writeSearchDescriptor(buffer, node);
         }
     }
 
+    
+    public static void writeSearchDescriptor(ByteBuf buffer, SearchDescriptor descriptor) throws MessageEncodingException {
+        
+        UserTypesEncoderFactory.writeVodAddress(buffer, descriptor.getVodAddress());
+        buffer.writeLong(descriptor.getNumberOfIndexEntries());
+        buffer.writeInt(descriptor.getReceivedPartitionDepth());
+    }
+    
 
     /**
      * Encoding for the partitioning update sequence.

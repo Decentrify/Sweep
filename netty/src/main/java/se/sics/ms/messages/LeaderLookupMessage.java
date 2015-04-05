@@ -8,10 +8,12 @@ import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.SearchDescriptor;
 
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -84,7 +86,8 @@ public class LeaderLookupMessage {
         public ByteBuf toByteArray() throws MessageEncodingException {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeBoolean(leader);
-            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, SearchDescriptor.toVodDescriptorList(searchDescriptors));
+//            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, SearchDescriptor.toVodDescriptorList(searchDescriptors));
+            ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, new HashSet<SearchDescriptor>(searchDescriptors));
             return buffer;
         }
 

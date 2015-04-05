@@ -5,8 +5,10 @@ import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.types.SearchDescriptor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,7 +44,7 @@ public class LeaderLookupMessageFactory {
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             boolean terminated = buffer.readBoolean();
-            List<SearchDescriptor> items = SearchDescriptor.toSearchDescriptorList(UserTypesDecoderFactory.readListVodNodeDescriptors(buffer));
+            List<SearchDescriptor> items = new ArrayList<SearchDescriptor>(ApplicationTypesDecoderFactory.readSearchDescriptorSet(buffer));
             return new LeaderLookupMessage.Response(vodSrc, vodDest, timeoutId, terminated, items);
         }
     }

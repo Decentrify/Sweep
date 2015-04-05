@@ -28,7 +28,8 @@ public class VotingResultMessageFactory extends DirectMsgNettyFactory.Oneway {
 
     @Override
     protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
-        SearchDescriptor searchDescriptor = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
+        SearchDescriptor searchDescriptor = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
         Set<SearchDescriptor> view = ApplicationTypesDecoderFactory.readSearchDescriptorSet(buffer);
         PublicKey pub = ApplicationTypesDecoderFactory.readPublicKey(buffer);
 
