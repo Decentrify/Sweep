@@ -148,7 +148,7 @@ public class ElectionFollower extends ComponentDefinition {
         if (higherUtilityNodes.size() != 0) {
             searchDescriptor = higherUtilityNodes.last();
         } else {
-            searchDescriptor = new SearchDescriptor(self.getDescriptor());
+            searchDescriptor = self.getSelfDescriptor();
         }
 
         return  searchDescriptor;
@@ -166,7 +166,7 @@ public class ElectionFollower extends ComponentDefinition {
         if (higherUtilityNodes.size() != 0) {
             searchDescriptor = utilityComparator.compare(higherUtilityNodes.last(), searchDescriptor) == 1 ? higherUtilityNodes.last() : searchDescriptor;
         } else {
-            searchDescriptor = new SearchDescriptor(self.getDescriptor());
+            searchDescriptor = self.getSelfDescriptor();
         }
 
         return  searchDescriptor;
@@ -184,7 +184,7 @@ public class ElectionFollower extends ComponentDefinition {
             // If you directly try to add tail set to constructor, sometimes weird exceptions come.
             
             SortedSet<SearchDescriptor> gradientSet = new TreeSet<SearchDescriptor>(event.getGradientView());
-            higherUtilityNodes = gradientSet.tailSet(new SearchDescriptor(self.getDescriptor()));
+            higherUtilityNodes = gradientSet.tailSet(self.getSelfDescriptor());
         }
     };
     /**

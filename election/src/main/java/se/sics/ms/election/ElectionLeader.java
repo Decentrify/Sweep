@@ -140,7 +140,7 @@ public class ElectionLeader extends ComponentDefinition {
 		public void handle(GradientViewChangePort.GradientViewChanged event) {
 
             //create a copy so other component  receiving the same copy of the object is not effected.
-            SearchDescriptor currentDesc = new SearchDescriptor(self.getDescriptor());
+            SearchDescriptor currentDesc = self.getSelfDescriptor();
 
             // We ran into some weird problems by creating a new set from the view of a tree set. Do not try that again.
             // Use the following approach in which you create copy of the whole set and then calculate the lower and higher utilities.
@@ -228,7 +228,7 @@ public class ElectionLeader extends ComponentDefinition {
 		@Override
 		public void handle(RejectLeaderMessage event) {
             // TODO we need to check if the rejection is valid e.g. check the given better node
-            if (utilityComparator.compare(new SearchDescriptor(self.getDescriptor()),
+            if (utilityComparator.compare(self.getSelfDescriptor(),
                     event.getBetterLeader()) == 1) {
                 return;
             }
@@ -344,7 +344,7 @@ public class ElectionLeader extends ComponentDefinition {
 		// Broadcasts the vote requests to the nodes in the view
 		for (SearchDescriptor receiver : lowerUtilityNodes) {
 			vote = new ElectionMessage.Request(self.getAddress(), receiver.getVodAddress(), voteTimeoutId,
-                    electionCounter, new SearchDescriptor(self.getDescriptor()));
+                    electionCounter, self.getSelfDescriptor());
 			trigger(vote, networkPort);
 		}
 
@@ -361,7 +361,7 @@ public class ElectionLeader extends ComponentDefinition {
 		for (SearchDescriptor receiver : lowerUtilityNodes) {
             // TODO don't send the view every time
             LeaderViewMessage msg = new LeaderViewMessage(self.getAddress(), receiver.getVodAddress(),
-                    new SearchDescriptor(self.getDescriptor()), lowerUtilityNodes, leaderPublicKey);
+                    self.getSelfDescriptor(), lowerUtilityNodes, leaderPublicKey);
 			trigger(msg, networkPort);
 		}
 	}

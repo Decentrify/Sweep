@@ -6,34 +6,55 @@ import se.sics.gvod.common.vod.VodView;
 import se.sics.gvod.config.VodConfig;
 import se.sics.gvod.net.Nat;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.OverlayId;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
 
 import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * Main container class in the application containing the information used by the
+ * node to identify its utility and its identity in the system. <br/>
  *
- * @author: Steffen Grohsschmiedt
+ * CAUTION: I can see a lot of duplication and unnecessary variable creation.
+ *
+ * @author Steffen Grohsschmiedt
  */
 public class MsSelfImpl extends SelfImpl {
 
-    // FIXME: Removing the static reference as creating problems in simulations.
     private AtomicLong numberOfIndexEntries = new AtomicLong();
+    private boolean isLGMember;
 
     public MsSelfImpl(VodAddress addr) {
         super(addr);
+        this.isLGMember = false;
     }
 
     public MsSelfImpl(Nat nat, InetAddress ip, int port, int nodeId, int overlayId) {
         super(nat, ip, port, nodeId, overlayId);
+        this.isLGMember = false;
     }
 
-    @Override
-    public VodDescriptor getDescriptor() {
-        int age = 0;
-        return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
-                numberOfIndexEntries.get());
+    public MsSelfImpl(Nat nat, InetAddress ip, int port, int nodeId, int overlayId, long indexEntries, boolean isLGMember){
+        super(nat, ip, port, nodeId, overlayId);
+        this.numberOfIndexEntries.set(indexEntries);
+        this.isLGMember = isLGMember;
+    }
+
+    public MsSelfImpl(VodAddress address, long indexEntries, boolean isLGMember){
+        super(address);
+        this.numberOfIndexEntries.set(indexEntries);
+        this.isLGMember = isLGMember;
+    }
+
+    public boolean isLGMember() {
+        return isLGMember;
+    }
+
+    public void setLGMember(boolean isLGMember) {
+        this.isLGMember = isLGMember;
     }
 
     public void setNumberOfIndexEntries(long numberOfIndexEntries) {
@@ -43,6 +64,37 @@ public class MsSelfImpl extends SelfImpl {
     public void incrementNumberOfIndexEntries() {
         this.numberOfIndexEntries.incrementAndGet();
     }
+
+    /**
+     * The use of the descriptor needs to be deprecated as it is not linked
+     * with the current application.<br/>
+     *
+     * Use: {@link #getSelfDescriptor()}
+     * @deprecated
+     * @return VodDescriptor
+     */
+    @Override
+    public VodDescriptor getDescriptor() {
+        int age = 0;
+        return  new VodDescriptor(getAddress(), VodView.getPeerUtility(this), age, VodConfig.LB_MTU_MEASURED,
+                numberOfIndexEntries.get());
+    }
+
+    /**
+     * Construct a descriptor based on the information contained in the object.
+     *
+     * @return Self Descriptor.
+     */
+    public SearchDescriptor getSelfDescriptor(){
+        return new SearchDescriptor(new OverlayAddress(getAddress(), this.overlayId), false, this.numberOfIndexEntries.get());
+    }
+
+    public MsSelfImpl clone() {
+
+        MsSelfImpl clonedObj = new MsSelfImpl(getAddress(), this.numberOfIndexEntries.get(), isLGMember);
+        return clonedObj;
+    }
+
 
     public void setOverlayId(int overlayId) {
         this.overlayId = overlayId;
@@ -68,11 +120,8 @@ public class MsSelfImpl extends SelfImpl {
         return numberOfIndexEntries.get();
     }
 
-    public MsSelfImpl clone() {
-        MsSelfImpl clonedObj = new MsSelfImpl(this.getNat(), getIp(), this.port, this.nodeId, this.overlayId);
-        clonedObj.setNumberOfIndexEntries(numberOfIndexEntries.get());
 
-        return clonedObj;
-    }
+
+
 
 }

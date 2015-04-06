@@ -440,78 +440,6 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
 
-//    final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
-//        @Override
-//        public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
-//
-//            MsConfig.Categories selfCategory = categoryFromCategoryId(self.getCategoryId());
-//            MsConfig.Categories addCategory = event.getEntry().getCategory();
-//
-//            indexEntryToAdd = event.getEntry();
-//            addIndexEntryRequestTimeoutId = event.getTimeoutId();
-//            locatedLeaders.clear();
-//
-//            queriedNodes.clear();
-//            openRequests.clear();
-//            leadersAlreadyComunicated.clear();
-//
-//            if (addCategory == selfCategory) {
-//                if (leader) {
-//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
-//                }
-//
-//                //if we have direct pointer to the leader
-//                else if (leaderAddress != null) {
-//                    //sendLeaderLookupRequest(new SearchDescriptor(leaderAddress));
-//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
-//                } else {
-//                    NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
-//                    startNodes.addAll(getGradientSample());
-//
-//                    Map<Integer, HashSet<SearchDescriptor>> croupierPartitions = routingTable.get(selfCategory);
-//                    if (croupierPartitions != null && !croupierPartitions.isEmpty()) {
-//                        HashSet<SearchDescriptor> croupierNodes = croupierPartitions.get(self.getPartitionId());
-//                        if (croupierNodes != null && !croupierNodes.isEmpty()) {
-//                            startNodes.addAll(croupierNodes);
-//                        }
-//                    }
-//
-//                    Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
-//
-//                    for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
-//                        SearchDescriptor node = iterator.next();
-//                        sendLeaderLookupRequest(node);
-//                    }
-//                }
-//            } else {
-//                Map<Integer, HashSet<SearchDescriptor>> partitions = routingTable.get(addCategory);
-//                if (partitions == null || partitions.isEmpty()) {
-//                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
-//                    return;
-//                }
-//
-//                ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
-//                int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
-//
-//                HashSet<SearchDescriptor> startNodes = partitions.get(categoryPartitionsIds.get(categoryPartitionId));
-//                if (startNodes == null) {
-//                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(),
-//                            categoryPartitionsIds.get(categoryPartitionId));
-//                    return;
-//                }
-//
-//                // Need to sort it every time because values like RTT might have been changed
-//                SortedSet<SearchDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
-//                Iterator iterator = sortedStartNodes.iterator();
-//
-//                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
-//                    SearchDescriptor node = (SearchDescriptor) iterator.next();
-//                    sendLeaderLookupRequest(node);
-//                }
-//            }
-//        }
-//    };
-
 
     /**
      * Received an add entry request event from the application which requires the gradient
@@ -1163,7 +1091,7 @@ public final class PseudoGradient extends ComponentDefinition {
      * @return The Sorted Set.
      */
     private SortedSet<SearchDescriptor> getHigherUtilityNodes() {
-        return gradientEntrySet.tailSet(new SearchDescriptor(self.getDescriptor()));
+        return gradientEntrySet.tailSet(self.getSelfDescriptor());
     }
 
     /**
@@ -1172,7 +1100,7 @@ public final class PseudoGradient extends ComponentDefinition {
      * @return Lower Utility Nodes.
      */
     private SortedSet<SearchDescriptor> getLowerUtilityNodes() {
-        return gradientEntrySet.headSet(new SearchDescriptor(self.getDescriptor()));
+        return gradientEntrySet.headSet(self.getSelfDescriptor());
     }
 
     /**
