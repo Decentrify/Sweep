@@ -423,7 +423,7 @@
 //        Set<SearchDescriptor> nodes = getAll();
 //        StringBuilder sb = new StringBuilder("Neighbours: { ");
 //        for (SearchDescriptor d : nodes) {
-//            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getReceivedPartitionDepth()).append(", ");
+//            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" +d.getPartitioningDepth()).append(", ");
 //
 //        }
 //        sb.append("}");

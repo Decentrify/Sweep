@@ -48,7 +48,7 @@
 //
 //                    searchComponentUpdate = (SearchComponentUpdate)update;
 //                    currentIndexEntryCount = searchComponentUpdate.getSearchDescriptor().getNumberOfIndexEntries();
-//                    currentPartitioningDepth = searchComponentUpdate.getSearchDescriptor().getReceivedPartitionDepth();
+//                    currentPartitioningDepth = searchComponentUpdate.getSearchDescriptor().getPartitioningDepth();
 //                    logger.debug("Aggregator Update: Index Entry : {}, Partitioning Depth: {}", currentIndexEntryCount,currentPartitioningDepth );
 //
 //                }

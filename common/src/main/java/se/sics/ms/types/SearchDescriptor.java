@@ -5,8 +5,6 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Main descriptor used by application to indicate the current state of the 
@@ -21,43 +19,43 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     private OverlayAddress overlayAddress;
     private final long numberOfIndexEntries;
 
-    private int receivedPartitionDepth;
+//    private int receivedPartitionDepth;
 
     public SearchDescriptor(VodDescriptor descriptor) {
         this(descriptor.getVodAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
     }
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress) {
-        this(vodAddress, false,0,0);
+        this(vodAddress, false,0);
     }
 
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, SearchDescriptor searchDescriptor) {
-        this(vodAddress, searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getReceivedPartitionDepth());
-    }
+//    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, SearchDescriptor searchDescriptor) {
+//        this(vodAddress, searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getPartitioningDepth());
+//    }
 
     public SearchDescriptor(VodAddress vodAddress, boolean connected, long numberOfIndexEntries){
         this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries);
     }
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
-        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries, receivedPartitionDepth);
-    }
+//    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
+//        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries, receivedPartitionDepth);
+//    }
 
     // Convenience Constructor to create the SearchDescriptor from the VodDescriptor and use same Partitioning Depth.
-    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
-        this(overlayAddress, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
-    }
+//    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
+//        this(overlayAddress, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
+//    }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.getReceivedPartitionDepth());
+        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
     }
 
-    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth){
+    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
         this.overlayAddress = overlayAddress;
         this.connected = connected;
         this.numberOfIndexEntries = numberOfIndexEntries;
-        this.receivedPartitionDepth  = receivedPartitionDepth;
+//        this.receivedPartitionDepth  = receivedPartitionDepth;
     }
 
 
@@ -103,8 +101,6 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         if(this.getOverlayAddress() == null || that.getOverlayAddress() == null){
             throw new IllegalArgumentException(" Parameters to compare are null");
         }
-
-//        int partitionDepthCompareResult = Integer.compare(this.overlayAddress.getOverlayId().getPartitionIdDepth(), that.overlayAddress.getPartitionIdDepth());
 
         int overlayIdComparisonResult = this.overlayAddress.getOverlayId().compareTo(that.overlayAddress.getOverlayId());
 
@@ -180,20 +176,17 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     }
 
     /**
-     * Fetch the original partitioning depth.
+     * Wrapper over the access of partitioning depth from the
+     * overlay address.
      *
      * @return originalPartitioning Depth.
      */
-    public int getReceivedPartitionDepth(){
-        return this.receivedPartitionDepth;
-    }
-
-    public void setReceivedPartitionDepth(int receivedPartitionDepth) {
-        this.receivedPartitionDepth = receivedPartitionDepth;
+    public int getPartitioningDepth(){
+        return this.overlayAddress.getPartitionIdDepth();
     }
     
     @Override
     public SearchDescriptor deepCopy() {
-        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.getReceivedPartitionDepth());
+        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries());
     }
 }

@@ -7,7 +7,6 @@ import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.RTTStore;
 import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.croupier.Croupier;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
@@ -16,7 +15,6 @@ import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.common.TransportHelper;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
 import se.sics.ms.gradient.control.ControlMessageInternal;
@@ -36,9 +34,7 @@ import se.sics.ms.types.OverlayId;
 import java.security.PublicKey;
 import java.util.*;
 
-import static se.sics.ms.util.PartitionHelper.getPartitionIdOtherHalf;
 import static se.sics.ms.util.PartitionHelper.removeOldBuckets;
-import static se.sics.ms.util.PartitionHelper.updateBucketsInRoutingTable;
 
 import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.PartitionHelper;
@@ -46,7 +42,6 @@ import se.sics.ms.util.SamplingServiceHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
@@ -1115,7 +1110,7 @@ public final class PseudoGradient extends ComponentDefinition {
         Set<SearchDescriptor> nodes = getGradientSample();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
-            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getReceivedPartitionDepth()).append(", ");
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getPartitioningDepth()).append(", ");
 
         }
         sb.append("}");

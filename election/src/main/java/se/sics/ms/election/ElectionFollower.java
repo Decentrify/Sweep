@@ -31,7 +31,6 @@ import se.sics.ms.types.SearchDescriptor;
 import java.security.PublicKey;
 import java.util.*;
 
-import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
 /**
  * This class contains functions for those nodes that are directly following a
@@ -358,10 +357,10 @@ public class ElectionFollower extends ComponentDefinition {
             //higherUtilityNodes.clear();
             deathVoteTimeout = null;
 
-            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
-                    self.getPartitionIdDepth(), self.getPartitionId());
-
-            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
+//            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+//                    self.getPartitionIdDepth(), self.getPartitionId());
+//
+//            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
         }
     };
 

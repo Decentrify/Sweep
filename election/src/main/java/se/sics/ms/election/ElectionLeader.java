@@ -32,7 +32,6 @@ import se.sics.ms.types.SearchDescriptor;
 import java.security.PublicKey;
 import java.util.*;
 
-import static se.sics.ms.util.PartitionHelper.adjustDescriptorsToNewPartitionId;
 
 /**
  * This component contains functions for how a node will find out if it is the
@@ -269,10 +268,10 @@ public class ElectionLeader extends ComponentDefinition {
             heartbeatTimeoutId = null;
             disperseUpdate(self);
 
-            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
-                    self.getPartitionIdDepth(), self.getPartitionId());
-            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
-            adjustDescriptorsToNewPartitionId(myPartitionId, lowerUtilityNodes);
+//            PartitionId myPartitionId = new PartitionId(self.getPartitioningType(),
+//                    self.getPartitionIdDepth(), self.getPartitionId());
+//            adjustDescriptorsToNewPartitionId(myPartitionId, higherUtilityNodes);
+//            adjustDescriptorsToNewPartitionId(myPartitionId, lowerUtilityNodes);
         }
     };
 

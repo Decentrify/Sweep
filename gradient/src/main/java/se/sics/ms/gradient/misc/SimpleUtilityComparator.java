@@ -29,8 +29,8 @@ public class SimpleUtilityComparator implements Comparator<PeerView>{
             }
 
             // PARTITIONING DEPTH.
-            if(s1.getReceivedPartitionDepth() != s2.getReceivedPartitionDepth()) {
-                if(s1.getReceivedPartitionDepth() > s2.getReceivedPartitionDepth())
+            if(s1.getPartitioningDepth() != s2.getPartitioningDepth()) {
+                if(s1.getPartitioningDepth() > s2.getPartitioningDepth())
                     return 1;
                 return -1;
             }

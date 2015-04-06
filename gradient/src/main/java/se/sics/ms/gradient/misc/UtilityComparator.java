@@ -22,8 +22,8 @@ public class UtilityComparator implements Comparator<SearchDescriptor> {
         }
 
         // PARTITIONING DEPTH.
-        if(o1.getReceivedPartitionDepth() != o2.getReceivedPartitionDepth()) {
-            if(o1.getReceivedPartitionDepth() > o2.getReceivedPartitionDepth())
+        if(o1.getPartitioningDepth() != o2.getPartitioningDepth()) {
+            if(o1.getPartitioningDepth() > o2.getPartitioningDepth())
                 return 1;
             return -1;
         }

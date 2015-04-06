@@ -148,7 +148,7 @@ public class ApplicationTypesEncoderFactory {
         
         UserTypesEncoderFactory.writeVodAddress(buffer, descriptor.getVodAddress());
         buffer.writeLong(descriptor.getNumberOfIndexEntries());
-        buffer.writeInt(descriptor.getReceivedPartitionDepth());
+//        buffer.writeInt(descriptor.getPartitioningDepth());
     }
     
 
