@@ -99,7 +99,7 @@ public class SweepOperationsHelper {
         Self self = new MsSelfImpl(new VodAddress(address,
                 OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
 
-        SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration,gradientConfig, bootstrapAddress, simulatorAddress);
+        SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration,gradientConfig, bootstrapAddress, simulatorAddress, null);
         
         ringNodes.addNode(id);
         peersAddressMap.put(id, self.getAddress());

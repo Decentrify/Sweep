@@ -8,6 +8,7 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
@@ -21,12 +22,13 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final GradientConfig gradientConfig;
     private final VodAddress bootstrappingNode;
     private final VodAddress simulatorAddress;
+    private final ElectionConfig electionConfig;
 
     public SearchPeerInit(Self self,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
             ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig,
-            VodAddress bootstrappingNode, VodAddress simulatorAddress) {
+            VodAddress bootstrappingNode, VodAddress simulatorAddress, ElectionConfig electionConfig) {
         super();
         this.self = self;
         this.croupierConfiguration = croupierConfiguration;
@@ -37,6 +39,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         this.gradientConfig  = gradientConfig;
         this.bootstrappingNode = bootstrappingNode;
         this.simulatorAddress = simulatorAddress;
+        this.electionConfig = electionConfig;
     }
 
     public Self getSelf() {
@@ -73,5 +76,9 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     
     public VodAddress getSimulatorAddress(){
         return this.simulatorAddress;
+    }
+
+    public ElectionConfig getElectionConfig(){
+        return this.electionConfig;
     }
 }

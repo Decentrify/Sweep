@@ -1,8 +1,8 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.common.VodDescriptor;
 import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 import java.io.Serializable;
 
@@ -12,7 +12,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, PeerView {
+public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, PeerView, LCPeerView{
 
 //    private int age;
     private transient boolean connected;
@@ -180,5 +180,15 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     @Override
     public SearchDescriptor deepCopy() {
         return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.isLGMember());
+    }
+
+    @Override
+    public LCPeerView enableLGMembership() {
+        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true);
+    }
+
+    @Override
+    public LCPeerView disableLGMembership() {
+        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false);
     }
 }

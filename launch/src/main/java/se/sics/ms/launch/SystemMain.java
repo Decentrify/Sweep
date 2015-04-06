@@ -37,6 +37,7 @@ import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 import java.io.IOException;
@@ -210,13 +211,15 @@ public class SystemMain extends ComponentDefinition {
                                     MsConfig.CROUPIER_SHUFFLE_LENGTH, croupierPolicy);
                             
                             GradientConfig gradientConfig = new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE,MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
-                            
+
+                            ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+
                             aggregatorAddress = getAggregatorAddress();
                             
                             searchPeer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfig,
                                             SearchConfiguration.build(), GradientConfiguration.build(),
                                             ElectionConfiguration.build(), ChunkManagerConfiguration.build(), gradientConfig,
-                                            ToVodAddr.bootstrap(bootstrapAddress),  (aggregatorAddress!= null) ? ToVodAddr.systemAddr(aggregatorAddress) : null ));
+                                            ToVodAddr.bootstrap(bootstrapAddress),  (aggregatorAddress!= null) ? ToVodAddr.systemAddr(aggregatorAddress) : null, electionConfig ));
 
                             Component fd = create(FailureDetectorComponent.class, Init.NONE);
 

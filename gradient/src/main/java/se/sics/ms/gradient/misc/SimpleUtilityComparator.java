@@ -28,6 +28,13 @@ public class SimpleUtilityComparator implements Comparator<PeerView>{
                 return -1;
             }
 
+            // LEADER GROUP MEMBERSHIP.
+            if(s1.isLGMember() != s2.isLGMember()){
+                if(s1.isLGMember())
+                    return 1;
+                return -1;
+            }
+
             // PARTITIONING DEPTH.
             if(s1.getPartitioningDepth() != s2.getPartitioningDepth()) {
                 if(s1.getPartitioningDepth() > s2.getPartitioningDepth())

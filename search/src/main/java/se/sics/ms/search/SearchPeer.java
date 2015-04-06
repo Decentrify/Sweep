@@ -17,6 +17,7 @@ import se.sics.kompics.*;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
+import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.election.ElectionFollower;
 import se.sics.ms.election.ElectionInit;
 import se.sics.ms.election.ElectionLeader;
@@ -39,6 +40,7 @@ import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
 
+import java.security.*;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -51,11 +53,14 @@ import se.sics.p2ptoolbox.croupier.api.msg.CroupierJoin;
 import se.sics.p2ptoolbox.croupier.core.Croupier;
 import se.sics.p2ptoolbox.croupier.core.Croupier.CroupierInit;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
 import se.sics.p2ptoolbox.gradient.core.Gradient;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 import se.sics.p2ptoolbox.serialization.filter.OverlayHeaderFilter;
+import se.sics.util.SimpleLCPViewComparator;
+import se.sics.util.SweepLeaderFilter;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -70,6 +75,7 @@ public final class SearchPeer extends ComponentDefinition {
     private Component croupier;
     private Component gradient;
     private Component search, electionLeader, electionFollower, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
+    private Component electionLeaderComponent, electionFollowerComponent;
     private Self self;
     private VodAddress simulatorAddress;
     private SearchConfiguration searchConfiguration;
@@ -79,7 +85,11 @@ public final class SearchPeer extends ComponentDefinition {
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private VodAddress bootstrapingNode;
 
-    public SearchPeer(SearchPeerInit init) {
+    private PublicKey publicKey;
+    private PrivateKey privateKey;
+
+
+    public SearchPeer(SearchPeerInit init) throws NoSuchAlgorithmException {
 
         self = init.getSelf();
         simulatorAddress = init.getSimulatorAddress();
@@ -104,10 +114,13 @@ public final class SearchPeer extends ComponentDefinition {
                         StunClientConfiguration.build(),
                         ParentMakerConfiguration.build(), true));
 
+
+        generateKeys();
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
-        
-        
+        connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
+
+
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(Search.class, new SearchInit(self, searchConfiguration));
         electionLeader = create(ElectionLeader.class,
@@ -206,8 +219,25 @@ public final class SearchPeer extends ComponentDefinition {
 
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
+
+
+        // Simulator Events.
         subscribe(addEntrySimulatorEventHandler, network);
     }
+
+    /**
+     * Generate the public/private key pair.
+     */
+    private void generateKeys() throws NoSuchAlgorithmException {
+
+        KeyPairGenerator keyGen;
+        keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(1024);
+        final KeyPair key = keyGen.generateKeyPair();
+        privateKey = key.getPrivate();
+        publicKey = key.getPublic();
+    }
+
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
@@ -215,6 +245,39 @@ public final class SearchPeer extends ComponentDefinition {
             startGradient();
         }
     };
+
+
+    private void connectElection(ElectionConfig electionConfig, int seed) {
+
+        Component electionLeader = create(se.sics.p2ptoolbox.election.core.ElectionLeader.class, new se.sics.p2ptoolbox.election.core.ElectionInit<se.sics.p2ptoolbox.election.core.ElectionLeader>(
+                self.getAddress(),
+                new SearchDescriptor(self.getAddress()),
+                seed,
+                electionConfig,
+                publicKey,
+                privateKey,
+                new SimpleLCPViewComparator(),
+                new SweepLeaderFilter()));
+
+        Component electionFollower = create(se.sics.p2ptoolbox.election.core.ElectionFollower.class, new se.sics.p2ptoolbox.election.core.ElectionInit<se.sics.p2ptoolbox.election.core.ElectionFollower>(
+                        self.getAddress(),
+                        new SearchDescriptor(self.getAddress()),
+                        seed,
+                        electionConfig,
+                        publicKey,
+                        privateKey,
+                        new SimpleLCPViewComparator(),
+                        new SweepLeaderFilter())
+                    );
+
+
+        // Election leader connections.
+        connect(natTraversal.getPositive(VodNetwork.class), electionLeader.getNegative(VodNetwork.class));
+        connect(timer, electionLeader.getNegative(Timer.class));
+
+
+    }
+
 
     /**
      * Connect gradient with the application.

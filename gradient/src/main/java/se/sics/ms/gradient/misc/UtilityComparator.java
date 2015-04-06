@@ -6,7 +6,8 @@ import java.util.Comparator;
 
 /**
  * Compare nodes according to their utility.
- * Utility function: NatType (open/closed) - Number of index entries - Node id
+ * Utility function: NatType (open/closed) - Leader Group Member - Partition Depth - Number of index entries - Node id
+ *
  * @author: Steffen Grohsschmiedt
  */
 public class UtilityComparator implements Comparator<SearchDescriptor> {
@@ -17,6 +18,13 @@ public class UtilityComparator implements Comparator<SearchDescriptor> {
         // NAT TYPE.
         if (o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {
             if (o1.getVodAddress().isOpen())
+                return 1;
+            return -1;
+        }
+
+        // LEADER GROUP MEMBERSHIP.
+        if(o1.isLGMember() != o2.isLGMember()){
+            if(o1.isLGMember())
                 return 1;
             return -1;
         }
