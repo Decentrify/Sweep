@@ -18,46 +18,26 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     private transient boolean connected;
     private OverlayAddress overlayAddress;
     private final long numberOfIndexEntries;
-
-//    private int receivedPartitionDepth;
-
-    public SearchDescriptor(VodDescriptor descriptor) {
-        this(descriptor.getVodAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
-    }
+    private final boolean isLGMember;
 
     public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress) {
-        this(vodAddress, false,0);
+        this(new OverlayAddress(vodAddress), false, 0, false);
     }
-
-
-//    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, SearchDescriptor searchDescriptor) {
-//        this(vodAddress, searchDescriptor.isConnected(), searchDescriptor.getNumberOfIndexEntries(), searchDescriptor.getPartitioningDepth());
-//    }
-
-    public SearchDescriptor(VodAddress vodAddress, boolean connected, long numberOfIndexEntries){
-        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries);
-    }
-
-//    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress, boolean connected, long numberOfIndexEntries, int receivedPartitionDepth) {
-//        this(new OverlayAddress(vodAddress), connected , numberOfIndexEntries, receivedPartitionDepth);
-//    }
-
-    // Convenience Constructor to create the SearchDescriptor from the VodDescriptor and use same Partitioning Depth.
-//    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
-//        this(overlayAddress, connected, numberOfIndexEntries, overlayAddress.getPartitionIdDepth());
-//    }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries());
+        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLGMember());
     }
 
-    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries){
+    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember){
         this.overlayAddress = overlayAddress;
         this.connected = connected;
         this.numberOfIndexEntries = numberOfIndexEntries;
-//        this.receivedPartitionDepth  = receivedPartitionDepth;
+        this.isLGMember = isLGMember;
     }
 
+    public boolean isLGMember() {
+        return isLGMember;
+    }
 
     public VodAddress getVodAddress() {
         return this.overlayAddress.getAddress();
@@ -79,7 +59,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
     @Override
     public String toString() {
-        return (this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries());
+        return (this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember);
     }
 
     public OverlayAddress getOverlayAddress() {
@@ -100,6 +80,16 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
         if(this.getOverlayAddress() == null || that.getOverlayAddress() == null){
             throw new IllegalArgumentException(" Parameters to compare are null");
+        }
+
+        if(this.isLGMember != that.isLGMember){
+
+            if(this.isLGMember){
+                return 1;
+            }
+            else{
+                return -1;
+            }
         }
 
         int overlayIdComparisonResult = this.overlayAddress.getOverlayId().compareTo(that.overlayAddress.getOverlayId());
@@ -162,13 +152,15 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return false;
         }
 
-        if (this.overlayAddress.equals(other.overlayAddress)) {
-
-            if (this.numberOfIndexEntries == other.numberOfIndexEntries) {
-                return true;
-            }
+        if (!(this.overlayAddress.equals(other.overlayAddress))) {
+            return false;
         }
-        return false;
+
+        else if(!(this.numberOfIndexEntries == other.numberOfIndexEntries)){
+            return false;
+        }
+
+        return (this.isLGMember == other.isLGMember);
     }
 
     public long getNumberOfIndexEntries() {
@@ -187,6 +179,6 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     
     @Override
     public SearchDescriptor deepCopy() {
-        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries());
+        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.isLGMember());
     }
 }

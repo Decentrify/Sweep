@@ -185,10 +185,9 @@ public class ApplicationTypesDecoderFactory {
         
         VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
         long numberOfIndexEntries = byteBuf.readLong();
-//        int partitioningDepth = byteBuf.readInt();
+        boolean isLGMember = byteBuf.readBoolean();
 
-//        descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries,partitioningDepth);
-        descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries);
+        descriptor = new SearchDescriptor(new OverlayAddress(vodAddress), false, numberOfIndexEntries, isLGMember);
         return descriptor;
     }
 

@@ -26,18 +26,15 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         
         // == Identify items that we need to encode for a search descriptor.
         // 1. VodAddress.
-        // 2. Sample Age.
-        // 3. Number of Index Entries.
-        // 4. received partitioning depth.
-        // 5. connected. ? (declared as transient in VodDescriptor, so leaving it as it is ... )
+        // 2. Number of Index Entries.
+        // 3. Is Leader Group Member.
 
         try {
             
             UserTypesEncoderFactory.writeVodAddress(buffer, descriptor.getVodAddress());
-//            buffer.writeInt(descriptor.getAge());
             buffer.writeLong(descriptor.getNumberOfIndexEntries());
-//            buffer.writeInt(descriptor.getPartitioningDepth());
-            
+            buffer.writeBoolean(descriptor.isLGMember());
+
         } catch (MessageEncodingException e) {
             logger.error("Message Encoding Failed.");
             e.printStackTrace();
@@ -49,9 +46,10 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
     /**
      * Search Descriptor Deserializer.
      *
-     * @param serializationContext
-     * @param byteBuf
-     * @return
+     * @param serializationContext context for serialization
+     * @param byteBuf buffer
+     * @return Descriptor.
+     *
      * @throws SerializerException
      * @throws SerializationContext.MissingException
      */
@@ -63,13 +61,10 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         try {
 
             VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
-//            int age = byteBuf.readInt();
             long numberOfIndexEntries = byteBuf.readLong();
-//            int partitioningDepth = byteBuf.readInt();
-            
-//            descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries,partitioningDepth);
-            descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries);
+            boolean isLGMember = byteBuf.readBoolean();
 
+            descriptor = new SearchDescriptor(new OverlayAddress(vodAddress),false,numberOfIndexEntries, isLGMember);
             
         } catch (MessageDecodingException e) {
             logger.error("Search Descriptor decoding failed.");
@@ -91,14 +86,10 @@ public class SearchDescriptorSerializer implements Serializer<SearchDescriptor>{
         size += Byte.SIZE/8; //natPolicy
         size += (addr.getParents().isEmpty() ? 2 : 2 + addr.getParents().size() * UserTypesEncoderFactory.ADDRESS_LEN);
         
-        // Age.
-//        size+= Integer.SIZE/8;
-        
-        // Index Entries.
+        // IndexEntries.
         size += Long.SIZE/8;
-        
-        // Partitioning Depth.
-//        size += Integer.SIZE/8;
+        // Leader Group Boolean.
+        size += Byte.SIZE/8;
         
         return size;
     }
