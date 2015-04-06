@@ -95,9 +95,9 @@ public class ElectionFollower extends ComponentDefinition {
 
         selfLCView = init.initialView;
         selfContainer = new LEContainer(selfAddress, selfLCView);
-        filter = this.config.getFilter();
+        filter = init.filter;
 
-        lcPeerViewComparator = config.getUtilityComparator();
+        lcPeerViewComparator = init.comparator;
         this.leContainerComparator = new Comparator<LEContainer>() {
             @Override
             public int compare(LEContainer o1, LEContainer o2) {

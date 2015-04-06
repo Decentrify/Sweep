@@ -29,6 +29,7 @@ import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
+import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
 
@@ -63,10 +64,12 @@ public class ElectionLeader extends ComponentDefinition {
     private VodAddress selfAddress;
     private Map<VodAddress, LEContainer> addressContainerMap;
     private LeaderFilter filter;
+
     // Promise Sub Protocol.
     private UUID promiseRoundId;
     private TimeoutId promiseRoundTimeout;
     private PromiseResponseTracker promiseResponseTracker;
+    private PublicKey publicKey;
 
     private TimeoutId leaseTimeoutId;
 
@@ -114,7 +117,9 @@ public class ElectionLeader extends ComponentDefinition {
         this.config = init.electionConfig;
         this.seed = init.seed;
         this.selfAddress = init.selfAddress;
-        this.filter = config.getFilter();
+        this.filter = init.filter;
+        this.publicKey = init.publicKey;
+
         // voting protocol.
         isConverged = false;
         promiseResponseTracker = new PromiseResponseTracker();
@@ -124,7 +129,7 @@ public class ElectionLeader extends ComponentDefinition {
         this.addressContainerMap = new HashMap<VodAddress, LEContainer>();
 
 
-        lcPeerViewComparator = config.getUtilityComparator();
+        lcPeerViewComparator = init.comparator;
         this.leContainerComparator = new Comparator<LEContainer>() {
             @Override
             public int compare(LEContainer o1, LEContainer o2) {
@@ -333,7 +338,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                     for(VodAddress address : promiseResponseTracker.getLeaderGroupInformation()){
                         
-                        LeaseCommit requestContent = new LeaseCommit (selfAddress, config.getPublicKey(), selfLCView);
+                        LeaseCommit requestContent = new LeaseCommit (selfAddress,  publicKey, selfLCView);
                         LeaseCommitMessage commitRequest = new LeaseCommitMessage (selfAddress, address, commitRequestId, requestContent);
                         trigger(commitRequest, networkPositive);
                     }
@@ -393,7 +398,7 @@ public class ElectionLeader extends ComponentDefinition {
                 }
 
                 for(LEContainer container : lowerNodes){
-                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new ExtensionRequest(selfAddress, config.getPublicKey(), selfLCView)), networkPositive);
+                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new ExtensionRequest(selfAddress, publicKey, selfLCView)), networkPositive);
                 }
 
                 // Extend the lease.

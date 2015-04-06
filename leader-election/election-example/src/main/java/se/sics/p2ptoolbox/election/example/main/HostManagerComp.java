@@ -46,7 +46,7 @@ public class HostManagerComp extends ComponentDefinition{
         doInit(init);
 
         // Create Configuration for election components.
-        ElectionConfig.ElectionConfigBuilder builder = new ElectionConfig.ElectionConfigBuilder(init.lcpComparator, init.viewSize, null, null, init.filter);
+        ElectionConfig.ElectionConfigBuilder builder = new ElectionConfig.ElectionConfigBuilder(init.viewSize);
         builder.setLeaseTime(leaseTimeout)
                 .setConvergenceRounds(4)
                 .setConvergenceTest(0.9d);
@@ -54,8 +54,8 @@ public class HostManagerComp extends ComponentDefinition{
         ElectionConfig config = builder.buildElectionConfig();
 
         // Create necessary components.
-        electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(selfAddress, selfView, 100, config));
-        electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(selfAddress, selfView, 100, config));
+        electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(selfAddress, selfView, 100, config, null, null, init.lcpComparator, init.filter));
+        electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(selfAddress, selfView, 100, config, null, null, init.lcpComparator, init.filter));
         gradientMockUp = create(GradientMockUp.class, new GradientMockUp.GradientMockUpInit(selfAddress));
 
         // Make the necessary connections.
