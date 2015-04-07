@@ -105,7 +105,7 @@ public final class Search extends ComponentDefinition {
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
+//    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
@@ -118,18 +118,13 @@ public final class Search extends ComponentDefinition {
     private MsSelfImpl self;
     private SearchConfiguration config;
     private boolean leader;
-    // The last lowest missing index value
     private long lowestMissingIndexValue;
-    // Set of existing entries higher than the lowestMissingIndexValue
     private SortedSet<Long> existingEntries;
-    // The last id used for adding new entries in case this node is the leader
     private long nextInsertionId;
-    // Data structure to keep track of acknowledgments for newly added indexes
+
     private Map<TimeoutId, ReplicationCount> replicationRequests;
     private Map<TimeoutId, ReplicationCount> commitRequests;
-    // Structure that maps index ids to UUIDs of open gap timeouts
     private Map<Long, UUID> gapTimeouts;
-    // Set of recent add requests to avoid duplication
     private Map<TimeoutId, Long> recentRequests;
 
     // Apache Lucene used for searching
@@ -147,7 +142,6 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    //private HashMap<TimeoutId, IndexEntry> awaitingForPrepairResponse = new HashMap<TimeoutId, IndexEntry>();
     private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
@@ -534,25 +528,26 @@ public final class Search extends ComponentDefinition {
         public void handle(ControlMessage.Request event) {
 
             logger.debug(" Received the Control Message Request at: " + self.getId());
-
-            // Check if already entry present and reset the contents.
-            if (peerControlMessageResponseMap.get(event.getVodSource().getId()) != null)
-                peerControlMessageResponseMap.get(event.getVodSource().getId()).reset();
-
-                // Else create a fresh entry, with number of responses to keep track of.
+            if (peerControlMessageResponseMap.get(event.getVodSource()) != null)
+                peerControlMessageResponseMap.get(event.getVodSource()).reset();
             else
                 peerControlMessageResponseMap.put(event.getVodSource(), new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
 
-            // Update the latest request id from the peer control message from the map.
             peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
 
-            // Information amount partition is available in Search, just fetch locally
+            // Request the components for the information.
             handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(event));
-            // Request info from the gradient component
             trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(), event.getVodSource()), gradientRoutingPort);
         }
     };
 
+
+    /**
+     * Handle the control message responses from the different components.
+     * Aggregate and compress the information which needs to be sent back to the requsting node.
+     *
+     * @param event Control Message Response event.
+     */
     void handleControlMessageInternalResponseEvent(ControlMessageInternal.Response event) {
 
         try {
@@ -601,13 +596,13 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Received the partitioning updates from the gradient component.
+     * Handler for the generic control message information
+     * from different components in the system.
      */
     Handler<ControlMessageInternal.Response> handlerControlMessageInternalResponse = new Handler<ControlMessageInternal.Response>() {
 
         @Override
         public void handle(ControlMessageInternal.Response event) {
-
             handleControlMessageInternalResponseEvent(event);
         }
     };
@@ -615,8 +610,7 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Simply remove the data in the maps belonging to the address id for the
-     *
-     * @param sourceAddress
+     * @param sourceAddress Address
      */
     public void cleanControlRequestMessageData(VodAddress sourceAddress) {
 
@@ -633,26 +627,22 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ControlMessage.Response event) {
 
-            //Step1: Filter the old responses.
-            if (!controlMessageExchangeRoundId.equals(event.getRoundId()))
+            if (!controlMessageExchangeRoundId.equals(event.getRoundId())){
+                logger.warn("ControlMessage response received for an old or unknown round id: " + event.getRoundId());
                 return;
+            }
 
-            // Create an instance of ByteBuf to read the data received.
             ByteBuf buffer = Unpooled.wrappedBuffer(event.getBytes());
-
             try {
 
                 int numOfIterations = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
 
-                // Check if more control messages available in the buffer.
                 while (numOfIterations > 0) {
-
                     ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
 
-                    if (controlMessageInternalResponse != null)
+                    if (controlMessageInternalResponse != null){
                         ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
-
-                    // Handles iterations within a response.
+                    }
                     numOfIterations -= 1;
                 }
 
@@ -660,20 +650,15 @@ public final class Search extends ComponentDefinition {
                 controlMessageResponseCount++;
 
                 if (controlMessageResponseCount >= config.getIndexExchangeRequestNumber()) {
-
-
-                    // Perform the checks and comparison on the responses received from the nodes.
                     performControlMessageResponseMatching();
-
-                    // Perform the cleaning of the data after this.
                     cleanControlMessageResponseData();
                 }
+
             } catch (MessageDecodingException e) {
-                logger.error(" Message Decodation Failed at :" + self.getAddress().getId());
+                logger.error(" Message Decoding Failed at :" + self.getAddress().getId());
                 cleanControlMessageResponseData();
             }
         }
-
     };
 
 
@@ -2731,25 +2716,17 @@ public final class Search extends ComponentDefinition {
 
         boolean result = false;
 
-        // Construct an overlay address from the VodAdress.
         OverlayAddress receivedOverlayAddress = new OverlayAddress(address);
-
-        // Create an object about your own overlay address.
         OverlayAddress selfOverlayAddress = new OverlayAddress(self.getAddress());
 
-        // Only go deep into checking if the overlay ids are different.
         if (!receivedOverlayAddress.getOverlayId().equals(selfOverlayAddress.getOverlayId())) {
 
-            // Move ahead only in case I have partitioned, else accept the message from other nodes.
             if (selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
-
-                // Difference should never be less than or equal to zero as nodes start with partitioning depth =1.
                 if ((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0) {
                     result = true;
                 }
             }
         }
-
         return result;
     }
 
@@ -2878,8 +2855,6 @@ public final class Search extends ComponentDefinition {
     public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds) {
 
         LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
-
-        // Iterate over the available partition updates.
         for (TimeoutId partitionUpdateId : partitionUpdatesIds) {
 
             boolean found = false;
@@ -2892,12 +2867,9 @@ public final class Search extends ComponentDefinition {
             }
 
             if (!found) {
-                // Stop The addition as there has been a missing piece.
                 break;
             }
         }
-
-        // Return the ordered update list.
         return partitionUpdates;
     }
 
@@ -2906,22 +2878,16 @@ public final class Search extends ComponentDefinition {
      */
     private CheckPartitionInfoHashUpdate.Response getCheckPartitionInfoHashUpdateResponse(ControlMessage.Request event) {
 
-        // Check for the partitioning updates and return it back.
         logger.debug("Check Partitioning Update Received.");
-
         LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
         ControlMessageEnum controlMessageEnum;
 
-        // Check for the responses when you have atleast partitioned yourself.
         if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
-
             controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getVodSource(), event.getOverlayId(), partitionUpdateHashes);
         } else {
-            // Send empty partition update as you have not partitioned.
             controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
         }
 
-        // Trigger the partitioning update.
         return new CheckPartitionInfoHashUpdate.Response(event.getRoundId(), event.getVodSource(), partitionUpdateHashes, controlMessageEnum);
     }
 
@@ -2955,7 +2921,7 @@ public final class Search extends ComponentDefinition {
     };
     
     
-    // LEADER ELECTION PROTOCOL HANDLERS.
+    // ======= LEADER ELECTION PROTOCOL HANDLERS.
 
     /**
      * Node is elected as the leader of the partition.
@@ -2965,6 +2931,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
             logger.debug("Self node is elected as leader.");
+            leader = true;
         }
     };
 
@@ -2976,6 +2943,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
             logger.debug("Self is being removed from the leadership position.");
+            leader = false;
         }
     };
 
@@ -2986,6 +2954,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderUpdate event) {
             logger.debug("Update regarding the leader in the system is received");
+
         }
     };
 
@@ -2998,6 +2967,8 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
             logger.debug("Node is chosen to be a part of leader group.");
+            self.setLGMember(true);
+            informListeningComponentsAboutUpdates(self);
         }
     };
 
@@ -3009,6 +2980,8 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ElectionState.DisableLGMembership event) {
             logger.debug("Remove the node from the leader group membership.");
+            self.setLGMember(false);
+            informListeningComponentsAboutUpdates(self);
         }
     };
 

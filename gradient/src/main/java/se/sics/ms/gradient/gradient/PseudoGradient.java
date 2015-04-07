@@ -64,7 +64,6 @@ public final class PseudoGradient extends ComponentDefinition {
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     
-    Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
 
@@ -155,12 +154,12 @@ public final class PseudoGradient extends ComponentDefinition {
         subscribe(handleLeaderLookupRequest, networkPort);
         subscribe(handleLeaderLookupResponse, networkPort);
         subscribe(handleLeaderUpdate, leaderStatusPort);
-        subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
-        
+
         // New Leader update protocol.
         subscribe(electedAsLeaderHandler, electionPort);
         subscribe(terminateBeingLeaderHandler, electionPort);
+        subscribe(leaderUpdateHandler, electionPort);
 
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
@@ -493,8 +492,8 @@ public final class PseudoGradient extends ComponentDefinition {
 
     /**
      * Helper method to construct a set of the search descriptor collection from the
-     * @param cpvCollection
-     * @return
+     * @param cpvCollection collection
+     * @return Set of Descriptors.
      */
     private HashSet<SearchDescriptor> getSearchDescriptorSet(Collection<CroupierPeerView> cpvCollection){
      
@@ -761,20 +760,6 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
 
-
-    /**
-     * Handles broadcast public key request from Search component
-     */
-    final Handler<PublicKeyBroadcast> handlePublicKeyBroadcast = new Handler<PublicKeyBroadcast>() {
-        @Override
-        public void handle(PublicKeyBroadcast publicKeyBroadcast) {
-            // NOTE: LeaderAddress is used by a non leader node to directly send AddIndex request to leader.
-            // Since the current node is now a leader, this information is not invalid.
-            leaderPublicKey = publicKeyBroadcast.getPublicKey();
-            leaderAddress = null;
-        }
-    };
-
     /**
      * Responses with peer's view size
      */
@@ -923,6 +908,12 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
+    /**
+     * Request received as part of control message pull mechanism initiated by the nodes in the system.
+     * The main component requests control message information from this component.
+     * <br/>
+     * <b>NOTE: </b> The component can receive multiple requests asking for different control information.
+     */
     Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>() {
         @Override
         public void handle(ControlMessageInternal.Request event) {
@@ -932,6 +923,10 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
+    /**
+     * Check for the leader information that the component contains.
+     * @param event Leader Info Event.
+     */
     private void handleCheckLeaderInfoInternalControlMessage(CheckLeaderInfoUpdate.Request event) {
 
         logger.debug("Check Leader Update Received.");
@@ -1114,20 +1109,41 @@ public final class PseudoGradient extends ComponentDefinition {
     
     
     // ==== LEADER ELECTION PROTOCOL HANDLERS.
-    
+
+    /**
+     * The node is being elected as the leader in the partition.
+     * Update the information locally in order to reflect the change.
+     */
     Handler<LeaderState.ElectedAsLeader> electedAsLeaderHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
             logger.debug("Node elected as leader");
-            leader = false;
+            leader = true;
         }
     };
-    
+
+    /**
+     * The node is no longer the leader and therefore the information needs to be removed.
+     */
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
             logger.debug("Terminate being leader");
             leader = false;
+        }
+    };
+
+    /**
+     * Once the leader gets elected, the component signals the information about the current
+     * leader through an indication event.
+     */
+    Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
+        @Override
+        public void handle(LeaderUpdate leaderUpdate) {
+
+            logger.debug("Information About the current leader received.");
+            leaderAddress = leaderUpdate.leaderAddress;
+            leaderPublicKey = leaderUpdate.leaderPublicKey;
         }
     };
     
