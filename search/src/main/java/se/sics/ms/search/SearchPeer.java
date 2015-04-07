@@ -17,10 +17,6 @@ import se.sics.kompics.*;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
-import se.sics.ms.common.MsSelfImpl;
-import se.sics.ms.election.ElectionFollower;
-import se.sics.ms.election.ElectionInit;
-import se.sics.ms.election.ElectionLeader;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -53,7 +49,11 @@ import se.sics.p2ptoolbox.croupier.api.msg.CroupierJoin;
 import se.sics.p2ptoolbox.croupier.core.Croupier;
 import se.sics.p2ptoolbox.croupier.core.Croupier.CroupierInit;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
+import se.sics.p2ptoolbox.election.core.ElectionFollower;
+import se.sics.p2ptoolbox.election.core.ElectionInit;
+import se.sics.p2ptoolbox.election.core.ElectionLeader;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
 import se.sics.p2ptoolbox.gradient.core.Gradient;
@@ -74,8 +74,9 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
     private Component gradient;
-    private Component search, electionLeader, electionFollower, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
-    private Component electionLeaderComponent, electionFollowerComponent;
+//    private Component search, electionLeader, electionFollower, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
+    private Component search, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
+    private Component electionLeader, electionFollower;
     private Self self;
     private VodAddress simulatorAddress;
     private SearchConfiguration searchConfiguration;
@@ -91,7 +92,10 @@ public final class SearchPeer extends ComponentDefinition {
 
     public SearchPeer(SearchPeerInit init) throws NoSuchAlgorithmException {
 
+        // Generate the Key Pair to be used by the application.
+        generateKeys();
         self = init.getSelf();
+        
         simulatorAddress = init.getSimulatorAddress();
         pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
         electionConfiguration = init.getElectionConfiguration();
@@ -115,26 +119,20 @@ public final class SearchPeer extends ComponentDefinition {
                         ParentMakerConfiguration.build(), true));
 
 
-        generateKeys();
+        
+
+        pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
+        search = create(Search.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
+        chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration,
+                MessageFrameDecoder.class));
+        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(simulatorAddress, self.getAddress(), 5000));
+
+        // External General Components in the system needs to be connected.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
 
-
-        pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
-        search = create(Search.class, new SearchInit(self, searchConfiguration));
-        electionLeader = create(ElectionLeader.class,
-                new ElectionInit<ElectionLeader>(self, electionConfiguration));
-        electionFollower = create(ElectionFollower.class,
-                new ElectionInit<ElectionFollower>(self, electionConfiguration));
-        chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration,
-                MessageFrameDecoder.class));
-
-        // New aggregator component, providing system overview.
-        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(simulatorAddress, self.getAddress(), 5000));
         connect(network, natTraversal.getNegative(VodNetwork.class));
-
-        
         // Gradient Port Connections.
         connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
         connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
@@ -143,10 +141,7 @@ public final class SearchPeer extends ComponentDefinition {
                 pseudoGradient.getNegative(VodNetwork.class));
         connect(natTraversal.getPositive(VodNetwork.class),
                 search.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                electionLeader.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                electionFollower.getNegative(VodNetwork.class));
+        
         connect(natTraversal.getPositive(VodNetwork.class),
                 chunkManager.getNegative(VodNetwork.class));
         connect(natTraversal.getPositive(VodNetwork.class), 
@@ -157,21 +152,16 @@ public final class SearchPeer extends ComponentDefinition {
                 search.getNegative(StatusAggregatorPort.class));
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
                 pseudoGradient.getNegative(StatusAggregatorPort.class));
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
-                electionLeader.getNegative(StatusAggregatorPort.class));
-        
-        
+
         connect(timer, natTraversal.getNegative(Timer.class));
         connect(timer, search.getNegative(Timer.class));
         
         connect(timer, pseudoGradient.getNegative(Timer.class));
-        connect(timer, electionLeader.getNegative(Timer.class));
-        connect(timer, electionFollower.getNegative(Timer.class));
         connect(timer, chunkManager.getNegative(Timer.class));
         connect(timer, aggregatorComponent.getNegative(Timer.class));
         
         // ===
-        // SEARCH + PSEUDO - GRADIENT <-- CROUPIER
+        // SEARCH + (PSEUDO - GRADIENT) <-- CROUPIER + GRADIENT + (LEADER - ELECTION)
         //===
         connect(croupier.getPositive(CroupierPort.class), 
                 pseudoGradient.getNegative(CroupierPort.class));
@@ -180,43 +170,18 @@ public final class SearchPeer extends ComponentDefinition {
         
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
 
-
         connect(pseudoGradient.getNegative(PublicKeyPort.class),
                 search.getPositive(PublicKeyPort.class));
-        connect(electionLeader.getNegative(PublicKeyPort.class),
-                search.getPositive(PublicKeyPort.class));
-        connect(electionFollower.getNegative(PublicKeyPort.class),
-                search.getPositive(PublicKeyPort.class));
-
-        connect(pseudoGradient.getNegative(GradientViewChangePort.class),
-                electionLeader.getPositive(GradientViewChangePort.class));
-        connect(pseudoGradient.getNegative(GradientViewChangePort.class),
-                electionFollower.getPositive(GradientViewChangePort.class));
-
-        connect(electionLeader.getNegative(LeaderStatusPort.class),
-                pseudoGradient.getPositive(LeaderStatusPort.class));
-        connect(electionLeader.getNegative(LeaderStatusPort.class),
-                search.getPositive(LeaderStatusPort.class));
-
-        connect(electionFollower.getNegative(LeaderStatusPort.class),
-                pseudoGradient.getPositive(LeaderStatusPort.class));
-        connect(electionFollower.getNegative(LeaderStatusPort.class),
-                search.getPositive(LeaderStatusPort.class));
         
         connect(pseudoGradient.getPositive(GradientRoutingPort.class),
                 search.getNegative(GradientRoutingPort.class));
         connect(internalUiPort, search.getPositive(UiPort.class));
-
-        connect(search.getNegative(FailureDetectorPort.class), fdPort);
         
+        connect(search.getNegative(FailureDetectorPort.class), fdPort);
         connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
-        connect(electionLeader.getNegative(FailureDetectorPort.class), fdPort);
-        connect(electionFollower.getNegative(FailureDetectorPort.class), fdPort);
-
         connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
 
         connect(search.getNegative(ChunkManagerPort.class), chunkManager.getPositive(ChunkManagerPort.class));
-
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
 
@@ -246,10 +211,17 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-
+    /**
+     * Connect the application with the leader election protocol.
+     *
+     * @param electionConfig Election Configuration
+     * @param seed seed
+     */
     private void connectElection(ElectionConfig electionConfig, int seed) {
+        
+        // TODO: Connection with the Status Aggregator and the Failure Detector Port remaining.
 
-        Component electionLeader = create(se.sics.p2ptoolbox.election.core.ElectionLeader.class, new se.sics.p2ptoolbox.election.core.ElectionInit<se.sics.p2ptoolbox.election.core.ElectionLeader>(
+        electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
                 new SearchDescriptor(self.getAddress()),
                 seed,
@@ -259,7 +231,7 @@ public final class SearchPeer extends ComponentDefinition {
                 new SimpleLCPViewComparator(),
                 new SweepLeaderFilter()));
 
-        Component electionFollower = create(se.sics.p2ptoolbox.election.core.ElectionFollower.class, new se.sics.p2ptoolbox.election.core.ElectionInit<se.sics.p2ptoolbox.election.core.ElectionFollower>(
+        electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
                         new SearchDescriptor(self.getAddress()),
                         seed,
@@ -274,8 +246,16 @@ public final class SearchPeer extends ComponentDefinition {
         // Election leader connections.
         connect(natTraversal.getPositive(VodNetwork.class), electionLeader.getNegative(VodNetwork.class));
         connect(timer, electionLeader.getNegative(Timer.class));
-
-
+        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
+        connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
+        connect(electionLeader.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
+        
+        // Election follower connections.
+        connect(natTraversal.getPositive(VodNetwork.class), electionFollower.getNegative(VodNetwork.class));
+        connect(timer, electionFollower.getNegative(Timer.class));
+        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
+        connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
+        connect(electionFollower.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
     }
 
 

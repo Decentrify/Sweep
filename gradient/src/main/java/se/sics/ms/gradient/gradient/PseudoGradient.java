@@ -23,8 +23,6 @@ import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.gradient.ports.LeaderStatusPort.LeaderStatus;
-import se.sics.ms.gradient.ports.LeaderStatusPort.NodeCrashEvent;
 import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
@@ -42,6 +40,9 @@ import se.sics.ms.util.SamplingServiceHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
+import se.sics.p2ptoolbox.election.api.msg.LeaderState;
+import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
+import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
@@ -61,7 +62,8 @@ public final class PseudoGradient extends ComponentDefinition {
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-
+    Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
+    
     Positive<PublicKeyPort> publicKeyPort = positive(PublicKeyPort.class);
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
@@ -120,9 +122,6 @@ public final class PseudoGradient extends ComponentDefinition {
             } else if (t0.isConnected() && !t1.isConnected()) {
                 return -1;
             } 
-//            else if (t0.getAge() > t1.getAge()) {
-//                return 1;
-//            }
             else {
                 return -1;
             }
@@ -155,12 +154,13 @@ public final class PseudoGradient extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(handleLeaderLookupRequest, networkPort);
         subscribe(handleLeaderLookupResponse, networkPort);
-        subscribe(handleLeaderStatus, leaderStatusPort);
-
-        subscribe(handleNodeCrash, leaderStatusPort);
         subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(handlePublicKeyBroadcast, publicKeyPort);
         subscribe(handleAddIndexEntryRequest, gradientRoutingPort);
+        
+        // New Leader update protocol.
+        subscribe(electedAsLeaderHandler, electionPort);
+        subscribe(terminateBeingLeaderHandler, electionPort);
 
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleReplicationPrepareCommit, gradientRoutingPort);
@@ -274,7 +274,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
             if (croupierPeerView.pv instanceof SearchDescriptor) {
                 SearchDescriptor currentDescriptor = (SearchDescriptor) croupierPeerView.pv;
-//                currentDescriptor.setAge(croupierPeerView.getAge());
                 baseList.add(currentDescriptor);
             }
         }
@@ -414,31 +413,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
         return false;
     }
-
-    /**
-     * This handler listens to updates regarding the leader status
-     */
-    final Handler<LeaderStatus> handleLeaderStatus = new Handler<LeaderStatus>() {
-        @Override
-        public void handle(LeaderStatus event) {
-            leader = event.isLeader();
-        }
-    };
-
-
-    /**
-     * Updates gradient's view by removing crashed nodes from it, eg. old
-     * leaders
-     */
-    final Handler<NodeCrashEvent> handleNodeCrash = new Handler<NodeCrashEvent>() {
-        @Override
-        public void handle(NodeCrashEvent event) {
-            
-            VodAddress deadNode = event.getDeadNode();
-            publishUnresponsiveNode(deadNode);
-        }
-    };
-
 
 
     /**
@@ -1137,4 +1111,26 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     }
+    
+    
+    // ==== LEADER ELECTION PROTOCOL HANDLERS.
+    
+    Handler<LeaderState.ElectedAsLeader> electedAsLeaderHandler = new Handler<LeaderState.ElectedAsLeader>() {
+        @Override
+        public void handle(LeaderState.ElectedAsLeader event) {
+            logger.debug("Node elected as leader");
+            leader = false;
+        }
+    };
+    
+    Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
+        @Override
+        public void handle(LeaderState.TerminateBeingLeader event) {
+            logger.debug("Terminate being leader");
+            leader = false;
+        }
+    };
+    
 }
+
+

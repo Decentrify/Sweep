@@ -62,6 +62,11 @@ import se.sics.ms.util.Pair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
+import se.sics.p2ptoolbox.election.api.msg.ElectionState;
+import se.sics.p2ptoolbox.election.api.msg.LeaderState;
+import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
+import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
+import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
@@ -92,6 +97,7 @@ public final class Search extends ComponentDefinition {
      */
     public static final boolean PERSISTENT_INDEX = false;
 
+    // ====== PORTS.
     Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
     Positive<VodNetwork> networkPort = positive(VodNetwork.class);
     Positive<ChunkManagerPort> chunkManagerPort = positive(ChunkManagerPort.class);
@@ -105,7 +111,9 @@ public final class Search extends ComponentDefinition {
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
-
+    Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
+    
+    // ======== LOCAL VARIABLES.
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
     private SearchConfiguration config;
@@ -168,6 +176,8 @@ public final class Search extends ComponentDefinition {
     private LuceneAdaptor writeLuceneAdaptor;
     private LuceneAdaptor searchRequestLuceneAdaptor;
 
+    // ======= TIMEOUTS.
+    
     private class ExchangeRound extends IndividualTimeout {
 
         public ExchangeRound(SchedulePeriodicTimeout request, int id) {
@@ -274,8 +284,6 @@ public final class Search extends ComponentDefinition {
         
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
-        subscribe(handleLeaderStatus, leaderStatusPort);
-        subscribe(handleLeaderUpdate, leaderStatusPort);
         subscribe(searchRequestHandler, uiPort);
         
         subscribe(handleRepairRequest, networkPort);
@@ -315,6 +323,13 @@ public final class Search extends ComponentDefinition {
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
         subscribe(gradientSampleHandler, gradientPort);
+        
+        // LeaderElection handlers.
+        subscribe(leaderElectionHandler, electionPort);
+        subscribe(terminateBeingLeaderHandler, electionPort);
+        subscribe(leaderUpdateHandler, electionPort);
+        subscribe(enableLGMembershipHandler, electionPort);
+        subscribe(disableLGMembershipHandler, electionPort);
     }
 
     /**
@@ -323,24 +338,16 @@ public final class Search extends ComponentDefinition {
     private void doInit(SearchInit init) {
 
         self = (MsSelfImpl) init.getSelf();
-
         config = init.getConfiguration();
-        KeyPairGenerator keyGen;
-        try {
-            keyGen = KeyPairGenerator.getInstance("RSA");
-            keyGen.initialize(1024);
-            final KeyPair key = keyGen.generateKeyPair();
-            privateKey = key.getPrivate();
-            publicKey = key.getPublic();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+        publicKey = init.getPublicKey();
+        privateKey = init.getPrivateKey();
 
         replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
         nextInsertionId = 0;
         lowestMissingIndexValue = 0;
         commitRequests = new HashMap<TimeoutId, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
+        
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         File file = null;
@@ -360,7 +367,6 @@ public final class Search extends ComponentDefinition {
 
         writeLuceneAdaptor = new LuceneAdaptorImpl(index, indexWriterConfig);
         try {
-//            logger.warn(" Writer Lucene Adapter Instantiated. ");
             writeLuceneAdaptor.initialEmptyWriterCommit();
             
             if (PERSISTENT_INDEX && file != null && file.exists()) {
@@ -739,15 +745,6 @@ public final class Search extends ComponentDefinition {
             trigger(new LeaderInfoUpdate(newLeader, newLeaderPublicKey), leaderStatusPort);
         }
     }
-
-    Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
-        @Override
-        public void handle(LeaderInfoUpdate leaderInfoUpdate) {
-
-            updateLeaderIds(leaderInfoUpdate.getLeaderPublicKey());
-        }
-    };
-
 
     /**
      * Extract the partition updates who's hashes match but sequence should not be violated.
@@ -1520,20 +1517,6 @@ public final class Search extends ComponentDefinition {
             for (TimeoutId uuid : removeList) {
                 recentRequests.remove(uuid);
             }
-        }
-    };
-
-    /**
-     * This handler listens to updates regarding the leader status
-     */
-    final Handler<LeaderStatusPort.LeaderStatus> handleLeaderStatus = new Handler<LeaderStatusPort.LeaderStatus>() {
-        @Override
-        public void handle(LeaderStatusPort.LeaderStatus event) {
-            leader = event.isLeader();
-
-            if (!leader) return;
-
-            trigger(new PublicKeyBroadcast(publicKey), publicKeyPort);
         }
     };
 
@@ -2802,9 +2785,7 @@ public final class Search extends ComponentDefinition {
 
             // Inform other components about the update.
             informListeningComponentsAboutUpdates(self);
-            trigger(new LeaderStatusPort.TerminateBeingLeader(), leaderStatusPort);
-
-//            trigger(new StatusAggregatorMessages.SearchUpdateEvent(new SearchStatusData()), statusAggregatorPortPositive);
+            
         }
     }
 
@@ -2952,13 +2933,13 @@ public final class Search extends ComponentDefinition {
      */
     private void informListeningComponentsAboutUpdates(MsSelfImpl self){
 
-//        SearchDescriptor updatedDesc = new SearchDescriptor(new OverlayAddress(self.getAddress()), false, self.getNumberOfIndexEntries(), self.getPartitionIdDepth());
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
 
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate(updatedDesc), gradientPort);
+        trigger(new ViewUpdate(updatedDesc), electionPort);
     }
 
     /**
@@ -2973,6 +2954,63 @@ public final class Search extends ComponentDefinition {
         }
     };
     
+    
+    // LEADER ELECTION PROTOCOL HANDLERS.
+
+    /**
+     * Node is elected as the leader of the partition.
+     * In addition to this, node has chosen a leader group which it will work with.
+     */
+    Handler<LeaderState.ElectedAsLeader> leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
+        @Override
+        public void handle(LeaderState.ElectedAsLeader event) {
+            logger.debug("Self node is elected as leader.");
+        }
+    };
+
+    /**
+     * Node was the leader but due to a better node arriving in the system, 
+     * the leader gives up the leadership in order to maintain fairness.
+     */
+    Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
+        @Override
+        public void handle(LeaderState.TerminateBeingLeader event) {
+            logger.debug("Self is being removed from the leadership position.");
+        }
+    };
+
+    /**
+     * Update about the current leader in the system.
+     */
+    Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
+        @Override
+        public void handle(LeaderUpdate event) {
+            logger.debug("Update regarding the leader in the system is received");
+        }
+    };
+
+    /**
+     * Node is chosen by the leader to be part of a leader group. The utility of the node
+     * should increase because of this.
+     * 
+     */
+    Handler<ElectionState.EnableLGMembership> enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
+        @Override
+        public void handle(ElectionState.EnableLGMembership event) {
+            logger.debug("Node is chosen to be a part of leader group.");
+        }
+    };
+
+    /**
+     * Node is no longer a part of leader group and therefore would not receive the entry addition directly 
+     * from the leader but they would have to pull it from the other neighbouring nodes in the system.
+     */
+    Handler<ElectionState.DisableLGMembership> disableLGMembershipHandler = new Handler<ElectionState.DisableLGMembership>() {
+        @Override
+        public void handle(ElectionState.DisableLGMembership event) {
+            logger.debug("Remove the node from the leader group membership.");
+        }
+    };
 
 }
 

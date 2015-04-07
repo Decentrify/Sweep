@@ -2,13 +2,16 @@ package se.sics.ms.gradient.events;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
+import se.sics.kompics.KompicsEvent;
 
 import java.security.PublicKey;
 
 /**
+ * Update about the current leader in the partition.
+ *
  * Created by alidar on 8/13/14.
  */
-public class LeaderInfoUpdate extends Event {
+public class LeaderInfoUpdate implements KompicsEvent {
 
     private VodAddress leaderAddress;
     private PublicKey leaderPublicKey;
