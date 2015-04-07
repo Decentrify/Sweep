@@ -335,10 +335,12 @@ public class ElectionLeader extends ComponentDefinition {
                     logger.debug("{}: All the leader group nodes have promised.", selfAddress.getId());
 
                     // STEPS: (Order is important)
-
-                    // 1. Set self as leader and quickly disseminate the information in the system.
-                    // 2. Send the commit message to the leader group nodes.
-
+                    
+                    // 1. Enable the self check to be in the leader group. (Prevent wrong functionality of the nodes in the system.)
+                    // 2. Set self as leader and quickly disseminate the information in the system.
+                    // 3. Send the commit message to the leader group nodes.
+                    
+                    selfLCView = selfLCView.enableLGMembership();
                     trigger(new LeaderState.ElectedAsLeader(promiseResponseTracker.getLeaderGroupInformation()), electionPort);
                     trigger(new ElectionState.EnableLGMembership(), electionPort);
 
@@ -361,6 +363,7 @@ public class ElectionLeader extends ComponentDefinition {
                 }
                 // Reset the tracker information to prevent the behaviour again and again.
                 promiseResponseTracker.resetTracker();
+                inElection = false;
             }
         }
     };
@@ -390,7 +393,6 @@ public class ElectionLeader extends ComponentDefinition {
                 logger.debug("Trying to extend the leadership.");
 
                 int leaderGroupSize = Math.min(config.getViewSize() / 2 + 1, config.getMaxLeaderGroupSize());
-                ;
                 Collection<LEContainer> lowerNodes = createLeaderGroupNodes(leaderGroupSize);
 
                 if (lowerNodes.size() < leaderGroupSize) {
