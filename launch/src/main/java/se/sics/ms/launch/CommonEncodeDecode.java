@@ -34,6 +34,8 @@ import se.sics.p2ptoolbox.aggregator.api.model.AggregatedStatePacket;
 import se.sics.p2ptoolbox.aggregator.core.AggregatorNetworkSettings;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.croupier.core.CroupierNetworkSettings;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
+import se.sics.p2ptoolbox.election.core.LENetworkSettings;
 import se.sics.p2ptoolbox.gradient.core.GradientNetworkSettings;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.SerializationContextImpl;
@@ -57,11 +59,14 @@ public class CommonEncodeDecode {
     public static final byte PEER_VIEW_CODE = (byte) 0x02;
     public static final byte AGGREGATED_STATE_PACKET_CODE = (byte) 0x03;
     public static final byte COMPONENT_UPDATE_ALIAS_CODE = (byte)0x04;
+    public static final byte LCP_CODE = (byte)0x05;
 
     public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
     public static final String PEER_VIEW_ALIAS = "SWEEP_PEER_VIEW";
     public static final String AGGREGATED_STATE_PACKET_ALIAS = "MY_STATE_PACKET";
     public static final String COMPONENT_UPDATE_ALIAS = "COMPONENT_UPDATE";
+
+    public static final String LEADER_CAPABLE_PEER_VIEW = "LCP_VIEW";
 
     private static final SerializationContext context = new SerializationContextImpl();
     
@@ -95,8 +100,11 @@ public class CommonEncodeDecode {
             
             context.registerSerializer(ElectionLeaderComponentUpdate.class, new ElectionLeaderUpdateSerializer());
             context.multiplexAlias(COMPONENT_UPDATE_ALIAS, ElectionLeaderComponentUpdate.class, (byte)0x02);
-            
-            
+
+            // Leader Election Protocol Serializer.
+            context.registerAlias(LCPeerView.class, LEADER_CAPABLE_PEER_VIEW, LCP_CODE);
+            context.multiplexAlias(LEADER_CAPABLE_PEER_VIEW, SearchDescriptor.class, (byte)0x01);
+
         } catch (SerializationContext.DuplicateException ex) {
             throw new RuntimeException(ex);
         } catch (SerializationContext.MissingException ex) {
@@ -106,6 +114,7 @@ public class CommonEncodeDecode {
         CroupierNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.CROUPIER_REQUEST, MessageFrameDecoder.CROUPIER_RESPONSE);
         GradientNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.GRADIENT_REQUEST, MessageFrameDecoder.GRADIENT_RESPONSE);
         AggregatorNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.AGGREGATOR_ONE_WAY);
+        LENetworkSettings.oneTimeSetup(context, MessageFrameDecoder.LEADER_PROMISE_REQUEST, MessageFrameDecoder.LEADER_PROMISE_RESPONSE, MessageFrameDecoder.LEADER_EXTENSION_ONEWAY, MessageFrameDecoder.LEASE_COMMIT_ONEWAY);
     }
     
 }

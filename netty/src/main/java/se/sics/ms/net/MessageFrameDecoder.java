@@ -77,6 +77,13 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     // Global Aggregator Message.
     public static final byte AGGREGATOR_ONE_WAY = -0x10;
 
+    // Leader Election Protocol.
+    public static final byte LEADER_PROMISE_REQUEST = -0x11;
+    public static final byte LEADER_PROMISE_RESPONSE = -0x12;
+    public static final byte LEADER_EXTENSION_ONEWAY = -0x13;
+    public static final byte LEASE_COMMIT_ONEWAY = -0x14;
+
+
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
     public MessageFrameDecoder() {
         super();
@@ -196,6 +203,18 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case AGGREGATOR_ONE_WAY:
                 SerializerAdapter.OneWay oneWay = new SerializerAdapter.OneWay();
                 return oneWay.decodeMsg(buffer);
+            case LEADER_PROMISE_REQUEST:
+                SerializerAdapter.Request request = new SerializerAdapter.Request();
+                return request.decodeMsg(buffer);
+            case LEADER_PROMISE_RESPONSE:
+                SerializerAdapter.Response response = new SerializerAdapter.Response();
+                return response.decodeMsg(buffer);
+            case LEADER_EXTENSION_ONEWAY:
+                SerializerAdapter.OneWay extension_oneWay = new SerializerAdapter.OneWay();
+                return extension_oneWay.decodeMsg(buffer);
+            case LEASE_COMMIT_ONEWAY:
+                SerializerAdapter.OneWay lease_oneWay = new SerializerAdapter.OneWay();
+                return lease_oneWay.decodeMsg(buffer);
 
             default:
                 break;
