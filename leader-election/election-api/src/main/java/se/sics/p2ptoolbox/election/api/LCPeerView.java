@@ -9,6 +9,15 @@ public interface LCPeerView {
 
 
     /**
+     * Checks if the node is part of the leader group.
+     * The contract is dependent upon the call to
+     * {@link #enableLGMembership()} and {@link #disableLGMembership()}
+     *
+     * @return is node part of leader group.
+     */
+    public boolean isLeaderGroupMember();
+
+    /**
      * Indicates the view is now a part
      * of Leader Group.
      */

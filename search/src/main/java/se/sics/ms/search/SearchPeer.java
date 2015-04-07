@@ -170,8 +170,8 @@ public final class SearchPeer extends ComponentDefinition {
         
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
 
-        connect(pseudoGradient.getNegative(PublicKeyPort.class),
-                search.getPositive(PublicKeyPort.class));
+//        connect(pseudoGradient.getNegative(PublicKeyPort.class),
+//                search.getPositive(PublicKeyPort.class));
         
         connect(pseudoGradient.getPositive(GradientRoutingPort.class),
                 search.getNegative(GradientRoutingPort.class));
@@ -220,6 +220,7 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectElection(ElectionConfig electionConfig, int seed) {
         
         // TODO: Connection with the Status Aggregator and the Failure Detector Port remaining.
+        log.info("Starting with the election components creation and connections.");
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),

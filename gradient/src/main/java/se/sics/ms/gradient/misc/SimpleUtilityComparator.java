@@ -6,61 +6,63 @@ import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import java.util.Comparator;
 
 /**
+ * Comparator used in the gradient protocol.
+ *
  * Created by babbarshaer on 2015-03-06.
  */
 public class SimpleUtilityComparator implements Comparator<PeerView>{
     
-    SearchDescriptor s1;
-    SearchDescriptor s2;
-    
-    @Override
-    public int compare(PeerView o1, PeerView o2) {
+        SearchDescriptor s1;
+        SearchDescriptor s2;
 
-        if(o1 instanceof SearchDescriptor && o2 instanceof SearchDescriptor){
-            
-            s1 = (SearchDescriptor)o1;
-            s2 = (SearchDescriptor)o2;
+        @Override
+        public int compare(PeerView o1, PeerView o2) {
 
-            // NAT TYPE.
-            if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
-                if (s1.getVodAddress().isOpen())
-                    return 1;
-                return -1;
-            }
+            if(o1 instanceof SearchDescriptor && o2 instanceof SearchDescriptor){
 
-            // LEADER GROUP MEMBERSHIP.
-            if(s1.isLGMember() != s2.isLGMember()){
-                if(s1.isLGMember())
-                    return 1;
-                return -1;
-            }
+                s1 = (SearchDescriptor)o1;
+                s2 = (SearchDescriptor)o2;
 
-            // PARTITIONING DEPTH.
-            if(s1.getPartitioningDepth() != s2.getPartitioningDepth()) {
-                if(s1.getPartitioningDepth() > s2.getPartitioningDepth())
-                    return 1;
-                return -1;
-            }
-
-            // NUMBER OF INDEX ENTRIES.
-            if (s1.getNumberOfIndexEntries() != s2.getNumberOfIndexEntries()) {
-
-                if (s1.getNumberOfIndexEntries() > s2.getNumberOfIndexEntries())
-                    return 1;
-                return -1;
-            }
-
-            // NODE ID.
-            if (s1.getId() != s2.getId()) {
-
-                if (s1.getId() > s2.getId())
+                // NAT TYPE.
+                if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
+                    if (s1.getVodAddress().isOpen())
+                        return 1;
                     return -1;
-                return 1;
+                }
+
+                // LEADER GROUP MEMBERSHIP.
+                if(s1.isLGMember() != s2.isLGMember()){
+                    if(s1.isLGMember())
+                        return 1;
+                    return -1;
+                }
+
+                // PARTITIONING DEPTH.
+                if(s1.getPartitioningDepth() != s2.getPartitioningDepth()) {
+                    if(s1.getPartitioningDepth() > s2.getPartitioningDepth())
+                        return 1;
+                    return -1;
+                }
+
+                // NUMBER OF INDEX ENTRIES.
+                if (s1.getNumberOfIndexEntries() != s2.getNumberOfIndexEntries()) {
+
+                    if (s1.getNumberOfIndexEntries() > s2.getNumberOfIndexEntries())
+                        return 1;
+                    return -1;
+                }
+
+                // NODE ID.
+                if (s1.getId() != s2.getId()) {
+
+                    if (s1.getId() > s2.getId())
+                        return -1;
+                    return 1;
+                }
+
+                return 0;
             }
-            
-            return 0;
+
+            throw new ClassCastException("Comparator's Not Valid for the Object.");
         }
-        
-        throw new ClassCastException("Comparator's Not Valid for the Object.");
-    }
 }

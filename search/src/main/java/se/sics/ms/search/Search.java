@@ -2930,7 +2930,7 @@ public final class Search extends ComponentDefinition {
     Handler<LeaderState.ElectedAsLeader> leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
-            logger.debug("Self node is elected as leader.");
+            logger.warn("{}: Self node is elected as leader.", self.getId());
             leader = true;
         }
     };
@@ -2942,7 +2942,7 @@ public final class Search extends ComponentDefinition {
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
-            logger.debug("Self is being removed from the leadership position.");
+            logger.debug("{}: Self is being removed from the leadership position.", self.getId());
             leader = false;
         }
     };
@@ -2953,8 +2953,7 @@ public final class Search extends ComponentDefinition {
     Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
         @Override
         public void handle(LeaderUpdate event) {
-            logger.debug("Update regarding the leader in the system is received");
-
+            logger.debug("{}: Update regarding the leader in the system is received", self.getId());
         }
     };
 
@@ -2966,7 +2965,7 @@ public final class Search extends ComponentDefinition {
     Handler<ElectionState.EnableLGMembership> enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
-            logger.debug("Node is chosen to be a part of leader group.");
+            logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
             self.setLGMember(true);
             informListeningComponentsAboutUpdates(self);
         }
@@ -2979,7 +2978,7 @@ public final class Search extends ComponentDefinition {
     Handler<ElectionState.DisableLGMembership> disableLGMembershipHandler = new Handler<ElectionState.DisableLGMembership>() {
         @Override
         public void handle(ElectionState.DisableLGMembership event) {
-            logger.debug("Remove the node from the leader group membership.");
+            logger.warn("{}: Remove the node from the leader group membership.", self.getId());
             self.setLGMember(false);
             informListeningComponentsAboutUpdates(self);
         }

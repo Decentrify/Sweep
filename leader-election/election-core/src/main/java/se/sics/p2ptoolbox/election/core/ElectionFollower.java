@@ -31,12 +31,11 @@ import java.util.UUID;
 
 /**
  * Election Follower part of the Leader Election Protocol.
- * 
  */
 public class ElectionFollower extends ComponentDefinition {
 
     Logger logger = LoggerFactory.getLogger(ElectionFollower.class);
-    
+
     VodAddress selfAddress;
     LCPeerView selfLCView;
     LEContainer selfContainer;
@@ -50,18 +49,18 @@ public class ElectionFollower extends ComponentDefinition {
     private Comparator<LEContainer> leContainerComparator;
 
     // Gradient Sample.
-    int convergenceCounter =0;
+    int convergenceCounter = 0;
     private boolean isConverged;
     private Map<VodAddress, LEContainer> addressContainerMap;
 
     // Leader Election.
     private UUID electionRoundId;
-    private boolean isUnderLease;
+    private boolean inElection;
+
     private TimeoutId awaitLeaseCommitId;
     private TimeoutId leaseTimeoutId;
     private VodAddress leaderAddress;
-    private PublicKey leaderPublicKey;
-    
+
     // Ports.
     Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
     Positive<se.sics.gvod.timer.Timer> timerPositive = requires(se.sics.gvod.timer.Timer.class);
@@ -69,8 +68,8 @@ public class ElectionFollower extends ComponentDefinition {
     Negative<LeaderElectionPort> electionPort = provides(LeaderElectionPort.class);
     Negative<TestPort> testPortNegative = provides(TestPort.class);
 
-    public ElectionFollower(ElectionInit<ElectionFollower> init){
-        
+    public ElectionFollower(ElectionInit<ElectionFollower> init) {
+
         doInit(init);
 
         subscribe(startHandler, control);
@@ -102,7 +101,7 @@ public class ElectionFollower extends ComponentDefinition {
             @Override
             public int compare(LEContainer o1, LEContainer o2) {
 
-                if(o1 == null || o2 == null){
+                if (o1 == null || o2 == null) {
                     throw new IllegalArgumentException("Can't compare null values");
                 }
 
@@ -117,8 +116,7 @@ public class ElectionFollower extends ComponentDefinition {
         higherUtilityNodes = new TreeSet<LEContainer>(leContainerComparator);
     }
 
-    
-    
+
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
@@ -137,15 +135,17 @@ public class ElectionFollower extends ComponentDefinition {
             addressContainerMap = ElectionHelper.addGradientSample(event.cpvCollection);
 
             // Check how much the sample changed.
-            if(ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
-                convergenceCounter++;
-                if (convergenceCounter > config.getConvergenceRounds()) {
-                    isConverged = true;
+            if (ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
+                if (!isConverged) {
+
+                    convergenceCounter++;
+                    if (convergenceCounter >= config.getConvergenceRounds()) {
+                        isConverged = true;
+                    }
                 }
-            }
-            else{
+            } else {
                 convergenceCounter = 0;
-                if(isConverged){
+                if (isConverged) {
                     isConverged = false;
                 }
             }
@@ -159,27 +159,30 @@ public class ElectionFollower extends ComponentDefinition {
     };
 
 
-
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
-            
-            logger.debug("{}: Received gradient sample");
+
+            logger.trace("{}: Received gradient sample", selfAddress.getId());
 
             // Incorporate the new sample.
             Map<VodAddress, LEContainer> oldContainerMap = addressContainerMap;
             addressContainerMap = ElectionHelper.addGradientSample(event.gradientSample);
 
             // Check how much the sample changed.
-            if(ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
-                convergenceCounter++;
-                if (convergenceCounter > config.getConvergenceRounds()) {
-                    isConverged = true;
+            if (ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
+
+                if (!isConverged) {
+
+                    convergenceCounter++;
+                    if (convergenceCounter >= config.getConvergenceRounds()) {
+                        isConverged = true;
+                    }
                 }
-            }
-            else{
+
+            } else {
                 convergenceCounter = 0;
-                if(isConverged){
+                if (isConverged) {
                     isConverged = false;
                 }
             }
@@ -205,16 +208,13 @@ public class ElectionFollower extends ComponentDefinition {
 
             if (filter.terminateLeader(oldView, selfLCView)) {
 
-                if(isUnderLease){
-                    logger.debug("{}: Terminate the leader information.", selfAddress.getId());
+                logger.debug("{}: Terminate the election information.", selfAddress.getId());
 
-                    if(leaseTimeoutId != null){
-                        CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
-                        trigger(ct, timerPositive);
-                    }
-                    terminateLeaderInformation();
+                if (leaseTimeoutId != null) {
+                    CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
+                    trigger(ct, timerPositive);
                 }
-
+                terminateElectionInformation();
             }
         }
     };
@@ -224,7 +224,6 @@ public class ElectionFollower extends ComponentDefinition {
      * Promise request from the node trying to assert itself as leader.
      * The request is sent to all the nodes in the system that the originator of request seems fit
      * and wants them to be a part of the leader group.
-     *
      */
     Handler<LeaderPromiseMessage.Request> promiseRequestHandler = new Handler<LeaderPromiseMessage.Request>() {
         @Override
@@ -237,24 +236,22 @@ public class ElectionFollower extends ComponentDefinition {
 
             boolean acceptCandidate = true;
 
-            if(isUnderLease || (electionRoundId != null)) {
+            if (selfLCView.isLeaderGroupMember() || (inElection)) {
                 // If part of leader group or already promised by setting election round id, I deny promise.
                 acceptCandidate = false;
-            }
-            
-            else{
-                
-                LCPeerView nodeToCompareTo = getHighestUtilityNode();
-                if(lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0){
+            } else {
 
+                LCPeerView nodeToCompareTo = getHighestUtilityNode();
+                if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0) {
+
+                    inElection = true;
                     electionRoundId = event.id;
                     ScheduleTimeout st = new ScheduleTimeout(3000);
                     st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st));
 
                     awaitLeaseCommitId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, timerPositive);
-                }
-                else
+                } else
                     acceptCandidate = false;
             }
 
@@ -271,11 +268,12 @@ public class ElectionFollower extends ComponentDefinition {
     Handler<TimeoutCollection.AwaitLeaseCommitTimeout> awaitLeaseCommitTimeoutHandler = new Handler<TimeoutCollection.AwaitLeaseCommitTimeout>() {
         @Override
         public void handle(TimeoutCollection.AwaitLeaseCommitTimeout event) {
+
             logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
             electionRoundId = null;
+            inElection = false;
         }
     };
-
 
 
     /**
@@ -287,7 +285,7 @@ public class ElectionFollower extends ComponentDefinition {
 
             logger.debug("{}: Received lease commit message request from : {}", selfAddress.getId(), event.getSource().getId());
 
-            if(electionRoundId == null || !electionRoundId.equals(event.id)){
+            if (electionRoundId == null || !electionRoundId.equals(event.id)) {
                 logger.warn("{}: Received an election response for the round id which has expired or timed out.", selfAddress.getId());
                 return;
             }
@@ -297,8 +295,11 @@ public class ElectionFollower extends ComponentDefinition {
             trigger(timeout, timerPositive);
 
             logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
+            leaderAddress = event.content.leaderAddress;
 
-            isUnderLease = true;
+            inElection = false;
+            selfLCView = selfLCView.enableLGMembership();
+
             trigger(new ElectionState.EnableLGMembership(), electionPort);
             trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
 
@@ -316,26 +317,26 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * As soon as the lease expires reset all the parameters related to the node being under lease.
      * CHECK : If we also need to reset the parameters associated with the current leader. (YES I THINK SO)
-     *
      */
     Handler<TimeoutCollection.LeaseTimeout> leaseTimeoutHandler = new Handler<TimeoutCollection.LeaseTimeout>() {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
             logger.debug("{}: Special : Lease timed out.", selfAddress.getId());
-            terminateLeaderInformation();
+            terminateElectionInformation();
         }
     };
 
 
+    private void terminateElectionInformation() {
 
-    private void terminateLeaderInformation(){
-
-        isUnderLease = false;
         electionRoundId = null;
+        leaderAddress = null;
+        inElection = false;
+        selfLCView = selfLCView.disableLGMembership();
+
         trigger(new ElectionState.DisableLGMembership(), electionPort);
     }
-
 
 
     /**
@@ -348,19 +349,17 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderExtensionRequest leaderExtensionRequest) {
             logger.debug("{}: Received leader extension request from the node: {}", selfAddress.getId(), leaderExtensionRequest.getVodSource().getId());
 
-            if(isUnderLease){
+            if (selfLCView.isLeaderGroupMember()) {
 
-                if(leaderAddress != null && !leaderExtensionRequest.content.leaderAddress.equals(leaderAddress)){
-                    logger.warn("{}: There might be a problem with the leader extension as I received lease extension from the node other than current leader. ", selfAddress.getId());
+                if (leaderAddress != null && !leaderExtensionRequest.content.leaderAddress.equals(leaderAddress)) {
+                    logger.warn("{}: There might be a problem with the leader extension or a special case as I received lease extension from the node other than current leader. ", selfAddress.getId());
                 }
 
                 CancelTimeout cancelTimeout = new CancelTimeout(leaseTimeoutId);
                 trigger(cancelTimeout, timerPositive);
-            }
+            } else {
 
-            else{
-
-                isUnderLease = true;
+                selfLCView = selfLCView.enableLGMembership();
                 trigger(new ElectionState.EnableLGMembership(), electionPort);
             }
 
@@ -376,21 +375,18 @@ public class ElectionFollower extends ComponentDefinition {
     };
 
 
-
-
-    
     /**
      * Analyze the views present locally and
      * return the highest utility node.
      *
      * @return Highest utility Node.
      */
-    public LCPeerView getHighestUtilityNode(){
+    public LCPeerView getHighestUtilityNode() {
 
-        if(higherUtilityNodes.size() != 0){
+        if (higherUtilityNodes.size() != 0) {
             return higherUtilityNodes.last().getLCPeerView();
         }
-        
+
         return selfLCView;
     }
 
@@ -398,8 +394,8 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * Capture the information related to the current leader in the system.
      */
-    public void storeCurrentLeaderInformation(){
+    public void storeCurrentLeaderInformation() {
 
     }
-    
+
 }

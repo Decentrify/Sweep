@@ -25,6 +25,11 @@ public class LeaderDescriptor implements PeerView, LCPeerView, Comparable<Leader
     }
 
     @Override
+    public boolean isLeaderGroupMember() {
+        return membership;
+    }
+
+    @Override
     public LCPeerView enableLGMembership() {
         return new LeaderDescriptor(this.utility, true);
     }

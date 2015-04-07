@@ -61,7 +61,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
-    Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
+    Positive<LeaderStatusPort> leaderStatusPort = requires(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
@@ -1011,7 +1011,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.debug(compName + sb);
+        logger.info(compName + sb);
     }
 
     /**
@@ -1117,7 +1117,7 @@ public final class PseudoGradient extends ComponentDefinition {
     Handler<LeaderState.ElectedAsLeader> electedAsLeaderHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
-            logger.debug("Node elected as leader");
+            logger.debug("{}: Node elected as leader", self.getId());
             leader = true;
         }
     };
@@ -1128,7 +1128,7 @@ public final class PseudoGradient extends ComponentDefinition {
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
-            logger.debug("Terminate being leader");
+            logger.debug("{}: Terminate being leader", self.getId());
             leader = false;
         }
     };
@@ -1141,7 +1141,7 @@ public final class PseudoGradient extends ComponentDefinition {
         @Override
         public void handle(LeaderUpdate leaderUpdate) {
 
-            logger.debug("Information About the current leader received.");
+            logger.debug("{}: Information About the current leader received.", self.getId());
             leaderAddress = leaderUpdate.leaderAddress;
             leaderPublicKey = leaderUpdate.leaderPublicKey;
         }

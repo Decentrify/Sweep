@@ -92,6 +92,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             }
         }
 
+
         int overlayIdComparisonResult = this.overlayAddress.getOverlayId().compareTo(that.overlayAddress.getOverlayId());
 
         if(overlayIdComparisonResult != 0){
@@ -109,6 +110,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     }
 
     @Override
+
     public int hashCode() {
         final int prime = 87;
         int result = 1;
@@ -156,6 +158,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return false;
         }
 
+
         else if(!(this.numberOfIndexEntries == other.numberOfIndexEntries)){
             return false;
         }
@@ -180,6 +183,11 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     @Override
     public SearchDescriptor deepCopy() {
         return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.isLGMember());
+    }
+
+    @Override
+    public boolean isLeaderGroupMember() {
+        return this.isLGMember;
     }
 
     @Override
