@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 public final class SearchSimulator extends ComponentDefinition {
@@ -54,6 +55,8 @@ public final class SearchSimulator extends ComponentDefinition {
     private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private GradientConfig gradientConfig;
+    private ElectionConfig electionConfig;
+
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
     private AsIpGenerator ipGenerator;
@@ -79,10 +82,9 @@ public final class SearchSimulator extends ComponentDefinition {
         gradientConfig = init.getGradientConfig();
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
-        //TODO Alex/Croupier - what is this exactly? it was set to 3000 before
-        identifierSpaceSize = new Long(3000);
+        electionConfig = init.getElectionConfig();
 
-        // TODO - is this the correct seed??!?
+        identifierSpaceSize = (long) 3000;
         ipGenerator = AsIpGenerator.getInstance(init.getGradientConfiguration().getSeed());
         
         subscribe(handleStart, control);

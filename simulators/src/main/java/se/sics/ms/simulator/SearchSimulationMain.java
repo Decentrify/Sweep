@@ -17,6 +17,7 @@ import java.io.IOException;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
 import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.core.GradientConfig;
 
 public final class SearchSimulationMain extends ComponentDefinition {
@@ -57,13 +58,16 @@ public final class SearchSimulationMain extends ComponentDefinition {
         CroupierConfig newCroupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
                 MsConfig.CROUPIER_SHUFFLE_LENGTH, hardcodedPolicy);
         GradientConfig gradientConfig = new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE, MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
+        ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
                 newCroupierConfig,
                 GradientConfiguration.build(),
                 SearchConfiguration.build(),
                 ElectionConfiguration.build(),
                 ChunkManagerConfiguration.build(),
-                gradientConfig));
+                gradientConfig,
+                electionConfig));
 
         // connect
         connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
