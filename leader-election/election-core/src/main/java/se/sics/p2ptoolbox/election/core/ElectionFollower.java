@@ -7,6 +7,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
+import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -216,6 +217,19 @@ public class ElectionFollower extends ComponentDefinition {
                 }
                 terminateElectionInformation();
             }
+
+            // The purpose of below check is to reset the inElection information
+            // after the nodes have received the leader group member information from the application
+            // because if not done then for some time the nodes become vulnerable for the other nodes to ask them for the promises.
+
+            // At the follower end this will prevent the node to answer promises to any node requesting it in case the
+            // election mode is on which switches off only when the corresponding update is received from the UI.
+            if(inElection && selfLCView.isLeaderGroupMember()){
+
+                // CAUTION: Track the responses based on the UUID in future, to prevent answering for previous responses in case the queue size or contention in other
+                // components is very high.
+                inElection = false;
+            }
         }
     };
 
@@ -236,10 +250,14 @@ public class ElectionFollower extends ComponentDefinition {
 
             boolean acceptCandidate = true;
 
-            if (selfLCView.isLeaderGroupMember() || (inElection)) {
+            if (selfLCView.isLeaderGroupMember() || inElection) {
                 // If part of leader group or already promised by setting election round id, I deny promise.
                 acceptCandidate = false;
-            } else {
+            }
+            else if(event.content.leaderAddress.getPeerAddress().equals(selfAddress.getPeerAddress())){
+                acceptCandidate = true; // Always accept self.
+            }
+            else {
 
                 LCPeerView nodeToCompareTo = getHighestUtilityNode();
                 if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0) {
@@ -297,9 +315,6 @@ public class ElectionFollower extends ComponentDefinition {
             logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
             leaderAddress = event.content.leaderAddress;
 
-            inElection = false;
-            selfLCView = selfLCView.enableLGMembership();
-
             trigger(new ElectionState.EnableLGMembership(), electionPort);
             trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
 
@@ -322,18 +337,19 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
-            logger.debug("{}: Special : Lease timed out.", selfAddress.getId());
+            logger.warn("{}: Special : Lease timed out.", selfAddress.getId());
             terminateElectionInformation();
         }
     };
 
-
+    /**
+     * In case the lease times out or the application demands it, reset the
+     * election state in the component.
+     */
     private void terminateElectionInformation() {
 
         electionRoundId = null;
         leaderAddress = null;
-        inElection = false;
-        selfLCView = selfLCView.disableLGMembership();
 
         trigger(new ElectionState.DisableLGMembership(), electionPort);
     }
@@ -347,8 +363,8 @@ public class ElectionFollower extends ComponentDefinition {
 
         @Override
         public void handle(LeaderExtensionRequest leaderExtensionRequest) {
-            logger.debug("{}: Received leader extension request from the node: {}", selfAddress.getId(), leaderExtensionRequest.getVodSource().getId());
 
+            logger.warn("{}: Received leader extension request from the node: {}", selfAddress.getId(), leaderExtensionRequest.getVodSource().getId());
             if (selfLCView.isLeaderGroupMember()) {
 
                 if (leaderAddress != null && !leaderExtensionRequest.content.leaderAddress.equals(leaderAddress)) {
@@ -359,7 +375,9 @@ public class ElectionFollower extends ComponentDefinition {
                 trigger(cancelTimeout, timerPositive);
             } else {
 
-                selfLCView = selfLCView.enableLGMembership();
+                // Prevent the edge case in which the node which is under a lease might take time
+                // to get a response back from the application representing the information and therefore in that time something fishy can happen.
+                inElection = true;
                 trigger(new ElectionState.EnableLGMembership(), electionPort);
             }
 
@@ -388,14 +406,6 @@ public class ElectionFollower extends ComponentDefinition {
         }
 
         return selfLCView;
-    }
-
-
-    /**
-     * Capture the information related to the current leader in the system.
-     */
-    public void storeCurrentLeaderInformation() {
-
     }
 
 }

@@ -208,6 +208,15 @@ public class ElectionLeader extends ComponentDefinition {
                 trigger(ct, timerPositive);
                 terminateBeingLeader();
             }
+
+            // The purpose of below check is to reset the inElection information
+            // after the nodes have received the leader group member information from the application
+            // because if not done then for some time the nodes become vulnerable for the other nodes to ask them for the promises.
+
+            // At leader end this will prevent the node to start the voting protocol again as it has become the leader once.
+            if(inElection && selfLCView.isLeaderGroupMember()){
+                inElection = false;
+            }
         }
     };
 
@@ -295,6 +304,9 @@ public class ElectionLeader extends ComponentDefinition {
             return;
         }
 
+        // Add SELF to the leader group nodes.
+        leaderGroupNodes.add(new LEContainer(selfAddress, selfLCView));
+
         inElection = true;
         Collection<VodAddress> leaderGroupAddress = new ArrayList<VodAddress>();
 
@@ -322,7 +334,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(LeaderPromiseMessage.Response event) {
 
-            logger.debug("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
+            logger.warn("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
             int numPromises = promiseResponseTracker.addResponseAndGetSize(event);
 
             if (numPromises >= promiseResponseTracker.getLeaderGroupInformationSize()) {
@@ -334,15 +346,8 @@ public class ElectionLeader extends ComponentDefinition {
 
                     logger.debug("{}: All the leader group nodes have promised.", selfAddress.getId());
 
-                    // STEPS: (Order is important)
-                    
-                    // 1. Enable the self check to be in the leader group. (Prevent wrong functionality of the nodes in the system.)
-                    // 2. Set self as leader and quickly disseminate the information in the system.
-                    // 3. Send the commit message to the leader group nodes.
-                    
-                    selfLCView = selfLCView.enableLGMembership();
+                    // Simply update self as a leader.
                     trigger(new LeaderState.ElectedAsLeader(promiseResponseTracker.getLeaderGroupInformation()), electionPort);
-                    trigger(new ElectionState.EnableLGMembership(), electionPort);
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
@@ -361,9 +366,11 @@ public class ElectionLeader extends ComponentDefinition {
                         trigger(commitRequest, networkPositive);
                     }
                 }
+                else{
+                    inElection = false;
+                }
                 // Reset the tracker information to prevent the behaviour again and again.
                 promiseResponseTracker.resetTracker();
-                inElection = false;
             }
         }
     };
@@ -397,11 +404,19 @@ public class ElectionLeader extends ComponentDefinition {
 
                 if (lowerNodes.size() < leaderGroupSize) {
 
-                    logger.error("{}: Terminate being the leader as state seems to be corrupted.");
+                    logger.error("{}: Terminate being the leader as state seems to be corrupted.", selfAddress.getId());
                     terminateBeingLeader();
+
+                    logger.error(lowerNodes.toString());
+                    logger.error("Size Requested : " + leaderGroupSize);
+
+                    logger.error(selfLCView.toString());
+                    System.exit(-1);
+
                     return;
                 }
 
+                lowerNodes.add(new LEContainer(selfAddress, selfLCView));
                 for (LEContainer container : lowerNodes) {
                     trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new ExtensionRequest(selfAddress, publicKey, selfLCView)), networkPositive);
                 }
@@ -428,7 +443,6 @@ public class ElectionLeader extends ComponentDefinition {
         // Disable leadership and membership.
         inElection = false;
         trigger(new LeaderState.TerminateBeingLeader(), electionPort);
-        trigger(new ElectionState.DisableLGMembership(), electionPort);
     }
 
 

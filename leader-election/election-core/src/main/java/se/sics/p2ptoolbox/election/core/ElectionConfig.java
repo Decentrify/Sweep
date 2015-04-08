@@ -72,12 +72,12 @@ public class ElectionConfig {
 
         public ElectionConfigBuilder(int viewSize){
             this.viewSize = viewSize;
-            this.extendedLeaseTime = this.leaseTime  + this.leaseTime * (20/100);
+            this.extendedLeaseTime = this.leaseTime  + (long)(this.leaseTime * (0.2));
         }
-        
+
         public ElectionConfigBuilder setLeaseTime(long leaseTime){
             this.leaseTime = leaseTime;
-            this.extendedLeaseTime = this.leaseTime  + (this.leaseTime * (20/100));
+            this.extendedLeaseTime = this.leaseTime  + (long)(this.leaseTime * (0.2));
             return this;
         }
         
