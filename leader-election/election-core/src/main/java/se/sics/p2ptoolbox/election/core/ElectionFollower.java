@@ -304,7 +304,7 @@ public class ElectionFollower extends ComponentDefinition {
             trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
 
 
-            ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+            ScheduleTimeout st = new ScheduleTimeout(config.getFollowerLeaseTime());
             st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
             leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
@@ -366,7 +366,7 @@ public class ElectionFollower extends ComponentDefinition {
             // Inform the component listening about the leader and schedule a new lease.
             trigger(new LeaderUpdate(leaderExtensionRequest.content.leaderPublicKey, leaderExtensionRequest.content.leaderAddress), electionPort);
 
-            ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+            ScheduleTimeout st = new ScheduleTimeout(config.getFollowerLeaseTime());
             st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
             leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
 

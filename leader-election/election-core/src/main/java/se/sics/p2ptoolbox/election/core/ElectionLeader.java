@@ -344,7 +344,7 @@ public class ElectionLeader extends ComponentDefinition {
                     trigger(new LeaderState.ElectedAsLeader(promiseResponseTracker.getLeaderGroupInformation()), electionPort);
                     trigger(new ElectionState.EnableLGMembership(), electionPort);
 
-                    ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+                    ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
 
                     leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
@@ -407,7 +407,7 @@ public class ElectionLeader extends ComponentDefinition {
                 }
 
                 // Extend the lease.
-                ScheduleTimeout st = new ScheduleTimeout(config.getLeaseTime());
+                ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
                 st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
                 trigger(st, timerPositive);
 

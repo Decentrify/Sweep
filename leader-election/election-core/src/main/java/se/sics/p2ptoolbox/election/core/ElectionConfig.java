@@ -14,14 +14,17 @@ import java.util.Comparator;
  */
 public class ElectionConfig {
     
-    private long leaseTime;
+    private long leaderLeaseTime;
+    private long followerLeaseTime;
     private int viewSize;
     private final int convergenceRounds;
     private final double convergenceTest;
     private final int maxLeaderGroupSize;
 
-    private ElectionConfig(long leaseTime, int viewSize, int convergenceRounds, double convergenceTest, int maxLeaderGroupSize) {
-        this.leaseTime = leaseTime;
+    private ElectionConfig(long leaderLeaseTime,long followerLeaseTime, int viewSize, int convergenceRounds, double convergenceTest, int maxLeaderGroupSize) {
+        
+        this.leaderLeaseTime = leaderLeaseTime;
+        this.followerLeaseTime = followerLeaseTime;
         this.viewSize = viewSize;
         this.convergenceRounds = convergenceRounds;
         this.convergenceTest = convergenceTest;
@@ -34,8 +37,12 @@ public class ElectionConfig {
         return viewSize;
     }
 
-    public long getLeaseTime(){
-        return this.leaseTime;
+    public long getLeaderLeaseTime(){
+        return this.leaderLeaseTime;
+    }
+    
+    public long getFollowerLeaseTime(){
+        return this.followerLeaseTime;
     }
 
     public int getConvergenceRounds(){
@@ -61,13 +68,16 @@ public class ElectionConfig {
         private int convergenceRounds = 6;
         private double convergenceTest = 0.8d;
         private int maxLeaderGroupSize = 10;
+        private long extendedLeaseTime;
 
         public ElectionConfigBuilder(int viewSize){
             this.viewSize = viewSize;
+            this.extendedLeaseTime = this.leaseTime  + this.leaseTime * (20/100);
         }
         
         public ElectionConfigBuilder setLeaseTime(long leaseTime){
             this.leaseTime = leaseTime;
+            this.extendedLeaseTime = this.leaseTime  + (this.leaseTime * (20/100));
             return this;
         }
         
@@ -87,7 +97,7 @@ public class ElectionConfig {
         }        
         
         public ElectionConfig buildElectionConfig(){
-            return new ElectionConfig(this.leaseTime, this.viewSize, convergenceRounds, convergenceTest, this.maxLeaderGroupSize);
+            return new ElectionConfig(this.leaseTime,this.extendedLeaseTime, this.viewSize, convergenceRounds, convergenceTest, this.maxLeaderGroupSize);
         }
     }
     
