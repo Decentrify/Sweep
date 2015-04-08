@@ -69,7 +69,7 @@ public class MsConfig extends VodConfig {
 
 
     //overrides.
-    public static final int GRADIENT_VIEW_SIZE = 2;
+    public static final int GRADIENT_VIEW_SIZE = 5;
     public static final int GRADIENT_CONVERGENCE_TEST_ROUNDS = 8;
     public static final int GRADIENT_SHUFFLE_PERIOD = 3000;
     public static final double GRADIENT_CONVERGENCE_TEST = 0.8d;

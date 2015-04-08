@@ -1007,7 +1007,7 @@ public final class PseudoGradient extends ComponentDefinition {
         Set<SearchDescriptor> nodes = getGradientSample();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         for (SearchDescriptor d : nodes) {
-            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getPartitioningDepth()).append(", ");
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getPartitioningDepth()+ ":" + d.isLeaderGroupMember()).append(" , ");
 
         }
         sb.append("}");

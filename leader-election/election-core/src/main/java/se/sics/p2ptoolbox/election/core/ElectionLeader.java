@@ -412,7 +412,7 @@ public class ElectionLeader extends ComponentDefinition {
                 trigger(st, timerPositive);
 
             } else {
-                logger.debug("{}: Will Not extend the lease anymore.", selfAddress.getId());
+                logger.warn("{}: Will Not extend the lease anymore.", selfAddress.getId());
                 terminateBeingLeader();
             }
         }
