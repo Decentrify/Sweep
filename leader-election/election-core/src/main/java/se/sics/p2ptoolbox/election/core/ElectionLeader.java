@@ -10,7 +10,6 @@ import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
-import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
@@ -18,10 +17,12 @@ import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.core.data.ExtensionRequest;
 import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
+import se.sics.p2ptoolbox.election.core.data.LeaseCommitUpdated;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
+import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessageUpdated;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
 import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 import se.sics.p2ptoolbox.election.core.util.PromiseResponseTracker;
@@ -65,9 +66,10 @@ public class ElectionLeader extends ComponentDefinition {
     private LeaderFilter filter;
 
     // Promise Sub Protocol.
-    private UUID promiseRoundId;
-    private TimeoutId promiseRoundTimeout;
-    private PromiseResponseTracker promiseResponseTracker;
+    private UUID electionRoundId;
+    private TimeoutId promisePhaseTimeout;
+    private TimeoutId leasePhaseTimeout;
+    private PromiseResponseTracker electionRoundTracker;
     private PublicKey publicKey;
 
     private TimeoutId leaseTimeoutId;
@@ -76,6 +78,7 @@ public class ElectionLeader extends ComponentDefinition {
     int convergenceCounter;
     boolean isConverged;
     boolean inElection = false;
+    boolean applicationAck = false;
 
     // LE Container View.
     private SortedSet<LEContainer> higherUtilityNodes;
@@ -107,6 +110,8 @@ public class ElectionLeader extends ComponentDefinition {
 
         // Lease Subscriptions.
         subscribe(leaseTimeoutHandler, timerPositive);
+        subscribe(leaseResponseHandler, networkPositive);
+        subscribe(leaseResponseTimeoutHandler, timerPositive);
     }
 
 
@@ -121,7 +126,7 @@ public class ElectionLeader extends ComponentDefinition {
 
         // voting protocol.
         isConverged = false;
-        promiseResponseTracker = new PromiseResponseTracker();
+        electionRoundTracker = new PromiseResponseTracker();
 
         this.selfLCView = init.initialView;
         this.selfLEContainer = new LEContainer(selfAddress, selfLCView);
@@ -167,7 +172,7 @@ public class ElectionLeader extends ComponentDefinition {
 
             // Check how much the sample changed.
             if (ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
-                if(!isConverged){
+                if (!isConverged) {
 
                     convergenceCounter++;
                     if (convergenceCounter >= config.getConvergenceRounds()) {
@@ -209,13 +214,23 @@ public class ElectionLeader extends ComponentDefinition {
                 terminateBeingLeader();
             }
 
-            // The purpose of below check is to reset the inElection information
-            // after the nodes have received the leader group member information from the application
-            // because if not done then for some time the nodes become vulnerable for the other nodes to ask them for the promises.
+            // This part of tricky to understand. The follower component works independent of the leader component.
+            // In order to prevent the leader from successive tries while waiting on the update from the application regarding being in the group membership or not, currently
+            // the node starts an election round with a unique id and in case it reaches the lease commit phase the outcome is not deterministic as the responses might be late or something.
+            // So we reset the election round only when we receive an update from the application with the same roundid.
+            //
+            // ElectionLeader -> ElectionFollower -> Application : broadcast (ElectionFollower || ElectionLeader).
 
-            // At leader end this will prevent the node to start the voting protocol again as it has become the leader once.
-            if(inElection && selfLCView.isLeaderGroupMember()){
-                inElection = false;
+            // Got some view update from the application and I am currently in election.
+            if (viewUpdate.electionRoundId != null && inElection) {
+                
+                if (electionRoundId != null && electionRoundId.equals(viewUpdate.electionRoundId)) {
+                    if (electionRoundTracker.getRoundId() != null && electionRoundTracker.getRoundId().equals(viewUpdate.electionRoundId)) {
+                        applicationAck = true;  // I am currently tracking the round and as application being fast I received the ack for the round from application.
+                    } else{
+                       resetElectionMetaData(); // Finally the application update has arrived and now I can let go of the election round.
+                    }
+                }
             }
         }
     };
@@ -238,7 +253,7 @@ public class ElectionLeader extends ComponentDefinition {
             // Check how much the sample changed.
             if (ElectionHelper.isRoundConverged(oldContainerMap.keySet(), addressContainerMap.keySet(), config.getConvergenceTest())) {
 
-                if(!isConverged){
+                if (!isConverged) {
 
                     convergenceCounter++;
                     if (convergenceCounter >= config.getConvergenceRounds()) {
@@ -289,12 +304,11 @@ public class ElectionLeader extends ComponentDefinition {
      */
     private void startVoting() {
 
-
         logger.debug("{}: Starting with the voting .. ", selfAddress.getId());
-
-        Promise.Request request = new Promise.Request(selfAddress, selfLCView);
-        promiseRoundId = UUID.randomUUID();
-
+        electionRoundId = UUID.randomUUID();
+        applicationAck = false;
+        
+        Promise.Request request = new Promise.Request(selfAddress, selfLCView, electionRoundId);
         int leaderGroupSize = Math.min(config.getViewSize() / 2 + 1, config.getMaxLeaderGroupSize());
         Collection<LEContainer> leaderGroupNodes = createLeaderGroupNodes(leaderGroupSize);
 
@@ -315,16 +329,16 @@ public class ElectionLeader extends ComponentDefinition {
             VodAddress lgMemberAddr = leaderGroupNode.getSource();
             leaderGroupAddress.add(lgMemberAddr);
 
-            LeaderPromiseMessage.Request promiseRequest = new LeaderPromiseMessage.Request(selfAddress, lgMemberAddr, promiseRoundId, request);
+            LeaderPromiseMessage.Request promiseRequest = new LeaderPromiseMessage.Request(selfAddress, lgMemberAddr, electionRoundId, request);
             trigger(promiseRequest, networkPositive);
             leaderGroupSize--;
         }
 
-        promiseResponseTracker.startTracking(promiseRoundId, leaderGroupAddress);
+        electionRoundTracker.startTracking(electionRoundId, leaderGroupAddress);
 
         ScheduleTimeout st = new ScheduleTimeout(5000);
         st.setTimeoutEvent(new TimeoutCollection.PromiseRoundTimeout(st));
-        promiseRoundTimeout = st.getTimeoutEvent().getTimeoutId();
+        promisePhaseTimeout = st.getTimeoutEvent().getTimeoutId();
 
         trigger(st, timerPositive);
     }
@@ -335,19 +349,51 @@ public class ElectionLeader extends ComponentDefinition {
         public void handle(LeaderPromiseMessage.Response event) {
 
             logger.warn("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
-            int numPromises = promiseResponseTracker.addResponseAndGetSize(event);
+            int numPromises = electionRoundTracker.addPromiseResponseAndGetSize(event);
 
-            if (numPromises >= promiseResponseTracker.getLeaderGroupInformationSize()) {
+            if (numPromises >= electionRoundTracker.getLeaderGroupInformationSize()) {
 
-                CancelTimeout cancelTimeout = new CancelTimeout(promiseRoundTimeout);
+                CancelTimeout cancelTimeout = new CancelTimeout(promisePhaseTimeout);
                 trigger(cancelTimeout, timerPositive);
 
-                if (promiseResponseTracker.isAccepted()) {
+                if (electionRoundTracker.isAccepted()) {
 
                     logger.debug("{}: All the leader group nodes have promised.", selfAddress.getId());
+                    LeaseCommitUpdated.Request request = new LeaseCommitUpdated.Request(selfAddress,
+                            publicKey, selfLCView, electionRoundTracker.getRoundId());
 
-                    // Simply update self as a leader.
-                    trigger(new LeaderState.ElectedAsLeader(promiseResponseTracker.getLeaderGroupInformation()), electionPort);
+                    for (VodAddress address : electionRoundTracker.getLeaderGroupInformation()) {
+                        trigger(new LeaseCommitMessageUpdated.Request(selfAddress,
+                                address, UUID.randomUUID(), request), networkPositive);
+                    }
+                } else {
+                    inElection = false;
+                }
+            }
+        }
+    };
+
+
+    /**
+     * Handler for the response that the node receives as part of the lease commit phase. Aggregate the responses and check if every node has
+     * committed.
+     */
+    Handler<LeaseCommitMessageUpdated.Response> leaseResponseHandler = new Handler<LeaseCommitMessageUpdated.Response>() {
+        @Override
+        public void handle(LeaseCommitMessageUpdated.Response event) {
+
+            logger.trace("{}: Received lease commit response from the node: {}", selfAddress.getId(), event.getVodSource().getId());
+            
+            int commitResponses = electionRoundTracker.addLeaseCommitResponseAndgetSize(event.content);
+            if (commitResponses >= electionRoundTracker.getLeaderGroupInformationSize()) {
+
+                CancelTimeout cancelTimeout = new CancelTimeout(leasePhaseTimeout);
+                trigger(cancelTimeout, timerPositive);
+
+                if (electionRoundTracker.isLeaseCommitAccepted()) {
+
+                    logger.trace("{}: All the leader group nodes have committed the lease.", selfAddress.getId());
+                    trigger(new LeaderState.ElectedAsLeader(electionRoundTracker.getLeaderGroupInformation()), electionPort);
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
                     st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
@@ -356,32 +402,54 @@ public class ElectionLeader extends ComponentDefinition {
                     trigger(st, timerPositive);
 
                     logger.debug("Setting self as leader complete.");
-
-                    // IMPORTANT : Send the commit request with the same id as the promise, as the listening nodes are looking for this id only.
-                    UUID commitRequestId = promiseResponseTracker.getRoundId();
-                    for (VodAddress address : promiseResponseTracker.getLeaderGroupInformation()) {
-
-                        LeaseCommit requestContent = new LeaseCommit(selfAddress, publicKey, selfLCView);
-                        LeaseCommitMessage commitRequest = new LeaseCommitMessage(selfAddress, address, commitRequestId, requestContent);
-                        trigger(commitRequest, networkPositive);
-                    }
                 }
-                else{
-                    inElection = false;
+
+                if(applicationAck){
+                    resetElectionMetaData();
                 }
-                // Reset the tracker information to prevent the behaviour again and again.
-                promiseResponseTracker.resetTracker();
+                
+                // Seems my application component is kind of running late and therefore I still have not received 
+                // ack from the application, even though the follower seems to have sent it to the application.
+                electionRoundTracker.resetTracker();
             }
+        }
+
+    };
+
+
+    /**
+     * The round for getting the promises from the nodes in the system, timed out and therefore there is no need to wait for them.
+     * Reset the round tracker variable and the election phase.
+     */
+    Handler<TimeoutCollection.PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<TimeoutCollection.PromiseRoundTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.PromiseRoundTimeout event) {
+            logger.debug("{}: Election Round Timed Out in the promise phase.", selfAddress.getId());
+            resetElectionMetaData();
+            electionRoundTracker.resetTracker();
         }
     };
 
 
-    Handler<TimeoutCollection.PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<TimeoutCollection.PromiseRoundTimeout>() {
+    private void resetElectionMetaData(){
+        inElection = false;
+        electionRoundId = null;
+    }
+    
+    /**
+     * Handler on the leader component indicating that node couldn't receive all the
+     * commit responses associated with the lease were not received on time and therefore it has to reset the state information.
+     */
+    Handler<TimeoutCollection.LeaseResponseTimeout> leaseResponseTimeoutHandler = new Handler<TimeoutCollection.LeaseResponseTimeout>() {
         @Override
-        public void handle(TimeoutCollection.PromiseRoundTimeout event) {
-            logger.debug("{}: Promise Round Timed out. Resetting the tracker ... ", selfAddress.getId());
-            inElection = false;
-            promiseResponseTracker.resetTracker();
+        public void handle(TimeoutCollection.LeaseResponseTimeout event) {
+            
+            logger.trace("{}: Election Round timed out in the lease commit phase.", selfAddress.getId());
+            electionRoundTracker.resetTracker();
+            
+            if(applicationAck){
+                resetElectionMetaData(); // Reset election phase if already received ack for the commit that I sent to local follower component.
+            }
         }
     };
 

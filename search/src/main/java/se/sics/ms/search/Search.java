@@ -136,6 +136,10 @@ public final class Search extends ComponentDefinition {
     private LocalSearchRequest searchRequest;
     private Directory searchIndex;
 
+    
+    // Leader Election Protocol.
+    private java.util.UUID electionRound = java.util.UUID.randomUUID();
+    
     // Aggregator Variable.
     private int defaultComponentOverlayId = 0;
     
@@ -2905,7 +2909,7 @@ public final class Search extends ComponentDefinition {
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate(updatedDesc), gradientPort);
-        trigger(new ViewUpdate(updatedDesc), electionPort);
+        trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
     }
 
     /**

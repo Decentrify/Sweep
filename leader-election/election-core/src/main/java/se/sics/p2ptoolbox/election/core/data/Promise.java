@@ -4,6 +4,8 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 
+import java.util.UUID;
+
 /**
  * Promise Message Object which is 
  * sent between the nodes in the system as part 
@@ -18,10 +20,12 @@ public class Promise {
         
         public final LCPeerView leaderView;
         public final VodAddress leaderAddress;
-
-        public Request(VodAddress leaderAddress, LCPeerView leaderView) {
+        public final UUID electionRoundId;
+        
+        public Request(VodAddress leaderAddress, LCPeerView leaderView, UUID electionRoundId) {
             this.leaderAddress = leaderAddress;
             this.leaderView = leaderView;
+            this.electionRoundId = electionRoundId;
         }
     }
     
@@ -29,11 +33,13 @@ public class Promise {
         
         public final boolean acceptCandidate;
         public final boolean isConverged;
+        public final UUID electionRoundId;
         
-        public Response(boolean acceptCandidate, boolean isConverged){
+        public Response(boolean acceptCandidate, boolean isConverged, UUID electionRoundId){
             
             this.acceptCandidate = acceptCandidate;
             this.isConverged = isConverged;
+            this.electionRoundId = electionRoundId;
         }
         
     }

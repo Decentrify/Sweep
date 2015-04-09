@@ -3,6 +3,8 @@ package se.sics.p2ptoolbox.election.core.util;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
 
+import java.util.UUID;
+
 /**
  * Created by babbarshaer on 2015-03-31.
  */
@@ -24,13 +26,22 @@ public class TimeoutCollection {
         }
     }
     
+    public static class LeaseResponseTimeout extends Timeout{
+        
+        public LeaseResponseTimeout(ScheduleTimeout request){
+            super(request);
+        }
+    }
     
     //Election Follower.
     
     public static class AwaitLeaseCommitTimeout extends Timeout {
 
-        public AwaitLeaseCommitTimeout(ScheduleTimeout request) {
+        public UUID electionRoundId;
+        
+        public AwaitLeaseCommitTimeout(ScheduleTimeout request, UUID electionRoundId) {
             super(request);
+            this.electionRoundId = electionRoundId;
         }
     }
     

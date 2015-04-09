@@ -3,8 +3,10 @@ package se.sics.p2ptoolbox.election.core.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
+import se.sics.p2ptoolbox.election.core.data.LeaseCommitUpdated;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
+import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessageUpdated;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,20 +21,27 @@ import java.util.UUID;
  */
 public class PromiseResponseTracker {
 
-    private UUID promiseRoundId;
-    private boolean amIAccepted;
+    private UUID electionRoundId;
+    
+    private boolean isPromiseAccepted;
     private int convergenceCounter;
+    
+    private boolean isCommitAccepted;
     
     private Logger logger = LoggerFactory.getLogger(PromiseResponseTracker.class);
     private List<VodAddress> leaderGroupInformation;
     private List<Promise.Response> promiseResponseCollection;
+    private List<LeaseCommitUpdated.Response> leaseResponseCollection;
     
     public PromiseResponseTracker(){
         
-        amIAccepted = true;
+        isPromiseAccepted = true;
+        isCommitAccepted = true;
+        
         convergenceCounter = 0;
         leaderGroupInformation = new ArrayList<VodAddress>();
         promiseResponseCollection = new ArrayList<Promise.Response>();
+        leaseResponseCollection = new ArrayList<LeaseCommitUpdated.Response>();
         
     }
 
@@ -42,10 +51,12 @@ public class PromiseResponseTracker {
      */
     public void startTracking(UUID promiseRoundCounter, Collection<VodAddress> leaderGroupInformation){
 
-        this.amIAccepted = true;
+        this.isPromiseAccepted = true;
         this.convergenceCounter=0;
         
-        this.promiseRoundId = promiseRoundCounter;
+        this.isCommitAccepted = true;
+        
+        this.electionRoundId = promiseRoundCounter;
         this.leaderGroupInformation.clear();
         this.leaderGroupInformation.addAll(leaderGroupInformation);
     }
@@ -56,14 +67,14 @@ public class PromiseResponseTracker {
      *
      * @param response Voting response from peer.
      */
-    public int addResponseAndGetSize (LeaderPromiseMessage.Response response){
+    public int addPromiseResponseAndGetSize (LeaderPromiseMessage.Response response){
         
-        if(promiseRoundId == null || !response.id.equals(promiseRoundId)){
+        if(electionRoundId == null || !response.content.electionRoundId.equals(electionRoundId)){
             logger.warn("Received a response that is not currently tracked.");
         }
 
         Promise.Response promiseResponse = response.content;
-        amIAccepted = amIAccepted && promiseResponse.acceptCandidate;
+        isPromiseAccepted = isPromiseAccepted && promiseResponse.acceptCandidate;
         convergenceCounter = promiseResponse.isConverged ? (convergenceCounter + 1)  : convergenceCounter;
         
         promiseResponseCollection.add(promiseResponse);
@@ -71,6 +82,19 @@ public class PromiseResponseTracker {
         return promiseResponseCollection.size();
     }
 
+    
+    public int addLeaseCommitResponseAndgetSize (LeaseCommitUpdated.Response response){
+        
+        if(electionRoundId == null || !response.electionRoundId.equals(electionRoundId)){
+            logger.warn("Received a response that is not currently tracked.");
+        }
+        
+        isCommitAccepted = isCommitAccepted && response.isCommit;
+        leaseResponseCollection.add(response);
+        
+        return leaseResponseCollection.size();
+    }
+    
     /**
      * Size of the current leader group.
      * @return leader group size.
@@ -87,7 +111,7 @@ public class PromiseResponseTracker {
 
 
     public UUID getRoundId(){
-        return this.promiseRoundId;
+        return this.electionRoundId;
     }
 
     /**
@@ -96,12 +120,15 @@ public class PromiseResponseTracker {
      */
     public void resetTracker(){
         
-        this.promiseRoundId = null;
+        this.electionRoundId = null;
         this.convergenceCounter = 0;
-        this.amIAccepted = false;
+        
+        this.isPromiseAccepted = false;
+        this.isCommitAccepted = false;
         
         this.leaderGroupInformation.clear();
         this.promiseResponseCollection.clear();
+        this.leaseResponseCollection.clear();
     }
 
 
@@ -115,10 +142,20 @@ public class PromiseResponseTracker {
      * @return Is node accepted as leader till that point.
      */
     public boolean isAccepted(){
-        return amIAccepted;
+        return isPromiseAccepted;
     }
 
 
+    /**
+     * The tracker main class keeps information about the lease commit accepts sent by the 
+     * nodes in the system.
+     *
+     * @return Is node accepted as leader.
+     */
+    public boolean isLeaseCommitAccepted() {
+        return this.isCommitAccepted;
+    }
+    
     /**
      * Iterate over the responses 
      * @return Nodes Converged Count.

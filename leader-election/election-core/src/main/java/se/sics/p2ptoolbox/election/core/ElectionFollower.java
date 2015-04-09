@@ -7,7 +7,6 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
 import se.sics.kompics.*;
-import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -16,17 +15,18 @@ import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.api.ports.TestPort;
+import se.sics.p2ptoolbox.election.core.data.LeaseCommitUpdated;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
+import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessageUpdated;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
 import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 import se.sics.p2ptoolbox.election.core.util.TimeoutCollection;
 import se.sics.p2ptoolbox.gradient.api.GradientPort;
 import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
 
-import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
 
@@ -81,7 +81,7 @@ public class ElectionFollower extends ComponentDefinition {
 
         subscribe(promiseRequestHandler, networkPositive);
         subscribe(awaitLeaseCommitTimeoutHandler, timerPositive);
-        subscribe(leaseCommitRequestHandler, networkPositive);
+        subscribe(leaseCommitRequestHandlerUpdated, networkPositive);
         subscribe(leaseTimeoutHandler, timerPositive);
 
         subscribe(leaderExtensionRequestHandler, networkPositive);
@@ -218,17 +218,11 @@ public class ElectionFollower extends ComponentDefinition {
                 terminateElectionInformation();
             }
 
-            // The purpose of below check is to reset the inElection information
-            // after the nodes have received the leader group member information from the application
-            // because if not done then for some time the nodes become vulnerable for the other nodes to ask them for the promises.
-
-            // At the follower end this will prevent the node to answer promises to any node requesting it in case the
-            // election mode is on which switches off only when the corresponding update is received from the UI.
-            if(inElection && selfLCView.isLeaderGroupMember()){
-
-                // CAUTION: Track the responses based on the UUID in future, to prevent answering for previous responses in case the queue size or contention in other
-                // components is very high.
-                inElection = false;
+            // Resetting the in election check is kind of tricky so need to be careful about the procedure.
+            if(viewUpdate.electionRoundId != null && inElection){
+                if(electionRoundId != null && electionRoundId.equals(viewUpdate.electionRoundId)){
+                    resetElectionMetaData();
+                }
             }
         }
     };
@@ -244,7 +238,8 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderPromiseMessage.Request event) {
 
             logger.debug("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
-
+            electionRoundId = event.content.electionRoundId;
+            
             LeaderPromiseMessage.Response response;
             LCPeerView requestLeaderView = event.content.leaderView;
 
@@ -256,6 +251,7 @@ public class ElectionFollower extends ComponentDefinition {
             }
             else if(event.content.leaderAddress.getPeerAddress().equals(selfAddress.getPeerAddress())){
                 acceptCandidate = true; // Always accept self.
+                inElection = true;
             }
             else {
 
@@ -263,9 +259,8 @@ public class ElectionFollower extends ComponentDefinition {
                 if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0) {
 
                     inElection = true;
-                    electionRoundId = event.id;
                     ScheduleTimeout st = new ScheduleTimeout(3000);
-                    st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st));
+                    st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st,electionRoundId));
 
                     awaitLeaseCommitId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, timerPositive);
@@ -273,7 +268,7 @@ public class ElectionFollower extends ComponentDefinition {
                     acceptCandidate = false;
             }
 
-            response = new LeaderPromiseMessage.Response(selfAddress, event.getVodSource(), event.id, new Promise.Response(acceptCandidate, isConverged));
+            response = new LeaderPromiseMessage.Response(selfAddress, event.getVodSource(), event.id, new Promise.Response(acceptCandidate, isConverged, electionRoundId));
             trigger(response, networkPositive);
         }
     };
@@ -288,13 +283,34 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(TimeoutCollection.AwaitLeaseCommitTimeout event) {
 
             logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
-            electionRoundId = null;
-            inElection = false;
+
+            if(electionRoundId != null && electionRoundId.equals(event.electionRoundId)){
+                
+                // Might be triggered even if the response is handled.
+                resetElectionMetaData();
+                trigger(new ElectionState.DisableLGMembership(event.electionRoundId), electionPort);
+            }
+            
+            else{
+                logger.warn("Timeout triggered even though the cancel was sent.");
+            }
+
         }
     };
 
 
     /**
+     * Reset the meta data associated with the current election algorithm.
+     */
+    private void resetElectionMetaData(){
+        electionRoundId= null;
+        inElection = false;
+    }
+    
+    
+    
+    /**
+     * @deprecated
      * Received the lease commit request from the node trying to assert itself as leader.
      */
     Handler<LeaseCommitMessage> leaseCommitRequestHandler = new Handler<LeaseCommitMessage>() {
@@ -315,7 +331,7 @@ public class ElectionFollower extends ComponentDefinition {
             logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
             leaderAddress = event.content.leaderAddress;
 
-            trigger(new ElectionState.EnableLGMembership(), electionPort);
+            trigger(new ElectionState.EnableLGMembership(null), electionPort);
             trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
 
 
@@ -329,6 +345,46 @@ public class ElectionFollower extends ComponentDefinition {
     };
 
 
+    Handler<LeaseCommitMessageUpdated.Request> leaseCommitRequestHandlerUpdated = new Handler<LeaseCommitMessageUpdated.Request>() {
+        @Override
+        public void handle(LeaseCommitMessageUpdated.Request event) {
+
+            logger.trace("{}: Received lease commit request from: {}", selfAddress.getId(), event.getVodSource().getId());
+            LeaseCommitUpdated.Response response;
+
+            if (electionRoundId == null || !electionRoundId.equals(event.content.electionRoundId)) {
+                
+                logger.warn("{}: Received an election response for the round id which has expired or timed out.", selfAddress.getId());
+                response = new LeaseCommitUpdated.Response(false, event.content.electionRoundId);
+                trigger(new LeaseCommitMessageUpdated.Response(selfAddress, event.getVodSource(), event.id, response), networkPositive);
+            }
+            else{
+
+                response = new LeaseCommitUpdated.Response(true, event.content.electionRoundId);
+                trigger(new LeaseCommitMessageUpdated.Response(selfAddress, event.getVodSource(), event.id, response), networkPositive);
+                
+                // Cancel the existing awaiting for lease commit timeout.
+                CancelTimeout timeout = new CancelTimeout(awaitLeaseCommitId);
+                trigger(timeout, timerPositive);
+
+                logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
+                leaderAddress = event.content.leaderAddress;
+                
+                trigger(new ElectionState.EnableLGMembership(electionRoundId), electionPort);
+                trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
+
+                ScheduleTimeout st = new ScheduleTimeout(config.getFollowerLeaseTime());
+                st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
+
+                leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
+                trigger(st, timerPositive);
+
+            }
+        }
+    };
+    
+    
+    
     /**
      * As soon as the lease expires reset all the parameters related to the node being under lease.
      * CHECK : If we also need to reset the parameters associated with the current leader. (YES I THINK SO)
@@ -345,13 +401,15 @@ public class ElectionFollower extends ComponentDefinition {
     /**
      * In case the lease times out or the application demands it, reset the
      * election state in the component.
+     *
+     * But do not be quick to dismiss the leader information and then send a leader update to the application.
+     * In case I am no longer part of the leader group, then I should eventually pull the information about the current leader.
      */
     private void terminateElectionInformation() {
-
-        electionRoundId = null;
+        
         leaderAddress = null;
-
-        trigger(new ElectionState.DisableLGMembership(), electionPort);
+        resetElectionMetaData();
+        trigger(new ElectionState.DisableLGMembership(null), electionPort); // round is doesnt matter at this moment.
     }
 
 
@@ -368,7 +426,7 @@ public class ElectionFollower extends ComponentDefinition {
             if (selfLCView.isLeaderGroupMember()) {
 
                 if (leaderAddress != null && !leaderExtensionRequest.content.leaderAddress.equals(leaderAddress)) {
-                    logger.warn("{}: There might be a problem with the leader extension or a special case as I received lease extension from the node other than current leader. ", selfAddress.getId());
+                    logger.warn("{}: There might be a problem with the leader extension or a special case as I received lease extension from the node other than current leader that I already has set. ", selfAddress.getId());
                 }
 
                 CancelTimeout cancelTimeout = new CancelTimeout(leaseTimeoutId);
@@ -378,7 +436,7 @@ public class ElectionFollower extends ComponentDefinition {
                 // Prevent the edge case in which the node which is under a lease might take time
                 // to get a response back from the application representing the information and therefore in that time something fishy can happen.
                 inElection = true;
-                trigger(new ElectionState.EnableLGMembership(), electionPort);
+                trigger(new ElectionState.EnableLGMembership(null), electionPort);
             }
 
             // Inform the component listening about the leader and schedule a new lease.

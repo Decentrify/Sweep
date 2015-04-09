@@ -8,8 +8,6 @@ import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.Serializer;
 
-import javax.print.DocFlavor;
-
 /**
  * Serializer for the promise wrapper object.
  * Created by babbar on 2015-04-02.
@@ -79,7 +77,7 @@ public class PromiseSerializer {
             boolean isAccepted = byteBuf.readBoolean();
             boolean isConverged = byteBuf.readBoolean();
 
-            return new Promise.Response(isAccepted, isConverged);
+            return new Promise.Response(isAccepted, isConverged, electionRoundId);
         }
 
         @Override
