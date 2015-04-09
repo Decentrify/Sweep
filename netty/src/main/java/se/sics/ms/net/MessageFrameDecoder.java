@@ -81,7 +81,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
     public static final byte LEADER_PROMISE_REQUEST = -0x11;
     public static final byte LEADER_PROMISE_RESPONSE = -0x12;
     public static final byte LEADER_EXTENSION_ONEWAY = -0x13;
-    public static final byte LEASE_COMMIT_ONEWAY = -0x14;
+    public static final byte LEASE_COMMIT_REQUEST = -0x14;
+    public static final byte LEASE_COMMIT_RESPONSE = -0x15;
 
 
     // NB: RANGE OF +VE BYTES ENDS AT 0x7F
@@ -212,9 +213,12 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             case LEADER_EXTENSION_ONEWAY:
                 SerializerAdapter.OneWay extension_oneWay = new SerializerAdapter.OneWay();
                 return extension_oneWay.decodeMsg(buffer);
-            case LEASE_COMMIT_ONEWAY:
-                SerializerAdapter.OneWay lease_oneWay = new SerializerAdapter.OneWay();
-                return lease_oneWay.decodeMsg(buffer);
+            case LEASE_COMMIT_REQUEST:
+                SerializerAdapter.Request lease_request = new SerializerAdapter.Request();
+                return lease_request.decodeMsg(buffer);
+            case LEASE_COMMIT_RESPONSE:
+                SerializerAdapter.Response laese_response = new SerializerAdapter.Response();
+                return laese_response.decodeMsg(buffer);
 
             default:
                 break;

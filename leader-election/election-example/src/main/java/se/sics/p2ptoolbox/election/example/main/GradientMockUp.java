@@ -113,7 +113,7 @@ public class GradientMockUp extends ComponentDefinition {
         @Override
         public void handle(ElectionState.EnableLGMembership enableLGMembership) {
             logger.debug("{}: Node has now become a LG member.", selfAddress.getId());
-            trigger(new ViewUpdate(new LeaderDescriptor(selfAddress.getId(), true)), leaderElectionPortPositive);
+            trigger(new ViewUpdate(null, new LeaderDescriptor(selfAddress.getId(), true)), leaderElectionPortPositive);
         }
     };
 
@@ -125,7 +125,7 @@ public class GradientMockUp extends ComponentDefinition {
         @Override
         public void handle(ElectionState.EnableLGMembership enableLGMembership) {
             logger.debug("{}: Node is no longer a LG member.", selfAddress.getId());
-            trigger(new ViewUpdate(new LeaderDescriptor(selfAddress.getId(), false)), leaderElectionPortPositive);
+            trigger(new ViewUpdate(null, new LeaderDescriptor(selfAddress.getId(), false)), leaderElectionPortPositive);
         }
     };
 

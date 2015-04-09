@@ -114,7 +114,7 @@ public class CommonEncodeDecode {
         CroupierNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.CROUPIER_REQUEST, MessageFrameDecoder.CROUPIER_RESPONSE);
         GradientNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.GRADIENT_REQUEST, MessageFrameDecoder.GRADIENT_RESPONSE);
         AggregatorNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.AGGREGATOR_ONE_WAY);
-        LENetworkSettings.oneTimeSetup(context, MessageFrameDecoder.LEADER_PROMISE_REQUEST, MessageFrameDecoder.LEADER_PROMISE_RESPONSE, MessageFrameDecoder.LEADER_EXTENSION_ONEWAY, MessageFrameDecoder.LEASE_COMMIT_ONEWAY);
+        LENetworkSettings.oneTimeSetup(context, MessageFrameDecoder.LEADER_PROMISE_REQUEST, MessageFrameDecoder.LEADER_PROMISE_RESPONSE, MessageFrameDecoder.LEADER_EXTENSION_ONEWAY, MessageFrameDecoder.LEASE_COMMIT_REQUEST, MessageFrameDecoder.LEASE_COMMIT_RESPONSE);
     }
     
 }

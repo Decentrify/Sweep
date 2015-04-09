@@ -26,9 +26,9 @@ public class TimeoutCollection {
         }
     }
     
-    public static class LeaseResponseTimeout extends Timeout{
+    public static class LeaseCommitResponseTimeout extends Timeout{
         
-        public LeaseResponseTimeout(ScheduleTimeout request){
+        public LeaseCommitResponseTimeout(ScheduleTimeout request){
             super(request);
         }
     }

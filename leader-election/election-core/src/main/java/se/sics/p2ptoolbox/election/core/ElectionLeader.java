@@ -16,11 +16,9 @@ import se.sics.p2ptoolbox.election.api.msg.mock.MockedGradientUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.api.ports.TestPort;
 import se.sics.p2ptoolbox.election.core.data.ExtensionRequest;
-import se.sics.p2ptoolbox.election.core.data.LeaseCommit;
 import se.sics.p2ptoolbox.election.core.data.LeaseCommitUpdated;
 import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
-import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessageUpdated;
 import se.sics.p2ptoolbox.election.core.util.ElectionHelper;
@@ -68,7 +66,7 @@ public class ElectionLeader extends ComponentDefinition {
     // Promise Sub Protocol.
     private UUID electionRoundId;
     private TimeoutId promisePhaseTimeout;
-    private TimeoutId leasePhaseTimeout;
+    private TimeoutId leaseCommitPhaseTimeout;
     private PromiseResponseTracker electionRoundTracker;
     private PublicKey publicKey;
 
@@ -366,6 +364,13 @@ public class ElectionLeader extends ComponentDefinition {
                         trigger(new LeaseCommitMessageUpdated.Request(selfAddress,
                                 address, UUID.randomUUID(), request), networkPositive);
                     }
+
+                    ScheduleTimeout st = new ScheduleTimeout(5000);
+                    st.setTimeoutEvent(new TimeoutCollection.LeaseCommitResponseTimeout(st));
+                    leaseCommitPhaseTimeout = st.getTimeoutEvent().getTimeoutId();
+
+                    trigger(st, timerPositive);
+
                 } else {
                     inElection = false;
                 }
@@ -387,8 +392,9 @@ public class ElectionLeader extends ComponentDefinition {
             int commitResponses = electionRoundTracker.addLeaseCommitResponseAndgetSize(event.content);
             if (commitResponses >= electionRoundTracker.getLeaderGroupInformationSize()) {
 
-                CancelTimeout cancelTimeout = new CancelTimeout(leasePhaseTimeout);
+                CancelTimeout cancelTimeout = new CancelTimeout(leaseCommitPhaseTimeout);
                 trigger(cancelTimeout, timerPositive);
+                leaseCommitPhaseTimeout = null;
 
                 if (electionRoundTracker.isLeaseCommitAccepted()) {
 
@@ -440,16 +446,22 @@ public class ElectionLeader extends ComponentDefinition {
      * Handler on the leader component indicating that node couldn't receive all the
      * commit responses associated with the lease were not received on time and therefore it has to reset the state information.
      */
-    Handler<TimeoutCollection.LeaseResponseTimeout> leaseResponseTimeoutHandler = new Handler<TimeoutCollection.LeaseResponseTimeout>() {
+    Handler<TimeoutCollection.LeaseCommitResponseTimeout> leaseResponseTimeoutHandler = new Handler<TimeoutCollection.LeaseCommitResponseTimeout>() {
         @Override
-        public void handle(TimeoutCollection.LeaseResponseTimeout event) {
+        public void handle(TimeoutCollection.LeaseCommitResponseTimeout event) {
             
             logger.trace("{}: Election Round timed out in the lease commit phase.", selfAddress.getId());
-            electionRoundTracker.resetTracker();
-            
-            if(applicationAck){
-                resetElectionMetaData(); // Reset election phase if already received ack for the commit that I sent to local follower component.
+            if(leaseCommitPhaseTimeout != null && leaseCommitPhaseTimeout.equals(event.getTimeoutId())){
+
+                electionRoundTracker.resetTracker();
+                if(applicationAck){
+                    resetElectionMetaData(); // Reset election phase if already received ack for the commit that I sent to local follower component.
+                }
             }
+            else{
+                logger.warn("{}: Received the timeout after being cancelled.", selfAddress.getId());
+            }
+
         }
     };
 

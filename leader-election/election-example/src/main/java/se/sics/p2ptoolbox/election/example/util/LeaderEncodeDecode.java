@@ -37,7 +37,8 @@ public class LeaderEncodeDecode extends BaseMsgFrameDecoder{
     public static final byte PROMISE_REQUEST = (byte)0x01;
     public static final byte PROMISE_RESPONSE = (byte)0x02;
     public static final byte EXTENSION_REQUEST= (byte)0x03;
-    public static final byte LEASE_COMMIT = (byte)0x04;
+    public static final byte LEASE_REQUEST = (byte)0x04;
+    public static final byte LEASE_RESPONSE = (byte)0x05;
 
 //    public static final String HEADER_FIELD_ALIAS = "SWEEP_HEADER_FIELD";
     public static final String LEADER_VIEW = "LEADER_VIEW";
@@ -71,7 +72,7 @@ public class LeaderEncodeDecode extends BaseMsgFrameDecoder{
         }
 
         // One time settings.
-        LENetworkSettings.oneTimeSetup(context, PROMISE_REQUEST, PROMISE_RESPONSE, EXTENSION_REQUEST, LEASE_COMMIT);
+        LENetworkSettings.oneTimeSetup(context, PROMISE_REQUEST, PROMISE_RESPONSE, EXTENSION_REQUEST, LEASE_REQUEST, LEASE_RESPONSE);
     }
 
 
@@ -98,9 +99,12 @@ public class LeaderEncodeDecode extends BaseMsgFrameDecoder{
             case EXTENSION_REQUEST:
                 SerializerAdapter.OneWay gReqS = new SerializerAdapter.OneWay();
                 return gReqS.decodeMsg(buffer);
-            case LEASE_COMMIT:
-                SerializerAdapter.OneWay gRespS = new SerializerAdapter.OneWay();
-                return gRespS.decodeMsg(buffer);
+            case LEASE_REQUEST:
+                SerializerAdapter.Request lReqS = new SerializerAdapter.Request();
+                return lReqS.decodeMsg(buffer);
+            case LEASE_RESPONSE:
+                SerializerAdapter.Response lRespS = new SerializerAdapter.Response();
+                return lRespS.decodeMsg(buffer);
             default:
                 return null;
         }

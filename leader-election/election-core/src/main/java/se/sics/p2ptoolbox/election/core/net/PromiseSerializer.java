@@ -8,6 +8,8 @@ import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.Serializer;
 
+import java.util.UUID;
+
 /**
  * Serializer for the promise wrapper object.
  * Created by babbar on 2015-04-02.
@@ -25,9 +27,10 @@ public class PromiseSerializer {
             byteBuf.writeByte(code.getValue1());
 
             Serializer serializer = context.getSerializer(request.leaderView.getClass());
-            serializer.encode(context, byteBuf, request.leaderAddress);
+            serializer.encode(context, byteBuf, request.leaderView);
 
             context.getSerializer(VodAddress.class).encode(context, byteBuf, request.leaderAddress);
+            context.getSerializer(UUID.class).encode(context, byteBuf, request.electionRoundId);
 
             return byteBuf;
         }
@@ -41,8 +44,9 @@ public class PromiseSerializer {
             Serializer lcpSerializer = context.getSerializer(LCPeerView.class, pvCode0, pvCode1);
             LCPeerView lcp = (LCPeerView)lcpSerializer.decode(context, byteBuf);
             VodAddress address = context.getSerializer(VodAddress.class).decode(context, byteBuf);
+            UUID electionRoundId = context.getSerializer(UUID.class).decode(context, byteBuf);
 
-            return new Promise.Request(address, lcp);
+            return new Promise.Request(address, lcp, electionRoundId);
         }
 
         @Override
@@ -54,7 +58,7 @@ public class PromiseSerializer {
             Serializer lcvS = context.getSerializer(request.leaderView.getClass());
             size += lcvS.getSize(context, request.leaderView);
             size += context.getSerializer(VodAddress.class).getSize(context, request.leaderAddress);
-
+            size += context.getSerializer(UUID.class).getSize(context, request.electionRoundId);
             return size;
         }
     }
@@ -67,6 +71,7 @@ public class PromiseSerializer {
 
             byteBuf.writeBoolean(response.acceptCandidate);
             byteBuf.writeBoolean(response.isConverged);
+            serializationContext.getSerializer(UUID.class).encode(serializationContext, byteBuf, response.electionRoundId);
 
             return byteBuf;
         }
@@ -76,6 +81,7 @@ public class PromiseSerializer {
 
             boolean isAccepted = byteBuf.readBoolean();
             boolean isConverged = byteBuf.readBoolean();
+            UUID electionRoundId = serializationContext.getSerializer(UUID.class).decode(serializationContext, byteBuf);
 
             return new Promise.Response(isAccepted, isConverged, electionRoundId);
         }
@@ -85,6 +91,7 @@ public class PromiseSerializer {
 
             int size =0;
             size += 2 * Byte.SIZE/8;
+            size += serializationContext.getSerializer(UUID.class).getSize(serializationContext, response.electionRoundId);
 
             return size;
         }

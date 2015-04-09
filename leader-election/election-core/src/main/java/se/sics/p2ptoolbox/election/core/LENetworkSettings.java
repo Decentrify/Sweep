@@ -5,10 +5,8 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
-import se.sics.p2ptoolbox.election.core.net.CommitMessageSerializer;
-import se.sics.p2ptoolbox.election.core.net.ExtensionMessageSerializer;
-import se.sics.p2ptoolbox.election.core.net.PromiseMessageSerializer;
-import se.sics.p2ptoolbox.election.core.net.PublicKeySerializer;
+import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessageUpdated;
+import se.sics.p2ptoolbox.election.core.net.*;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.msg.NetMsg;
 import se.sics.p2ptoolbox.serialization.serializer.SerializerAdapter;
@@ -28,24 +26,26 @@ public class LENetworkSettings {
     private static final String PROMISE_RESPONSE_ALIAS = "PROMISE_NET_RESPONSE";
 
     private static final String EXTENSION_ONE_WAY = "EXTENSION_ONE_WAY";
-    private static final String COMMIT_ONE_WAY = "COMMIT_ONE_WAY";
+    private static final String LEASE_COMMIT_REQUEST_ALIAS = "COMMIT_NET_REQUEST";
+    private static final String LEASE_COMMIT_RESPONSE_ALIAS = "COMMIT_NET_RESPONSE";
 
 
-    public static void oneTimeSetup(SerializationContext setContext, byte promiseRequestAlias, byte promiseResponseAlias, byte extensionAlias, byte leaseCommitAlias){
+
+    public static void oneTimeSetup(SerializationContext setContext, byte promiseRequestAlias, byte promiseResponseAlias, byte extensionAlias, byte leaseCommitRequestAlias, byte leaseCommitResponseAlias){
 
         if(context != null) {
             throw new RuntimeException("croupier has already been setup - do not call this multiple times(for each croupier instance)");
         }
         context = setContext;
 
-        registerNetworkMsg(promiseRequestAlias, promiseResponseAlias, extensionAlias, leaseCommitAlias);
+        registerNetworkMsg(promiseRequestAlias, promiseResponseAlias, extensionAlias, leaseCommitRequestAlias, leaseCommitResponseAlias);
         registerOthers();
 
         checkSetup();
     }
 
 
-    private static void registerNetworkMsg(byte promiseRequestAlias, byte promiseResponseAlias, byte extensionAlias, byte leaseCommitAlias){
+    private static void registerNetworkMsg(byte promiseRequestAlias, byte promiseResponseAlias, byte extensionAlias, byte leaseCommitRequestAlias, byte leaseCommitResponseAlias){
 
         try{
             context.registerAlias(DirectMsgNetty.Request.class, PROMISE_REQUEST_ALIAS, promiseRequestAlias);
@@ -61,10 +61,14 @@ public class LENetworkSettings {
             context.registerSerializer(LeaderExtensionRequest.class, new ExtensionMessageSerializer());
             context.multiplexAlias(EXTENSION_ONE_WAY, LeaderExtensionRequest.class, (byte)0x01);
 
-            context.registerAlias(DirectMsgNetty.Oneway.class, COMMIT_ONE_WAY, leaseCommitAlias);
-            context.registerSerializer(LeaseCommitMessage.class, new CommitMessageSerializer());
-            context.multiplexAlias(COMMIT_ONE_WAY, LeaseCommitMessage.class, (byte)0x01);
+            context.registerAlias(DirectMsgNetty.Request.class, LEASE_COMMIT_REQUEST_ALIAS, leaseCommitRequestAlias);
+            context.registerAlias(DirectMsgNetty.Response.class, LEASE_COMMIT_RESPONSE_ALIAS, leaseCommitResponseAlias);
 
+            context.registerSerializer(LeaseCommitMessageUpdated.Request.class, new LeaseCommitMessageUpdatedSerializer.Request());
+            context.registerSerializer(LeaseCommitMessageUpdated.Response.class, new LeaseCommitMessageUpdatedSerializer.Response());
+
+            context.multiplexAlias(LEASE_COMMIT_REQUEST_ALIAS, LeaseCommitMessageUpdated.Request.class, (byte)0x01);
+            context.multiplexAlias(LEASE_COMMIT_RESPONSE_ALIAS, LeaseCommitMessageUpdated.Response.class, (byte)0x01);
 
         } catch (SerializationContext.DuplicateException e) {
             e.printStackTrace();
