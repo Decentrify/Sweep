@@ -202,7 +202,7 @@ public class ElectionLeader extends ComponentDefinition {
             selfLCView = viewUpdate.selfPv;
             selfLEContainer = new LEContainer(selfAddress, selfLCView);
 
-            logger.debug(" {}: Received view update from the application: {} ", selfAddress.getId(), selfLCView.toString());
+            logger.trace(" {}: Received view update from the application: {} ", selfAddress.getId(), selfLCView.toString());
 
             if (filter.terminateLeader(oldView, selfLCView)) {
 
@@ -223,6 +223,8 @@ public class ElectionLeader extends ComponentDefinition {
             if (viewUpdate.electionRoundId != null && inElection) {
                 
                 if (electionRoundId != null && electionRoundId.equals(viewUpdate.electionRoundId)) {
+
+                    logger.warn("{}: Received update from the application for round tracking.", selfAddress.getId());
                     if (electionRoundTracker.getRoundId() != null && electionRoundTracker.getRoundId().equals(viewUpdate.electionRoundId)) {
                         applicationAck = true;  // I am currently tracking the round and as application being fast I received the ack for the round from application.
                     } else{
@@ -353,6 +355,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                 CancelTimeout cancelTimeout = new CancelTimeout(promisePhaseTimeout);
                 trigger(cancelTimeout, timerPositive);
+                promisePhaseTimeout = null;
 
                 if (electionRoundTracker.isAccepted()) {
 
@@ -398,7 +401,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                 if (electionRoundTracker.isLeaseCommitAccepted()) {
 
-                    logger.trace("{}: All the leader group nodes have committed the lease.", selfAddress.getId());
+                    logger.debug("{}: All the leader group nodes have committed the lease.", selfAddress.getId());
                     trigger(new LeaderState.ElectedAsLeader(electionRoundTracker.getLeaderGroupInformation()), electionPort);
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
@@ -430,9 +433,16 @@ public class ElectionLeader extends ComponentDefinition {
     Handler<TimeoutCollection.PromiseRoundTimeout> promiseRoundTimeoutHandler = new Handler<TimeoutCollection.PromiseRoundTimeout>() {
         @Override
         public void handle(TimeoutCollection.PromiseRoundTimeout event) {
-            logger.debug("{}: Election Round Timed Out in the promise phase.", selfAddress.getId());
-            resetElectionMetaData();
-            electionRoundTracker.resetTracker();
+
+            if(promisePhaseTimeout != null && promisePhaseTimeout.equals(event.getTimeoutId())){
+                logger.debug("{}: Election Round Timed Out in the promise phase.", selfAddress.getId());
+                resetElectionMetaData();
+                electionRoundTracker.resetTracker();
+            }
+            else{
+                logger.warn("Promise already supposed to be fulfilled but timeout triggered");
+            }
+
         }
     };
 
@@ -454,6 +464,7 @@ public class ElectionLeader extends ComponentDefinition {
             if(leaseCommitPhaseTimeout != null && leaseCommitPhaseTimeout.equals(event.getTimeoutId())){
 
                 electionRoundTracker.resetTracker();
+
                 if(applicationAck){
                     resetElectionMetaData(); // Reset election phase if already received ack for the commit that I sent to local follower component.
                 }
