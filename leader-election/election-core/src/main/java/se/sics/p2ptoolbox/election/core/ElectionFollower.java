@@ -284,13 +284,12 @@ public class ElectionFollower extends ComponentDefinition {
 
             logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
 
-            if(electionRoundId != null && electionRoundId.equals(event.electionRoundId)){
-                
+            if(awaitLeaseCommitId != null && awaitLeaseCommitId.equals(event.getTimeoutId())){
                 // Might be triggered even if the response is handled.
                 resetElectionMetaData();
                 trigger(new ElectionState.DisableLGMembership(event.electionRoundId), electionPort);
             }
-            
+
             else{
                 logger.warn("Timeout triggered even though the cancel was sent.");
             }
@@ -310,41 +309,9 @@ public class ElectionFollower extends ComponentDefinition {
     
     
     /**
-     * @deprecated
      * Received the lease commit request from the node trying to assert itself as leader.
+     * Accept the request in case it is from the same round id.
      */
-    Handler<LeaseCommitMessage> leaseCommitRequestHandler = new Handler<LeaseCommitMessage>() {
-        @Override
-        public void handle(LeaseCommitMessage event) {
-
-            logger.debug("{}: Received lease commit message request from : {}", selfAddress.getId(), event.getSource().getId());
-
-            if (electionRoundId == null || !electionRoundId.equals(event.id)) {
-                logger.warn("{}: Received an election response for the round id which has expired or timed out.", selfAddress.getId());
-                return;
-            }
-
-            // Cancel the existing awaiting for lease commit timeout.
-            CancelTimeout timeout = new CancelTimeout(awaitLeaseCommitId);
-            trigger(timeout, timerPositive);
-
-            logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
-            leaderAddress = event.content.leaderAddress;
-
-            trigger(new ElectionState.EnableLGMembership(null), electionPort);
-            trigger(new LeaderUpdate(event.content.leaderPublicKey, event.content.leaderAddress), electionPort);
-
-
-            ScheduleTimeout st = new ScheduleTimeout(config.getFollowerLeaseTime());
-            st.setTimeoutEvent(new TimeoutCollection.LeaseTimeout(st));
-
-            leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
-            trigger(st, timerPositive);
-
-        }
-    };
-
-
     Handler<LeaseCommitMessageUpdated.Request> leaseCommitRequestHandlerUpdated = new Handler<LeaseCommitMessageUpdated.Request>() {
         @Override
         public void handle(LeaseCommitMessageUpdated.Request event) {
@@ -366,6 +333,7 @@ public class ElectionFollower extends ComponentDefinition {
                 // Cancel the existing awaiting for lease commit timeout.
                 CancelTimeout timeout = new CancelTimeout(awaitLeaseCommitId);
                 trigger(timeout, timerPositive);
+                awaitLeaseCommitId = null;
 
                 logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
                 leaderAddress = event.content.leaderAddress;
