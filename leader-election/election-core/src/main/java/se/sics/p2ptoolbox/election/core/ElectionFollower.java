@@ -239,7 +239,7 @@ public class ElectionFollower extends ComponentDefinition {
         public void handle(LeaderPromiseMessage.Request event) {
 
 
-            logger.debug("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
+            logger.warn("{}: Received promise request from : {}", selfAddress.getId(), event.getSource().getId());
             
             LeaderPromiseMessage.Response response;
             LCPeerView requestLeaderView = event.content.leaderView;
@@ -260,7 +260,7 @@ public class ElectionFollower extends ComponentDefinition {
                     if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0) {
 
                         inElection = true;
-                        ScheduleTimeout st = new ScheduleTimeout(3000);
+                        ScheduleTimeout st = new ScheduleTimeout(5000);
                         st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st, electionRoundId));
 
                         awaitLeaseCommitId = st.getTimeoutEvent().getTimeoutId();
@@ -288,13 +288,13 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.AwaitLeaseCommitTimeout event) {
 
-            logger.debug("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
+            logger.warn("{}: The promise is not yet fulfilled with lease commit", selfAddress.getId());
 
             if (awaitLeaseCommitId != null && awaitLeaseCommitId.equals(event.getTimeoutId())) {
                 
                 // Might be triggered even if the response is handled.
                 inElection = false;
-                resetElectionMetaData();
+                electionRoundId = null;
                 trigger(new ElectionState.DisableLGMembership(event.electionRoundId), electionPort);
                 
             } else {
@@ -321,7 +321,7 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(LeaseCommitMessageUpdated.Request event) {
 
-            logger.trace("{}: Received lease commit request from: {}", selfAddress.getId(), event.getVodSource().getId());
+            logger.warn("{}: Received lease commit request from: {}", selfAddress.getId(), event.getVodSource().getId());
             LeaseCommitUpdated.Response response;
 
             if (electionRoundId == null || !electionRoundId.equals(event.content.electionRoundId)) {
@@ -339,7 +339,7 @@ public class ElectionFollower extends ComponentDefinition {
                 trigger(timeout, timerPositive);
                 awaitLeaseCommitId = null;
 
-                logger.debug("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
+                logger.warn("{}: My new leader: {}", selfAddress.getId(), event.content.leaderAddress);
                 leaderAddress = event.content.leaderAddress;
 
                 trigger(new ElectionState.EnableLGMembership(electionRoundId), electionPort);

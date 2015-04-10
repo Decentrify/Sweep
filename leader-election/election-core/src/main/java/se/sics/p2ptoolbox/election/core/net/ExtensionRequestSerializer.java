@@ -20,12 +20,12 @@ public class ExtensionRequestSerializer implements Serializer<ExtensionRequest> 
     @Override
     public ByteBuf encode(SerializationContext context, ByteBuf byteBuf, ExtensionRequest request) throws SerializerException, SerializationContext.MissingException {
 
-        Pair<Byte, Byte> code = context.getCode(request.leaderView.getClass());
+        Pair<Byte, Byte> code = context.getCode(request.leaderView.getClass(), LCPeerView.class);
         byteBuf.writeByte(code.getValue0());
         byteBuf.writeByte(code.getValue1());
 
         Serializer serializer = context.getSerializer(request.leaderView.getClass());
-        serializer.encode(context, byteBuf, request.leaderAddress);
+        serializer.encode(context, byteBuf, request.leaderView);
 
         context.getSerializer(VodAddress.class).encode(context, byteBuf, request.leaderAddress);
         context.getSerializer(PublicKey.class).encode(context, byteBuf, request.leaderPublicKey);

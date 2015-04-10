@@ -2,6 +2,9 @@ package se.sics.p2ptoolbox.election.core;
 
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.net.VodAddress;
+import se.sics.p2ptoolbox.election.core.data.ExtensionRequest;
+import se.sics.p2ptoolbox.election.core.data.LeaseCommitUpdated;
+import se.sics.p2ptoolbox.election.core.data.Promise;
 import se.sics.p2ptoolbox.election.core.msg.LeaderExtensionRequest;
 import se.sics.p2ptoolbox.election.core.msg.LeaderPromiseMessage;
 import se.sics.p2ptoolbox.election.core.msg.LeaseCommitMessage;
@@ -83,6 +86,14 @@ public class LENetworkSettings {
 
         try{
             context.registerSerializer(PublicKey.class, new PublicKeySerializer());
+            context.registerSerializer(Promise.Request.class, new PromiseSerializer.Request());
+            context.registerSerializer(Promise.Response.class, new PromiseSerializer.Response());
+            
+            context.registerSerializer(LeaseCommitUpdated.Request.class, new LeaseCommitUpdatedSerializer.Request());
+            context.registerSerializer(LeaseCommitUpdated.Response.class, new LeaseCommitUpdatedSerializer.Response());
+            
+            context.registerSerializer(ExtensionRequest.class, new ExtensionRequestSerializer());
+            
         } catch (SerializationContext.DuplicateException e) {
             e.printStackTrace();
         }

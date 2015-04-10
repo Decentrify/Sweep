@@ -303,12 +303,12 @@ public class ElectionLeader extends ComponentDefinition {
      */
     private void startVoting() {
 
-        logger.debug("{}: Starting with the voting .. ", selfAddress.getId());
+        logger.warn("{}: Starting with the voting .. ", selfAddress.getId());
         electionRoundId = UUID.randomUUID();
         applicationAck = false;
         
         Promise.Request request = new Promise.Request(selfAddress, selfLCView, electionRoundId);
-        int leaderGroupSize = Math.min(Math.round(config.getViewSize() / 2), config.getMaxLeaderGroupSize());
+        int leaderGroupSize = Math.min(Math.round((float)config.getViewSize() / 2), config.getMaxLeaderGroupSize());
         Collection<LEContainer> leaderGroupNodes = createLeaderGroupNodes(leaderGroupSize);
 
 
@@ -327,7 +327,8 @@ public class ElectionLeader extends ComponentDefinition {
 
             VodAddress lgMemberAddr = leaderGroupNode.getSource();
             leaderGroupAddress.add(lgMemberAddr);
-
+            
+            logger.warn("Sending Promise Request to : " + lgMemberAddr.getId());
             LeaderPromiseMessage.Request promiseRequest = new LeaderPromiseMessage.Request(selfAddress, lgMemberAddr, electionRoundId, request);
             trigger(promiseRequest, networkPositive);
             leaderGroupSize--;
@@ -358,11 +359,12 @@ public class ElectionLeader extends ComponentDefinition {
 
                 if (electionRoundTracker.isAccepted()) {
 
-                    logger.debug("{}: All the leader group nodes have promised.", selfAddress.getId());
+                    logger.warn("{}: All the leader group nodes have promised.", selfAddress.getId());
                     LeaseCommitUpdated.Request request = new LeaseCommitUpdated.Request(selfAddress,
                             publicKey, selfLCView, electionRoundTracker.getRoundId());
 
                     for (VodAddress address : electionRoundTracker.getLeaderGroupInformation()) {
+                        logger.warn("Sending Commit Request to : " + address.getId());
                         trigger(new LeaseCommitMessageUpdated.Request(selfAddress,
                                 address, UUID.randomUUID(), request), networkPositive);
                     }
@@ -389,7 +391,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(LeaseCommitMessageUpdated.Response event) {
 
-            logger.trace("{}: Received lease commit response from the node: {}", selfAddress.getId(), event.getVodSource().getId());
+            logger.warn("Received lease commit response from the node: {} , response: {}",event.getVodSource().getId() , event.content.isCommit);
             
             int commitResponses = electionRoundTracker.addLeaseCommitResponseAndgetSize(event.content);
             if (commitResponses >= electionRoundTracker.getLeaderGroupInformationSize()) {
@@ -400,7 +402,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                 if (electionRoundTracker.isLeaseCommitAccepted()) {
 
-                    logger.debug("{}: All the leader group nodes have committed the lease.", selfAddress.getId());
+                    logger.warn("{}: All the leader group nodes have committed the lease.", selfAddress.getId());
                     trigger(new LeaderState.ElectedAsLeader(electionRoundTracker.getLeaderGroupInformation()), electionPort);
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLeaseTime());
@@ -409,7 +411,7 @@ public class ElectionLeader extends ComponentDefinition {
                     leaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
                     trigger(st, timerPositive);
 
-                    logger.debug("Setting self as leader complete.");
+                    logger.warn("Setting self as leader complete.");
                 }
 
                 if(applicationAck){
@@ -434,7 +436,7 @@ public class ElectionLeader extends ComponentDefinition {
         public void handle(TimeoutCollection.PromiseRoundTimeout event) {
 
             if(promisePhaseTimeout != null && promisePhaseTimeout.equals(event.getTimeoutId())){
-                logger.debug("{}: Election Round Timed Out in the promise phase.", selfAddress.getId());
+                logger.warn("{}: Election Round Timed Out in the promise phase.", selfAddress.getId());
                 resetElectionMetaData();
                 electionRoundTracker.resetTracker();
             }
@@ -459,7 +461,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.LeaseCommitResponseTimeout event) {
             
-            logger.trace("{}: Election Round timed out in the lease commit phase.", selfAddress.getId());
+            logger.warn("{}: Election Round timed out in the lease commit phase.", selfAddress.getId());
             if(leaseCommitPhaseTimeout != null && leaseCommitPhaseTimeout.equals(event.getTimeoutId())){
 
                 electionRoundTracker.resetTracker();
@@ -487,7 +489,7 @@ public class ElectionLeader extends ComponentDefinition {
             logger.debug(" Special : Lease Timed out at Leader End: {} , trying to extend the lease", selfAddress.getId());
             if (isExtensionPossible()) {
 
-                logger.debug("Trying to extend the leadership.");
+                logger.warn("Trying to extend the leadership.");
 
                 int leaderGroupSize = Math.min(config.getViewSize() / 2 + 1, config.getMaxLeaderGroupSize());
                 Collection<LEContainer> lowerNodes = createLeaderGroupNodes(leaderGroupSize);

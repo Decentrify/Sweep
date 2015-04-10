@@ -22,7 +22,8 @@ public class PromiseSerializer {
         @Override
         public ByteBuf encode(SerializationContext context, ByteBuf byteBuf, Promise.Request request) throws SerializerException, SerializationContext.MissingException {
 
-            Pair<Byte, Byte> code = context.getCode(request.leaderView.getClass());
+//            Pair<Byte, Byte> code = context.getCode(request.leaderView.getClass(), LCPeerView.class);
+            Pair<Byte, Byte> code = context.getCode(request.leaderView.getClass(), LCPeerView.class);
             byteBuf.writeByte(code.getValue0());
             byteBuf.writeByte(code.getValue1());
 
