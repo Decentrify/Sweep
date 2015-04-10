@@ -9,6 +9,7 @@ import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.Serializer;
 
 import java.security.PublicKey;
+import java.util.UUID;
 
 /**
  * Serializer for the Extension Request Object.
@@ -29,7 +30,7 @@ public class ExtensionRequestSerializer implements Serializer<ExtensionRequest> 
 
         context.getSerializer(VodAddress.class).encode(context, byteBuf, request.leaderAddress);
         context.getSerializer(PublicKey.class).encode(context, byteBuf, request.leaderPublicKey);
-
+        context.getSerializer(UUID.class).encode(context, byteBuf, request.electionRoundId);
         return byteBuf;
     }
 
@@ -44,8 +45,9 @@ public class ExtensionRequestSerializer implements Serializer<ExtensionRequest> 
 
         VodAddress address = context.getSerializer(VodAddress.class).decode(context, byteBuf);
         PublicKey publicKey = context.getSerializer(PublicKey.class).decode(context, byteBuf);
-
-        return new ExtensionRequest(address, publicKey, lcpv);
+        UUID electionroundId = context.getSerializer(UUID.class).decode(context, byteBuf);
+                
+        return new ExtensionRequest(address, publicKey, lcpv, electionroundId);
     }
 
     @Override
@@ -58,6 +60,8 @@ public class ExtensionRequestSerializer implements Serializer<ExtensionRequest> 
 
         size += context.getSerializer(VodAddress.class).getSize(context, extensionRequest.leaderAddress);
         size += context.getSerializer(PublicKey.class).getSize(context, extensionRequest.leaderPublicKey);
+        size += context.getSerializer(UUID.class).getSize(context, extensionRequest.electionRoundId);
+        
         return size;
     }
 }

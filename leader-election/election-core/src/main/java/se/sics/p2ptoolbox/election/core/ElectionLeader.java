@@ -509,8 +509,12 @@ public class ElectionLeader extends ComponentDefinition {
                 }
 
                 lowerNodes.add(new LEContainer(selfAddress, selfLCView));
+                
+                
+                UUID roundId = UUID.randomUUID();
+                
                 for (LEContainer container : lowerNodes) {
-                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), UUID.randomUUID(), new ExtensionRequest(selfAddress, publicKey, selfLCView)), networkPositive);
+                    trigger(new LeaderExtensionRequest(selfAddress, container.getSource(), roundId, new ExtensionRequest(selfAddress, publicKey, selfLCView, roundId)), networkPositive);
                 }
 
                 // Extend the lease.

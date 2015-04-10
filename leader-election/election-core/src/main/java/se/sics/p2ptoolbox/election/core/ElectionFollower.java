@@ -221,6 +221,8 @@ public class ElectionFollower extends ComponentDefinition {
             // Resetting the in election check is kind of tricky so need to be careful about the procedure.
             if (viewUpdate.electionRoundId != null && inElection) {
                 if (electionRoundId != null && electionRoundId.equals(viewUpdate.electionRoundId)) {
+                    logger.warn("{}: Resetting election check for the UUID: {}", selfAddress.getId(), electionRoundId);
+                    
                     inElection = false;
                     resetElectionMetaData();
                 }
@@ -364,8 +366,15 @@ public class ElectionFollower extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.LeaseTimeout event) {
 
-            logger.warn("{}: Special : Lease timed out.", selfAddress.getId());
-            terminateElectionInformation();
+            if(leaseTimeoutId != null && leaseTimeoutId.equals(event.getTimeoutId())){
+                
+                logger.warn("{}: Special : Lease timed out.", selfAddress.getId());
+                terminateElectionInformation();
+            }
+            else{
+                logger.warn("{}: Application current lease timeout id has changed");
+            }
+
         }
     };
 
@@ -402,13 +411,13 @@ public class ElectionFollower extends ComponentDefinition {
 
                 CancelTimeout cancelTimeout = new CancelTimeout(leaseTimeoutId);
                 trigger(cancelTimeout, timerPositive);
-            } else {
-
-                // Prevent the edge case in which the node which is under a lease might take time
-                // to get a response back from the application representing the information and therefore in that time something fishy can happen.
-                inElection = true;
-                trigger(new ElectionState.EnableLGMembership(null), electionPort);
             }
+
+            // Prevent the edge case in which the node which is under a lease might take time
+            // to get a response back from the application representing the information and therefore in that time something fishy can happen.
+            inElection = true;
+            electionRoundId = leaderExtensionRequest.content.electionRoundId;
+            trigger(new ElectionState.EnableLGMembership(electionRoundId), electionPort);
 
             // Inform the component listening about the leader and schedule a new lease.
             trigger(new LeaderUpdate(leaderExtensionRequest.content.leaderPublicKey, leaderExtensionRequest.content.leaderAddress), electionPort);
