@@ -224,7 +224,6 @@ public class ElectionLeader extends ComponentDefinition {
                 
                 if (electionRoundId != null && electionRoundId.equals(viewUpdate.electionRoundId)) {
 
-                    logger.warn("{}: Received update from the application for round tracking.", selfAddress.getId());
                     if (electionRoundTracker.getRoundId() != null && electionRoundTracker.getRoundId().equals(viewUpdate.electionRoundId)) {
                         applicationAck = true;  // I am currently tracking the round and as application being fast I received the ack for the round from application.
                     } else{
@@ -309,7 +308,7 @@ public class ElectionLeader extends ComponentDefinition {
         applicationAck = false;
         
         Promise.Request request = new Promise.Request(selfAddress, selfLCView, electionRoundId);
-        int leaderGroupSize = Math.min(config.getViewSize() / 2 + 1, config.getMaxLeaderGroupSize());
+        int leaderGroupSize = Math.min(Math.round(config.getViewSize() / 2), config.getMaxLeaderGroupSize());
         Collection<LEContainer> leaderGroupNodes = createLeaderGroupNodes(leaderGroupSize);
 
 

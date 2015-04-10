@@ -2969,8 +2969,10 @@ public final class Search extends ComponentDefinition {
     Handler<ElectionState.EnableLGMembership> enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
+            
             logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
             self.setLGMember(true);
+            electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
         }
     };
@@ -2982,8 +2984,10 @@ public final class Search extends ComponentDefinition {
     Handler<ElectionState.DisableLGMembership> disableLGMembershipHandler = new Handler<ElectionState.DisableLGMembership>() {
         @Override
         public void handle(ElectionState.DisableLGMembership event) {
+            
             logger.warn("{}: Remove the node from the leader group membership.", self.getId());
             self.setLGMember(false);
+            electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
         }
     };
