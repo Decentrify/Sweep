@@ -64,7 +64,7 @@ public class ElectionConfig {
     public static class ElectionConfigBuilder {
 
         private int viewSize;
-        private long leaseTime = 120000; // 120 seconds
+        private long leaseTime = 60000; // 60 seconds
         private int convergenceRounds = 6;
         private double convergenceTest = 0.8d;
         private int maxLeaderGroupSize = 10;

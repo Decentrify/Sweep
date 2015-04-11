@@ -48,7 +48,7 @@ public class ElectionHelper {
 
         oldAddressSet.retainAll(currentAddressSet);
 
-        return ((oldSize == newSize) && oldAddressSet.size() >= convergenceFactor * currentAddressSet.size());
+        return ((oldSize == newSize) && oldAddressSet.size() >=  (int)(convergenceFactor * currentAddressSet.size()));
     }
 
 

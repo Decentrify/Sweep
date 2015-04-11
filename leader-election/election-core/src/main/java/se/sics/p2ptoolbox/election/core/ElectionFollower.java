@@ -255,26 +255,27 @@ public class ElectionFollower extends ComponentDefinition {
 
                 if (event.content.leaderAddress.getPeerAddress().equals(selfAddress.getPeerAddress())) {
                     acceptCandidate = true; // Always accept self.
-                    inElection = true;
+                    
                 } else {
 
                     LCPeerView nodeToCompareTo = getHighestUtilityNode();
-                    if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) >= 0) {
-
-                        inElection = true;
-                        ScheduleTimeout st = new ScheduleTimeout(5000);
-                        st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st, electionRoundId));
-
-                        awaitLeaseCommitId = st.getTimeoutEvent().getTimeoutId();
-                        trigger(st, timerPositive);
-                    } else
+                    if (lcPeerViewComparator.compare(requestLeaderView, nodeToCompareTo) < 0) {
                         acceptCandidate = false;
+                    }
                 }
             }
 
             // Update the election round id only if I decide to accept the candidate.
             if(acceptCandidate){
+                
                 electionRoundId = event.content.electionRoundId;
+                inElection = true;
+
+                ScheduleTimeout st = new ScheduleTimeout(5000);
+                st.setTimeoutEvent(new TimeoutCollection.AwaitLeaseCommitTimeout(st, electionRoundId));
+
+                awaitLeaseCommitId = st.getTimeoutEvent().getTimeoutId();
+                trigger(st, timerPositive);
             }
             response = new LeaderPromiseMessage.Response(selfAddress, event.getVodSource(), event.id, new Promise.Response(acceptCandidate, isConverged, event.content.electionRoundId));
             trigger(response, networkPositive);

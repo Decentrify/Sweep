@@ -31,6 +31,8 @@ import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
+import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
+import se.sics.ms.election.aggregation.ElectionLeaderUpdateEvent;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -57,11 +59,10 @@ import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
-import se.sics.ms.util.OverlayIdHelper;
-import se.sics.ms.util.Pair;
-import se.sics.ms.util.PartitionHelper;
+import se.sics.ms.util.*;
 import se.sics.p2ptoolbox.croupier.api.CroupierPort;
 import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
+import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
@@ -105,14 +106,14 @@ public final class Search extends ComponentDefinition {
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-//    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
+    //    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
-    
+
     // ======== LOCAL VARIABLES.
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
     private MsSelfImpl self;
@@ -136,13 +137,13 @@ public final class Search extends ComponentDefinition {
     private LocalSearchRequest searchRequest;
     private Directory searchIndex;
 
-    
+
     // Leader Election Protocol.
     private java.util.UUID electionRound = java.util.UUID.randomUUID();
-    
+
     // Aggregator Variable.
     private int defaultComponentOverlayId = 0;
-    
+
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
@@ -174,48 +175,10 @@ public final class Search extends ComponentDefinition {
     private LuceneAdaptor writeLuceneAdaptor;
     private LuceneAdaptor searchRequestLuceneAdaptor;
 
-    // ======= TIMEOUTS.
-    
-    private class ExchangeRound extends IndividualTimeout {
-
-        public ExchangeRound(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
-    // Control Message Exchange Round.
-    private class ControlMessageExchangeRound extends IndividualTimeout {
-
-        public ControlMessageExchangeRound(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
-    private class SearchTimeout extends IndividualTimeout {
-
-        public SearchTimeout(ScheduleTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
-    private class IndexExchangeTimeout extends IndividualTimeout {
-
-        public IndexExchangeTimeout(ScheduleTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
-    /**
-     * Periodic scheduled timeout event to garbage collect the recent request
-     * data structure of {@link Search}.
-     */
-    private class RecentRequestsGcTimeout extends IndividualTimeout {
-
-        public RecentRequestsGcTimeout(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
-        }
-    }
-
+    // Leader Election Protocol.
+    private Collection<VodAddress> leaderGroupInformation;
+    private EntryAdditionTracker entryAdditionTracker;
+    private TimeoutId entryPreparePhaseTimeoutId;
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -260,68 +223,69 @@ public final class Search extends ComponentDefinition {
     }
 
     public Search(SearchInit init) {
+
         doInit(init);
         subscribe(handleStart, control);
         subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
-        
+
         subscribe(handleGradientIndexHashExchangeResponse, gradientRoutingPort);
         subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleIndexExchangeResponse, chunkManagerPort);
-        
+
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, chunkManagerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
-        
+
         subscribe(handleAddRequestTimeout, timerPort);
         subscribe(handleRecentRequestsGcTimeout, timerPort);
         subscribe(searchRequestHandler, uiPort);
-        
+
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
         subscribe(handlePrepareCommitResponse, networkPort);
-        
+
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
         subscribe(addIndexEntryRequestHandler, uiPort);
-        
+
         subscribe(handleSearchSimulated, simulationEventsPort);
         subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
-        
+
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
         subscribe(handlerPartitionPrepareResponse, networkPort);
         subscribe(handlePartitionCommitTimeout, timerPort);
-        
+
         subscribe(handlerPartitionCommitRequest, networkPort);
         subscribe(handlerPartitionCommitResponse, networkPort);
         subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
-        
+
         // Generic Control message exchange mechanism
         subscribe(handlerControlMessageExchangeRound, timerPort);
         subscribe(handlerControlMessageRequest, networkPort);
         subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
-        
+
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
         subscribe(gradientSampleHandler, gradientPort);
-        
+
         // LeaderElection handlers.
         subscribe(leaderElectionHandler, electionPort);
         subscribe(terminateBeingLeaderHandler, electionPort);
@@ -345,7 +309,9 @@ public final class Search extends ComponentDefinition {
         lowestMissingIndexValue = 0;
         commitRequests = new HashMap<TimeoutId, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
-        
+
+        entryAdditionTracker = new EntryAdditionTracker();
+
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         File file = null;
@@ -366,11 +332,11 @@ public final class Search extends ComponentDefinition {
         writeLuceneAdaptor = new LuceneAdaptorImpl(index, indexWriterConfig);
         try {
             writeLuceneAdaptor.initialEmptyWriterCommit();
-            
+
             if (PERSISTENT_INDEX && file != null && file.exists()) {
                 initializeIndexCaches(writeLuceneAdaptor);
             }
-            
+
             minStoredId = getMinStoredIdFromLucene(writeLuceneAdaptor);
             maxStoredId = getMaxStoredIdFromLucene(writeLuceneAdaptor);
 
@@ -399,20 +365,20 @@ public final class Search extends ComponentDefinition {
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
-            rst.setTimeoutEvent(new RecentRequestsGcTimeout(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst, self.getId()));
             trigger(rst, timerPort);
 
             // TODO move time to own config instead of using the gradient period. IndexHashExchangePeriod.
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
-            rst.setTimeoutEvent(new ExchangeRound(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
 
             // Bootup the croupier with default configuration.
             CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), self.getSelfDescriptor());
             trigger(initialCroupierBootupUpdate, croupierPortPositive);
-            
+
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
-            rst.setTimeoutEvent(new ControlMessageExchangeRound(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst, self.getId()));
             trigger(rst, timerPort);
         }
     };
@@ -423,31 +389,31 @@ public final class Search extends ComponentDefinition {
      * @param luceneAdaptor LuceneAdaptor for access to lucene instance.
      * @throws LuceneAdaptorException
      */
-    public void initializeIndexCaches(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException{
+    public void initializeIndexCaches(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
 
         boolean continuous = true;
         int readLimit = 20000;
 
         for (long i = 0; ; i += readLimit) {
             Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true, false);
-            List<IndexEntry> indexEntryList =luceneAdaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), readLimit);
-            
-            if(indexEntryList.isEmpty()){
+            List<IndexEntry> indexEntryList = luceneAdaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), readLimit);
+
+            if (indexEntryList.isEmpty()) {
                 logger.info("Empty entry list retrieved from the index.");
                 break;
             }
 
             if (continuous) {
                 Long[] ids = new Long[indexEntryList.size()];
-                
-                for(int j =0, x = indexEntryList.size(); j < x ; j ++){
+
+                for (int j = 0, x = indexEntryList.size(); j < x; j++) {
                     ids[j] = indexEntryList.get(j).getId();
                 }
 
                 if (ids[0] != 0 && lowestMissingIndexValue != ids[0]) {
                     continuous = false;
                     Collections.addAll(existingEntries, ids);
-                    
+
                 } else {
                     // Search for gaps between the given ids
                     for (int j = 0; j < ids.length; j++) {
@@ -461,10 +427,8 @@ public final class Search extends ComponentDefinition {
                         }
                     }
                 }
-            }
-            
-            else{
-                for(int j =0, x = indexEntryList.size(); j < x ; j ++){
+            } else {
+                for (int j = 0, x = indexEntryList.size(); j < x; j++) {
                     existingEntries.add(indexEntryList.get(j).getId());
                 }
             }
@@ -508,9 +472,9 @@ public final class Search extends ComponentDefinition {
     /**
      * Initiate the control message exchange in the system.
      */
-    Handler<ControlMessageExchangeRound> handlerControlMessageExchangeRound = new Handler<ControlMessageExchangeRound>() {
+    Handler<TimeoutCollection.ControlMessageExchangeRound> handlerControlMessageExchangeRound = new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
         @Override
-        public void handle(ControlMessageExchangeRound event) {
+        public void handle(TimeoutCollection.ControlMessageExchangeRound event) {
 
             logger.debug("Initiated the Periodic Exchange Timeout.");
 
@@ -614,6 +578,7 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Simply remove the data in the maps belonging to the address id for the
+     *
      * @param sourceAddress Address
      */
     public void cleanControlRequestMessageData(VodAddress sourceAddress) {
@@ -631,7 +596,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ControlMessage.Response event) {
 
-            if (!controlMessageExchangeRoundId.equals(event.getRoundId())){
+            if (!controlMessageExchangeRoundId.equals(event.getRoundId())) {
                 logger.warn("ControlMessage response received for an old or unknown round id: " + event.getRoundId());
                 return;
             }
@@ -644,7 +609,7 @@ public final class Search extends ComponentDefinition {
                 while (numOfIterations > 0) {
                     ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
 
-                    if (controlMessageInternalResponse != null){
+                    if (controlMessageInternalResponse != null) {
                         ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
                     }
                     numOfIterations -= 1;
@@ -886,9 +851,9 @@ public final class Search extends ComponentDefinition {
     /**
      * Issue an index exchange with another node.
      */
-    final Handler<ExchangeRound> handleRound = new Handler<ExchangeRound>() {
+    final Handler<TimeoutCollection.ExchangeRound> handleRound = new Handler<TimeoutCollection.ExchangeRound>() {
         @Override
-        public void handle(ExchangeRound event) {
+        public void handle(TimeoutCollection.ExchangeRound event) {
             if (exchangeInProgress) {
                 return;
             }
@@ -896,7 +861,7 @@ public final class Search extends ComponentDefinition {
             exchangeInProgress = true;
 
             ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
-            timeout.setTimeoutEvent(new IndexExchangeTimeout(timeout, self.getId()));
+            timeout.setTimeoutEvent(new TimeoutCollection.IndexExchangeTimeout(timeout, self.getId()));
 
             indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
@@ -939,7 +904,7 @@ public final class Search extends ComponentDefinition {
 
                 // In case there is some space left search for more
                 if (hashes.size() < config.getMaxExchangeCount()) {
-                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor,lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
+                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
                     }
@@ -1058,9 +1023,9 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<IndexExchangeTimeout>() {
+    final Handler<TimeoutCollection.IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<TimeoutCollection.IndexExchangeTimeout>() {
         @Override
-        public void handle(IndexExchangeTimeout event) {
+        public void handle(TimeoutCollection.IndexExchangeTimeout event) {
             logger.debug(self.getId() + " index exchange timed out");
             indexExchangeTimeout = null;
             exchangeInProgress = false;
@@ -1168,6 +1133,91 @@ public final class Search extends ComponentDefinition {
             trigger(new ViewSizeMessage.Request(event.getTimeoutId(), newEntry, event.getVodSource()), gradientRoutingPort);
         }
     };
+
+
+    /**
+     * Handler executed in the role of the leader. Create a new id and search
+     * for a the according bucket in the routing table. If it does not include
+     * enough nodes to satisfy the replication requirements then create a new id
+     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request to a number of nodes as
+     * specified in the config file and schedule a timeout to wait for
+     * responses. The adding operation will be acknowledged if either all nodes
+     * responded to the {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request or the timeout occurred and
+     * enough nodes, as specified in the config, responded.
+     */
+    final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequestUpdated = new Handler<AddIndexEntryMessage.Request>() {
+        @Override
+        public void handle(AddIndexEntryMessage.Request event) {
+            if (!leader || partitionInProgress) {
+                return;
+            }
+
+            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests
+            if (recentRequests.containsKey(event.getTimeoutId())) {
+                return;
+            }
+
+            Snapshot.incrementReceivedAddRequests();
+            recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
+
+            IndexEntry newEntry = event.getEntry();
+            long id = getNextInsertionId();
+
+            newEntry.setId(id);
+            newEntry.setLeaderId(publicKey);
+            newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
+
+            String signature = generateSignedHash(newEntry, privateKey);
+            if (signature == null) {
+
+                logger.warn("Unable to generate the hash for the index entry with id: {}", newEntry.getId());
+                return;
+            }
+
+            newEntry.setHash(signature);
+
+            if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
+
+                logger.info("Started tracking for the entry addition with id: {}", newEntry.getId());
+                entryAdditionTracker.startTracking(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
+
+                for (VodAddress destination : leaderGroupInformation) {
+                    ReplicationPrepareCommitMessage.Request request = new ReplicationPrepareCommitMessage.Request(self.getAddress(), destination, event.getTimeoutId(), newEntry);
+                    trigger(request, networkPort);
+                }
+
+                // Trigger for a timeout and how would that work ?
+                
+                ScheduleTimeout st = new ScheduleTimeout(5000);
+                st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st));
+                entryPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
+                trigger(st, timerPort);
+            }
+
+
+        }
+    };
+
+
+    /**
+     * The entry addition prepare phase timed out and I didn't receive all the responses from the leader group nodes.
+     * Reset the tracker but also keep track of the edge case.
+     */
+    Handler<TimeoutCollection.EntryPrepareResponseTimeout> preparePhaseTimeout = new Handler<TimeoutCollection.EntryPrepareResponseTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.EntryPrepareResponseTimeout event) {
+            
+            if(entryPreparePhaseTimeoutId != null && entryPreparePhaseTimeoutId.equals(event.getTimeoutId())){
+                logger.warn("{}: Prepare phase timed out. Resetting the tracker information.");
+                entryAdditionTracker.resetTracker();
+            }
+            else{
+                logger.warn(" Prepare Phase timeout edge case called. Not resetting the tracker.");
+            }
+        }
+    };
+    
+
 
     final Handler<ViewSizeMessage.Response> handleViewSizeResponse = new Handler<ViewSizeMessage.Response>() {
         @Override
@@ -1298,6 +1348,60 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
+    /**
+     * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and 
+     * then send the commit message request to the leader nodes who have replied yes.
+     */
+    final Handler<ReplicationPrepareCommitMessage.Response> handlePrepareCommitResponseUpdated = new Handler<ReplicationPrepareCommitMessage.Response>() {
+        @Override
+        public void handle(ReplicationPrepareCommitMessage.Response response) {
+
+            TimeoutId timeout = response.getTimeoutId();
+            entryAdditionTracker.addPromiseResponse(response);
+
+            if (entryAdditionTracker.promiseComplete()) {
+                entryPreparePhaseTimeoutId = null;
+                try {
+                    
+                    CancelTimeout ct = new CancelTimeout(timeout);
+                    trigger(ct, timerPort);
+
+                    IndexEntry entryToCommit = entryAdditionTracker.getEntry();
+                    TimeoutId commitTimeout = UUID.nextUUID(); //What's it purpose.
+                    addEntryLocal(entryToCommit);   // Commit to local first.
+                    
+                    ByteBuffer idBuffer = ByteBuffer.allocate(8);
+                    idBuffer.putLong(entryToCommit.getId());
+
+                    String signature = generateRSASignature(idBuffer.array(), privateKey);
+                    
+                    for(VodAddress destination : entryAdditionTracker.getLeaderGroupNodes()){
+                        ReplicationCommitMessage.Request request = new ReplicationCommitMessage.Request(self.getAddress(), destination, commitTimeout, entryToCommit.getId(), signature);
+                        trigger(request, networkPort);
+                    }
+
+                    trigger(new AddIndexEntryMessage.Response(self.getAddress(), entryAdditionTracker.getEntryAddSourceNode(), entryAdditionTracker.getRoundTrackerId()), networkPort);
+
+                } catch (NoSuchAlgorithmException e) {
+                    logger.error(self.getId() + " " + e.getMessage());
+                } catch (InvalidKeyException e) {
+                    logger.error(self.getId() + " " + e.getMessage());
+                } catch (SignatureException e) {
+                    logger.error(self.getId() + " " + e.getMessage());
+                } catch (LuceneAdaptorException e) {
+                    e.printStackTrace();
+                    throw new RuntimeException("Entry addition failed", e);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    entryAdditionTracker.resetTracker();
+                }
+            }
+        }
+    };
+
+
     /**
      * Performs commit on a peer in the leader group
      */
@@ -1362,6 +1466,76 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
+
+    /**
+     * Performs commit on a peer in the leader group
+     */
+    final Handler<ReplicationCommitMessage.Request> handleCommitRequestUpdated = new Handler<ReplicationCommitMessage.Request>() {
+        @Override
+        public void handle(ReplicationCommitMessage.Request request) {
+            long id = request.getEntryId();
+
+            if (leaderIds.isEmpty())
+                return;
+
+            ByteBuffer idBuffer = ByteBuffer.allocate(8);
+            idBuffer.putLong(id);
+            try {
+                if (!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
+                    return;
+            } catch (NoSuchAlgorithmException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            } catch (InvalidKeyException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            } catch (SignatureException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            }
+
+            IndexEntry toCommit = null;
+            for (IndexEntry entry : pendingForCommit.keySet()) {
+                if (entry.getId() == id) {
+                    toCommit = entry;
+                    break;
+                }
+            }
+
+            if (toCommit == null)
+                return;
+
+            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
+            trigger(ct, timerPort);
+
+            try {
+                addEntryLocal(toCommit);
+//                trigger(new ReplicationCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
+                pendingForCommit.remove(toCommit);
+
+                long maxStoredId = getMaxStoredId();
+
+                ArrayList<Long> missingIds = new ArrayList<Long>();
+                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
+                while (currentMissingValue < toCommit.getId()) {
+                    missingIds.add(currentMissingValue);
+                    currentMissingValue++;
+                }
+
+                if (missingIds.size() > 0) {
+                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingIds.toArray(new Long[missingIds.size()]));
+                    trigger(repairMessage, networkPort);
+                }
+            } catch (IOException e) {
+                logger.error(self.getId() + " " + e.getMessage());
+            } catch (LuceneAdaptorException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+    
+    
+    
+    
+    
     /**
      * Save entry on the leader and send an ACK back to the client
      * Only execute in the role of the leader. Garbage collect replication
@@ -1490,9 +1664,9 @@ public final class Search extends ComponentDefinition {
      * Periodically garbage collect the data structure used to identify
      * duplicated {@link AddIndexEntryMessage.Request}.
      */
-    final Handler<RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<RecentRequestsGcTimeout>() {
+    final Handler<TimeoutCollection.RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<TimeoutCollection.RecentRequestsGcTimeout>() {
         @Override
-        public void handle(RecentRequestsGcTimeout event) {
+        public void handle(TimeoutCollection.RecentRequestsGcTimeout event) {
             long referenceTime = System.currentTimeMillis();
 
             ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
@@ -1569,7 +1743,7 @@ public final class Search extends ComponentDefinition {
         }
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
-        rst.setTimeoutEvent(new SearchTimeout(rst, self.getId()));
+        rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst, self.getId()));
         searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
         trigger(rst, timerPort);
 
@@ -1624,7 +1798,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Query the given index store with a given search pattern.
      *
-     * @param adaptor  adaptor to use
+     * @param adaptor adaptor to use
      * @param pattern the {@link SearchPattern} to use
      * @param limit   the maximal amount of entries to return
      * @return a list of matching entries
@@ -1672,7 +1846,7 @@ public final class Search extends ComponentDefinition {
         searchRequest.addRespondedPartition(partition);
 
         Integer numOfPartitions = searchPartitionsNumber.get(requestId);
-        if (numOfPartitions == null){
+        if (numOfPartitions == null) {
             return;
         }
 
@@ -1703,9 +1877,9 @@ public final class Search extends ComponentDefinition {
      * Answer a search request if the timeout occurred before all answers were
      * collected.
      */
-    final Handler<SearchTimeout> handleSearchTimeout = new Handler<SearchTimeout>() {
+    final Handler<TimeoutCollection.SearchTimeout> handleSearchTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
         @Override
-        public void handle(SearchTimeout event) {
+        public void handle(TimeoutCollection.SearchTimeout event) {
             logSearchTimeResults(event.getTimeoutId(), System.currentTimeMillis(),
                     searchRequest.getNumberOfRespondedPartitions());
             answerSearchRequest();
@@ -1740,10 +1914,10 @@ public final class Search extends ComponentDefinition {
 
             //Increment Max Store Id to keep in line with the original methodology.
             maxStoredId += 1;
-            
+
             // Update the number of entries in the system.
             numberOfStoredIndexEntries = getTotalStoredEntriesCount(writeLuceneAdaptor);
-                
+
         } catch (LuceneAdaptorException e) {
             logger.error("{}: Unable to cleanly remove the entries from the partition.", self.getId());
             e.printStackTrace();
@@ -1827,8 +2001,8 @@ public final class Search extends ComponentDefinition {
     /**
      * Add the given {@link IndexEntry}s to the given Lucene directory
      *
-     * @param searchRequestLuceneAdaptor  adaptor
-     * @param entries a collection of index entries to be added
+     * @param searchRequestLuceneAdaptor adaptor
+     * @param entries                    a collection of index entries to be added
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntries(LuceneAdaptor searchRequestLuceneAdaptor, Collection<IndexEntry> entries)
@@ -1878,7 +2052,7 @@ public final class Search extends ComponentDefinition {
      * writer.
      *
      * @param adaptor the adaptor used to add the {@link IndexEntry}
-     * @param entry  the {@link IndexEntry} to be added
+     * @param entry   the {@link IndexEntry} to be added
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(LuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
@@ -1919,6 +2093,7 @@ public final class Search extends ComponentDefinition {
      * @throws IOException if the Lucene index fails to store the entry
      */
     private void addEntryLocal(IndexEntry indexEntry) throws IOException, LuceneAdaptorException {
+
         if (indexEntry.getId() < lowestMissingIndexValue
                 || existingEntries.contains(indexEntry.getId())) {
 
@@ -2353,7 +2528,7 @@ public final class Search extends ComponentDefinition {
      * @throws IOException if Lucene errors occur
      */
     private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor,id, id, 1);
+        List<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, id, id, 1);
         if (indexEntries.isEmpty()) {
             return null;
         }
@@ -2371,17 +2546,17 @@ public final class Search extends ComponentDefinition {
      * @throws IOException if Lucene errors occur
      */
     private List<IndexEntry> findIdRange(LuceneAdaptor adaptor, long min, long max, int limit) throws IOException {
-        
+
         List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         try {
             Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
-            indexEntries = adaptor.searchIndexEntriesInLucene(query,  new Sort(new SortField(IndexEntry.ID,Type.LONG)), limit);
-            
+            indexEntries = adaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), limit);
+
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
             logger.error("{}: Exception while trying to fetch the index entries between specified range.", self.getId());
         }
-        
+
         return indexEntries;
     }
 
@@ -2624,12 +2799,12 @@ public final class Search extends ComponentDefinition {
      * @return min Id value stored in Lucene
      */
     private long getMinStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
-        
-        long minStoreId =0;
+
+        long minStoreId = 0;
         Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
         int numofEntries = 1;
-        
-        Sort sort =  new Sort(new SortField(IndexEntry.ID, Type.LONG));
+
+        Sort sort = new Sort(new SortField(IndexEntry.ID, Type.LONG));
         List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
 
         if (indexEntries.size() == 1) {
@@ -2645,10 +2820,10 @@ public final class Search extends ComponentDefinition {
      */
     private long getMaxStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
 
-        long maxStoreId =0;
+        long maxStoreId = 0;
         Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
         int numofEntries = 1;
-        Sort sort =  new Sort(new SortField(IndexEntry.ID, Type.LONG, true));
+        Sort sort = new Sort(new SortField(IndexEntry.ID, Type.LONG, true));
         List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
 
         if (indexEntries.size() == 1) {
@@ -2766,7 +2941,7 @@ public final class Search extends ComponentDefinition {
 
             // Inform other components about the update.
             informListeningComponentsAboutUpdates(self);
-            
+
         }
     }
 
@@ -2901,30 +3076,34 @@ public final class Search extends ComponentDefinition {
      *
      * @param self Updated Self
      */
-    private void informListeningComponentsAboutUpdates(MsSelfImpl self){
+    private void informListeningComponentsAboutUpdates(MsSelfImpl self) {
 
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
 
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
+        trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate(updatedDesc), gradientPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
     }
 
     /**
-     * 
      * Handle the sample from the gradient.
      */
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
             logger.info("Received Gradient Sample");
-                    
+            StringBuilder builder = new StringBuilder();
+            for(CroupierPeerView cpv : event.gradientSample){
+                builder.append("id:").append(cpv.src.getId()).append(":").append("member:").append(((SearchDescriptor)cpv.pv).isLGMember()).append(" , ");
+            }
+            logger.warn(builder.toString());
         }
     };
-    
-    
+
+
     // ======= LEADER ELECTION PROTOCOL HANDLERS.
 
     /**
@@ -2936,11 +3115,13 @@ public final class Search extends ComponentDefinition {
         public void handle(LeaderState.ElectedAsLeader event) {
             logger.warn("{}: Self node is elected as leader.", self.getId());
             leader = true;
+            leaderGroupInformation = event.leaderGroup;
+            informListeningComponentsAboutUpdates(self);
         }
     };
 
     /**
-     * Node was the leader but due to a better node arriving in the system, 
+     * Node was the leader but due to a better node arriving in the system,
      * the leader gives up the leadership in order to maintain fairness.
      */
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
@@ -2948,6 +3129,7 @@ public final class Search extends ComponentDefinition {
         public void handle(LeaderState.TerminateBeingLeader event) {
             logger.debug("{}: Self is being removed from the leadership position.", self.getId());
             leader = false;
+            informListeningComponentsAboutUpdates(self);
         }
     };
 
@@ -2964,12 +3146,11 @@ public final class Search extends ComponentDefinition {
     /**
      * Node is chosen by the leader to be part of a leader group. The utility of the node
      * should increase because of this.
-     * 
      */
     Handler<ElectionState.EnableLGMembership> enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
-            
+
             logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
             self.setLGMember(true);
             electionRound = event.electionRoundId;
@@ -2978,13 +3159,13 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Node is no longer a part of leader group and therefore would not receive the entry addition directly 
+     * Node is no longer a part of leader group and therefore would not receive the entry addition directly
      * from the leader but they would have to pull it from the other neighbouring nodes in the system.
      */
     Handler<ElectionState.DisableLGMembership> disableLGMembershipHandler = new Handler<ElectionState.DisableLGMembership>() {
         @Override
         public void handle(ElectionState.DisableLGMembership event) {
-            
+
             logger.warn("{}: Remove the node from the leader group membership.", self.getId());
             self.setLGMember(false);
             electionRound = event.electionRoundId;

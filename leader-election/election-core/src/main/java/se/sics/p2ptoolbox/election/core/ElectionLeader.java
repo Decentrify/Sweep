@@ -348,7 +348,7 @@ public class ElectionLeader extends ComponentDefinition {
         @Override
         public void handle(LeaderPromiseMessage.Response event) {
 
-            logger.warn("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
+            logger.debug("{}: Received Promise Response from : {} ", selfAddress.getId(), event.getSource().getId());
             int numPromises = electionRoundTracker.addPromiseResponseAndGetSize(event);
 
             if (numPromises >= electionRoundTracker.getLeaderGroupInformationSize()) {
@@ -377,6 +377,7 @@ public class ElectionLeader extends ComponentDefinition {
 
                 } else {
                     inElection = false;
+                    electionRoundTracker.resetTracker();
                 }
             }
         }
