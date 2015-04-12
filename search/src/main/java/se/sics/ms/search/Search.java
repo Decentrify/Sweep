@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
+import se.sics.gvod.address.Address;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
@@ -237,7 +238,12 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleIndexExchangeResponse, chunkManagerPort);
 
-        subscribe(handleAddIndexEntryRequest, networkPort);
+//        subscribe(handleAddIndexEntryRequest, networkPort);
+        subscribe(handleAddIndexEntryRequestUpdated, networkPort);
+        subscribe(preparePhaseTimeout, timerPort);
+        
+        
+        
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, chunkManagerPort);
@@ -252,8 +258,9 @@ public final class Search extends ComponentDefinition {
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
-        subscribe(handlePrepareCommitResponse, networkPort);
+//        subscribe(handlePrepareCommitResponse, networkPort);
 
+        subscribe(handlePrepareCommitResponseUpdated, networkPort);
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
@@ -1152,7 +1159,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests
+            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests. Also a memory leak as map not getting reset.
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -1178,10 +1185,11 @@ public final class Search extends ComponentDefinition {
 
             if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
-                logger.info("Started tracking for the entry addition with id: {}", newEntry.getId());
+                logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getVodSource());
                 entryAdditionTracker.startTracking(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
 
                 for (VodAddress destination : leaderGroupInformation) {
+                    logger.warn("Sending prepare commit request to : {}", destination.getId());
                     ReplicationPrepareCommitMessage.Request request = new ReplicationPrepareCommitMessage.Request(self.getAddress(), destination, event.getTimeoutId(), newEntry);
                     trigger(request, networkPort);
                 }
@@ -1361,12 +1369,18 @@ public final class Search extends ComponentDefinition {
             entryAdditionTracker.addPromiseResponse(response);
 
             if (entryAdditionTracker.promiseComplete()) {
-                entryPreparePhaseTimeoutId = null;
+                
                 try {
                     
+                    logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
                     CancelTimeout ct = new CancelTimeout(timeout);
                     trigger(ct, timerPort);
-
+                    
+                    ct = new CancelTimeout(entryPreparePhaseTimeoutId);
+                    trigger(ct, timerPort);
+                    
+                    entryPreparePhaseTimeoutId = null;
+                    
                     IndexEntry entryToCommit = entryAdditionTracker.getEntry();
                     TimeoutId commitTimeout = UUID.nextUUID(); //What's it purpose.
                     addEntryLocal(entryToCommit);   // Commit to local first.
@@ -2056,6 +2070,8 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(LuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
+        
+        logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getId());
         Document doc = new Document();
         doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
         doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
@@ -3094,12 +3110,13 @@ public final class Search extends ComponentDefinition {
     Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
         @Override
         public void handle(GradientSample event) {
+            
             logger.info("Received Gradient Sample");
             StringBuilder builder = new StringBuilder();
             for(CroupierPeerView cpv : event.gradientSample){
                 builder.append("id:").append(cpv.src.getId()).append(":").append("member:").append(((SearchDescriptor)cpv.pv).isLGMember()).append(" , ");
             }
-            logger.warn(builder.toString());
+//            logger.warn(builder.toString());
         }
     };
 
@@ -3116,6 +3133,16 @@ public final class Search extends ComponentDefinition {
             logger.warn("{}: Self node is elected as leader.", self.getId());
             leader = true;
             leaderGroupInformation = event.leaderGroup;
+
+            Address selfPeerAddress = self.getAddress().getPeerAddress();
+            Iterator<VodAddress> itr = leaderGroupInformation.iterator();
+            while(itr.hasNext()){
+                if(selfPeerAddress.equals(itr.next().getPeerAddress())){
+                    itr.remove();
+                    break;
+                }
+            }
+            
             informListeningComponentsAboutUpdates(self);
         }
     };
@@ -3140,6 +3167,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(LeaderUpdate event) {
             logger.debug("{}: Update regarding the leader in the system is received", self.getId());
+            updateLeaderIds(event.leaderPublicKey);
         }
     };
 

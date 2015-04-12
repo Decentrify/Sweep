@@ -45,7 +45,6 @@ public class EntryAdditionTracker {
         this.responses = 0;
         this.entryToAdd = entry;
         this.entryAddSourceNode = entryAddSourceNode;
-        this.entryAddSourceNode = null;
     }
 
 
@@ -92,9 +91,10 @@ public class EntryAdditionTracker {
     public void resetTracker(){
         
         this.roundTrackerId = null;
-        this.leaderGroupNodes.clear();
+        this.leaderGroupNodes = null;
         this.responses = 0;
         this.entryToAdd = null;
+        this.entryAddSourceNode = null;
     }
 }
 

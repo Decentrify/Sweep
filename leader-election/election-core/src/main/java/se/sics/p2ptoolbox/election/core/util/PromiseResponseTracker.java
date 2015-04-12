@@ -37,12 +37,7 @@ public class PromiseResponseTracker {
         
         isPromiseAccepted = true;
         isCommitAccepted = true;
-        
         convergenceCounter = 0;
-        leaderGroupInformation = new ArrayList<VodAddress>();
-        promiseResponseCollection = new ArrayList<Promise.Response>();
-        leaseResponseCollection = new ArrayList<LeaseCommitUpdated.Response>();
-        
     }
 
     /**
@@ -53,12 +48,14 @@ public class PromiseResponseTracker {
 
         this.isPromiseAccepted = true;
         this.convergenceCounter=0;
-        
         this.isCommitAccepted = true;
         
         this.electionRoundId = promiseRoundCounter;
-        this.leaderGroupInformation.clear();
+        this.leaderGroupInformation = new ArrayList<VodAddress>();
         this.leaderGroupInformation.addAll(leaderGroupInformation);
+        
+        this.promiseResponseCollection = new ArrayList<Promise.Response>();
+        this.leaseResponseCollection = new ArrayList<LeaseCommitUpdated.Response>();
     }
 
     /**
@@ -126,9 +123,9 @@ public class PromiseResponseTracker {
         this.isPromiseAccepted = false;
         this.isCommitAccepted = false;
         
-        this.leaderGroupInformation.clear();
-        this.promiseResponseCollection.clear();
-        this.leaseResponseCollection.clear();
+        this.leaderGroupInformation = null;
+        this.promiseResponseCollection = null;
+        this.leaseResponseCollection  = null;
     }
 
 
