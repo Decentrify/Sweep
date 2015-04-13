@@ -169,9 +169,9 @@ public final class SearchPeer extends ComponentDefinition {
                 search.getNegative(CroupierPort.class));
         
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
-
-//        connect(pseudoGradient.getNegative(PublicKeyPort.class),
-//                search.getPositive(PublicKeyPort.class));
+        
+        connect(search.getPositive(LeaderStatusPort.class), 
+                pseudoGradient.getNegative(LeaderStatusPort.class));
         
         connect(pseudoGradient.getPositive(GradientRoutingPort.class),
                 search.getNegative(GradientRoutingPort.class));

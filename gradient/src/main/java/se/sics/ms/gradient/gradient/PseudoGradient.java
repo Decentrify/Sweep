@@ -445,6 +445,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
+                    logger.warn ("Triggering the entry request to leader: {}", leaderAddress);
                     trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
                 }
                 // Ask nodes above me for the leader pointer.
@@ -903,6 +904,8 @@ public final class PseudoGradient extends ComponentDefinition {
     Handler<LeaderInfoUpdate> handleLeaderUpdate = new Handler<LeaderInfoUpdate>() {
         @Override
         public void handle(LeaderInfoUpdate leaderInfoUpdate) {
+            
+            logger.warn("{}: Received the leader address through pull with address:{} ", self.getId(), leaderInfoUpdate.getLeaderAddress());
             leaderAddress = leaderInfoUpdate.getLeaderAddress();
             leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
@@ -950,7 +953,7 @@ public final class PseudoGradient extends ComponentDefinition {
     Handler<CroupierSample> croupierSampleHandler = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
-            logger.info("{}: Pseudo Gradient Received Croupier Sample", self.getId());
+            logger.trace("{}: Pseudo Gradient Received Croupier Sample", self.getId());
             Collection<SearchDescriptor> filteredCroupierSample = new ArrayList<SearchDescriptor>();
 
             if (event.publicSample.isEmpty())
@@ -1011,7 +1014,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.info(compName + sb);
+        logger.debug(compName + sb);
     }
 
     /**
@@ -1141,7 +1144,8 @@ public final class PseudoGradient extends ComponentDefinition {
         @Override
         public void handle(LeaderUpdate leaderUpdate) {
 
-            logger.debug("{}: Information About the current leader received.", self.getId());
+            logger.debug("{}: Information About the current leader received. {}", self.getId(), leaderUpdate.leaderAddress);
+            
             leaderAddress = leaderUpdate.leaderAddress;
             leaderPublicKey = leaderUpdate.leaderPublicKey;
         }

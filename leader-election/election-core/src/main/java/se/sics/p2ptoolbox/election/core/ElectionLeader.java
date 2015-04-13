@@ -204,13 +204,6 @@ public class ElectionLeader extends ComponentDefinition {
 
             logger.trace(" {}: Received view update from the application: {} ", selfAddress.getId(), selfLCView.toString());
 
-            if (filter.terminateLeader(oldView, selfLCView)) {
-
-                logger.debug("{}: Terminate being the leader.", selfAddress.getId());
-                CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
-                trigger(ct, timerPositive);
-                terminateBeingLeader();
-            }
 
             // This part of tricky to understand. The follower component works independent of the leader component.
             // In order to prevent the leader from successive tries while waiting on the update from the application regarding being in the group membership or not, currently
@@ -230,6 +223,24 @@ public class ElectionLeader extends ComponentDefinition {
                        resetElectionMetaData(); // Finally the application update has arrived and now I can let go of the election round.
                     }
                 }
+            }
+
+
+            // The application using the protocol can direct it to forcefully terminate the leadership in case 
+            // a specific event happens at the application end. The decision is implemented using the filter which the application injects in the
+            // protocol during the booting up.
+            
+            if (filter.terminateLeader(oldView, selfLCView)) {
+                
+                CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
+                trigger(ct, timerPositive);
+                leaseTimeoutId = null;
+
+                terminateBeingLeader();
+
+                // reset the convergence parameters for application to again achieve convergence.
+                isConverged = false;
+                convergenceCounter = 0;
             }
         }
     };
@@ -288,7 +299,7 @@ public class ElectionLeader extends ComponentDefinition {
 
         if (isConverged && higherUtilityNodes.size() == 0 && !inElection && !selfLCView.isLeaderGroupMember()) {
             if (addressContainerMap.size() < config.getViewSize()) {
-                logger.debug(" {}: I think I am leader but the view less than the minimum requirement, so returning.", selfAddress.getId());
+                logger.warn(" {}: I think I am leader but the view less than the minimum requirement, so returning.", selfAddress.getId());
                 return;
             }
 
@@ -416,6 +427,8 @@ public class ElectionLeader extends ComponentDefinition {
                 }
 
                 if(applicationAck){
+
+                    applicationAck = false;
                     resetElectionMetaData();
                 }
                 
@@ -468,6 +481,8 @@ public class ElectionLeader extends ComponentDefinition {
                 electionRoundTracker.resetTracker();
 
                 if(applicationAck){
+                    
+                    applicationAck = false;
                     resetElectionMetaData(); // Reset election phase if already received ack for the commit that I sent to local follower component.
                 }
             }
@@ -499,13 +514,6 @@ public class ElectionLeader extends ComponentDefinition {
 
                     logger.error("{}: Terminate being the leader as state seems to be corrupted.", selfAddress.getId());
                     terminateBeingLeader();
-
-                    logger.error(lowerNodes.toString());
-                    logger.error("Size Requested : " + leaderGroupSize);
-
-                    logger.error(selfLCView.toString());
-                    System.exit(-1);
-
                     return;
                 }
 
@@ -538,7 +546,7 @@ public class ElectionLeader extends ComponentDefinition {
     private void terminateBeingLeader() {
 
         // Disable leadership and membership.
-        inElection = false;
+        resetElectionMetaData();
         trigger(new LeaderState.TerminateBeingLeader(), electionPort);
     }
 

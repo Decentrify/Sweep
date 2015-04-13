@@ -71,7 +71,7 @@ public class GradientConfiguration
      */
     public GradientConfiguration() {
         this(
-                VodConfig.GRADIENT_VIEW_SIZE,
+                MsConfig.GRADIENT_VIEW_SIZE,
                 VodConfig.GRADIENT_SHUFFLE_LENGTH,
                 MsConfig.GRADIENT_SHUFFLE_PERIOD,
                 VodConfig.GRADIENT_UTILITY_THRESHOLD,
