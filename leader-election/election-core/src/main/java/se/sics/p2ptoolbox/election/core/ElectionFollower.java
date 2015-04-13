@@ -206,17 +206,18 @@ public class ElectionFollower extends ComponentDefinition {
             selfLCView = viewUpdate.selfPv;
             selfContainer = new LEContainer(selfAddress, selfLCView);
 
+            // Resetting of election information happens naturally, when nobody extends the lease from the leader side.
 
-            if (filter.terminateLeader(oldView, selfLCView)) {
-
-                logger.debug("{}: Terminate the election information.", selfAddress.getId());
-
-                if (leaseTimeoutId != null) {
-                    CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
-                    trigger(ct, timerPositive);
-                }
-                terminateElectionInformation();
-            }
+//            if (filter.terminateLeader(oldView, selfLCView)) {
+//
+//                logger.debug("{}: Terminate the election information.", selfAddress.getId());
+//
+//                if (leaseTimeoutId != null) {
+//                    CancelTimeout ct = new CancelTimeout(leaseTimeoutId);
+//                    trigger(ct, timerPositive);
+//                }
+//                terminateElectionInformation();
+//            }
 
             // Resetting the in election check is kind of tricky so need to be careful about the procedure.
             if (viewUpdate.electionRoundId != null && inElection) {

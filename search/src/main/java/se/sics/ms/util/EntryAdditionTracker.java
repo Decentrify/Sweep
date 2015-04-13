@@ -20,7 +20,11 @@ import java.util.UUID;
  * Created by babbarshaer on 2015-04-11.
  */
 public class EntryAdditionTracker {
-    
+
+    // It should have a can track method, which will be able to tell that whether a node can start a new entry addition mechanism.
+    // Bursts of the entry additions can damage the tracker information as there is only one tracker.
+    // On other hand it can have a
+
     private TimeoutId roundTrackerId;
     private Collection<VodAddress> leaderGroupNodes;
     private Logger logger = LoggerFactory.getLogger(Search.class);
@@ -95,6 +99,20 @@ public class EntryAdditionTracker {
         this.responses = 0;
         this.entryToAdd = null;
         this.entryAddSourceNode = null;
+    }
+
+
+    /**
+     * Does the class has capability to track a new entry addition round.
+     * In case the node is currently tracking a particular round for two phase commit.
+     * we should wait and then when it completes, start tracking a new round.
+     *
+     * Simultaneously tracking of two phase commits would result in disaster.
+     *
+     * @return true if I can track entry addition.
+     */
+    public boolean canTrack(){
+        return (this.roundTrackerId == null);
     }
 }
 

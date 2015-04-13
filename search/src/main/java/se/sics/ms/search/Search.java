@@ -158,6 +158,12 @@ public final class Search extends ComponentDefinition {
 
     private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
     private static HashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new HashMap<TimeoutId, Pair<Long, Integer>>();
+
+
+    // Partitioning Protocol Information.
+    private TimeoutId partitionPreparePhaseTimeoutId;
+    private TimeoutId partitionCommitPhaseTimeoutId;
+
     private TimeoutId partitionRequestId;
     private boolean partitionInProgress = false;
     private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
@@ -180,6 +186,8 @@ public final class Search extends ComponentDefinition {
     private Collection<VodAddress> leaderGroupInformation;
     private EntryAdditionTracker entryAdditionTracker;
     private TimeoutId entryPreparePhaseTimeoutId;
+    private PartitioningTracker partitioningTracker;
+
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -238,8 +246,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexExchangeResponse, networkPort);
         subscribe(handleIndexExchangeResponse, chunkManagerPort);
 
-//        subscribe(handleAddIndexEntryRequest, networkPort);
-        subscribe(handleAddIndexEntryRequestUpdated, networkPort);
+        subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(preparePhaseTimeout, timerPort);
         
         
@@ -258,9 +265,8 @@ public final class Search extends ComponentDefinition {
         subscribe(handleRepairResponse, networkPort);
         subscribe(handlePrepareCommit, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
-//        subscribe(handlePrepareCommitResponse, networkPort);
 
-        subscribe(handlePrepareCommitResponseUpdated, networkPort);
+        subscribe(handleEntryAdditionPrepareCommitResponse, networkPort);
         subscribe(handleCommitTimeout, timerPort);
         subscribe(handleCommitRequest, networkPort);
         subscribe(handleCommitResponse, networkPort);
@@ -274,12 +280,14 @@ public final class Search extends ComponentDefinition {
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
-        subscribe(handlerPartitionPrepareResponse, networkPort);
+//        subscribe(handlerPartitionPrepareResponse, networkPort);
+        subscribe(handlerPartitionPrepareResponseUpdated, networkPort);
         subscribe(handlePartitionCommitTimeout, timerPort);
 
         subscribe(handlerPartitionCommitRequest, networkPort);
-        subscribe(handlerPartitionCommitResponse, networkPort);
-        subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
+//        subscribe(handlerPartitionCommitResponse, networkPort);
+        subscribe(handlerPartitionCommitResponseUpdated, networkPort);
+//        subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
 
         // Generic Control message exchange mechanism
@@ -318,6 +326,7 @@ public final class Search extends ComponentDefinition {
         existingEntries = new TreeSet<Long>();
 
         entryAdditionTracker = new EntryAdditionTracker();
+        partitioningTracker = new PartitioningTracker();
 
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
@@ -1099,6 +1108,7 @@ public final class Search extends ComponentDefinition {
         timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
     }
 
+
     /**
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
@@ -1116,50 +1126,12 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests
-            if (recentRequests.containsKey(event.getTimeoutId())) {
-                return;
+            if(!entryAdditionTracker.canTrack()){
+                logger.warn("Unable to track a new entry addition as one is going on.");
+                System.exit(-1);
             }
 
-            Snapshot.incrementReceivedAddRequests();
-            recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
-
-            IndexEntry newEntry = event.getEntry();
-            long id = getNextInsertionId();
-
-            newEntry.setId(id);
-            newEntry.setLeaderId(publicKey);
-            newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
-
-            String signature = generateSignedHash(newEntry, privateKey);
-            if (signature == null)
-                return;
-
-            newEntry.setHash(signature);
-
-            trigger(new ViewSizeMessage.Request(event.getTimeoutId(), newEntry, event.getVodSource()), gradientRoutingPort);
-        }
-    };
-
-
-    /**
-     * Handler executed in the role of the leader. Create a new id and search
-     * for a the according bucket in the routing table. If it does not include
-     * enough nodes to satisfy the replication requirements then create a new id
-     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request to a number of nodes as
-     * specified in the config file and schedule a timeout to wait for
-     * responses. The adding operation will be acknowledged if either all nodes
-     * responded to the {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request or the timeout occurred and
-     * enough nodes, as specified in the config, responded.
-     */
-    final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequestUpdated = new Handler<AddIndexEntryMessage.Request>() {
-        @Override
-        public void handle(AddIndexEntryMessage.Request event) {
-            if (!leader || partitionInProgress) {
-                return;
-            }
-
-            // TODO the recent requests list is a potential problem if the leader gets flooded with many requests. Also a memory leak as map not getting reset.
+            // FIXME: Memory Leak.
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -1200,6 +1172,9 @@ public final class Search extends ComponentDefinition {
                 st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st));
                 entryPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
                 trigger(st, timerPort);
+            }
+            else{
+                logger.warn("{}: Unable to start the index entry commit due to insufficient information about leader group.", self.getId());
             }
 
 
@@ -1315,53 +1290,12 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    /**
-     * Leader gains majority of responses and issues a request for a commit
-     */
-    final Handler<ReplicationPrepareCommitMessage.Response> handlePrepareCommitResponse = new Handler<ReplicationPrepareCommitMessage.Response>() {
-        @Override
-        public void handle(ReplicationPrepareCommitMessage.Response response) {
-            TimeoutId timeout = response.getTimeoutId();
-
-            ReplicationCount replicationCount = replicationRequests.get(timeout);
-            if (replicationCount == null || !replicationCount.incrementAndCheckReceived())
-                return;
-
-            CancelTimeout ct = new CancelTimeout(timeout);
-            trigger(ct, timerPort);
-
-            IndexEntry entryToCommit = replicationCount.getEntry();
-            TimeoutId commitTimeout = UUID.nextUUID();
-            commitRequests.put(commitTimeout, replicationCount);
-            replicationTimeoutToAdd.put(commitTimeout, response.getTimeoutId());
-            replicationRequests.remove(timeout);
-
-            ByteBuffer idBuffer = ByteBuffer.allocate(8);
-            idBuffer.putLong(entryToCommit.getId());
-            try {
-                String signature = generateRSASignature(idBuffer.array(), privateKey);
-                trigger(new GradientRoutingPort.ReplicationCommit(commitTimeout, entryToCommit.getId(), signature), gradientRoutingPort);
-
-                ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-                rst.setTimeoutEvent(new CommitTimeout(rst, self.getId()));
-                rst.getTimeoutEvent().setTimeoutId(commitTimeout);
-                trigger(rst, timerPort);
-            } catch (NoSuchAlgorithmException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (InvalidKeyException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (SignatureException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            }
-        }
-    };
-
 
     /**
      * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and 
      * then send the commit message request to the leader nodes who have replied yes.
      */
-    final Handler<ReplicationPrepareCommitMessage.Response> handlePrepareCommitResponseUpdated = new Handler<ReplicationPrepareCommitMessage.Response>() {
+    final Handler<ReplicationPrepareCommitMessage.Response> handleEntryAdditionPrepareCommitResponse = new Handler<ReplicationPrepareCommitMessage.Response>() {
         @Override
         public void handle(ReplicationPrepareCommitMessage.Response response) {
 
@@ -1420,72 +1354,6 @@ public final class Search extends ComponentDefinition {
      * Performs commit on a peer in the leader group
      */
     final Handler<ReplicationCommitMessage.Request> handleCommitRequest = new Handler<ReplicationCommitMessage.Request>() {
-        @Override
-        public void handle(ReplicationCommitMessage.Request request) {
-            long id = request.getEntryId();
-
-            if (leaderIds.isEmpty())
-                return;
-
-            ByteBuffer idBuffer = ByteBuffer.allocate(8);
-            idBuffer.putLong(id);
-            try {
-                if (!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
-                    return;
-            } catch (NoSuchAlgorithmException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (InvalidKeyException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (SignatureException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            }
-
-            IndexEntry toCommit = null;
-            for (IndexEntry entry : pendingForCommit.keySet()) {
-                if (entry.getId() == id) {
-                    toCommit = entry;
-                    break;
-                }
-            }
-
-            if (toCommit == null)
-                return;
-
-            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
-            trigger(ct, timerPort);
-
-            try {
-                addEntryLocal(toCommit);
-                trigger(new ReplicationCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
-                pendingForCommit.remove(toCommit);
-
-                long maxStoredId = getMaxStoredId();
-
-                ArrayList<Long> missingIds = new ArrayList<Long>();
-                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
-                while (currentMissingValue < toCommit.getId()) {
-                    missingIds.add(currentMissingValue);
-                    currentMissingValue++;
-                }
-
-                if (missingIds.size() > 0) {
-                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingIds.toArray(new Long[missingIds.size()]));
-                    trigger(repairMessage, networkPort);
-                }
-            } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (LuceneAdaptorException e) {
-                e.printStackTrace();
-            }
-        }
-    };
-
-
-
-    /**
-     * Performs commit on a peer in the leader group
-     */
-    final Handler<ReplicationCommitMessage.Request> handleCommitRequestUpdated = new Handler<ReplicationCommitMessage.Request>() {
         @Override
         public void handle(ReplicationCommitMessage.Request request) {
             long id = request.getEntryId();
@@ -2177,12 +2045,58 @@ public final class Search extends ComponentDefinition {
         // Avoid start of partitioning in case if one is already going on.
         if (!partitionInProgress) {
 
-            logger.info(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
+            logger.warn(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
             partitionInProgress = true;
-            trigger(new LeaderGroupInformation.Request((minStoredId + medianId), partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
+//            trigger(new LeaderGroupInformation.Request((minStoredId + medianId), partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
+            start2PhasePartitionCommit(minStoredId + medianId, partitionsNumber);
         }
 
 
+    }
+
+    /**
+     * Starting point of the two phase commit protocol for partitioning commit in the
+     * system.
+     *
+     * @param medianId index entry split id.
+     * @param partitioningType partitioning type
+     */
+    private void start2PhasePartitionCommit(long medianId, VodAddress.PartitioningType partitioningType){
+
+        if(leaderGroupInformation == null || leaderGroupInformation.size() < config.getLeaderGroupSize()){
+            logger.warn("Not enough nodes to start the two phase commit protocol.");
+            return;
+        }
+
+        logger.debug("Going to start the two phase commit protocol.");
+        partitionRequestId = UUID.nextUUID();
+
+        PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(medianId, partitionRequestId, partitioningType);
+        partitionInfo.setKey(publicKey);
+
+        // Generate the hash information of the partition info for security purposes.
+        String signedHash = generatePartitionInfoSignedHash(partitionInfo, privateKey);
+        if (signedHash == null) {
+            logger.error("Unable to generate a signed hash for the partitioning two phase commit.");
+            throw new RuntimeException("Unable to generate hash for the partitioning two phase commit. ");
+        }
+        partitionInfo.setHash(signedHash);
+        partitioningTracker.startTracking(partitionRequestId, leaderGroupInformation, partitionInfo);
+
+        logger.warn(partitioningTracker.toString());
+
+        // Create a timeout for the partition prepare response.
+        ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
+        PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st, self.getId(), partitionInfo);
+
+        st.setTimeoutEvent(pt);
+        partitionPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
+        trigger(st, timerPort);
+
+        for(VodAddress destination : leaderGroupInformation){
+            PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), partitionPreparePhaseTimeoutId, partitionInfo);
+            trigger(partitionPrepareRequest, networkPort);
+        }
     }
 
     /**
@@ -2240,17 +2154,26 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Partition not successful, reset the information.
+     * Partitioning Prepare Phase timed out, now resetting the partitioning information.
+     * Be careful that the timeout can occur even if we have cancelled the timeout, this is the reason that we have to
+     * externally track the timeout id to check if it has been reset by the application.
+     * In case of sensitive timeouts, which can result in inconsistencies this step is necessary.
+     *
      */
     Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Timeout event) {
 
-            logger.warn(" Partition Timeout Occured. ");
-            partitionInProgress = false;
-            partitionPrepareReplicationCountMap.remove(event.getTimeoutId());
+            if(partitionPreparePhaseTimeoutId == null || !partitionPreparePhaseTimeoutId.equals(event.getTimeoutId())){
 
+                logger.warn(" Partition Prepare Phase Timeout Occurred. ");
+                partitionInProgress = false;
+//                partitionPrepareReplicationCountMap.remove(event.getTimeoutId());
+
+                partitioningTracker.resetTracker();
+
+            }
         }
     };
 
@@ -2372,18 +2295,69 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Commit Phase Timeout Handler.
+     * Partition Prepare Response received from the leader group nodes. The leader once seeing the promises can either partition itself and then send the update to the nodes in the system
+     * about the partitioning update or can first send the partitioning update to the leader group and then partition itself.
+     *
+     * CURRENTLY, the node sends the partitioning commit update to the nodes in the system and waits for the commit responses and then partition self, which might be wrong in our case.
+     *
+     */
+    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponseUpdated = new Handler<PartitionPrepareMessage.Response>() {
+
+        @Override
+        public void handle(PartitionPrepareMessage.Response event) {
+
+            logger.trace("{}: Received partition prepare response from the node: {}", self.getId(), event.getVodSource());
+            partitioningTracker.addPromiseResponse(event);
+
+            if(partitioningTracker.isPromiseAccepted()){
+
+                // Received the required responses. Start the commit phase.
+                logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
+
+                // Cancel the prepare phase timeout as all the replies have been received.
+                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+                trigger(ct, timerPort);
+                partitionPreparePhaseTimeoutId = null;
+
+                // Create a commit timeout.
+                ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
+                PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), partitioningTracker.getPartitionInfo());
+                st.setTimeoutEvent(pt);
+                partitionCommitPhaseTimeoutId  = st.getTimeoutEvent().getTimeoutId();
+
+                Collection<VodAddress> leaderGroupAddress = partitioningTracker.getLeaderGroupNodes();
+
+                // Send the nodes commit messages with the commit timeoutid.
+                for (VodAddress dest : leaderGroupAddress) {
+                    PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest, partitionCommitPhaseTimeoutId, partitioningTracker.getPartitionRequestId());
+                    trigger(partitionCommitRequest, networkPort);
+                }
+
+            }
+        }
+    };
+
+
+
+    /**
+     * Commit Phase Timeout Handler. At present we simply reset the partitioning tracker but do not address the issue that some nodes might have committed
+     * the partitioning information and moved on.
+     *
+     * REQUIREMENT : Need a retry mechanism for the same, but not sure how to deal with inconsistent partitioning states in the system.
+     *
      */
     Handler<PartitionCommitMessage.Timeout> handlerPartitionCommitTimeoutMessage = new Handler<PartitionCommitMessage.Timeout>() {
 
         @Override
         public void handle(PartitionCommitMessage.Timeout event) {
 
-            // Reset the partition flags
-            logger.warn("Partition Commit Timeout Called at the leader");
-            partitionInProgress = false;
-            partitionCommitReplicationCountMap.remove(event.getTimeoutId());
+            if(partitionCommitPhaseTimeoutId != null && partitionCommitPhaseTimeoutId.equals(event.getTimeoutId())){
 
+                logger.warn("Partition Commit Timeout Called at the leader.");
+                partitionInProgress = false;
+//                partitionCommitReplicationCountMap.remove(event.getTimeoutId());
+                partitioningTracker.resetTracker();
+            }
         }
     };
 
@@ -2473,6 +2447,32 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    /**
+     * The partitioning commit response handler for the final phase of the two phase commit
+     * regarding the partitioning commit.
+     */
+    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponseUpdated = new Handler<PartitionCommitMessage.Response>() {
+        @Override
+        public void handle(PartitionCommitMessage.Response event) {
+
+            logger.trace("{}: Partitioning Commit Response received from: {}", self.getId(), event.getVodSource().getId());
+            partitioningTracker.addCommitResponse(event);
+            if(partitioningTracker.isCommitAccepted()) {
+
+                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+                trigger(ct, timerPort);
+                partitionCommitPhaseTimeoutId = null;
+
+                logger.debug("{}: Partitioning Protocol complete at the leader end.", self.getId());
+
+                LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
+                partitionUpdates.add(partitioningTracker.getPartitionInfo());
+
+                applyPartitioningUpdate(partitionUpdates);
+                partitioningTracker.resetTracker();
+            }
+        }
+    };
 
     private IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
         IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
