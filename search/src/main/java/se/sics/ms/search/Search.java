@@ -184,10 +184,11 @@ public final class Search extends ComponentDefinition {
 
     // Leader Election Protocol.
     private Collection<VodAddress> leaderGroupInformation;
-    private EntryAdditionTracker entryAdditionTracker;
-    private TimeoutId entryPreparePhaseTimeoutId;
+    // Trackers.
+    private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
+    private Map<TimeoutId, TimeoutId> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
-
+    
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -248,9 +249,7 @@ public final class Search extends ComponentDefinition {
 
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(preparePhaseTimeout, timerPort);
-        
-        
-        
+
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, chunkManagerPort);
@@ -325,9 +324,11 @@ public final class Search extends ComponentDefinition {
         commitRequests = new HashMap<TimeoutId, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
 
-        entryAdditionTracker = new EntryAdditionTracker();
+        // Tracker.
         partitioningTracker = new PartitioningTracker();
-
+        entryAdditionTrackerUpdated = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
+        entryPrepareTimeoutMap = new HashMap<TimeoutId, TimeoutId>();
+        
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         File file = null;
@@ -1126,12 +1127,12 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(!entryAdditionTracker.canTrack()){
+            if(! entryAdditionTrackerUpdated.canTrack()){
                 logger.warn("Unable to track a new entry addition as one is going on.");
                 System.exit(-1);
             }
 
-            // FIXME: Memory Leak.
+            // FIXME: Memory Leak. (How to fix this.)
             if (recentRequests.containsKey(event.getTimeoutId())) {
                 return;
             }
@@ -1158,8 +1159,10 @@ public final class Search extends ComponentDefinition {
             if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
                 logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getVodSource());
-                entryAdditionTracker.startTracking(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
-
+                
+                EntryAdditionRoundInfo  additionRoundInfo = new EntryAdditionRoundInfo(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
+                entryAdditionTrackerUpdated.startTracking(event.getTimeoutId(), additionRoundInfo);
+                
                 for (VodAddress destination : leaderGroupInformation) {
                     logger.warn("Sending prepare commit request to : {}", destination.getId());
                     ReplicationPrepareCommitMessage.Request request = new ReplicationPrepareCommitMessage.Request(self.getAddress(), destination, event.getTimeoutId(), newEntry);
@@ -1169,8 +1172,9 @@ public final class Search extends ComponentDefinition {
                 // Trigger for a timeout and how would that work ?
                 
                 ScheduleTimeout st = new ScheduleTimeout(5000);
-                st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st));
-                entryPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
+                st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, event.getTimeoutId()));
+                entryPrepareTimeoutMap.put(event.getTimeoutId(), st.getTimeoutEvent().getTimeoutId());
+                
                 trigger(st, timerPort);
             }
             else{
@@ -1189,14 +1193,17 @@ public final class Search extends ComponentDefinition {
     Handler<TimeoutCollection.EntryPrepareResponseTimeout> preparePhaseTimeout = new Handler<TimeoutCollection.EntryPrepareResponseTimeout>() {
         @Override
         public void handle(TimeoutCollection.EntryPrepareResponseTimeout event) {
-            
-            if(entryPreparePhaseTimeoutId != null && entryPreparePhaseTimeoutId.equals(event.getTimeoutId())){
+
+            if(entryPrepareTimeoutMap != null && entryPrepareTimeoutMap.keySet().contains(event.getTimeoutId())){
+                
                 logger.warn("{}: Prepare phase timed out. Resetting the tracker information.");
-                entryAdditionTracker.resetTracker();
+                entryAdditionTrackerUpdated.resetTracker(event.roundId);
+                entryPrepareTimeoutMap.remove(event.roundId);
             }
             else{
                 logger.warn(" Prepare Phase timeout edge case called. Not resetting the tracker.");
             }
+            
         }
     };
     
@@ -1300,22 +1307,23 @@ public final class Search extends ComponentDefinition {
         public void handle(ReplicationPrepareCommitMessage.Response response) {
 
             TimeoutId timeout = response.getTimeoutId();
-            entryAdditionTracker.addPromiseResponse(response);
-
-            if (entryAdditionTracker.promiseComplete()) {
+            EntryAdditionRoundInfo info = entryAdditionTrackerUpdated.getEntryAdditionRoundInfo(timeout);
+            
+            if(info == null){
+                logger.debug("{}: Received Promise Response from: {} after the round has expired ", self.getId(), response.getVodSource());
+                return;
+            }
+            
+            info.addEntryAddPromiseResponse(response);
+            if (info.isPromiseAccepted()) {
                 
                 try {
-                    
+
                     logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
-                    CancelTimeout ct = new CancelTimeout(timeout);
+                    CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(timeout));
                     trigger(ct, timerPort);
                     
-                    ct = new CancelTimeout(entryPreparePhaseTimeoutId);
-                    trigger(ct, timerPort);
-                    
-                    entryPreparePhaseTimeoutId = null;
-                    
-                    IndexEntry entryToCommit = entryAdditionTracker.getEntry();
+                    IndexEntry entryToCommit = info.getEntryToAdd();
                     TimeoutId commitTimeout = UUID.nextUUID(); //What's it purpose.
                     addEntryLocal(entryToCommit);   // Commit to local first.
                     
@@ -1324,12 +1332,12 @@ public final class Search extends ComponentDefinition {
 
                     String signature = generateRSASignature(idBuffer.array(), privateKey);
                     
-                    for(VodAddress destination : entryAdditionTracker.getLeaderGroupNodes()){
+                    for(VodAddress destination : info.getLeaderGroupAddress()){
                         ReplicationCommitMessage.Request request = new ReplicationCommitMessage.Request(self.getAddress(), destination, commitTimeout, entryToCommit.getId(), signature);
                         trigger(request, networkPort);
                     }
 
-                    trigger(new AddIndexEntryMessage.Response(self.getAddress(), entryAdditionTracker.getEntryAddSourceNode(), entryAdditionTracker.getRoundTrackerId()), networkPort);
+                    trigger(new AddIndexEntryMessage.Response(self.getAddress(), info.getEntryAddSourceNode(), info.getEntryAdditionRoundId()), networkPort);
 
                 } catch (NoSuchAlgorithmException e) {
                     logger.error(self.getId() + " " + e.getMessage());
@@ -1342,8 +1350,11 @@ public final class Search extends ComponentDefinition {
                     throw new RuntimeException("Entry addition failed", e);
                 } catch (IOException e) {
                     e.printStackTrace();
-                } finally {
-                    entryAdditionTracker.resetTracker();
+                } 
+                finally {
+                    
+                    entryAdditionTrackerUpdated.resetTracker(timeout);
+                    entryPrepareTimeoutMap.remove(timeout);
                 }
             }
         }

@@ -3,6 +3,7 @@ package se.sics.ms.util;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timeout;
+import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.timeout.IndividualTimeout;
 
 /**
@@ -59,8 +60,11 @@ public class TimeoutCollection {
      */
     public static  class EntryPrepareResponseTimeout extends Timeout{
 
-        public EntryPrepareResponseTimeout(ScheduleTimeout request) {
+        public TimeoutId roundId;
+        
+        public EntryPrepareResponseTimeout(ScheduleTimeout request, TimeoutId roundId) {
             super(request);
+            this.roundId = roundId;
         }
     }
 
