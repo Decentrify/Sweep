@@ -11,6 +11,7 @@ import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -65,110 +66,7 @@ public class PartitionHelper {
         return new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, bitsToCheck, partitionId);
     }
 
-//    /**
-//     * Set's new new partitionId for address
-//     * @param searchDescriptor
-//     * @param partitionId
-//     * @return a copy of the updated VodAddress object
-//     */
-//    public static VodAddress updatePartitionId(SearchDescriptor searchDescriptor, PartitionId partitionId) {
-//        if(searchDescriptor.getVodAddress() == null)
-//            throw new IllegalArgumentException("address can't be null");
-//        if(partitionId == null)
-//            throw new IllegalArgumentException("partitionId can't be null");
-//
-//        int categoryId = searchDescriptor.getOverlayId().getCategoryId();
-//        int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(partitionId.getPartitioningType(),
-//                partitionId.getPartitionIdDepth(), partitionId.getPartitionId(), categoryId);
-//        return new VodAddress(searchDescriptor.getVodAddress().getPeerAddress(), newOverlayId,
-//                searchDescriptor.getVodAddress().getNat(), searchDescriptor.getVodAddress().getParents());
-//    }
 
-//    /**
-//     * Ensures that all entries in descriptors belong to the same partition as self by recalculation of partitionIds
-//     * on this descriptors and throwing out those that are from another partitions
-//     * @param partitionId
-//     * @param descriptors
-//     */
-//    public static void adjustDescriptorsToNewPartitionId(PartitionId partitionId, Collection<SearchDescriptor> descriptors) {
-//        if(partitionId == null)
-//            throw new IllegalArgumentException("partitionId can't be null");
-//        if(descriptors == null)
-//            return;
-//
-//        List<SearchDescriptor> updatedSample = new ArrayList<SearchDescriptor>();
-//
-//
-//        //this method has to be called after the partitionsNumber is already incremented
-//        boolean isFirstPartition = partitionId.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
-//        if(isFirstPartition) {
-//            for(SearchDescriptor descriptor : descriptors) {
-//                PartitionId descriptorPartitionId = determineSearchDescriptorPartition(descriptor,
-//                        isFirstPartition, 1);
-//
-//                VodAddress a = updatePartitionId(descriptor, descriptorPartitionId);
-//                updatedSample.add(new SearchDescriptor(a, descriptor));
-//            }
-//        }
-//        else {
-//            int bitsToCheck = partitionId.getPartitionIdDepth();
-//
-//            for(SearchDescriptor descriptor : descriptors) {
-//                PartitionId descriptorPartitionId = determineSearchDescriptorPartition(descriptor,
-//                        isFirstPartition, bitsToCheck);
-//
-//                VodAddress a = updatePartitionId(descriptor, descriptorPartitionId);
-//                updatedSample.add(new SearchDescriptor(a, descriptor));
-//            }
-//        }
-//
-//        descriptors.clear();
-//        descriptors.addAll(updatedSample);
-//
-//        Iterator<SearchDescriptor> iterator = descriptors.iterator();
-//        while (iterator.hasNext()) {
-//            OverlayAddress next = iterator.next().getOverlayAddress();
-//            if(next.getPartitionId() != partitionId.getPartitionId()
-//                    || next.getPartitionIdDepth() != partitionId.getPartitionIdDepth()
-//                    || next.getPartitioningType() != partitionId.getPartitioningType())
-//                iterator.remove();
-//
-//        }
-//    }
-
-
-    /**
-     * Helper method to spill the contents in new bucket as a new partition is detected.
-     * Based on the new partition id passed, look at the previous buckets and then remove the contents.
-     * Create new buckets for left spill and right spill. <br\><br\>
-     *
-     * <b>CAUTION:</b> For now given that partition is an event which would happen after a long time, we will be only looking at the bucket before us.
-     * If the bucket is present then move the contents to new buckets respectively. For the case in which the difference between the buckets
-     * is greater than 1, needs to be handled separately.
-     *
-     * @param partition Updated Partition Id.
-     * @param categoryRoutingMap Current Routing Map.
-     */
-    public static void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashMap<VodAddress, CroupierPeerView>>> categoryRoutingMap){
-
-
-        if( partition== null ){
-            throw new IllegalArgumentException("Partition Id is null");
-        }
-
-        if(partition.getPartitionIdDepth() == 0)
-            return;
-
-        int oldPartitionId = getPreviousPartitionId(partition);
-
-        if(categoryRoutingMap.get(oldPartitionId) == null){
-            logger.warn("Unable to find partition bucket for previous partition: {}", oldPartitionId);
-            return;
-        }
-
-        // Simply remove the old map. We can remove here the old map because the method is called when we couldn't find any map with the id passed.
-        categoryRoutingMap.remove(oldPartitionId);
-    }
 
     /**
      * Based on the partitionId value provided, you actually flip the at the position given by the partition depth.

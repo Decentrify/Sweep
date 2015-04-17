@@ -52,6 +52,7 @@ public class LeaderLookupMessage {
     }
 
     public static class Response extends DirectMsgNetty.Response {
+
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final boolean leader;

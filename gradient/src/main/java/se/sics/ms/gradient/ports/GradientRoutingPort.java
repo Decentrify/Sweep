@@ -3,6 +3,7 @@ package se.sics.ms.gradient.ports;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
+import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.PortType;
 import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
@@ -10,6 +11,7 @@ import se.sics.ms.messages.PartitionMessage;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -134,21 +136,16 @@ public class GradientRoutingPort extends PortType {
         }
     }
 
-    public static class IndexHashExchangeResponse extends Event {
+    public static class IndexHashExchangeResponse implements KompicsEvent {
 
-        private HashSet<VodAddress> nodesSelectedForExchange;
+        private HashSet<DecoratedAddress> nodesSelectedForExchange;
 
-        public IndexHashExchangeResponse(Collection<VodAddress> nodes)
-        {
-            setNodesSelectedForExchange(new HashSet<VodAddress>(nodes));
+        public IndexHashExchangeResponse(Collection<DecoratedAddress> nodes) {
+            this.nodesSelectedForExchange = new HashSet<DecoratedAddress>(nodes);
         }
 
-        public HashSet<VodAddress> getNodesSelectedForExchange() {
+        public HashSet<DecoratedAddress> getNodesSelectedForExchange() {
             return nodesSelectedForExchange;
-        }
-
-        public void setNodesSelectedForExchange(HashSet<VodAddress> nodesSelectedForExchange) {
-            this.nodesSelectedForExchange = nodesSelectedForExchange;
         }
     }
 

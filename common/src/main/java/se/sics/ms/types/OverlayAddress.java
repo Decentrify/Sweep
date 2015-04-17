@@ -1,23 +1,25 @@
 package se.sics.ms.types;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
+ * Utility Class for representing the address in the system.
  * Created by alidar on 9/12/14.
  */
 public class OverlayAddress implements Comparable<OverlayAddress>{
 
-    private VodAddress address;
+    private DecoratedAddress address;
     private OverlayId overlayId;
 
-    public OverlayAddress(VodAddress address, int overlayId) {
+    public OverlayAddress(DecoratedAddress address, int overlayId) {
         this.address = address;
         this.overlayId = new OverlayId(overlayId);
     }
 
-    public OverlayAddress(VodAddress address) {
-        this(address, address.getOverlayId());
-    }
+//    public OverlayAddress(DecoratedAddress address) {
+//        this(address, address.getOverlayId());
+//    }
 
     public int getId() {
         return address.getId();
@@ -45,7 +47,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
             return 0;
         }
 
-        int res = this.address.compareTo(other.getAddress());
+        int res = -1 * (this.address.getId().compareTo(other.getAddress().getId()));
 
         if(res != 0)
             return  res;
@@ -54,37 +56,19 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
     }
 
     public boolean equals(Object obj) {
+
         if (this == obj) {
             return true;
         }
-        if (obj == null) {
+
+        if(! (obj instanceof OverlayAddress))
             return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
+
         OverlayAddress other = (OverlayAddress) obj;
-
-        if (this.address == null) {
-            if (other.getAddress() != null) {
-                return false;
-            }
-        } else if (other.getAddress() == null) {
-            return false;
-        }
-
-        if(!this.address.equals(other.getAddress()))
+        if(! (this.address == null ? other.address == null : this.address.equals(other.address)))
             return false;
 
-        if (this.overlayId == null) {
-            if (other.getOverlayId() != null) {
-                return false;
-            }
-        } else if (other.getOverlayId() == null) {
-            return false;
-        }
-
-        return this.overlayId.equals(other.getOverlayId());
+        return (this.overlayId == null ? other.overlayId == null : this.overlayId.equals(other.overlayId));
     }
 
     public int hashCode() {
@@ -98,7 +82,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
         return overlayId;
     }
 
-    public VodAddress getAddress() {
+    public DecoratedAddress getAddress() {
         return address;
     }
 

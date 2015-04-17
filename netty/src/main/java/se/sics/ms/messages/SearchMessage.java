@@ -30,6 +30,7 @@ import java.util.logging.Logger;
  * @author jdowling
  */
 public class SearchMessage {
+
     public static class Request extends DirectMsgNetty.Request {
         private final SearchPattern pattern;
         private final TimeoutId searchTimeoutId;

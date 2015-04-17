@@ -43,7 +43,6 @@ import se.sics.ms.gradient.control.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.model.LocalSearchRequest;
 import se.sics.ms.model.PartitionReplicationCount;
@@ -61,17 +60,19 @@ import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.*;
-import se.sics.p2ptoolbox.croupier.api.CroupierPort;
-import se.sics.p2ptoolbox.croupier.api.msg.CroupierUpdate;
-import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
+import se.sics.p2ptoolbox.croupier.CroupierPort;
+import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
-import se.sics.p2ptoolbox.gradient.api.GradientPort;
-import se.sics.p2ptoolbox.gradient.api.msg.GradientSample;
-import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
+import se.sics.p2ptoolbox.gradient.GradientPort;
+import se.sics.p2ptoolbox.gradient.msg.GradientSample;
+import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
+import se.sics.p2ptoolbox.util.Container;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -117,7 +118,7 @@ public final class Search extends ComponentDefinition {
 
     // ======== LOCAL VARIABLES.
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
-    private MsSelfImpl self;
+    private ApplicationSelf self;
     private SearchConfiguration config;
     private boolean leader;
     private long lowestMissingIndexValue;
@@ -183,7 +184,7 @@ public final class Search extends ComponentDefinition {
     private LuceneAdaptor searchRequestLuceneAdaptor;
 
     // Leader Election Protocol.
-    private Collection<VodAddress> leaderGroupInformation;
+    private Collection<DecoratedAddress> leaderGroupInformation;
     // Trackers.
     private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
     private Map<TimeoutId, TimeoutId> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
@@ -279,7 +280,6 @@ public final class Search extends ComponentDefinition {
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
-//        subscribe(handlerPartitionPrepareResponse, networkPort);
         subscribe(handlerPartitionPrepareResponseUpdated, networkPort);
         subscribe(handlePartitionCommitTimeout, timerPort);
 
@@ -313,7 +313,7 @@ public final class Search extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
-        self = (MsSelfImpl) init.getSelf();
+        self = init.getSelf();
         config = init.getConfiguration();
         publicKey = init.getPublicKey();
         privateKey = init.getPrivateKey();
@@ -2001,7 +2001,7 @@ public final class Search extends ComponentDefinition {
 
         // Inform other components about the IndexEntry Update.
         informListeningComponentsAboutUpdates(self);
-        Snapshot.incNumIndexEntries(self.getAddress());
+//        Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
         TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
@@ -2023,7 +2023,7 @@ public final class Search extends ComponentDefinition {
         maxStoredId++;
 
         //update the counter, so we can check if partitioning is necessary
-        if (leader && self.getPartitionIdDepth() < config.getMaxPartitionIdLength())
+        if (leader && self.getPartitioningDepth() < config.getMaxPartitionIdLength())
             checkPartitioning();
     }
 
@@ -2110,59 +2110,6 @@ public final class Search extends ComponentDefinition {
         }
     }
 
-    /**
-     * Leader Group Information for the Two Phase Commit.
-     */
-    Handler<LeaderGroupInformation.Response> handlerLeaderGroupInformationResponse = new Handler<LeaderGroupInformation.Response>() {
-
-        @Override
-        public void handle(LeaderGroupInformation.Response event) {
-
-            // TODO: Can be used to check if the responses are from the same sources as the requested ones ?
-            List<VodAddress> leaderGroupAddresses = event.getLeaderGroupAddress();
-
-            // Not enough nodes to continue.
-            if (leaderGroupAddresses.size() < config.getLeaderGroupSize()) {
-                logger.warn(" Not enough nodes to start the two phase commit.");
-                partitionInProgress = false;
-                return;
-            }
-
-
-            partitionRequestId = UUID.nextUUID();                    // The request Id to be associated with the partition request.
-            TimeoutId timeoutId = UUID.nextUUID();                  // The id represents the current round id against which the responses will be checked for filtering.
-
-            PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(event.getMedianId(), partitionRequestId, event.getPartitioningType());
-            partitionInfo.setKey(publicKey);
-
-            // Generate the hash information of the partition info for security purposes.
-            String signedHash = generatePartitionInfoSignedHash(partitionInfo, privateKey);
-            if (signedHash == null) {
-                logger.error(" Signed Hash for the Two Phase Commit Is not getting generated.");
-            }
-            partitionInfo.setHash(signedHash);
-
-            // Send the partition requests to the leader group.
-            for (VodAddress destinationAddress : leaderGroupAddresses) {
-                PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destinationAddress, new OverlayId(self.getOverlayId()), timeoutId, partitionInfo);
-                trigger(partitionPrepareRequest, networkPort);
-            }
-
-            // Set the timeout for the responses.
-            // TODO: Add the timeout entry in the config for the update.
-            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
-            PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st, self.getId(), partitionInfo);
-
-            st.setTimeoutEvent(pt);
-            st.getTimeoutEvent().setTimeoutId(timeoutId);
-            trigger(st, timerPort);
-
-            // Create a replication object to track responses.
-            PartitionReplicationCount count = new PartitionReplicationCount(config.getLeaderGroupSize(), partitionInfo);
-            partitionPrepareReplicationCountMap.put(timeoutId, count);
-        }
-    };
-
 
     /**
      * Partitioning Prepare Phase timed out, now resetting the partitioning information.
@@ -2239,7 +2186,7 @@ public final class Search extends ComponentDefinition {
      * @return applyPartitioningUpdate.
      */
     private boolean partitionOrderValid(OverlayId overlayId) {
-        return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitionIdDepth());
+        return (overlayId.getPartitioningType() == self.getPartitioningType() && overlayId.getPartitionIdDepth() == self.getPartitioningDepth());
     }
 
 
@@ -2336,10 +2283,10 @@ public final class Search extends ComponentDefinition {
                 st.setTimeoutEvent(pt);
                 partitionCommitPhaseTimeoutId  = st.getTimeoutEvent().getTimeoutId();
 
-                Collection<VodAddress> leaderGroupAddress = partitioningTracker.getLeaderGroupNodes();
+                Collection<DecoratedAddress> leaderGroupAddress = partitioningTracker.getLeaderGroupNodes();
 
                 // Send the nodes commit messages with the commit timeoutid.
-                for (VodAddress dest : leaderGroupAddress) {
+                for (DecoratedAddress dest : leaderGroupAddress) {
                     PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest, partitionCommitPhaseTimeoutId, partitioningTracker.getPartitionRequestId());
                     trigger(partitionCommitRequest, networkPort);
                 }
@@ -2990,7 +2937,7 @@ public final class Search extends ComponentDefinition {
         // for MANY_BEFORE.
         else {
 
-            int myDepth = self.getPartitionIdDepth();
+            int myDepth = self.getPartitioningDepth();
             if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
 
                 if (myDepth <= (HISTORY_LENGTH)) {
@@ -3021,7 +2968,7 @@ public final class Search extends ComponentDefinition {
     private boolean determineYourPartitionAndUpdatePartitionsNumberUpdated(VodAddress.PartitioningType partitionsNumber) {
         int nodeId = self.getId();
 
-        PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getPartitionIdDepth(),
+        PartitionId selfPartitionId = new PartitionId(partitionsNumber, self.getPartitioningDepth(),
                 self.getPartitionId());
 
         boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
@@ -3034,18 +2981,18 @@ public final class Search extends ComponentDefinition {
                     1, partitionId, selfCategory);
 
             // CAUTION: Do not remove the below check.  Hell will break loose ...
-            ((MsSelfImpl) self).setOverlayId(newOverlayId);
+            self.setOverlayId(newOverlayId);
 
         } else {
-            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionIdDepth());
+            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionId());
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                    self.getPartitionIdDepth() + 1, newPartitionId, selfCategory);
-            ((MsSelfImpl) self).setOverlayId(newOverlayId);
+                    self.getPartitioningDepth() + 1, newPartitionId, selfCategory);
+             self.setOverlayId(newOverlayId);
         }
-        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitionIdDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
         int partitionId = self.getPartitionId();
         Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
         Snapshot.addPartition(new Pair<Integer, Integer>(self.getCategoryId(), partitionId));
@@ -3103,33 +3050,33 @@ public final class Search extends ComponentDefinition {
      *
      * @param self Updated Self
      */
-    private void informListeningComponentsAboutUpdates(MsSelfImpl self) {
+    private void informListeningComponentsAboutUpdates(ApplicationSelf self) {
 
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
 
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate(java.util.UUID.randomUUID(), updatedDesc), croupierPortPositive);
+        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
-        trigger(new GradientUpdate(updatedDesc), gradientPort);
+        trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
     }
 
     /**
      * Handle the sample from the gradient.
      */
-    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
-        @Override
-        public void handle(GradientSample event) {
-            
-            logger.info("Received Gradient Sample");
-            StringBuilder builder = new StringBuilder();
-            for(CroupierPeerView cpv : event.gradientSample){
-                builder.append("id:").append(cpv.src.getId()).append(":").append("member:").append(((SearchDescriptor)cpv.pv).isLGMember()).append(" , ");
-            }
-//            logger.warn(builder.toString());
-        }
-    };
+//    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
+//        @Override
+//        public void handle(GradientSample event) {
+//
+//            logger.info("Received Gradient Sample");
+//            StringBuilder builder = new StringBuilder();
+//            for(Container cpv : event.gradientSample){
+//                builder.append("id:").append(cpv.src.getId()).append(":").append("member:").append(((SearchDescriptor)cpv.pv).isLGMember()).append(" , ");
+//            }
+////            logger.warn(builder.toString());
+//        }
+//    };
 
 
     // ======= LEADER ELECTION PROTOCOL HANDLERS.
@@ -3145,10 +3092,10 @@ public final class Search extends ComponentDefinition {
             leader = true;
             leaderGroupInformation = event.leaderGroup;
 
-            Address selfPeerAddress = self.getAddress().getPeerAddress();
-            Iterator<VodAddress> itr = leaderGroupInformation.iterator();
+            BasicAddress selfPeerAddress = self.getAddress().getBase();
+            Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
             while(itr.hasNext()){
-                if(selfPeerAddress.equals(itr.next().getPeerAddress())){
+                if(selfPeerAddress.equals(itr.next().getBase())){
                     itr.remove();
                     break;
                 }
@@ -3191,7 +3138,7 @@ public final class Search extends ComponentDefinition {
         public void handle(ElectionState.EnableLGMembership event) {
 
             logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
-            self.setLGMember(true);
+            self.setIsLGMember(true);
             electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
         }
@@ -3206,7 +3153,7 @@ public final class Search extends ComponentDefinition {
         public void handle(ElectionState.DisableLGMembership event) {
 
             logger.warn("{}: Remove the node from the leader group membership.", self.getId());
-            self.setLGMember(false);
+            self.setIsLGMember(false);
             electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
         }

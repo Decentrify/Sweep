@@ -3,20 +3,25 @@ package se.sics.ms.simulation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.VodConfig;
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.net.msgs.DirectMsg;
+import se.sics.kompics.Init;
+import se.sics.kompics.KompicsEvent;
+import se.sics.kompics.network.Address;
+import se.sics.kompics.network.Msg;
+import se.sics.kompics.network.Transport;
 import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
-import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.main.SimulatorEncodeDecode;
 import se.sics.ms.search.SearchPeer;
-import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
-import se.sics.p2ptoolbox.simulator.cmd.StartNodeCmd;
+import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
+import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.Set;
 
 /**
  * Operations for controlling the sequence of events in sweep.
@@ -26,12 +31,11 @@ import java.net.UnknownHostException;
 public class SweepOperations {
 
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
-    
-    private static VodAddress nodeAddress;
-    
+
     static{
         
         try {
+            // SWITCH TO SERIALIZERS REGISTRATION.
             VodConfig.init(new String[0]);
             SimulatorEncodeDecode.init();
         } 
@@ -45,67 +49,80 @@ public class SweepOperations {
     
     
     public static Operation1<StartNodeCmd, Long> startNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
-            
-            public StartNodeCmd generate(final Long id){
-                
-                return new StartNodeCmd<SearchPeer>() {
-                    
-                    long nodeId = SweepOperationsHelper.getStableId(id);
+        @Override
+        public StartNodeCmd generate(final Long id) {
 
-                    @Override
-                    public Integer getNodeId() {
-                        return (int) nodeId;
-                    }
+            return new StartNodeCmd() {
 
-                    @Override
-                    public Class getNodeComponentDefinition() {
-                        return SearchPeer.class;
-                    }
+                long nodeId = SweepOperationsHelper.getStableId(id);
 
-                    @Override
-                    public SearchPeerInit getNodeComponentInit(VodAddress statusServer) {
-                        return SweepOperationsHelper.generatePeerInit(null, nodeId);
-                    }
-                };
-            }
+                @Override
+                public Integer getNodeId() {
+                    return null;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 0;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return SearchPeer.class;
+                }
+
+                @Override
+                public Init getNodeComponentInit(Address address, Set set) {
+                    return SweepOperationsHelper.generatePeerInit(null, nodeId);
+                }
+
+                @Override
+                public Address getAddress() {
+                    return null;
+                }
+            };
+        }
     };
     
     
     public static Operation1<NetworkOpCmd,Long> addIndexEntryCommand = new Operation1<NetworkOpCmd, Long>() {
+
         @Override
         public NetworkOpCmd generate(final Long id) {
-            
-            return new NetworkOpCmd() {
-                
-                VodAddress address = SweepOperationsHelper.getNodeAddressToCommunicate(id);
+            return new NetworkOpCmd(){
+
+                DecoratedAddress destination = SweepOperationsHelper.getNodeAddressToCommunicate(id);
                 IndexEntry junkEntry = SweepOperationsHelper.generateIndexEntry();
-                
+
                 @Override
-                public DirectMsg getNetworkMsg(VodAddress origin) {
-                    
+                public void beforeCmd(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public boolean myResponse(KompicsEvent kompicsEvent) {
+                    return false;
+                }
+
+                @Override
+                public void validate(SimulationContext simulationContext, KompicsEvent kompicsEvent) throws ValidationException {
+
+                }
+
+                @Override
+                public void afterValidation(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public Msg getNetworkMsg(Address address) {
+
                     logger.debug("Add Index Entry id invoked for id -> " + id);
-                    AddIndexEntryP2pSimulated.Request request = new AddIndexEntryP2pSimulated.Request(origin, address, junkEntry);
-                    return request;
-                    
-                }
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress)address, destination, Transport.UDP);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexEntry> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexEntry>(header, junkEntry);
 
-                @Override
-                public void beforeCmd(SimulationContext context) {
+                    return msg;
                 }
-
-                @Override
-                public boolean myResponse(DirectMsg response) {
-                    return true;
-                }
-
-                @Override
-                public void validate(SimulationContext context, DirectMsg response) throws ValidationException {
-                }
-
-                @Override
-                public void afterValidation(SimulationContext context) {
-                }
-                
             };
         }
     };

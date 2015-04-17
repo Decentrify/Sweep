@@ -5,18 +5,14 @@ import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.cm.ChunkManagerInit;
 import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.*;
-import se.sics.gvod.nat.traversal.NatTraverser;
-import se.sics.gvod.nat.traversal.events.NatTraverserInit;
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
+import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
@@ -27,9 +23,7 @@ import se.sics.ms.gradient.gradient.PseudoGradientInit;
 import se.sics.ms.gradient.gradient.SweepGradientFilter;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
-import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.gradient.ports.PublicKeyPort;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
@@ -37,28 +31,29 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
 
 import java.security.*;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.p2ptoolbox.croupier.api.CroupierControlPort;
-import se.sics.p2ptoolbox.croupier.api.CroupierPort;
-import se.sics.p2ptoolbox.croupier.api.msg.CroupierDisconnected;
-import se.sics.p2ptoolbox.croupier.api.msg.CroupierJoin;
-import se.sics.p2ptoolbox.croupier.core.Croupier;
-import se.sics.p2ptoolbox.croupier.core.Croupier.CroupierInit;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierComp;
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierControlPort;
+import se.sics.p2ptoolbox.croupier.CroupierPort;
+import se.sics.p2ptoolbox.croupier.msg.CroupierDisconnected;
+import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
 import se.sics.p2ptoolbox.election.core.ElectionInit;
 import se.sics.p2ptoolbox.election.core.ElectionLeader;
-import se.sics.p2ptoolbox.gradient.api.GradientPort;
-import se.sics.p2ptoolbox.gradient.api.msg.GradientUpdate;
-import se.sics.p2ptoolbox.gradient.core.Gradient;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientComp;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientPort;
+import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
 import se.sics.p2ptoolbox.serialization.filter.OverlayHeaderFilter;
+import se.sics.p2ptoolbox.util.config.SystemConfig;
+
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.util.SimpleLCPViewComparator;
 import se.sics.util.SweepLeaderFilter;
 
@@ -67,24 +62,20 @@ public final class SearchPeer extends ComponentDefinition {
     private static final Logger log = LoggerFactory.getLogger(SearchPeer.class);
 
     Positive<SimulationEventsPort> indexPort = positive(SimulationEventsPort.class);
-    Positive<VodNetwork> network = positive(VodNetwork.class);
+    Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
     private Component gradient;
-//    private Component search, electionLeader, electionFollower, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
-    private Component search, natTraversal, chunkManager, aggregatorComponent, pseudoGradient;
+    private Component search, chunkManager, aggregatorComponent, pseudoGradient;
     private Component electionLeader, electionFollower;
-    private Self self;
-    private VodAddress simulatorAddress;
+    private ApplicationSelf self;
     private SearchConfiguration searchConfiguration;
-
+    private SystemConfig systemConfig;
     private GradientConfiguration pseudoGradientConfiguration;
-    private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfiguration chunkManagerConfiguration;
-    private VodAddress bootstrapingNode;
 
     private PublicKey publicKey;
     private PrivateKey privateKey;
@@ -95,67 +86,41 @@ public final class SearchPeer extends ComponentDefinition {
         // Generate the Key Pair to be used by the application.
         generateKeys();
         self = init.getSelf();
-        
-        simulatorAddress = init.getSimulatorAddress();
+
         pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
-        electionConfiguration = init.getElectionConfiguration();
         searchConfiguration = init.getSearchConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
-        bootstrapingNode = init.getBootstrappingNode();
+        systemConfig = init.getSystemConfig();
 
         subscribe(handleStart, control);
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(addIndexEntryRequestHandler, externalUiPort);
 
-        natTraversal = create(NatTraverser.class,
-                new NatTraverserInit(self, new HashSet<Address>(),
-                        pseudoGradientConfiguration.getSeed(),
-                        NatTraverserConfiguration.build(),
-                        HpClientConfiguration.build(),
-                        RendezvousServerConfiguration.build().
-                        setSessionExpirationTime(30 * 1000),
-                        StunServerConfiguration.build(),
-                        StunClientConfiguration.build(),
-                        ParentMakerConfiguration.build(), true));
-
-
-        
-
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
-        search = create(Search.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
-        chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration,
-                MessageFrameDecoder.class));
-        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(simulatorAddress, self.getAddress(), 5000));
+        search = create(Search.class, new SearchInit(null, searchConfiguration, publicKey, privateKey));
+        chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration, MessageFrameDecoder.class));
+        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 
         // External General Components in the system needs to be connected.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
 
-        connect(network, natTraversal.getNegative(VodNetwork.class));
         // Gradient Port Connections.
         connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
         connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
 
-        connect(natTraversal.getPositive(VodNetwork.class),
-                pseudoGradient.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class),
-                search.getNegative(VodNetwork.class));
+        connect(network, pseudoGradient.getNegative(Network.class));
+        connect(network, search.getNegative(Network.class));
         
-        connect(natTraversal.getPositive(VodNetwork.class),
-                chunkManager.getNegative(VodNetwork.class));
-        connect(natTraversal.getPositive(VodNetwork.class), 
-                aggregatorComponent.getNegative(VodNetwork.class));
+        connect(network, chunkManager.getNegative(Network.class));
+        connect(network, aggregatorComponent.getNegative(Network.class));
         
         // Other Components and Aggregator Component.
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), 
-                search.getNegative(StatusAggregatorPort.class));
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class),
-                pseudoGradient.getNegative(StatusAggregatorPort.class));
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
 
-        connect(timer, natTraversal.getNegative(Timer.class));
         connect(timer, search.getNegative(Timer.class));
-        
         connect(timer, pseudoGradient.getNegative(Timer.class));
         connect(timer, chunkManager.getNegative(Timer.class));
         connect(timer, aggregatorComponent.getNegative(Timer.class));
@@ -163,18 +128,14 @@ public final class SearchPeer extends ComponentDefinition {
         // ===
         // SEARCH + (PSEUDO - GRADIENT) <-- CROUPIER + GRADIENT + (LEADER - ELECTION)
         //===
-        connect(croupier.getPositive(CroupierPort.class), 
-                pseudoGradient.getNegative(CroupierPort.class));
-        connect(croupier.getPositive(CroupierPort.class),
-                search.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
         
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         
-        connect(search.getPositive(LeaderStatusPort.class), 
-                pseudoGradient.getNegative(LeaderStatusPort.class));
+        connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         
-        connect(pseudoGradient.getPositive(GradientRoutingPort.class),
-                search.getNegative(GradientRoutingPort.class));
+        connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
         connect(internalUiPort, search.getPositive(UiPort.class));
         
         connect(search.getNegative(FailureDetectorPort.class), fdPort);
@@ -243,16 +204,15 @@ public final class SearchPeer extends ComponentDefinition {
                         new SweepLeaderFilter())
                     );
 
-
         // Election leader connections.
-        connect(natTraversal.getPositive(VodNetwork.class), electionLeader.getNegative(VodNetwork.class));
+        connect(network, electionLeader.getNegative(Network.class));
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
         
         // Election follower connections.
-        connect(natTraversal.getPositive(VodNetwork.class), electionFollower.getNegative(VodNetwork.class));
+        connect(network, electionFollower.getNegative(Network.class));
         connect(timer, electionFollower.getNegative(Timer.class));
         connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
@@ -268,10 +228,10 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectGradient(GradientConfig gradientConfig, int seed) {
         
         log.info("connecting gradient configuration ...");
-        gradient = create(Gradient.class, new Gradient.GradientInit(self.getAddress(),gradientConfig, 1, new SimpleUtilityComparator(), new SweepGradientFilter(), seed));
-        connect(natTraversal.getPositive(VodNetwork.class), gradient.getNegative(VodNetwork.class));
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(self.getAddress(), gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter(), seed));
+        connect(network, gradient.getNegative(Network.class), new OverlayHeaderFilter(0));
         connect(timer, gradient.getNegative(Timer.class));
-        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));    
+        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
     }
 
     /**
@@ -279,15 +239,19 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
     
     
     private void connectCroupier(CroupierConfig config, long seed) {
         log.info("connecting croupier components...");
-        croupier = create(Croupier.class, new CroupierInit(config, seed, 0, self.getAddress()));
+
+        List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
+        bootstrappingSet.addAll(systemConfig.bootstrapNodes);
+
+        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(config, 0, self.getAddress(), bootstrappingSet, seed));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(natTraversal.getPositive(VodNetwork.class), croupier.getNegative(VodNetwork.class), new OverlayHeaderFilter(0));
+        connect(network , croupier.getNegative(Network.class), new OverlayHeaderFilter(0));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
@@ -304,16 +268,8 @@ public final class SearchPeer extends ComponentDefinition {
 
     private void startCroupier() {
         
-        log.info("bootstrapping croupier...");
-        Set<VodAddress> bootstrappingSet = new HashSet<VodAddress>();
-        
-        // Update Set if bootstrap node is not null.
-        if (bootstrapingNode != null && !self.getAddress().equals(bootstrapingNode)) {
-            bootstrappingSet.add(bootstrapingNode);
-        }
-        
-        trigger(new CroupierJoin(UUID.randomUUID(), bootstrappingSet), croupier.getPositive(CroupierControlPort.class));
-        log.debug("expecting croupier view update next");
+        log.debug("Sending update to croupier.");
+        trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
     }
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {

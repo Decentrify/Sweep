@@ -11,12 +11,19 @@
     <artifactId>ms-simulators</artifactId>
     <name>ms-simulators</name>
     <url>http://maven.apache.org</url>
+
+
+    <properties>
+        <simulator.version>1.3-SNAPSHOT</simulator.version>
+    </properties>
+
+
     <dependencies>
 
         <dependency>
-            <groupId>se.sics.p2ptoolbox</groupId>
-            <artifactId>simulator</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>se.sics.p2ptoolbox.simulator</groupId>
+            <artifactId>simulator-core</artifactId>
+            <version>${simulator.version}</version>
         </dependency>
         <dependency>
             <groupId>se.kth.ms</groupId>

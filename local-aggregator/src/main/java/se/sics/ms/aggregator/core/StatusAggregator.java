@@ -2,18 +2,20 @@ package se.sics.ms.aggregator.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Transport;
 import se.sics.ms.aggregator.data.ComponentUpdate;
 import se.sics.ms.aggregator.data.SweepAggregatedPacket;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.aggregator.type.ComponentUpdateEvent;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.aggregator.api.msg.AggregatedStateContainer;
-import se.sics.p2ptoolbox.aggregator.core.msg.AggregatorNetMsg;
+import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,8 +35,8 @@ public class StatusAggregator extends ComponentDefinition{
     private Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
     private Positive<Timer> timerPositive = requires(Timer.class);
     
-    private VodAddress self;
-    private VodAddress globalAggregatorAddress;
+    private DecoratedAddress self;
+    private DecoratedAddress globalAggregatorAddress;
     private int timeout_seconds;
     
     
@@ -52,8 +54,7 @@ public class StatusAggregator extends ComponentDefinition{
             super(request, id);
         }
     }
-    
-    
+
     private void doInit(StatusAggregatorInit init){
         self = init.getSelf();
         timeout_seconds = init.getTimeout();
@@ -67,7 +68,6 @@ public class StatusAggregator extends ComponentDefinition{
         public void handle(Start event) {
             
             logger.info("Local Aggregator: Started.");
-            
             if(globalAggregatorAddress != null){
 
                 logger.info("Aggregator: Triggering the timeout.");
@@ -76,7 +76,6 @@ public class StatusAggregator extends ComponentDefinition{
                 spt.setTimeoutEvent(new AggregateStateUpdateTimeout(spt, self.getId()));
                 trigger(spt, timerPositive);
             }
-            
         }
     };
 
@@ -121,12 +120,14 @@ public class StatusAggregator extends ComponentDefinition{
             logger.info("Sending Periodic Update to Global Aggregator Component");
 
             SweepAggregatedPacket sap = new SweepAggregatedPacket(componentDataMap);
-            AggregatedStateContainer container = new AggregatedStateContainer(self, sap);
+            AggregatedStateContainer container = new AggregatedStateContainer(UUID.randomUUID(),self, sap);
 
             logger.debug(" Trying to trigger update to , {}", globalAggregatorAddress);
             logger.debug(" Sending the below information, {}", sap);
 
-            trigger(new AggregatorNetMsg.OneWay(self, globalAggregatorAddress, UUID.randomUUID(), container), networkPositive);
+            DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self, globalAggregatorAddress, Transport.UDP);
+            BasicContentMsg<DecoratedAddress, DecoratedHeader, AggregatedStateContainer> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader, AggregatedStateContainer>(header, container);
+            trigger(msg, networkPositive);
 
         }
     };

@@ -7,17 +7,15 @@ import se.sics.cm.ChunkManager;
 import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.co.FailureDetectorComponent;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.*;
 import se.sics.gvod.filters.MsgDestFilterAddress;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
-import se.sics.gvod.timer.Timer;
 import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
-import se.sics.ms.common.MsSelfImpl;
+import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.Timer;
+import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
@@ -35,20 +33,22 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Random;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import java.util.*;
+
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 public final class SearchSimulator extends ComponentDefinition {
 
     Positive<SimulatorPort> simulator = positive(SimulatorPort.class);
-    Positive<VodNetwork> network = positive(VodNetwork.class);
+    Positive<Network> network = positive(Network.class);
     Positive<Timer> timer = positive(Timer.class);
     private final HashMap<Long, Component> peers;
-    private final HashMap<Long, VodAddress> peersAddress;
+    private final HashMap<Long, DecoratedAddress> peersAddress;
     private CroupierConfig croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
@@ -56,6 +56,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private ChunkManagerConfiguration chunkManagerConfiguration;
     private GradientConfig gradientConfig;
     private ElectionConfig electionConfig;
+    private SystemConfig systemConfig;
 
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
@@ -70,8 +71,9 @@ public final class SearchSimulator extends ComponentDefinition {
     Logger logger = LoggerFactory.getLogger(SearchSimulator.class);
 
     public SearchSimulator(SearchSimulatorInit init) {
+
         peers = new HashMap<Long, Component>();
-        peersAddress = new HashMap<Long, VodAddress>();
+        peersAddress = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
 
         peers.clear();
@@ -100,43 +102,36 @@ public final class SearchSimulator extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(Start init) {
-            // generate periodic report
+
+            logger.debug("Component Started.. ");
+
+            /* generate periodic report
             int snapshotPeriod = Configuration.SNAPSHOT_PERIOD;
-//            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod,
-//                    snapshotPeriod);
-//            spt.setTimeoutEvent(new GenerateReport(spt));
-//            spt(spt, timer);
+            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(snapshotPeriod,
+                    snapshotPeriod);
+            spt.setTimeoutEvent(new GenerateReport(spt));
+            spt(spt, timer);*/
 
         }
     };
 
     String randomText() {
         StringBuilder sb = new StringBuilder();
-//        int clauses = Math.max(1, r.nextInt(3));
-//        for (int i = 0; i < clauses; i++) {
-//            sb.append(articles[r.nextInt(articles.length)]);
-//            sb.append(subjects[r.nextInt(subjects.length)]);
-//            sb.append(verbs[r.nextInt(verbs.length)]);
-//            sb.append(objects[r.nextInt(objects.length)]);
-//            sb.append(". ");
-//        }
+
+        /* int clauses = Math.max(1, r.nextInt(3));
+        for (int i = 0; i < clauses; i++) {
+            sb.append(articles[r.nextInt(articles.length)]);
+            sb.append(subjects[r.nextInt(subjects.length)]);
+            sb.append(verbs[r.nextInt(verbs.length)]);
+            sb.append(objects[r.nextInt(objects.length)]);
+            sb.append(". ");
+        }*/
 
 
         sb.append("abhi"+counter);
         counter++;
         return sb.toString();
     }
-
-//    Handler<TerminateExperiment> handleTerminateExperiment = new Handler<TerminateExperiment>() {
-//        @Override
-//        public void handle(TerminateExperiment event) {
-//            
-//            // TODO: Print out summary
-//            
-//            Kompics.shutdown();
-//            System.exit(0);
-//        }
-//    };
 
     Handler<AddIndexEntry> handleAddIndexEntry = new Handler<AddIndexEntry>() {
         @Override
@@ -233,8 +228,7 @@ public final class SearchSimulator extends ComponentDefinition {
         }
     };
 
-    private VodAddress bootstrappingNode;
-    private final void createAndStartNewPeer(long id) {
+    private void createAndStartNewPeer(long id) {
 
         System.out.println(" Going to start peer with id: " + id) ;
         InetAddress ip = null;
@@ -243,42 +237,40 @@ public final class SearchSimulator extends ComponentDefinition {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
+        ApplicationSelf self = null;
+        BasicAddress address = new BasicAddress(ip, 9999, (int)id);
+        self = new ApplicationSelf(new DecoratedAddress(address));
 
-        Address address = new Address(ip, 9999, (int) id);
-
-        // FIXME: Changing the initial partitioning depth as zero.
-        Self self = new MsSelfImpl(new VodAddress(address, 
-                OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
-
-        Component peer = create(SearchPeer.class, new SearchPeerInit(self, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration,gradientConfig, bootstrappingNode, null, null));
+        Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
-        connect(network, peer.getNegative(VodNetwork.class), new MsgDestFilterAddress(address));
-        connect(timer, peer.getNegative(Timer.class), new IndividualTimeout.IndividualTimeoutFilter(self.getId()));
+
+        connect(network, peer.getNegative(Network.class));
+        connect(timer, peer.getNegative(Timer.class));
         connect(fd.getPositive(FailureDetectorPort.class), peer.getNegative(FailureDetectorPort.class));
 
-        bootstrappingNode = self.getAddress();
+        List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
+        bootstrapNodes.add(self.getAddress());
+        systemConfig = new SystemConfig(self.getAddress(), null, bootstrapNodes);
+
 
         trigger(Start.event, peer.getControl());
         trigger(Start.event, fd.getControl());
         peers.put(id, peer);
         peersAddress.put(id, self.getAddress());
-
-        Snapshot.addPeer(self.getAddress());
     }
+
 
     private void stopAndDestroyPeer(Long id) {
         Component peer = peers.get(id);
 
         trigger(new Stop(), peer.getControl());
 
-        disconnect(network, peer.getNegative(VodNetwork.class));
+        disconnect(network, peer.getNegative(Network.class));
         disconnect(timer, peer.getNegative(Timer.class));
 
         peers.remove(id);
-        VodAddress addr = peersAddress.remove(id);
-        Snapshot.removePeer(addr);
-
         destroy(peer);
     }
+
 }

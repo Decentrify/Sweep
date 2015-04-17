@@ -15,6 +15,7 @@ import se.sics.ms.types.IndexEntry;
  * @author Steffen Grohsschmiedt
  */
 public class AddIndexEntryMessage {
+
     public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 

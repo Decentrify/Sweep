@@ -1,5 +1,7 @@
 package se.sics.ms.simulation;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.cm.ChunkManagerConfiguration;
@@ -9,21 +11,25 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.util.OverlayIdHelper;
-import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Utility class to help start the nodes in the system.
@@ -32,7 +38,7 @@ import java.util.HashMap;
  */
 public class SweepOperationsHelper {
 
-    private final static HashMap<Long, VodAddress> peersAddressMap;
+    private final static HashMap<Long, DecoratedAddress> peersAddressMap;
     private final static ConsistentHashtable<Long> ringNodes;
 
     private final static CroupierConfig croupierConfiguration;
@@ -42,25 +48,27 @@ public class SweepOperationsHelper {
     private final static ChunkManagerConfiguration chunkManagerConfiguration;
     private final static GradientConfig gradientConfig;
     private final static ElectionConfig electionConfig;
-    
+    private static SystemConfig systemConfig;
+
     private static Logger logger = LoggerFactory.getLogger(SweepOperationsHelper.class);
     private static Long identifierSpaceSize;
-    private static VodAddress bootstrapAddress = null;
+    private static DecoratedAddress bootstrapAddress = null;
     private static int counter =0;
-    
+
     static{
+
+        Config config = ConfigFactory.load("application.conf");
+
         identifierSpaceSize = new Long(3000);
-        peersAddressMap  = new HashMap<Long, VodAddress>();
+        peersAddressMap  = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
 
-        CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
-        croupierConfiguration = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
-                MsConfig.CROUPIER_SHUFFLE_LENGTH, hardcodedPolicy);
+        croupierConfiguration = new CroupierConfig(config);
         searchConfiguration = SearchConfiguration.build();
         gradientConfiguration = GradientConfiguration.build();
         electionConfiguration = ElectionConfiguration.build();
         chunkManagerConfiguration = ChunkManagerConfiguration.build();
-        gradientConfig= new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE,MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
+        gradientConfig= new GradientConfig(config);
         electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
     }
 
@@ -86,7 +94,7 @@ public class SweepOperationsHelper {
      * Based on the NodeId provided, generate an init configuration for the search peer.
      * @param id NodeId
      */
-    public static SearchPeerInit generatePeerInit(VodAddress simulatorAddress, long id){
+    public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress, long id){
         
         logger.info(" Generating address for peer with id: {} ", id);
         InetAddress ip = null;
@@ -97,15 +105,17 @@ public class SweepOperationsHelper {
             System.exit(-1);
         }
 
-        Address address = new Address(ip, 9999, (int) id);
-        Self self = new MsSelfImpl(new VodAddress(address,
-                OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.NEVER_BEFORE, 0, 0, MsConfig.Categories.Video.ordinal())));
+        BasicAddress basicAddress = new BasicAddress(ip, 9999 , (int)id);
+        ApplicationSelf applicationSelf = new ApplicationSelf(new DecoratedAddress(basicAddress));
 
-        SearchPeerInit init  = new SearchPeerInit(self,croupierConfiguration,searchConfiguration,gradientConfiguration,electionConfiguration,chunkManagerConfiguration,gradientConfig, bootstrapAddress, simulatorAddress, electionConfig);
+        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
         
         ringNodes.addNode(id);
-        peersAddressMap.put(id, self.getAddress());
-        bootstrapAddress = self.getAddress();
+        peersAddressMap.put(id, applicationSelf.getAddress());
+
+        List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
+        bootstrapNodes.add(applicationSelf.getAddress());
+        systemConfig = new SystemConfig(null, simulatorAddress, bootstrapNodes);
         
         return init;
     }
@@ -118,17 +128,12 @@ public class SweepOperationsHelper {
      * @param id Random Id 
      * @return
      */
-    public static VodAddress getNodeAddressToCommunicate(Long id){
+    public static DecoratedAddress getNodeAddressToCommunicate(Long id){
         
         logger.info(" Fetching random node address from the map. ");
         Long successor = ringNodes.getNode(id);
         
-        VodAddress address = null;
-        
-        
-        
-        address = peersAddressMap.get(successor);
-        
+        DecoratedAddress address = peersAddressMap.get(successor);
         if(address == null){
             throw new RuntimeException(" Unable to locate node to add index entry to.");
         }

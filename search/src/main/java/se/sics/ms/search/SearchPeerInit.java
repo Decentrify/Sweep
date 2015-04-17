@@ -1,48 +1,51 @@
 package se.sics.ms.search;
 
 import se.sics.cm.ChunkManagerConfiguration;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.ms.common.ApplicationSelf;
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
 
-    private final Self self;
+    private final ApplicationSelf self;
+    private final SystemConfig systemConfig;
     private final CroupierConfig croupierConfiguration;
     private final SearchConfiguration applicationConfiguration;
     private final GradientConfiguration pseudoGradientConfiguration;
     private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfiguration chunkManagerConfiguration;
     private final GradientConfig gradientConfig;
-    private final VodAddress bootstrappingNode;
-    private final VodAddress simulatorAddress;
     private final ElectionConfig electionConfig;
 
-    public SearchPeerInit(Self self,
+    public SearchPeerInit(ApplicationSelf self, SystemConfig systemConfig,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
             ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig,
-            VodAddress bootstrappingNode, VodAddress simulatorAddress, ElectionConfig electionConfig) {
+            ElectionConfig electionConfig) {
         super();
         this.self = self;
+        this.systemConfig = systemConfig;
         this.croupierConfiguration = croupierConfiguration;
         this.applicationConfiguration = applicationConfiguration;
         this.pseudoGradientConfiguration = pseudoGradientConfiguration;
         this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig  = gradientConfig;
-        this.bootstrappingNode = bootstrappingNode;
-        this.simulatorAddress = simulatorAddress;
         this.electionConfig = electionConfig;
     }
 
-    public Self getSelf() {
+    public SystemConfig getSystemConfig(){
+        return this.systemConfig;
+    }
+
+    public ApplicationSelf getSelf() {
         return this.self;
     }
 
@@ -62,20 +65,13 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         return this.electionConfiguration;
     }
 
-    public VodAddress getBootstrappingNode() {
-        return bootstrappingNode;
-    }
-    
+
     public GradientConfig getGradientConfig(){
         return this.gradientConfig;
     }
     
     public ChunkManagerConfiguration getChunkManagerConfiguration() {
         return chunkManagerConfiguration;
-    }
-    
-    public VodAddress getSimulatorAddress(){
-        return this.simulatorAddress;
     }
 
     public ElectionConfig getElectionConfig(){

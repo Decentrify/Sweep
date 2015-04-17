@@ -2,9 +2,11 @@ package se.sics.ms.ports;
 
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
+import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.common.MsSelfImpl;
 
 /**
+ * Port containing event about the updated self information.
  * Created by saira on 12/4/14.
  */
 public class SelfChangedPort extends PortType {
@@ -14,13 +16,13 @@ public class SelfChangedPort extends PortType {
 
     public static class SelfChangedEvent extends Event {
 
-        private MsSelfImpl self;
+        private ApplicationSelf self;
 
-        public SelfChangedEvent(MsSelfImpl self) {
+        public SelfChangedEvent(ApplicationSelf self) {
             this.self = self;
         }
 
-        public MsSelfImpl getSelf() {
+        public ApplicationSelf getSelf() {
             return self;
         }
     }

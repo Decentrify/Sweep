@@ -4,6 +4,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.messages.PartitionCommitMessage;
 import se.sics.ms.messages.PartitionPrepareMessage;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
 
@@ -15,7 +16,7 @@ import java.util.Collection;
 public class PartitioningTracker {
 
     public TimeoutId partitionRequestId;
-    public Collection<VodAddress> leaderGroupNodes;
+    public Collection<DecoratedAddress> leaderGroupNodes;
     int promises;
     int commits;
     PartitionHelper.PartitionInfo partitionInfo;
@@ -24,7 +25,7 @@ public class PartitioningTracker {
 
     }
 
-    public void startTracking(TimeoutId partitionRequestId , Collection<VodAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
+    public void startTracking(TimeoutId partitionRequestId , Collection<DecoratedAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
 
         this.partitionRequestId = partitionRequestId;
         this.leaderGroupNodes = leaderGroupNodes;
@@ -65,7 +66,7 @@ public class PartitioningTracker {
         this.commits = 0;
     }
 
-    public Collection<VodAddress> getLeaderGroupNodes(){
+    public Collection<DecoratedAddress> getLeaderGroupNodes(){
         return this.leaderGroupNodes;
     }
 

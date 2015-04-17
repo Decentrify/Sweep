@@ -5,9 +5,9 @@ import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
 
 public final class SearchSimulatorInit extends Init<SearchSimulator> {
 	private final CroupierConfig croupierConfiguration;

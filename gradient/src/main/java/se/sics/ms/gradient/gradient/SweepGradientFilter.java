@@ -5,14 +5,14 @@ import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.gradient.api.GradientFilter;
+import se.sics.p2ptoolbox.gradient.GradientFilter;
 
 /**
  * Application's Gradient Filter.
  *
  * Created by babbarshaer on 2015-03-06.
  */
-public class SweepGradientFilter implements GradientFilter<SearchDescriptor>{
+public class SweepGradientFilter implements GradientFilter<SearchDescriptor> {
     
     @Override
     public boolean retainOther(SearchDescriptor selfDescriptor, SearchDescriptor otherDescriptor) {

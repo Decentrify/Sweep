@@ -12,6 +12,11 @@
     <packaging>jar</packaging>
     <name>ms-common</name>
 
+    <properties>
+        <lucene.version>4.2.0</lucene.version>
+        <serialization.util.version>1.0-SNAPSHOT</serialization.util.version>
+    </properties>
+
     <dependencies>
         
         <dependency>
@@ -24,7 +29,7 @@
                     <groupId>log4j</groupId>
                 </exclusion>
             </exclusions>
-        </dependency>    
+        </dependency>
         <dependency>
             <groupId>se.sics.timer.java</groupId> 
             <artifactId>java-timer</artifactId>
@@ -79,27 +84,27 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-memory</artifactId>
-            <version>4.2.0</version>
+            <version>${lucene.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-core</artifactId>
-            <version>4.2.0</version>
+            <version>${lucene.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queries</artifactId>
-            <version>4.2.0</version>
+            <version>${lucene.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queryparser</artifactId>
-            <version>4.2.0</version>
+            <version>${lucene.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analyzers-common</artifactId>
-            <version>4.2.0</version>
+            <version>${lucene.version}</version>
         </dependency>
         <dependency>
             <groupId>se.sics.p2ptoolbox.croupier</groupId>
@@ -120,6 +125,11 @@
             <groupId>se.sics.p2ptoolbox.election</groupId>
             <artifactId>election-core</artifactId>
             <version>${election.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.p2ptoolbox</groupId>
+            <artifactId>serialization-util</artifactId>
+            <version>${serialization.util.version}</version>
         </dependency>
         
     </dependencies>

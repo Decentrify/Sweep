@@ -1,32 +1,34 @@
 package se.sics.ms.simulator;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.config.*;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.network.model.king.KingLatencyMap;
-import se.sics.gvod.p2p.simulator.P2pSimulator;
-import se.sics.gvod.p2p.simulator.P2pSimulatorInit;
-import se.sics.gvod.timer.Timer;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Kompics;
-import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
-import se.sics.kompics.simulation.SimulatorScheduler;
 
 import java.io.IOException;
+
+import se.sics.kompics.network.Network;
+import se.sics.kompics.simulation.SimulatorScheduler;
+import se.sics.kompics.timer.Timer;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.p2ptoolbox.croupier.api.CroupierSelectionPolicy;
-import se.sics.p2ptoolbox.croupier.core.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.core.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.simulator.core.P2pSimulator;
+import se.sics.p2ptoolbox.simulator.core.P2pSimulatorInit;
+import se.sics.p2ptoolbox.simulator.core.network.impl.UniformRandomModel;
+import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 
 public final class SearchSimulationMain extends ComponentDefinition {
 
-    private static SimulationScenario scenario = SimulationScenario.load(System
-            .getProperty("scenario"));
+    private static SimulationScenario scenario = SimulationScenario.load(System.getProperty("scenario"));
     private static SimulatorScheduler simulatorScheduler = new SimulatorScheduler();
 
     public static void main(String[] args) {
+
         Kompics.setScheduler(simulatorScheduler);
         Kompics.createAndStart(SearchSimulationMain.class, 1);
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -35,29 +37,26 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 try {
                     Kompics.shutdown();
                 } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         });
     }
 
     public SearchSimulationMain() throws IOException {
-        P2pSimulator.setSimulationPortType(SimulatorPort.class);
 
+        P2pSimulator.setSimulationPortType(SimulatorPort.class);
         VodConfig.init(new String[0]);
 
-        CroupierConfiguration croupierConfig = CroupierConfiguration.build()
-                .setRto(3000)
-                .setRtoRetries(2)
-                .setRtoScale(1.0d);
-
-        // TODO - check that this is the correct seed being passed to the KingLatencyMap
         Component p2pSimulator = create(P2pSimulator.class, new P2pSimulatorInit(simulatorScheduler,
-                scenario, new KingLatencyMap(croupierConfig.getSeed())));
-        //TODO Alex/Croupier get croupier selection policy from settings
-        CroupierSelectionPolicy hardcodedPolicy = CroupierSelectionPolicy.RANDOM;
-        CroupierConfig newCroupierConfig = new CroupierConfig(MsConfig.CROUPIER_VIEW_SIZE, MsConfig.CROUPIER_SHUFFLE_PERIOD,
-                MsConfig.CROUPIER_SHUFFLE_LENGTH, hardcodedPolicy);
-        GradientConfig gradientConfig = new GradientConfig(MsConfig.GRADIENT_VIEW_SIZE, MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_LENGTH);
+                scenario, new UniformRandomModel(1,10)));
+
+        // TODO: SET THE SERIALIZATION MAIN.
+
+        Config config = ConfigFactory.load("application.conf");
+
+        CroupierConfig newCroupierConfig = new CroupierConfig(config);
+        GradientConfig gradientConfig = new GradientConfig(config);
         ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
 
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
@@ -69,8 +68,8 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 gradientConfig,
                 electionConfig));
 
-        // connect
-        connect(simulator.getNegative(VodNetwork.class), p2pSimulator.getPositive(VodNetwork.class));
+        // connections
+        connect(simulator.getNegative(Network.class), p2pSimulator.getPositive(Network.class));
         connect(simulator.getNegative(Timer.class), p2pSimulator.getPositive(Timer.class));
         connect(simulator.getNegative(SimulatorPort.class), p2pSimulator.getPositive(SimulatorPort.class));
 

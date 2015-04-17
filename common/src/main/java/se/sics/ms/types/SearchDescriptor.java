@@ -1,8 +1,7 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.io.Serializable;
 
@@ -12,7 +11,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, PeerView, LCPeerView{
+public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, LCPeerView{
 
 //    private int age;
     private transient boolean connected;
@@ -20,12 +19,16 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     private final long numberOfIndexEntries;
     private final boolean isLGMember;
 
-    public SearchDescriptor(se.sics.gvod.net.VodAddress vodAddress) {
-        this(new OverlayAddress(vodAddress), false, 0, false);
+    public SearchDescriptor(DecoratedAddress address) {
+        this(new OverlayAddress(address, 0), false, 0, false);
+    }
+
+    public SearchDescriptor(DecoratedAddress address, int overlayId){
+        this(new OverlayAddress(address, overlayId), false, 0, false);
     }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(descriptor.getOverlayAddress(), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLGMember());
+        this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLGMember());
     }
 
     public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember){
@@ -39,7 +42,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         return isLGMember;
     }
 
-    public VodAddress getVodAddress() {
+    public DecoratedAddress getVodAddress() {
         return this.overlayAddress.getAddress();
     }
 
@@ -99,14 +102,14 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return overlayIdComparisonResult;
         }
 
-        int indexEntryCompareResult = Long.valueOf(this.numberOfIndexEntries).compareTo(Long.valueOf(that.numberOfIndexEntries));
+        int indexEntryCompareResult = Long.valueOf(this.numberOfIndexEntries).compareTo(that.numberOfIndexEntries);
 
         if(indexEntryCompareResult != 0){
             return indexEntryCompareResult;
         }
 
         // NOTE: Fix this because internally it uses the VodAddress compareTo , which uses overlay Id as the tie breaker.
-        return this.overlayAddress.getAddress().compareTo(that.overlayAddress.getAddress());
+        return this.overlayAddress.compareTo(that.overlayAddress);
     }
 
     @Override
@@ -180,11 +183,6 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         return this.overlayAddress.getPartitionIdDepth();
     }
     
-    @Override
-    public SearchDescriptor deepCopy() {
-        return new SearchDescriptor(this.getOverlayAddress(), this.isConnected(), this.getNumberOfIndexEntries(), this.isLGMember());
-    }
-
     @Override
     public boolean isLeaderGroupMember() {
         return this.isLGMember;

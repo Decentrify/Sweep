@@ -3,6 +3,7 @@ package se.sics.ms.search;
 import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
+import se.sics.ms.common.ApplicationSelf;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -13,20 +14,20 @@ import java.security.PublicKey;
  */
 public final class SearchInit extends Init<Search> {
     
-	private final Self peerSelf;
+	private final ApplicationSelf self;
 	private final SearchConfiguration configuration;
     private PublicKey publicKey;
     private PrivateKey privateKey;
     
 	/**
-	 * @param peerSelf
+	 * @param self
 	 *            the address of the local node
 	 * @param configuration
 	 *            the {@link SearchConfiguration} of the local node
 	 */
-	public SearchInit(Self peerSelf, SearchConfiguration configuration, PublicKey publicKey, PrivateKey privateKey) {
+	public SearchInit(ApplicationSelf self, SearchConfiguration configuration, PublicKey publicKey, PrivateKey privateKey) {
 		super();
-		this.peerSelf = peerSelf;
+		this.self = self;
 		this.configuration = configuration;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
@@ -35,8 +36,8 @@ public final class SearchInit extends Init<Search> {
 	/**
 	 * @return the address of the local node
 	 */
-	public Self getSelf() {
-		return this.peerSelf;
+	public ApplicationSelf getSelf() {
+		return this.self;
 	}
 
 	/**

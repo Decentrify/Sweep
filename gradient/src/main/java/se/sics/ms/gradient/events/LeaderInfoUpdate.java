@@ -3,6 +3,7 @@ package se.sics.ms.gradient.events;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
 
@@ -13,16 +14,16 @@ import java.security.PublicKey;
  */
 public class LeaderInfoUpdate implements KompicsEvent {
 
-    private VodAddress leaderAddress;
+    private DecoratedAddress leaderAddress;
     private PublicKey leaderPublicKey;
 
-    public LeaderInfoUpdate(VodAddress leaderAddress, PublicKey leaderPublicKey) {
+    public LeaderInfoUpdate(DecoratedAddress leaderAddress, PublicKey leaderPublicKey) {
         this.leaderAddress = leaderAddress;
         this.leaderPublicKey = leaderPublicKey;
     }
 
 
-    public VodAddress getLeaderAddress() {
+    public DecoratedAddress getLeaderAddress() {
         return leaderAddress;
     }
 

@@ -2,6 +2,7 @@ package se.sics.ms.aggregator.core;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Initialization Class for the Status Aggregator.
@@ -10,21 +11,21 @@ import se.sics.kompics.Init;
  */
 public class StatusAggregatorInit extends Init<StatusAggregator>{
 
-    private final VodAddress mainSimAddress;
-    private final VodAddress self;
+    private final DecoratedAddress mainSimAddress;
+    private final DecoratedAddress self;
     private final int timeout;
     
-    public StatusAggregatorInit(VodAddress mainSimAddress, VodAddress self, int timeout){
+    public StatusAggregatorInit(DecoratedAddress mainSimAddress, DecoratedAddress self, int timeout){
         this.mainSimAddress = mainSimAddress;
         this.self = self;
         this.timeout = timeout;
     }
 
-    public VodAddress getMainSimAddress() {
+    public DecoratedAddress getMainSimAddress() {
         return mainSimAddress;
     }
 
-    public VodAddress getSelf() {
+    public DecoratedAddress getSelf() {
         return self;
     }
 

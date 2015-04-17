@@ -1,7 +1,6 @@
 package se.sics.ms.gradient.misc;
 
 import se.sics.ms.types.SearchDescriptor;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 
 import java.util.Comparator;
 
@@ -10,25 +9,17 @@ import java.util.Comparator;
  *
  * Created by babbarshaer on 2015-03-06.
  */
-public class SimpleUtilityComparator implements Comparator<PeerView>{
-    
-        SearchDescriptor s1;
-        SearchDescriptor s2;
+public class SimpleUtilityComparator implements Comparator<SearchDescriptor>{
 
         @Override
-        public int compare(PeerView o1, PeerView o2) {
+        public int compare(SearchDescriptor s1, SearchDescriptor s2) {
 
-            if(o1 instanceof SearchDescriptor && o2 instanceof SearchDescriptor){
-
-                s1 = (SearchDescriptor)o1;
-                s2 = (SearchDescriptor)o2;
-
-                // NAT TYPE.
-                if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
+                // NAT TYPE. ASSUME ALL OPEN.
+                /*if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
                     if (s1.getVodAddress().isOpen())
                         return 1;
                     return -1;
-                }
+                }*/
 
                 // LEADER GROUP MEMBERSHIP.
                 if(s1.isLGMember() != s2.isLGMember()){
@@ -61,8 +52,5 @@ public class SimpleUtilityComparator implements Comparator<PeerView>{
                 }
 
                 return 0;
-            }
-
-            throw new ClassCastException("Comparator's Not Valid for the Object.");
         }
 }

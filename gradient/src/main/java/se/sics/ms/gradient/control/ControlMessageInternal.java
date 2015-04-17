@@ -2,6 +2,8 @@ package se.sics.ms.gradient.control;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+
 /**
  * Created by alidar on 8/13/14.
  */
@@ -9,7 +11,7 @@ public class ControlMessageInternal {
 
     public static class Request extends ControlMessageInternalBase {
 
-        public Request(TimeoutId roundId, VodAddress sourceAddress){
+        public Request(TimeoutId roundId, DecoratedAddress sourceAddress){
             super(roundId, sourceAddress);
         }
 
@@ -19,7 +21,7 @@ public class ControlMessageInternal {
 
         private ControlMessageEnum controlMessageEnum;
 
-        public Response(TimeoutId roundId, VodAddress sourceAddress, ControlMessageEnum controlMessageEnum) {
+        public Response(TimeoutId roundId, DecoratedAddress sourceAddress, ControlMessageEnum controlMessageEnum) {
             super(roundId, sourceAddress);
             this.controlMessageEnum = controlMessageEnum;
         }
