@@ -1206,23 +1206,7 @@ public final class Search extends ComponentDefinition {
             
         }
     };
-    
 
-
-    final Handler<ViewSizeMessage.Response> handleViewSizeResponse = new Handler<ViewSizeMessage.Response>() {
-        @Override
-        public void handle(ViewSizeMessage.Response response) {
-            int viewSize = response.getViewSize();
-
-            int majoritySize = (int) Math.ceil(viewSize / 2) + 1;
-
-            //awaitingForPrepairResponse.put(response.getTimeoutId(), response.getNewEntry());
-            replicationRequests.put(response.getTimeoutId(), new ReplicationCount(response.getSource(), majoritySize, response.getNewEntry()));
-
-            trigger(new GradientRoutingPort.ReplicationPrepareCommitRequest(response.getNewEntry(), response.getTimeoutId()), gradientRoutingPort);
-
-        }
-    };
 
     /*
      * @return a new id for a new {@link IndexEntry}

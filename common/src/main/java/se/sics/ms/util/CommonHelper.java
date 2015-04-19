@@ -1,5 +1,10 @@
 package se.sics.ms.util;
 
+import se.sics.kompics.network.Transport;
+import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+
 import java.util.*;
 
 /**
@@ -25,6 +30,25 @@ public class CommonHelper {
         return list;
     }
 
+
+    /**
+     * Convenience Constructor method for the basic content message.
+     * @param header header
+     * @param content content
+     * @param <E> type
+     * @return content message
+     */
+    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedContentMsg(DecoratedHeader<DecoratedAddress> header, E content){
+        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(header, content);
+    }
+    
+    
+    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedContentMessage(DecoratedAddress sourceAddress, DecoratedAddress destination, Transport transport, E content){
+        
+        DecoratedHeader<DecoratedAddress> decoratedHeader = new DecoratedHeader<DecoratedAddress>(sourceAddress, destination,  transport);
+        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(decoratedHeader, content);
+        
+    }
 
 
 }
