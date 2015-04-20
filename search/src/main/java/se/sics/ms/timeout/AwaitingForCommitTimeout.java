@@ -1,6 +1,7 @@
 package se.sics.ms.timeout;
 
-import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.kompics.timer.ScheduleTimeout;
+import se.sics.kompics.timer.Timeout;
 import se.sics.ms.types.IndexEntry;
 
 /**
@@ -9,12 +10,11 @@ import se.sics.ms.types.IndexEntry;
  * Date: 8/3/13
  * Time: 2:11 PM
  */
-public class AwaitingForCommitTimeout extends IndividualTimeout {
+public class AwaitingForCommitTimeout extends Timeout {
+
     private final IndexEntry entry;
-
-    public AwaitingForCommitTimeout(ScheduleTimeout rst, int id, IndexEntry entry) {
-        super(rst, id);
-
+    public AwaitingForCommitTimeout(ScheduleTimeout rst, IndexEntry entry) {
+        super(rst);
         this.entry = entry;
     }
 

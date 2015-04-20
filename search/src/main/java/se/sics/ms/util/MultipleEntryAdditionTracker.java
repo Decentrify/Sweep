@@ -3,11 +3,13 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.data.ReplicationPrepareCommit;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
 import se.sics.ms.search.Search;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Tracker for entry addition rounds in the system.
@@ -18,15 +20,15 @@ import java.util.Map;
 public class MultipleEntryAdditionTracker {
     
     private int maxCount =0;
-    private Map<TimeoutId, EntryAdditionRoundInfo> entryAdditionRoundInfoMap;
+    private Map<UUID, EntryAdditionRoundInfo> entryAdditionRoundInfoMap;
     Logger logger  = LoggerFactory.getLogger(Search.class);
     
     public MultipleEntryAdditionTracker(int maxCount){
         this.maxCount = maxCount;
-        this.entryAdditionRoundInfoMap = new HashMap<TimeoutId, EntryAdditionRoundInfo>();
+        this.entryAdditionRoundInfoMap = new HashMap<UUID, EntryAdditionRoundInfo>();
     }
 
-    public void startTracking(TimeoutId additionRoundId, EntryAdditionRoundInfo additionRoundInfo){
+    public void startTracking(UUID additionRoundId, EntryAdditionRoundInfo additionRoundInfo){
         
         if(entryAdditionRoundInfoMap!= null && !entryAdditionRoundInfoMap.containsKey(additionRoundId)){
             entryAdditionRoundInfoMap.put(additionRoundId, additionRoundInfo);
@@ -40,15 +42,22 @@ public class MultipleEntryAdditionTracker {
      * Convenience Method for collating and adding promise responses.
      * @param response Promise Response.
      */
-    public void addEntryAddPromiseResponse(ReplicationPrepareCommitMessage.Response response){
+    public void addEntryAddPromiseResponse(ReplicationPrepareCommit.Response response){
 
-        TimeoutId roundId = response.getTimeoutId();
+        UUID roundId = response.getIndexAdditionRoundId();
         if(this.entryAdditionRoundInfoMap != null && this.entryAdditionRoundInfoMap.containsKey(roundId)){
             this.entryAdditionRoundInfoMap.get(roundId).addEntryAddPromiseResponse(response);
         }
     }
 
-    public EntryAdditionRoundInfo getEntryAdditionRoundInfo(TimeoutId entryAdditionRoundId){
+    /**
+     * Based on the entry addition round id, fetch the entry addition round information
+     * stored locally in the map.
+     *
+     * @param entryAdditionRoundId addition round id.
+     * @return Round Info.
+     */
+    public EntryAdditionRoundInfo getEntryAdditionRoundInfo(UUID entryAdditionRoundId){
         return this.entryAdditionRoundInfoMap.get(entryAdditionRoundId);
     }
     
@@ -56,7 +65,7 @@ public class MultipleEntryAdditionTracker {
      * Reset the tracker information the specified entry addition round.
      * @param entryAdditionRound addition round.
      */
-    public void resetTracker(TimeoutId entryAdditionRound){
+    public void resetTracker(UUID entryAdditionRound){
         if(entryAdditionRoundInfoMap != null){
             entryAdditionRoundInfoMap.remove(entryAdditionRound);
         }

@@ -1,10 +1,7 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.data.PartitionCommit;
 import se.sics.ms.data.PartitionPrepare;
-import se.sics.ms.messages.PartitionCommitMessage;
-import se.sics.ms.messages.PartitionPrepareMessage;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
@@ -44,7 +41,7 @@ public class PartitioningTracker {
         }
     }
 
-    public void addCommitResponse(PartitionCommitMessage.Response response){
+    public void addCommitResponse(PartitionCommit.Response response){
 
         if(partitionRequestId != null && response.getPartitionRequestId().equals(partitionRequestId)){
             commits++;

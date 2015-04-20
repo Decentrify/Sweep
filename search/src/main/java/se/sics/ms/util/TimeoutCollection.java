@@ -2,9 +2,10 @@ package se.sics.ms.util;
 
 import se.sics.gvod.timer.SchedulePeriodicTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;
-import se.sics.gvod.timer.Timeout;
-import se.sics.gvod.timer.TimeoutId;
+import se.sics.kompics.timer.Timeout;
 import se.sics.ms.timeout.IndividualTimeout;
+
+import java.util.UUID;
 
 /**
  * Collection of Timeouts to be used by the search during different phases of the
@@ -30,10 +31,10 @@ public class TimeoutCollection {
         }
     }
 
-    public static class SearchTimeout extends IndividualTimeout {
+    public static class SearchTimeout extends Timeout {
 
-        public SearchTimeout(ScheduleTimeout request, int id) {
-            super(request, id);
+        public SearchTimeout(se.sics.kompics.timer.ScheduleTimeout request) {
+            super(request);
         }
     }
 
@@ -58,11 +59,11 @@ public class TimeoutCollection {
     /**
      * Timeout for the prepare phase started by the index entry addition mechanism.
      */
-    public static  class EntryPrepareResponseTimeout extends Timeout{
+    public static  class EntryPrepareResponseTimeout extends se.sics.kompics.timer.Timeout{
 
-        public TimeoutId roundId;
+        public UUID roundId;
         
-        public EntryPrepareResponseTimeout(ScheduleTimeout request, TimeoutId roundId) {
+        public EntryPrepareResponseTimeout(se.sics.kompics.timer.ScheduleTimeout request, UUID roundId) {
             super(request);
             this.roundId = roundId;
         }

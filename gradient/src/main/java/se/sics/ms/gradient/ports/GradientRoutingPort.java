@@ -152,10 +152,10 @@ public class GradientRoutingPort extends PortType {
 
     public static class SearchRequest extends Event {
         private final SearchPattern pattern;
-        private final TimeoutId timeoutId;
+        private final UUID timeoutId;
         private final int queryTimeout;
 
-        public SearchRequest(SearchPattern pattern, TimeoutId timeoutId, int queryTimeout) {
+        public SearchRequest(SearchPattern pattern, UUID timeoutId, int queryTimeout) {
             this.pattern = pattern;
             this.timeoutId = timeoutId;
             this.queryTimeout = queryTimeout;
@@ -165,7 +165,7 @@ public class GradientRoutingPort extends PortType {
             return pattern;
         }
 
-        public TimeoutId getTimeoutId() {
+        public UUID getTimeoutId() {
             return timeoutId;
         }
 

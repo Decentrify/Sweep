@@ -10,9 +10,10 @@ import java.util.Set;
  * Stores information about a currently executed search request.
  */
 public class LocalSearchRequest {
+
     private final SearchPattern pattern;
     private Set<Integer> respondedPartitions = new HashSet<Integer>();
-    private UUID timeoutId;
+    private java.util.UUID timeoutId;
 
     /**
      * Create a new instance for the given request and query.
@@ -48,14 +49,14 @@ public class LocalSearchRequest {
      * @param timeoutId
      *            the id of the timeout related to this search
      */
-    public void setTimeoutId(UUID timeoutId) {
+    public void setTimeoutId(java.util.UUID timeoutId) {
         this.timeoutId = timeoutId;
     }
 
     /**
      * @return the id of the timeout related to this search
      */
-    public UUID getTimeoutId() {
+    public java.util.UUID getTimeoutId() {
         return timeoutId;
     }
 }

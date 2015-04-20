@@ -2,10 +2,13 @@ package se.sics.ms.util;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.data.ReplicationPrepareCommit;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
 import se.sics.ms.types.IndexEntry;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
+import java.util.UUID;
 
 /**
  * Simple POJO containing the information for a entry addition round.
@@ -14,13 +17,14 @@ import java.util.Collection;
  */
 public class EntryAdditionRoundInfo {
     
-    private Collection<VodAddress> leaderGroupAddress;
+    private Collection<DecoratedAddress> leaderGroupAddress;
     private int promiseResponses;
     private IndexEntry entryToAdd;
-    private VodAddress entryAddSourceNode;
-    private TimeoutId entryAdditionRoundId;
+    private DecoratedAddress entryAddSourceNode;
+    private UUID entryAdditionRoundId;
     
-    public EntryAdditionRoundInfo(TimeoutId entryAdditionRoundId, Collection<VodAddress> leaderGroupAddress, IndexEntry entry, VodAddress entryAddSourceNode){
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress> leaderGroupAddress, IndexEntry entry, DecoratedAddress entryAddSourceNode){
+
         this.entryAdditionRoundId = entryAdditionRoundId;
         this.leaderGroupAddress = leaderGroupAddress;
         this.promiseResponses = 0;
@@ -29,9 +33,9 @@ public class EntryAdditionRoundInfo {
     }
 
 
-    public void addEntryAddPromiseResponse(ReplicationPrepareCommitMessage.Response response){
+    public void addEntryAddPromiseResponse(ReplicationPrepareCommit.Response response){
         
-        if(entryAdditionRoundId != null && response.getTimeoutId().equals(entryAdditionRoundId)){
+        if(entryAdditionRoundId != null && response.getIndexAdditionRoundId().equals(entryAdditionRoundId)){
             promiseResponses +=1;
         }
     }
@@ -40,7 +44,7 @@ public class EntryAdditionRoundInfo {
         return this.promiseResponses >= this.leaderGroupAddress.size();
     }
     
-    public Collection<VodAddress> getLeaderGroupAddress() {
+    public Collection<DecoratedAddress> getLeaderGroupAddress() {
         return leaderGroupAddress;
     }
 
@@ -48,11 +52,11 @@ public class EntryAdditionRoundInfo {
         return entryToAdd;
     }
 
-    public VodAddress getEntryAddSourceNode() {
+    public DecoratedAddress getEntryAddSourceNode() {
         return entryAddSourceNode;
     }
     
-    public TimeoutId getEntryAdditionRoundId(){
+    public UUID getEntryAdditionRoundId(){
         return this.entryAdditionRoundId;
     }
     

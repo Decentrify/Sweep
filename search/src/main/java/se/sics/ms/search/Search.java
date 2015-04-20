@@ -138,7 +138,7 @@ public final class Search extends ComponentDefinition {
     private Map<TimeoutId, ReplicationCount> replicationRequests;
     private Map<TimeoutId, ReplicationCount> commitRequests;
     private Map<Long, UUID> gapTimeouts;
-    private Map<TimeoutId, Long> recentRequests;
+    private Map<java.util.UUID, Long> recentRequests;
 
     // Apache Lucene used for searching
     private StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_42);
@@ -159,16 +159,16 @@ public final class Search extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<IndexEntry, TimeoutId> pendingForCommit = new HashMap<IndexEntry, TimeoutId>();
+    private HashMap<IndexEntry, java.util.UUID> pendingForCommit = new HashMap<IndexEntry, java.util.UUID>();
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
-    private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
+    private HashMap<java.util.UUID, Integer> searchPartitionsNumber = new HashMap<java.util.UUID, Integer>();
 
     private HashMap<PartitionHelper.PartitionInfo, java.util.UUID> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, java.util.UUID>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
     private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
-    private static HashMap<TimeoutId, Pair<Long, Integer>> searchRequestStarted = new HashMap<TimeoutId, Pair<Long, Integer>>();
+    private static HashMap<java.util.UUID, Pair<Long, Integer>> searchRequestStarted = new HashMap<java.util.UUID, Pair<Long, Integer>>();
 
 
     // Partitioning Protocol Information.
@@ -177,8 +177,6 @@ public final class Search extends ComponentDefinition {
 
     private java.util.UUID partitionRequestId;
     private boolean partitionInProgress = false;
-    private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
-    private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
 
     // Generic Control Pull Mechanism.
     private java.util.UUID controlMessageExchangeRoundId;
@@ -199,7 +197,7 @@ public final class Search extends ComponentDefinition {
     private Collection<DecoratedAddress> leaderGroupInformation;
     // Trackers.
     private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
-    private Map<TimeoutId, TimeoutId> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
+    private Map<java.util.UUID, java.util.UUID> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
 
     /**
@@ -253,7 +251,6 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
 
-        subscribe(handleGradientIndexHashExchangeResponse, gradientRoutingPort);
         subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
@@ -279,9 +276,7 @@ public final class Search extends ComponentDefinition {
         subscribe(handleAwaitingForCommitTimeout, timerPort);
 
         subscribe(handleEntryAdditionPrepareCommitResponse, networkPort);
-        subscribe(handleCommitTimeout, timerPort);
-        subscribe(handleCommitRequest, networkPort);
-        subscribe(handleCommitResponse, networkPort);
+        subscribe(handleEntryCommitRequest, networkPort);
         subscribe(addIndexEntryRequestHandler, uiPort);
 
         subscribe(handleSearchSimulated, simulationEventsPort);
@@ -335,7 +330,7 @@ public final class Search extends ComponentDefinition {
         // Tracker.
         partitioningTracker = new PartitioningTracker();
         entryAdditionTrackerUpdated = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
-        entryPrepareTimeoutMap = new HashMap<TimeoutId, TimeoutId>();
+        entryPrepareTimeoutMap = new HashMap<java.util.UUID, java.util.UUID>();
 
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
@@ -370,7 +365,7 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();
             System.exit(-1);
         }
-        recentRequests = new HashMap<TimeoutId, Long>();
+        recentRequests = new HashMap<java.util.UUID, Long>();
 
         if (minStoredId > maxStoredId) {
             long temp = minStoredId;
@@ -1126,9 +1121,12 @@ public final class Search extends ComponentDefinition {
      * responded to the {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request or the timeout occurred and
      * enough nodes, as specified in the config, responded.
      */
-    final Handler<AddIndexEntryMessage.Request> handleAddIndexEntryRequest = new Handler<AddIndexEntryMessage.Request>() {
+
+    ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>> handleAddIndexEntryRequest = new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>>() {
         @Override
-        public void handle(AddIndexEntryMessage.Request event) {
+        public void handle(AddIndexEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request> event) {
+
+            logger.debug("{}: Received add index entry request from : {}", self.getId(),  event.getSource());
             if (!leader || partitionInProgress) {
                 return;
             }
@@ -1138,58 +1136,51 @@ public final class Search extends ComponentDefinition {
                 System.exit(-1);
             }
 
-            // FIXME: Memory Leak. (How to fix this.)
-            if (recentRequests.containsKey(event.getTimeoutId())) {
+            // FIXME: Memory Leak. ( How to fix this ? Probability ... )
+            if (recentRequests.containsKey(request.getEntryAdditionRound())) {
                 return;
             }
 
             Snapshot.incrementReceivedAddRequests();
-            recentRequests.put(event.getTimeoutId(), System.currentTimeMillis());
+            recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
 
-            IndexEntry newEntry = event.getEntry();
+            IndexEntry newEntry = request.getEntry();
             long id = getNextInsertionId();
 
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
             newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
-
             String signature = generateSignedHash(newEntry, privateKey);
-            if (signature == null) {
 
+            if (signature == null) {
                 logger.warn("Unable to generate the hash for the index entry with id: {}", newEntry.getId());
                 return;
             }
 
             newEntry.setHash(signature);
-
             if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
-                logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getVodSource());
+                logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getSource());
+                EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, newEntry, event.getSource());
+                entryAdditionTrackerUpdated.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
 
-                EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
-                entryAdditionTrackerUpdated.startTracking(event.getTimeoutId(), additionRoundInfo);
-
-                for (VodAddress destination : leaderGroupInformation) {
+                ReplicationPrepareCommit.Request  prepareRequest = new ReplicationPrepareCommit.Request(newEntry, request.getEntryAdditionRound());
+                for (DecoratedAddress destination : leaderGroupInformation) {
                     logger.warn("Sending prepare commit request to : {}", destination.getId());
-                    ReplicationPrepareCommitMessage.Request request = new ReplicationPrepareCommitMessage.Request(self.getAddress(), destination, event.getTimeoutId(), newEntry);
-                    trigger(request, networkPort);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, prepareRequest), networkPort);
                 }
 
                 // Trigger for a timeout and how would that work ?
-
-                ScheduleTimeout st = new ScheduleTimeout(5000);
-                st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, event.getTimeoutId()));
-                entryPrepareTimeoutMap.put(event.getTimeoutId(), st.getTimeoutEvent().getTimeoutId());
-
+                se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(5000);
+                st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, request.getEntryAdditionRound()));
+                entryPrepareTimeoutMap.put(request.getEntryAdditionRound(), st.getTimeoutEvent().getTimeoutId());
                 trigger(st, timerPort);
+
             } else {
                 logger.warn("{}: Unable to start the index entry commit due to insufficient information about leader group.", self.getId());
             }
-
-
         }
     };
-
 
     /**
      * The entry addition prepare phase timed out and I didn't receive all the responses from the leader group nodes.
@@ -1250,38 +1241,45 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
     /**
-     * Stores on a peer in the leader group information about a new entry to be probably commited
+     * The request depicting leader request for the promises from the nodes present in the leader group.
+     * The request needs to be validated that it is from the correct leader and then added to maping depicting pending for commit.
      */
-    final Handler<ReplicationPrepareCommitMessage.Request> handlePrepareCommit = new Handler<ReplicationPrepareCommitMessage.Request>() {
+    ClassMatchedHandler<ReplicationPrepareCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request>> handlePrepareCommit  = new ClassMatchedHandler<ReplicationPrepareCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request>>() {
         @Override
-        public void handle(ReplicationPrepareCommitMessage.Request request) {
+        public void handle(ReplicationPrepareCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request> event) {
+
+            logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
 
             IndexEntry entry = request.getEntry();
             if (!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
-            TimeoutId timeout = UUID.nextUUID();
-            pendingForCommit.put(request.getEntry(), timeout);
+            ReplicationPrepareCommit.Response response = new ReplicationPrepareCommit.Response(request.getIndexAdditionRoundId(), request.getEntry().getId());
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
-            trigger(new ReplicationPrepareCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), request.getEntry().getId()), networkPort);
+            se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getReplicationTimeout());
+            st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getEntry()));
+            st.getTimeoutEvent().getTimeoutId();
 
-            ScheduleTimeout rst = new ScheduleTimeout(config.getReplicationTimeout());
-            rst.setTimeoutEvent(new AwaitingForCommitTimeout(rst, self.getId(), request.getEntry()));
-            rst.getTimeoutEvent().setTimeoutId(timeout);
-            trigger(rst, timerPort);
+            pendingForCommit.put(request.getEntry(), st.getTimeoutEvent().getTimeoutId());
+            trigger(st, timerPort);
+
         }
     };
 
     /**
-     * Clears rendingForCommit map as the entry wasn't commited on time
+     * The promise for the index entry addition expired and therefore the entry needs to be removed from the map.
+     *
      */
     final Handler<AwaitingForCommitTimeout> handleAwaitingForCommitTimeout = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
+
+            logger.warn("{}: Index entry prepare phase timed out. Reset the map information.");
             if (pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
                 pendingForCommit.remove(awaitingForCommitTimeout.getEntry());
-
         }
     };
 
@@ -1290,15 +1288,17 @@ public final class Search extends ComponentDefinition {
      * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and
      * then send the commit message request to the leader nodes who have replied yes.
      */
-    final Handler<ReplicationPrepareCommitMessage.Response> handleEntryAdditionPrepareCommitResponse = new Handler<ReplicationPrepareCommitMessage.Response>() {
+    ClassMatchedHandler<ReplicationPrepareCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response>> handleEntryAdditionPrepareCommitResponse = new ClassMatchedHandler<ReplicationPrepareCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response>>() {
         @Override
-        public void handle(ReplicationPrepareCommitMessage.Response response) {
+        public void handle(ReplicationPrepareCommit.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response> event) {
 
-            TimeoutId timeout = response.getTimeoutId();
-            EntryAdditionRoundInfo info = entryAdditionTrackerUpdated.getEntryAdditionRoundInfo(timeout);
+            logger.debug("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
+
+            java.util.UUID entryAdditionRoundId = response.getIndexAdditionRoundId();
+            EntryAdditionRoundInfo info = entryAdditionTrackerUpdated.getEntryAdditionRoundInfo(entryAdditionRoundId);
 
             if (info == null) {
-                logger.debug("{}: Received Promise Response from: {} after the round has expired ", self.getId(), response.getVodSource());
+                logger.debug("{}: Received Promise Response from: {} after the round has expired ", self.getId(), event.getSource());
                 return;
             }
 
@@ -1308,11 +1308,11 @@ public final class Search extends ComponentDefinition {
                 try {
 
                     logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
-                    CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(timeout));
+                    se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                     trigger(ct, timerPort);
 
                     IndexEntry entryToCommit = info.getEntryToAdd();
-                    TimeoutId commitTimeout = UUID.nextUUID(); //What's it purpose.
+                    java.util.UUID commitTimeout = java.util.UUID.randomUUID(); //What's it purpose.
                     addEntryLocal(entryToCommit);   // Commit to local first.
 
                     ByteBuffer idBuffer = ByteBuffer.allocate(8);
@@ -1320,12 +1320,12 @@ public final class Search extends ComponentDefinition {
 
                     String signature = generateRSASignature(idBuffer.array(), privateKey);
 
-                    for (VodAddress destination : info.getLeaderGroupAddress()) {
-                        ReplicationCommitMessage.Request request = new ReplicationCommitMessage.Request(self.getAddress(), destination, commitTimeout, entryToCommit.getId(), signature);
-                        trigger(request, networkPort);
+                    ReplicationCommit.Request commitRequest = new ReplicationCommit.Request(commitTimeout, entryToCommit.getId(), signature);
+                    for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, commitRequest), networkPort);
                     }
 
-                    trigger(new AddIndexEntryMessage.Response(self.getAddress(), info.getEntryAddSourceNode(), info.getEntryAdditionRoundId()), networkPort);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), info.getEntryAddSourceNode(),Transport.UDP, info.getEntryAdditionRoundId()), networkPort);
 
                 } catch (NoSuchAlgorithmException e) {
                     logger.error(self.getId() + " " + e.getMessage());
@@ -1340,8 +1340,8 @@ public final class Search extends ComponentDefinition {
                     e.printStackTrace();
                 } finally {
 
-                    entryAdditionTrackerUpdated.resetTracker(timeout);
-                    entryPrepareTimeoutMap.remove(timeout);
+                    entryAdditionTrackerUpdated.resetTracker(entryAdditionRoundId);
+                    entryPrepareTimeoutMap.remove(entryAdditionRoundId);
                 }
             }
         }
@@ -1349,11 +1349,17 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Performs commit on a peer in the leader group
+     * Handler for the entry commit request as part of the index entry addition protocol.
+     * Verify that the request is from the leader and then add the entry to the node.
+     *
+     * <b>CAUTION :</b> Currently we are not replying to the node back and simply without any questioning add the entry
+     * locally, simply the verifying the signature.
      */
-    final Handler<ReplicationCommitMessage.Request> handleCommitRequest = new Handler<ReplicationCommitMessage.Request>() {
+    ClassMatchedHandler<ReplicationCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>,ReplicationCommit.Request>> handleEntryCommitRequest = new ClassMatchedHandler<ReplicationCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationCommit.Request>>() {
         @Override
-        public void handle(ReplicationCommitMessage.Request request) {
+        public void handle(ReplicationCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationCommit.Request> event) {
+
+            logger.debug("{}: Received index entry commit request from : {}", self.getId(), event.getSource());
             long id = request.getEntryId();
 
             if (leaderIds.isEmpty())
@@ -1380,17 +1386,18 @@ public final class Search extends ComponentDefinition {
                 }
             }
 
-            if (toCommit == null)
+            if (toCommit == null){
+                logger.warn("{}: Unable to find index entry with id: {} to commit.", self.getId(), id);
                 return;
+            }
 
-            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
+            se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(pendingForCommit.get(toCommit));
             trigger(ct, timerPort);
 
             try {
-                addEntryLocal(toCommit);
-//                trigger(new ReplicationCommitMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), toCommit.getId()), networkPort);
-                pendingForCommit.remove(toCommit);
 
+                addEntryLocal(toCommit);
+                pendingForCommit.remove(toCommit);
                 long maxStoredId = getMaxStoredId();
 
                 ArrayList<Long> missingIds = new ArrayList<Long>();
@@ -1401,71 +1408,22 @@ public final class Search extends ComponentDefinition {
                 }
 
                 if (missingIds.size() > 0) {
-                    RepairMessage.Request repairMessage = new RepairMessage.Request(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingIds.toArray(new Long[missingIds.size()]));
-                    trigger(repairMessage, networkPort);
+                    Repair.Request repairRequest = new Repair.Request(request.getCommitRoundId(), missingIds.toArray(new Long[missingIds.size()]));     // FIXME: Repair Message has no associated round.
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, repairRequest), networkPort);
                 }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             } catch (LuceneAdaptorException e) {
                 e.printStackTrace();
             }
+
         }
     };
+
 
 
     /**
-     * Save entry on the leader and send an ACK back to the client
-     * Only execute in the role of the leader. Garbage collect replication
-     * requests if the constraints could not be satisfied in time. In this case,
-     * no acknowledgment is sent to the client.
-     */
-    final Handler<ReplicationCommitMessage.Response> handleCommitResponse = new Handler<ReplicationCommitMessage.Response>() {
-        @Override
-        public void handle(ReplicationCommitMessage.Response response) {
-            TimeoutId commitId = response.getTimeoutId();
-
-            CancelTimeout ct = new CancelTimeout(commitId);
-            trigger(ct, timerPort);
-
-            if (!commitRequests.containsKey(commitId))
-                return;
-
-            ReplicationCount replicationCount = commitRequests.get(commitId);
-            try {
-                TimeoutId requestAddId = replicationTimeoutToAdd.get(commitId);
-                if (requestAddId == null)
-                    return;
-
-                addEntryLocal(replicationCount.getEntry());
-
-                trigger(new AddIndexEntryMessage.Response(self.getAddress(), replicationCount.getSource(), requestAddId), networkPort);
-
-                replicationTimeoutToAdd.remove(commitId);
-                commitRequests.remove(commitId);
-
-                int partitionId = self.getPartitionId();
-
-                Snapshot.addIndexEntryId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId), replicationCount.getEntry().getId());
-            } catch (IOException e) {
-                logger.error(self.getId() + " " + e.getMessage());
-            } catch (LuceneAdaptorException e) {
-                e.printStackTrace();
-            }
-        }
-    };
-
-    final Handler<CommitTimeout> handleCommitTimeout = new Handler<CommitTimeout>() {
-        @Override
-        public void handle(CommitTimeout commitTimeout) {
-            if (commitRequests.containsKey(commitTimeout.getTimeoutId())) {
-                commitRequests.remove(commitTimeout.getTimeoutId());
-                replicationTimeoutToAdd.remove(commitTimeout.getTimeoutId());
-            }
-        }
-    };
-
-    /**
-     * An index entry has been successfully added.
+     * An index entry has been successfully added. FIXME: Port it new kompics version.
      */
     final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
         @Override
@@ -1483,9 +1441,9 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+
     /**
      * Returns max stored id on a peer
-     *
      * @return max stored id on a peer
      */
     private long getMaxStoredId() {
@@ -1497,13 +1455,16 @@ public final class Search extends ComponentDefinition {
         return Collections.max(existingEntries);
     }
 
+
     /**
-     * Handles situations then a peer in the leader group is behind in the updates during add operation
+     * Handles situations regarding a peer in the leader group is behind in the updates during add operation
      * and asks for missing data
      */
-    Handler<RepairMessage.Request> handleRepairRequest = new Handler<RepairMessage.Request>() {
+    ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>> handleRepairRequest = new ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>>() {
         @Override
-        public void handle(RepairMessage.Request request) {
+        public void handle(Repair.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request> event) {
+
+            logger.debug("{}: Received repair request from the node: {}", self.getId(), event.getSource());
             ArrayList<IndexEntry> missingEntries = new ArrayList<IndexEntry>();
             try {
                 for (int i = 0; i < request.getMissingIds().length; i++) {
@@ -1514,18 +1475,21 @@ public final class Search extends ComponentDefinition {
                 logger.error(self.getId() + " " + e.getMessage());
             }
 
-            RepairMessage.Response msg = new RepairMessage.Response(self.getAddress(), request.getVodSource(), request.getTimeoutId(), missingEntries);
-            trigger(msg, networkPort);
+            Repair.Response msg = new Repair.Response(request.getRepairRoundId(), missingEntries);
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, msg), networkPort);
         }
     };
+
 
     /**
      * Handles missing data on the peer from the leader group when adding a new entry, but the peer is behind
      * with the updates
      */
-    Handler<RepairMessage.Response> handleRepairResponse = new Handler<RepairMessage.Response>() {
+    ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>> handleRepairResponse = new ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>>() {
         @Override
-        public void handle(RepairMessage.Response response) {
+        public void handle(Repair.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response> event) {
+
+            logger.debug("{}: Received Repair response from: {}", self.getId(), event.getSource());
             try {
                 for (IndexEntry entry : response.getMissingEntries())
                     if (entry != null) addEntryLocal(entry);
@@ -1546,15 +1510,15 @@ public final class Search extends ComponentDefinition {
         public void handle(TimeoutCollection.RecentRequestsGcTimeout event) {
             long referenceTime = System.currentTimeMillis();
 
-            ArrayList<TimeoutId> removeList = new ArrayList<TimeoutId>();
-            for (TimeoutId id : recentRequests.keySet()) {
+            ArrayList<java.util.UUID> removeList = new ArrayList<java.util.UUID>();
+            for (java.util.UUID id : recentRequests.keySet()) {
                 if (referenceTime - recentRequests.get(id) > config
                         .getRecentRequestsGcInterval()) {
                     removeList.add(id);
                 }
             }
 
-            for (TimeoutId uuid : removeList) {
+            for (java.util.UUID uuid : removeList) {
                 recentRequests.remove(uuid);
             }
         }
@@ -1619,11 +1583,11 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();
         }
 
-        ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
-        rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst, self.getId()));
-        searchRequest.setTimeoutId((UUID) rst.getTimeoutEvent().getTimeoutId());
-        trigger(rst, timerPort);
+        se.sics.kompics.timer.ScheduleTimeout rst = new se.sics.kompics.timer.ScheduleTimeout(config.getQueryTimeout());
+        rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
+        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId()); // FIXME: Fix the naming scheme.
 
+        trigger(rst, timerPort);
         trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
     }
 
@@ -1646,21 +1610,18 @@ public final class Search extends ComponentDefinition {
         }
     }
 
-    /**
-     * Query the local store with the given query string and send the response
-     * back to the inquirer.
-     */
-    final Handler<SearchMessage.Request> handleSearchRequest = new Handler<SearchMessage.Request>() {
-        @Override
-        public void handle(SearchMessage.Request event) {
-            try {
-                ArrayList<IndexEntry> result = searchLocal(writeLuceneAdaptor, event.getPattern(), config.getHitsPerQuery());
 
-                // Check the message and update the address in case of a Transport Protocol different than UDP.
-                // Check the isSimulation flag inside the TransportHelper before running the code in simulations.
-                SearchMessage.Response searchMessageResponse = new SearchMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getSearchTimeoutId(), 0, 0, result, event.getPartitionId());
-                TransportHelper.checkTransportAndUpdateBeforeSending(searchMessageResponse);
-                trigger(searchMessageResponse, chunkManagerPort);
+
+    ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>> handleSearchRequest = new ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>>() {
+        @Override
+        public void handle(SearchInfo.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request> event) {
+
+            logger.debug("{}: Received Search Request from : {}", self.getId(), event.getSource());
+            try {
+
+                ArrayList<IndexEntry> result = searchLocal(writeLuceneAdaptor, request.getPattern(), config.getHitsPerQuery());
+                SearchInfo.Response searchMessageResponse = new SearchInfo.Response(request.getRequestId(), result, request.getPartitionId(), 0, 0);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, searchMessageResponse), networkPort);
 
             } catch (IllegalSearchString illegalSearchString) {
                 illegalSearchString.printStackTrace();
@@ -1668,6 +1629,8 @@ public final class Search extends ComponentDefinition {
                 logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
                 e.printStackTrace();
             }
+
+
         }
     };
 
@@ -1687,19 +1650,18 @@ public final class Search extends ComponentDefinition {
         return result;
     }
 
-    /**
-     * Add the response to the search index store.
-     */
-    final Handler<SearchMessage.Response> handleSearchResponse = new Handler<SearchMessage.Response>() {
-        @Override
-        public void handle(SearchMessage.Response event) {
 
-            // NOTE: For Simulation, check the simulation check inside the transport helper which should be true, for now.
-//            TransportHelper.checkTransportAndUpdateBeforeReceiving(event);
-            if (searchRequest == null || !event.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
+    /**
+     * Node received search response for the
+     */
+    ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>> handleSearchResponse = new ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>>() {
+        @Override
+        public void handle(SearchInfo.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response> event) {
+
+            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
                 return;
             }
-            addSearchResponse(event.getResults(), event.getPartitionId(), event.getSearchTimeoutId());
+            addSearchResponse(response.getResults(), response.getPartitionId(), response.getSearchTimeoutId());
         }
     };
 
@@ -1709,7 +1671,7 @@ public final class Search extends ComponentDefinition {
      * @param entries   the entries to be added
      * @param partition the partition from which the entries originate from
      */
-    private void addSearchResponse(Collection<IndexEntry> entries, int partition, TimeoutId requestId) {
+    private void addSearchResponse(Collection<IndexEntry> entries, int partition, java.util.UUID requestId) {
         if (searchRequest.hasResponded(partition)) {
             return;
         }
@@ -1729,13 +1691,13 @@ public final class Search extends ComponentDefinition {
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
             logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+            se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(searchRequest.getTimeoutId());
             trigger(ct, timerPort);
             answerSearchRequest();
         }
     }
 
-    private void logSearchTimeResults(TimeoutId requestId, long timeCompleted, Integer numOfPartitions) {
+    private void logSearchTimeResults(java.util.UUID requestId, long timeCompleted, Integer numOfPartitions) {
         Pair<Long, Integer> searchIssued = searchRequestStarted.get(requestId);
         if (searchIssued == null)
             return;
@@ -1770,7 +1732,7 @@ public final class Search extends ComponentDefinition {
      */
     void removeEntriesNotFromYourPartition(long middleId, boolean isPartition) {
 
-        CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+        se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
         trigger(cancelTimeout, timerPort);
         indexExchangeTimeout = null;
         exchangeInProgress = false;
@@ -1812,17 +1774,8 @@ public final class Search extends ComponentDefinition {
         // FIXME: More cleaner solution is required.
         nextInsertionId = maxStoredId;
         lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
-
-        int partitionId = self.getPartitionId();
-
-        Snapshot.resetPartitionLowestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
-                minStoredId);
-        Snapshot.resetPartitionHighestId(new Pair<Integer, Integer>(self.getCategoryId(), partitionId),
-                maxStoredId);
-        Snapshot.setNumIndexEntries(self.getAddress(), numberOfStoredIndexEntries);
-
-        // It will ensure that the values of last missing index entries and other values are not getting updated.
         partitionInProgress = false;
+
     }
 
 
@@ -1908,21 +1861,6 @@ public final class Search extends ComponentDefinition {
             trigger(new UiSearchResponse(result), uiPort);
         }
     }
-
-    /**
-     * Add the given {@link IndexEntry} to the given Lucene directory
-     *
-     * @param index the directory to which the given {@link IndexEntry} should be
-     *              added
-     * @param entry the {@link IndexEntry} to be added
-     * @throws IOException in case the adding operation failed
-     */
-//    private void addIndexEntry(Directory index, IndexEntry entry) throws IOException, LuceneAdaptorException {
-//
-////        IndexWriter writer = new IndexWriter(index, indexWriterConfig);
-//        addIndexEntry(writeLuceneAdaptor, entry);
-////        writer.close();
-//    }
 
     /**
      * Add the given {@link IndexEntry} to the Lucene index using the given
@@ -2116,7 +2054,7 @@ public final class Search extends ComponentDefinition {
     };
     
     
-    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlePartitionPrepareRequest = new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
+    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest = new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
         @Override
         public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
             
@@ -2238,15 +2176,14 @@ public final class Search extends ComponentDefinition {
     /**
      * Handler for the partition update commit.
      */
-    Handler<PartitionCommitMessage.Request> handlerPartitionCommitRequest = new Handler<PartitionCommitMessage.Request>() {
 
+    ClassMatchedHandler<PartitionCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Request>> handlerPartitionCommitRequest = new ClassMatchedHandler<PartitionCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Request>>() {
         @Override
-        public void handle(PartitionCommitMessage.Request event) {
+        public void handle(PartitionCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Request> event) {
 
-            // Step1: Cancel the timeout as received the message on time.
+            logger.debug("{}: Received partition commit request from node: {}", self.getId(), event.getSource());
 
-            TimeoutId receivedPartitionRequestId = event.getPartitionRequestId();
-            TimeoutId cancelTimeoutId = null;
+            java.util.UUID receivedPartitionRequestId = request.getPartitionRequestId();
             PartitionHelper.PartitionInfo partitionUpdate = null;
 
             for (PartitionHelper.PartitionInfo partitionInfo : partitionUpdatePendingCommit.keySet()) {
@@ -2264,10 +2201,10 @@ public final class Search extends ComponentDefinition {
             }
 
             // If found, then cancel the timer.
-            cancelTimeoutId = partitionUpdatePendingCommit.get(partitionUpdate);
-            CancelTimeout cancelTimeout = new CancelTimeout(cancelTimeoutId);
-            trigger(cancelTimeout, timerPort);
 
+            java.util.UUID cancelTimeoutId = partitionUpdatePendingCommit.get(partitionUpdate);
+            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(cancelTimeoutId);
+            trigger(cancelTimeout, timerPort);
 
             LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
             partitionUpdates.add(partitionUpdate);
@@ -2277,24 +2214,26 @@ public final class Search extends ComponentDefinition {
             partitionUpdatePendingCommit.remove(partitionUpdate);               // Remove the partition update from the pending map.
 
             // Send a  conformation to the leader.
-            PartitionCommitMessage.Response partitionCommitResponse = new PartitionCommitMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getPartitionRequestId());
-            trigger(partitionCommitResponse, networkPort);
+            PartitionCommit.Response response = new PartitionCommit.Response(request.getPartitionCommitTimeout(), request.getPartitionRequestId());
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
         }
     };
-    
+
+
+
     /**
      * The partitioning commit response handler for the final phase of the two phase commit
      * regarding the partitioning commit.
      */
-    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponse = new Handler<PartitionCommitMessage.Response>() {
+    ClassMatchedHandler<PartitionCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Response>> handlerPartitionCommitResponse = new ClassMatchedHandler<PartitionCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Response>>() {
         @Override
-        public void handle(PartitionCommitMessage.Response event) {
+        public void handle(PartitionCommit.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionCommit.Response> event) {
 
-            logger.trace("{}: Partitioning Commit Response received from: {}", self.getId(), event.getVodSource().getId());
-            partitioningTracker.addCommitResponse(event);
+            logger.trace("{}: Partitioning Commit Response received from: {}", self.getId(), event.getSource());
+            partitioningTracker.addCommitResponse(response);
             if (partitioningTracker.isCommitAccepted()) {
 
-                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+                se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(response.getPartitionRequestId());
                 trigger(ct, timerPort);
                 partitionCommitPhaseTimeoutId = null;
 
@@ -2739,7 +2678,10 @@ public final class Search extends ComponentDefinition {
      * Thus, it starts asking from the nodes which have not yet partitioned for the updates.
      *
      * @return true in case the message from node ahead in terms of partitioning.
+     *
+     * FIXME: Find a better solution of blocking index pull from higher nodes when partitioning happens.
      */
+    /*
     private boolean isMessageFromNodeLaggingBehind(VodAddress address) {
 
         boolean result = false;
@@ -2757,6 +2699,7 @@ public final class Search extends ComponentDefinition {
         }
         return result;
     }
+    */
 
     /**
      * Apply the partitioning updates received.

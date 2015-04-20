@@ -29,6 +29,10 @@ public class SearchInfo {
             this.pattern = pattern;
         }
 
+        public SearchPattern getPattern() {
+            return pattern;
+        }
+
         public UUID getRequestId() {
             return requestId;
         }
@@ -47,12 +51,10 @@ public class SearchInfo {
         private final int responseNumber;
         private final UUID searchTimeoutId;
         private final int partitionId;
-        private final UUID timeoutId;
 
-        public Response(UUID timeoutId, UUID searchTimeoutId, int numResponses, int responseNumber, Collection<IndexEntry> results, int partitionId) throws IllegalSearchString {
+        public Response(UUID searchTimeoutId, Collection<IndexEntry> results, int partitionId , int numResponses, int responseNumber) throws IllegalSearchString {
             
             this.partitionId = partitionId;
-            this.timeoutId = timeoutId;
             this.numResponses = numResponses;
             this.responseNumber = responseNumber;
             this.results = results;
@@ -80,8 +82,5 @@ public class SearchInfo {
             return partitionId;
         }
 
-        public UUID getTimeoutId() {
-            return timeoutId;
-        }
     }
 }

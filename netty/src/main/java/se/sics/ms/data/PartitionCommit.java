@@ -1,5 +1,8 @@
 package se.sics.ms.data;
 
+import se.sics.kompics.timer.ScheduleTimeout;
+import se.sics.kompics.timer.Timeout;
+
 import java.util.UUID;
 
 /**
@@ -50,6 +53,16 @@ public class PartitionCommit {
         }
         
         
+    }
+
+
+
+    public static class Timeout extends se.sics.kompics.timer.Timeout{
+
+        public Timeout(ScheduleTimeout scheduleTimeout){
+            super(scheduleTimeout);
+        }
+
     }
     
 }
