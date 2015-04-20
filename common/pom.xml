@@ -131,6 +131,11 @@
             <artifactId>serialization-util</artifactId>
             <version>${serialization.util.version}</version>
         </dependency>
+        <dependency>
+            <groupId>se.sics.p2ptoolbox</groupId>
+            <artifactId>util-serializer</artifactId>
+            <version>${util.version}</version>
+        </dependency>
         
     </dependencies>
 

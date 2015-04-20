@@ -1,13 +1,17 @@
 package se.sics.ms.control;
 
+import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
+import se.sics.ms.data.ControlInformation;
 import se.sics.ms.gradient.control.ControlMessageEnum;
 import se.sics.ms.messages.ControlMessage;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddressSerializer;
 
 import java.security.PublicKey;
 import java.util.List;
@@ -47,8 +51,10 @@ public class ControlMessageDecoderFactory {
         boolean hasLeaderInfo = UserTypesDecoderFactory.readBoolean(buffer);
 
         if(hasLeaderInfo) {
-            VodAddress leaderAddress = UserTypesDecoderFactory.readVodAddress(buffer);
+            DecoratedAddressSerializer serializer = new DecoratedAddressSerializer(0);
+            DecoratedAddress leaderAddress = (DecoratedAddress) serializer.fromBinary(buffer, Optional.absent());
             PublicKey leaderPublicKey = ApplicationTypesDecoderFactory.readPublicKey(buffer);
+
             return new LeaderInfoControlResponse(leaderAddress, leaderPublicKey);
         }
 
@@ -56,7 +62,7 @@ public class ControlMessageDecoderFactory {
     }
 
     private static ControlBase decodePartitioningHashUpdate(ControlMessageEnum controlMessageEnum,
-                                                 VodAddress sourceAddress,
+                                                 DecoratedAddress sourceAddress,
                                                  ByteBuf buffer) throws MessageDecodingException {
 
         // Fetch the list of partition hashes from the application decoder factory.
@@ -67,7 +73,7 @@ public class ControlMessageDecoderFactory {
         return new PartitionControlResponse(controlMessageEnum, partitionUpdateHashes, sourceAddress);
     }
 
-    public static ControlBase decodeControlMessageInternal(ByteBuf buffer, ControlMessage.Response event) throws MessageDecodingException {
+    public static ControlBase decodeControlMessageInternal(ByteBuf buffer, DecoratedAddress source) throws MessageDecodingException {
 
         // Read the Control Message Enum from the message.
         ControlMessageEnum controlMessageEnum = ControlMessageDecoderFactory.getControlMessageEnum(buffer);
@@ -77,17 +83,17 @@ public class ControlMessageDecoderFactory {
 
             case NO_PARTITION_UPDATE:
                 return ControlMessageDecoderFactory.decodePartitioningHashUpdate(
-                        ControlMessageEnum.NO_PARTITION_UPDATE, event.getVodSource(),
+                        ControlMessageEnum.NO_PARTITION_UPDATE, source,
                         buffer);
 
             case PARTITION_UPDATE:
                 return ControlMessageDecoderFactory.decodePartitioningHashUpdate(
-                        ControlMessageEnum.PARTITION_UPDATE, event.getVodSource(),
+                        ControlMessageEnum.PARTITION_UPDATE, source,
                         buffer);
 
             case REJOIN:
                 return ControlMessageDecoderFactory.decodePartitioningHashUpdate(
-                        ControlMessageEnum.REJOIN, event.getVodSource(),
+                        ControlMessageEnum.REJOIN, source,
                         buffer);
 
             case LEADER_UPDATE:

@@ -86,7 +86,7 @@ public class MsSelfImpl extends SelfImpl {
      * @return Self Descriptor.
      */
     public SearchDescriptor getSelfDescriptor(){
-        return new SearchDescriptor(new OverlayAddress(getAddress(), this.overlayId), false, this.numberOfIndexEntries.get(), this.isLGMember);
+        return new SearchDescriptor(new OverlayAddress(null , this.overlayId), false, this.numberOfIndexEntries.get(), this.isLGMember);
     }
 
     public MsSelfImpl clone() {

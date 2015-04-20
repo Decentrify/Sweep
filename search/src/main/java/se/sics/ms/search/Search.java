@@ -633,9 +633,10 @@ public final class Search extends ComponentDefinition {
             try {
 
                 int numUpdates = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
+
                 while (numUpdates > 0) {
 
-                    ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
+                    ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event.getSource());
                     if (controlMessageInternalResponse != null) {
                         ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
                     }
@@ -644,7 +645,6 @@ public final class Search extends ComponentDefinition {
                 }
 
                 controlMessageResponseCount++;
-
                 if (controlMessageResponseCount >= config.getIndexExchangeRequestNumber()) {
                     performControlMessageResponseMatching();
                     cleanControlMessageResponseData();
@@ -836,7 +836,7 @@ public final class Search extends ComponentDefinition {
         public void handle(DelayedPartitioning.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Response> event) {
             logger.debug("{}: Received delayed partitioning response from: {}", self.getId(), event.getSource());
 
-            if (currentPartitionInfoFetchRound != null || !(response.getRoundId().equals(currentPartitionInfoFetchRound))) {
+            if (currentPartitionInfoFetchRound != null && !(response.getRoundId().equals(currentPartitionInfoFetchRound))) {
                 logger.warn("{}: Response for the expired delayed partitioning round.");
                 return;
             }

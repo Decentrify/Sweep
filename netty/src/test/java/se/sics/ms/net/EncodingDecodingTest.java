@@ -22,6 +22,8 @@ import se.sics.ms.messages.*;
 import se.sics.ms.types.*;
 import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -75,7 +77,8 @@ public class EncodingDecodingTest {
         inetDest = new InetSocketAddress(self, 65535);
         gSrc = new VodAddress(src, VodConfig.SYSTEM_OVERLAY_ID);
         gDest = new VodAddress(dest, VodConfig.SYSTEM_OVERLAY_ID);
-        nodeDescriptor = new SearchDescriptor(gSrc);
+//        nodeDescriptor = new SearchDescriptor(gSrc);
+        nodeDescriptor = null;
         descriptors.add(nodeDescriptor);
         nat = new Nat(Nat.Type.NAT,
                 Nat.MappingPolicy.HOST_DEPENDENT,
@@ -303,7 +306,8 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionRequest() {
         int counter = 1;
-        SearchDescriptor self = new SearchDescriptor(gSrc);
+        SearchDescriptor self =  null;
+//        SearchDescriptor self = new SearchDescriptor(new Decnew BasicAddress(null, 0 , 0));
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter, self);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -335,7 +339,8 @@ public class EncodingDecodingTest {
             e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
         ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, searchDescriptor);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -366,7 +371,8 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
         Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
         set.add(searchDescriptor);
 
@@ -396,7 +402,8 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
         Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
         set.add(searchDescriptor);
 
@@ -426,7 +433,8 @@ public class EncodingDecodingTest {
             e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
 
         LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, searchDescriptor);
         try {
@@ -517,9 +525,11 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        SearchDescriptor leaderSearchDescriptor = new SearchDescriptor(gSrc);
+        SearchDescriptor leaderSearchDescriptor = null;
+//        SearchDescriptor leaderSearchDescriptor = new SearchDescriptor(gSrc);
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
         Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
         set.add(searchDescriptor);
 
@@ -598,7 +608,8 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
+        SearchDescriptor searchDescriptor = null;
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
 
         RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, searchDescriptor);
         try {
@@ -647,7 +658,8 @@ public class EncodingDecodingTest {
         boolean terminated = false;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress);
+        SearchDescriptor searchDescriptor = null;
+//        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress);
 
         List<SearchDescriptor> items = new ArrayList<SearchDescriptor>();
         items.add(searchDescriptor);
@@ -936,7 +948,7 @@ public class EncodingDecodingTest {
 
         VodAddress.PartitioningType partitioningType = VodAddress.PartitioningType.NEVER_BEFORE;
 
-        PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(middleEntry, requestId, partitioningType);
+        PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(middleEntry, null , partitioningType);
         PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(gSrc,gDest,overlayId,roundId,partitionInfo);
 
         try{
