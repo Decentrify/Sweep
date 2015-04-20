@@ -6,10 +6,9 @@ import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
-import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.util.PartitionHelper;
 
 /**
@@ -106,12 +105,12 @@ public class PartitionCommitMessage {
     /**
      * Timeout Specific to the Prepare Request.
      */
-    public static class Timeout extends IndividualTimeout{
+    public static class Timeout extends se.sics.kompics.timer.Timeout{
 
         private final PartitionHelper.PartitionInfo partitionInfo;
 
-        public Timeout(ScheduleTimeout request, int id , PartitionHelper.PartitionInfo partitionInfo) {
-            super(request, id);
+        public Timeout(ScheduleTimeout request, PartitionHelper.PartitionInfo partitionInfo) {
+            super(request);
             this.partitionInfo = partitionInfo;
         }
 

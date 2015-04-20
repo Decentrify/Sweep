@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import com.sun.xml.internal.fastinfoset.CommonResourceBundle;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
@@ -37,10 +38,7 @@ import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
-import se.sics.ms.data.ControlInformation;
-import se.sics.ms.data.DelayedPartitioning;
-import se.sics.ms.data.IndexExchange;
-import se.sics.ms.data.IndexHashExchange;
+import se.sics.ms.data.*;
 import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
 import se.sics.ms.election.aggregation.ElectionLeaderUpdateEvent;
 import se.sics.ms.events.UiAddIndexEntryRequest;
@@ -79,6 +77,7 @@ import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientSample;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
+import se.sics.p2ptoolbox.serialization.serializer.UUIDSerializer;
 import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
@@ -164,7 +163,7 @@ public final class Search extends ComponentDefinition {
     private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
     private HashMap<TimeoutId, Integer> searchPartitionsNumber = new HashMap<TimeoutId, Integer>();
 
-    private HashMap<PartitionHelper.PartitionInfo, TimeoutId> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, TimeoutId>();
+    private HashMap<PartitionHelper.PartitionInfo, java.util.UUID> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, java.util.UUID>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
@@ -173,10 +172,10 @@ public final class Search extends ComponentDefinition {
 
 
     // Partitioning Protocol Information.
-    private TimeoutId partitionPreparePhaseTimeoutId;
-    private TimeoutId partitionCommitPhaseTimeoutId;
+    private java.util.UUID partitionPreparePhaseTimeoutId;
+    private java.util.UUID partitionCommitPhaseTimeoutId;
 
-    private TimeoutId partitionRequestId;
+    private java.util.UUID partitionRequestId;
     private boolean partitionInProgress = false;
     private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
     private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
@@ -2043,7 +2042,6 @@ public final class Search extends ComponentDefinition {
 
             logger.warn(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
             partitionInProgress = true;
-//            trigger(new LeaderGroupInformation.Request((minStoredId + medianId), partitionsNumber, config.getLeaderGroupSize()), gradientRoutingPort);
             start2PhasePartitionCommit(minStoredId + medianId, partitionsNumber);
         }
 
@@ -2065,7 +2063,7 @@ public final class Search extends ComponentDefinition {
         }
 
         logger.debug("Going to start the two phase commit protocol.");
-        partitionRequestId = UUID.nextUUID();
+        partitionRequestId = java.util.UUID.randomUUID();
 
         PartitionHelper.PartitionInfo partitionInfo = new PartitionHelper.PartitionInfo(medianId, partitionRequestId, partitioningType);
         partitionInfo.setKey(publicKey);
@@ -2082,16 +2080,17 @@ public final class Search extends ComponentDefinition {
         logger.warn(partitioningTracker.toString());
 
         // Create a timeout for the partition prepare response.
-        ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
-        PartitionPrepareMessage.Timeout pt = new PartitionPrepareMessage.Timeout(st, self.getId(), partitionInfo);
-
-        st.setTimeoutEvent(pt);
+        se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getPartitionPrepareTimeout());
+        PartitionPrepare.Timeout ppt = new PartitionPrepare.Timeout(st);
+        st.setTimeoutEvent(ppt);
+        
         partitionPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
         trigger(st, timerPort);
 
-        for (VodAddress destination : leaderGroupInformation) {
-            PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), partitionPreparePhaseTimeoutId, partitionInfo);
-            trigger(partitionPrepareRequest, networkPort);
+        
+        PartitionPrepare.Request request = new PartitionPrepare.Request(partitionPreparePhaseTimeoutId, partitionInfo, new OverlayId(self.getOverlayId()));
+        for (DecoratedAddress destination : leaderGroupInformation) {
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
         }
     }
 
@@ -2102,64 +2101,53 @@ public final class Search extends ComponentDefinition {
      * externally track the timeout id to check if it has been reset by the application.
      * In case of sensitive timeouts, which can result in inconsistencies this step is necessary.
      */
-    Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>() {
-
+    Handler<PartitionPrepare.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepare.Timeout>() {
         @Override
-        public void handle(PartitionPrepareMessage.Timeout event) {
+        public void handle(PartitionPrepare.Timeout event) {
 
             if (partitionPreparePhaseTimeoutId == null || !partitionPreparePhaseTimeoutId.equals(event.getTimeoutId())) {
 
                 logger.warn(" Partition Prepare Phase Timeout Occurred. ");
                 partitionInProgress = false;
-//                partitionPrepareReplicationCountMap.remove(event.getTimeoutId());
-
                 partitioningTracker.resetTracker();
 
             }
         }
     };
-
-
-    /**
-     * Handler for the PartitionPrepareRequest.
-     */
-    Handler<PartitionPrepareMessage.Request> handlerPartitionPrepareRequest = new Handler<PartitionPrepareMessage.Request>() {
-
+    
+    
+    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlePartitionPrepareRequest = new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
         @Override
-        public void handle(PartitionPrepareMessage.Request event) {
-
-
+        public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
+            
+            logger.debug("{}: Received partition prepare request from : {}", self.getId(), event.getSource());
             // Step1: Verify that the data is from the leader only.
-            if (!isPartitionUpdateValid(event.getPartitionInfo()) || !leaderIds.contains(event.getPartitionInfo().getKey())) {
+            if (!isPartitionUpdateValid(request.getPartitionInfo()) || !leaderIds.contains(request.getPartitionInfo().getKey())) {
                 logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
                 return;
             }
 
-            if (!partitionOrderValid(event.getOverlayId()))
+            if (!partitionOrderValid(request.getOverlayId()))
                 return;
 
-
             // Step2: Trigger the response for this request, which should be directly handled by the search component.
-            PartitionPrepareMessage.Response response = new PartitionPrepareMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), event.getPartitionInfo().getRequestId());
-            trigger(response, networkPort);
-
-
-            // Step3: Add this to the map of pending partition updates.
-            PartitionHelper.PartitionInfo receivedPartitionInfo = event.getPartitionInfo();
-            TimeoutId timeoutId = UUID.nextUUID();
-            partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
-
+            PartitionPrepare.Response response = new PartitionPrepare.Response(request.getPartitionPrepareRoundId(), request.getPartitionInfo().getRequestId());
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
             // Step4: Add timeout for this message.
-            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
-            PartitionCommitTimeout pct = new PartitionCommitTimeout(st, self.getId(), event.getPartitionInfo());
+            se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getPartitionCommitRequestTimeout());
+            PartitionCommitTimeout pct = new PartitionCommitTimeout(st, request.getPartitionInfo());
             st.setTimeoutEvent(pct);
-            st.getTimeoutEvent().setTimeoutId(timeoutId);
+
+            // Step3: Add this to the map of pending partition updates.
+            java.util.UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
+            PartitionHelper.PartitionInfo receivedPartitionInfo = request.getPartitionInfo();
+            partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
             trigger(st, timerPort);
+            
         }
     };
-
-
+    
     /**
      * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
      * leader itself. If not applied it screws up the min and max store id and lowestMissingIndexValues.
@@ -2179,50 +2167,50 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(PartitionCommitTimeout event) {
 
-            logger.warn("(PartitionCommitTimeout): Didn't receive any information regarding commit so removing it from the list.");
+            logger.warn("{}: Didn't receive any information regarding partition commit, so removing entry from the list.", self.getId());
             partitionUpdatePendingCommit.remove(event.getPartitionInfo());
         }
     };
 
+    
+    
     /**
      * Partition Prepare Response received from the leader group nodes. The leader once seeing the promises can either partition itself and then send the update to the nodes in the system
      * about the partitioning update or can first send the partitioning update to the leader group and then partition itself.
      * <p/>
      * CURRENTLY, the node sends the partitioning commit update to the nodes in the system and waits for the commit responses and then partition self, which might be wrong in our case.
      */
-    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>() {
 
+    ClassMatchedHandler<PartitionPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Response>> handlerPartitionPrepareResponse  = new ClassMatchedHandler<PartitionPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Response>>() {
         @Override
-        public void handle(PartitionPrepareMessage.Response event) {
+        public void handle(PartitionPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Response> event) {
+            logger.debug("{}: Received response of the partition prepare message from: {}", self.getId(), event.getSource());
 
-            logger.trace("{}: Received partition prepare response from the node: {}", self.getId(), event.getVodSource());
-            partitioningTracker.addPromiseResponse(event);
-
+            partitioningTracker.addPromiseResponse(response);
             if (partitioningTracker.isPromiseAccepted()) {
 
                 // Received the required responses. Start the commit phase.
                 logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
 
                 // Cancel the prepare phase timeout as all the replies have been received.
-                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+                se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(response.getPartitionPrepareRoundId());
                 trigger(ct, timerPort);
                 partitionPreparePhaseTimeoutId = null;
 
                 // Create a commit timeout.
-                ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
-                PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), partitioningTracker.getPartitionInfo());
+                se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getPartitionCommitTimeout());
+                PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, partitioningTracker.getPartitionInfo());
                 st.setTimeoutEvent(pt);
                 partitionCommitPhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
 
                 Collection<DecoratedAddress> leaderGroupAddress = partitioningTracker.getLeaderGroupNodes();
-
-                // Send the nodes commit messages with the commit timeoutid.
+                PartitionCommit.Request request = new PartitionCommit.Request(partitionCommitPhaseTimeoutId, partitioningTracker.getPartitionRequestId());
+                
                 for (DecoratedAddress dest : leaderGroupAddress) {
-                    PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest, partitionCommitPhaseTimeoutId, partitioningTracker.getPartitionRequestId());
-                    trigger(partitionCommitRequest, networkPort);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), dest, Transport.UDP, request), networkPort);
                 }
-
             }
+            
         }
     };
 
@@ -2614,25 +2602,23 @@ public final class Search extends ComponentDefinition {
 
     /**
      * Converts the partitioning update in byte array.
-     *
+     * TODO: Uniform implementation.
+     * 
      * @param partitionInfo
      * @return partitionInfo byte array.
      */
     private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo) {
 
         // Decide on a specific order.
-        ByteBuffer buffer = ByteBuffer.allocate(8 + (2 * 4));
-
+        ByteBuffer buffer = ByteBuffer.allocate((3 * 8) + (4));
+        
         // Start filling the buffer with information.
         buffer.putLong(partitionInfo.getMedianId());
-        if (partitionInfo.getRequestId() instanceof NoTimeoutId)
-            buffer.putInt(-1);
-        else
-            buffer.putInt(partitionInfo.getRequestId().getId());
-
+        buffer.putLong(partitionInfo.getRequestId().getMostSignificantBits());
+        buffer.putLong(partitionInfo.getRequestId().getLeastSignificantBits());
+        
         buffer.putInt(partitionInfo.getPartitioningTypeInfo().ordinal());
-
-
+        
         return buffer;
     }
 

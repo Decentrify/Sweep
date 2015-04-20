@@ -1,6 +1,7 @@
 package se.sics.ms.timeout;
 
-import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.kompics.timer.ScheduleTimeout;
+import se.sics.kompics.timer.Timeout;
 import se.sics.ms.util.PartitionHelper;
 
 /**
@@ -9,12 +10,12 @@ import se.sics.ms.util.PartitionHelper;
  *
  * @author babbarshaer
  */
-public class PartitionCommitTimeout extends IndividualTimeout {
+public class PartitionCommitTimeout extends Timeout {
 
     private final PartitionHelper.PartitionInfo partitionInfo;
 
-    public PartitionCommitTimeout(ScheduleTimeout request, int id , PartitionHelper.PartitionInfo partitionInfo) {
-        super(request, id);
+    public PartitionCommitTimeout(ScheduleTimeout request , PartitionHelper.PartitionInfo partitionInfo) {
+        super(request);
         this.partitionInfo = partitionInfo;
     }
 

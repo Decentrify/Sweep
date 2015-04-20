@@ -2,11 +2,13 @@ package se.sics.ms.util;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.data.PartitionPrepare;
 import se.sics.ms.messages.PartitionCommitMessage;
 import se.sics.ms.messages.PartitionPrepareMessage;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
+import java.util.UUID;
 
 /**
  * This is the tracker for the partitioning information update.
@@ -15,7 +17,7 @@ import java.util.Collection;
  */
 public class PartitioningTracker {
 
-    public TimeoutId partitionRequestId;
+    public UUID partitionRequestId;
     public Collection<DecoratedAddress> leaderGroupNodes;
     int promises;
     int commits;
@@ -25,7 +27,7 @@ public class PartitioningTracker {
 
     }
 
-    public void startTracking(TimeoutId partitionRequestId , Collection<DecoratedAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
+    public void startTracking(UUID partitionRequestId , Collection<DecoratedAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
 
         this.partitionRequestId = partitionRequestId;
         this.leaderGroupNodes = leaderGroupNodes;
@@ -35,7 +37,7 @@ public class PartitioningTracker {
 
     }
 
-    public void addPromiseResponse(PartitionPrepareMessage.Response response){
+    public void addPromiseResponse(PartitionPrepare.Response response){
 
         if(partitionRequestId != null && response.getPartitionRequestId().equals(partitionRequestId)){
             promises++;
@@ -74,7 +76,7 @@ public class PartitioningTracker {
         return this.partitionInfo;
     }
 
-    public TimeoutId getPartitionRequestId(){
+    public UUID getPartitionRequestId(){
         return this.partitionRequestId;
     }
 
