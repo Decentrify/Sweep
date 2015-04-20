@@ -1,17 +1,10 @@
 package se.sics.ms.util;
 
-
-import org.javatuples.*;
-import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
-import se.sics.p2ptoolbox.croupier.api.util.CroupierPeerView;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -107,19 +100,19 @@ public class PartitionHelper {
     public static class PartitionInfo{
 
         private long medianId;
-        private TimeoutId requestId;
+        private UUID requestId;
         private VodAddress.PartitioningType partitioningType;
         private String hash;
         private PublicKey key;
 
-        public PartitionInfo(long medianId, TimeoutId requestId, VodAddress.PartitioningType partitioningType){
+        public PartitionInfo(long medianId, UUID requestId, VodAddress.PartitioningType partitioningType){
             this.medianId = medianId;
             this.partitioningType = partitioningType;
             this.requestId = requestId;
         }
 
 
-        public PartitionInfo(long medianId, TimeoutId requestId, VodAddress.PartitioningType partitioningType, String hash, PublicKey key){
+        public PartitionInfo(long medianId, UUID requestId, VodAddress.PartitioningType partitioningType, String hash, PublicKey key){
             this(medianId,requestId,partitioningType);
             this.hash = hash;
             this.key = key;
@@ -133,7 +126,7 @@ public class PartitionHelper {
             return this.partitioningType;
         }
 
-        public TimeoutId getRequestId(){
+        public UUID getRequestId(){
             return this.requestId;
         }
 
@@ -196,10 +189,10 @@ public class PartitionHelper {
      */
     public static class PartitionInfoHash {
 
-        TimeoutId partitionRequestId;
+        UUID partitionRequestId;
         String hash;
 
-        public PartitionInfoHash (TimeoutId partitionRequestId, String hash){
+        public PartitionInfoHash (UUID partitionRequestId, String hash){
             this.partitionRequestId = partitionRequestId;
             this.hash = hash;
         }
@@ -215,7 +208,7 @@ public class PartitionHelper {
         }
 
 
-        public TimeoutId getPartitionRequestId(){
+        public UUID getPartitionRequestId(){
             return this.partitionRequestId;
         }
 

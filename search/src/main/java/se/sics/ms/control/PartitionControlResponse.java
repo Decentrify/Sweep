@@ -3,6 +3,7 @@ package se.sics.ms.control;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.gradient.control.ControlMessageEnum;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.List;
 
@@ -15,7 +16,7 @@ public class PartitionControlResponse extends ControlBase{
 
     private ControlMessageEnum controlMessageEnum;
     private List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes;
-    private VodAddress sourceAddress;
+    private DecoratedAddress sourceAddress;
 
     @Override
     public boolean equals(Object o) {
@@ -35,7 +36,7 @@ public class PartitionControlResponse extends ControlBase{
         return sourceAddress != null ? sourceAddress.hashCode() : 0;
     }
 
-    public PartitionControlResponse(ControlMessageEnum controlMessageEnum , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes , VodAddress sourceAddress){
+    public PartitionControlResponse(ControlMessageEnum controlMessageEnum , List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes , DecoratedAddress sourceAddress){
 
         super(ControlMessageResponseTypeEnum.PARTITION_UPDATE_RESPONSE);
         this.controlMessageEnum = controlMessageEnum;
@@ -51,7 +52,7 @@ public class PartitionControlResponse extends ControlBase{
         return this.partitionUpdateHashes;
     }
 
-    public VodAddress getSourceAddress(){
+    public DecoratedAddress getSourceAddress(){
         return this.sourceAddress;
     }
 

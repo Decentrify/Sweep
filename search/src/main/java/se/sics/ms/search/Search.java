@@ -23,15 +23,24 @@ import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
 import se.sics.gvod.timer.*;
+import se.sics.gvod.timer.CancelTimeout;
+import se.sics.gvod.timer.SchedulePeriodicTimeout;
+import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.*;
 import se.sics.ms.aggregator.SearchComponentUpdate;
 import se.sics.ms.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
+import se.sics.ms.data.ControlInformation;
+import se.sics.ms.data.DelayedPartitioning;
+import se.sics.ms.data.IndexExchange;
+import se.sics.ms.data.IndexHashExchange;
 import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
 import se.sics.ms.election.aggregation.ElectionLeaderUpdateEvent;
 import se.sics.ms.events.UiAddIndexEntryRequest;
@@ -72,7 +81,9 @@ import se.sics.p2ptoolbox.gradient.msg.GradientSample;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
 import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import sun.misc.BASE64Encoder;
 
 import java.io.File;
@@ -170,13 +181,15 @@ public final class Search extends ComponentDefinition {
     private Map<TimeoutId, PartitionReplicationCount> partitionPrepareReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
     private Map<TimeoutId, PartitionReplicationCount> partitionCommitReplicationCountMap = new HashMap<TimeoutId, PartitionReplicationCount>();
 
-    private TimeoutId controlMessageExchangeRoundId;
-    private Map<VodAddress, TimeoutId> peerControlMessageAddressRequestIdMap = new HashMap<VodAddress, TimeoutId>();
-    private Map<VodAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<VodAddress, PeerControlMessageRequestHolder>();
+    // Generic Control Pull Mechanism.
+    private java.util.UUID controlMessageExchangeRoundId;
+    private Map<BasicAddress, java.util.UUID> peerControlMessageAddressRequestIdMap = new HashMap<BasicAddress, java.util.UUID>();      // FIXME: Needs to be refactored in one message.
+    private Map<BasicAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<BasicAddress, PeerControlMessageRequestHolder>();
     private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
+
     private int controlMessageResponseCount = 0;
     private boolean partitionUpdateFetchInProgress = false;
-    private TimeoutId currentPartitionInfoFetchRound;
+    private java.util.UUID currentPartitionInfoFetchRound;
 
     private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
     private static final int HISTORY_LENGTH = 5;
@@ -189,7 +202,7 @@ public final class Search extends ComponentDefinition {
     private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
     private Map<TimeoutId, TimeoutId> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
-    
+
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -273,20 +286,17 @@ public final class Search extends ComponentDefinition {
         subscribe(addIndexEntryRequestHandler, uiPort);
 
         subscribe(handleSearchSimulated, simulationEventsPort);
-        subscribe(handleViewSizeResponse, gradientRoutingPort);
         subscribe(handleIndexExchangeTimeout, timerPort);
         subscribe(handleNumberOfPartitions, gradientRoutingPort);
 
         // Two Phase Commit Mechanism.
         subscribe(partitionPrepareTimeoutHandler, timerPort);
         subscribe(handlerPartitionPrepareRequest, networkPort);
-        subscribe(handlerPartitionPrepareResponseUpdated, networkPort);
+        subscribe(handlerPartitionPrepareResponse, networkPort);
         subscribe(handlePartitionCommitTimeout, timerPort);
 
         subscribe(handlerPartitionCommitRequest, networkPort);
-//        subscribe(handlerPartitionCommitResponse, networkPort);
-        subscribe(handlerPartitionCommitResponseUpdated, networkPort);
-//        subscribe(handlerLeaderGroupInformationResponse, gradientRoutingPort);
+        subscribe(handlerPartitionCommitResponse, networkPort);
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
 
         // Generic Control message exchange mechanism
@@ -294,11 +304,10 @@ public final class Search extends ComponentDefinition {
         subscribe(handlerControlMessageRequest, networkPort);
         subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
-        subscribe(handlerDelayedPartitioningMessageRequest, networkPort);
+        subscribe(handlerDelayedPartitioningRequest, networkPort);
 
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
-        subscribe(gradientSampleHandler, gradientPort);
 
         // LeaderElection handlers.
         subscribe(leaderElectionHandler, electionPort);
@@ -328,7 +337,7 @@ public final class Search extends ComponentDefinition {
         partitioningTracker = new PartitioningTracker();
         entryAdditionTrackerUpdated = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<TimeoutId, TimeoutId>();
-        
+
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         File file = null;
@@ -391,7 +400,7 @@ public final class Search extends ComponentDefinition {
             trigger(rst, timerPort);
 
             // Bootup the croupier with default configuration.
-            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(java.util.UUID.randomUUID(), self.getSelfDescriptor());
+            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(self.getSelfDescriptor());
             trigger(initialCroupierBootupUpdate, croupierPortPositive);
 
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
@@ -453,10 +462,10 @@ public final class Search extends ComponentDefinition {
     }
 
     private boolean exchangeInProgress = false;
-    private TimeoutId indexExchangeTimeout;
+    private java.util.UUID indexExchangeTimeout;
     private HashSet<VodAddress> nodesSelectedForIndexHashExchange = new HashSet<VodAddress>();
-    private HashSet<VodAddress> nodesRespondedInIndexHashExchange = new HashSet<VodAddress>();
-    private HashMap<VodAddress, Collection<IndexHash>> collectedHashes = new HashMap<VodAddress, Collection<IndexHash>>();
+    private HashSet<DecoratedAddress> nodesRespondedInIndexHashExchange = new HashSet<DecoratedAddress>();
+    private HashMap<DecoratedAddress, Collection<IndexHash>> collectedHashes = new HashMap<DecoratedAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
     /**
@@ -499,33 +508,44 @@ public final class Search extends ComponentDefinition {
             cleanControlMessageResponseData();
 
             //Trigger the new exchange round.
-            controlMessageExchangeRoundId = UUID.nextUUID();
+            controlMessageExchangeRoundId = java.util.UUID.randomUUID();
             trigger(new GradientRoutingPort.InitiateControlMessageExchangeRound(controlMessageExchangeRoundId, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
         }
     };
 
 
     /**
-     * Control Message Request Received.
+     * Initial handler of the control message request from the nodes in the system.
      */
-    Handler<ControlMessage.Request> handlerControlMessageRequest = new Handler<ControlMessage.Request>() {
+    ClassMatchedHandler<ControlInformation.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Request>> handlerControlMessageRequest = new ClassMatchedHandler<ControlInformation.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Request>>() {
         @Override
-        public void handle(ControlMessage.Request event) {
+        public void handle(ControlInformation.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Request> event) {
 
-            logger.debug(" Received the Control Message Request at: " + self.getId());
-            if (peerControlMessageResponseMap.get(event.getVodSource()) != null)
-                peerControlMessageResponseMap.get(event.getVodSource()).reset();
+            logger.debug("{}: Received control message request from : {}", self.getId(), event.getSource());
+            BasicAddress basicAddress = event.getSource().getBase();
+
+            if (peerControlMessageResponseMap.get(basicAddress) != null)
+                peerControlMessageResponseMap.get(basicAddress).reset();
             else
-                peerControlMessageResponseMap.put(event.getVodSource(), new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
+                peerControlMessageResponseMap.put(basicAddress, new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
 
-            peerControlMessageAddressRequestIdMap.put(event.getVodSource(), event.getRoundId());
-
-            // Request the components for the information.
-            handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(event));
-            trigger(new CheckLeaderInfoUpdate.Request(event.getRoundId(), event.getVodSource()), gradientRoutingPort);
+            peerControlMessageAddressRequestIdMap.put(basicAddress, request.getRequestId());
+            requestComponentsForInformation(request, event.getSource());
         }
     };
 
+    /**
+     * Request the components in the system for the information,
+     * that will be collated and sent back to the requesting node.
+     *
+     * @param request Request Information.
+     * @param source  Source
+     */
+    private void requestComponentsForInformation(ControlInformation.Request request, DecoratedAddress source) {
+
+        handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(request, source));
+        trigger(new CheckLeaderInfoUpdate.Request(request.getRequestId(), source), gradientRoutingPort);
+    }
 
     /**
      * Handle the control message responses from the different components.
@@ -537,45 +557,39 @@ public final class Search extends ComponentDefinition {
 
         try {
 
-            TimeoutId roundIdReceived = event.getRoundId();
-            TimeoutId currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress());
+            java.util.UUID roundIdReceived = event.getRoundId();
+            java.util.UUID currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress().getBase());
 
             // Perform initial checks to avoid old responses.
             if (currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
+                logger.warn("{}: Received response from the internal component for an old round. ", self.getId());
                 return;
             }
 
             // Update the peer control response map to add the new entry.
-            PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress());
+            PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress().getBase());
             if (controlMessageResponse == null) {
                 logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
                 return;
             }
 
+            // Append the response to the buffer.
             ByteBuf buf = controlMessageResponse.getBuffer();
-            // Fetch the buffer to write and append the information in it.
-            ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event);
+            ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event); //FIX THIS.
 
-            // encansuplate it into a separate method.
             if (controlMessageResponse.addAndCheckStatus()) {
 
-                // Construct the response object and trigger it back to the user.
-                logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
-
-                // Send the data back to the user.
-                trigger(new ControlMessage.Response(self.getAddress(), event.getSourceAddress(), event.getRoundId(), buf.array()), networkPort);
-
                 // TODO: Some kind of timeout mechanism needs to be there because there might be some issue with the components and hence they don't reply on time.
-
-                // Clean the data at the user end also.
-                cleanControlRequestMessageData(event.getSourceAddress());
+                logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
+                ControlInformation.Response response = new ControlInformation.Response(currentRoundId, buf.array());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSourceAddress(), Transport.UDP, response), networkPort);
+                cleanControlRequestMessageData(event.getSourceAddress().getBase());
             }
         } catch (MessageEncodingException e) {
-            // If the exception is thrown it means that encoding was not successful for some reason and we will return after raising a flag ...
+
             logger.error(" Encoding Failed ... Please Check ... ");
             e.printStackTrace();
-            // Clean the data at the user end also.
-            cleanControlRequestMessageData(event.getSourceAddress());
+            cleanControlRequestMessageData(event.getSourceAddress().getBase());
         }
     }
 
@@ -598,41 +612,43 @@ public final class Search extends ComponentDefinition {
      *
      * @param sourceAddress Address
      */
-    public void cleanControlRequestMessageData(VodAddress sourceAddress) {
+    public void cleanControlRequestMessageData(BasicAddress sourceAddress) {
 
-        logger.debug(" Clean Control Message Data Called at : " + self.getId());
+        logger.debug(" {}: Clean Control Message Data Called for: {} ", self.getId(), sourceAddress);
         peerControlMessageAddressRequestIdMap.remove(sourceAddress);
         peerControlMessageResponseMap.remove(sourceAddress);
 
     }
 
-    /**
-     * Control Message Response containing important information.
-     */
-    Handler<ControlMessage.Response> handlerControlMessageResponse = new Handler<ControlMessage.Response>() {
-        @Override
-        public void handle(ControlMessage.Response event) {
 
-            if (!controlMessageExchangeRoundId.equals(event.getRoundId())) {
-                logger.warn("ControlMessage response received for an old or unknown round id: " + event.getRoundId());
+    /**
+     * Handler for the control message responses from the nodes with higher utility in the system.
+     */
+    ClassMatchedHandler<ControlInformation.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Response>> handlerControlMessageResponse = new ClassMatchedHandler<ControlInformation.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Response>>() {
+        @Override
+        public void handle(ControlInformation.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlInformation.Response> event) {
+
+            logger.debug("{}: Received Control Message from :{}", self.getId(), event.getSource());
+
+            if (!controlMessageExchangeRoundId.equals(response.getRoundId())) {
+                logger.warn("{}: Control Message Response received for an expired round: {}", self.getId(), response.getRoundId());
                 return;
             }
 
-            ByteBuf buffer = Unpooled.wrappedBuffer(event.getBytes());
+            ByteBuf buffer = Unpooled.wrappedBuffer(response.getByteInfo());
             try {
 
-                int numOfIterations = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
+                int numUpdates = ControlMessageDecoderFactory.getNumberOfUpdates(buffer);
+                while (numUpdates > 0) {
 
-                while (numOfIterations > 0) {
                     ControlBase controlMessageInternalResponse = ControlMessageDecoderFactory.decodeControlMessageInternal(buffer, event);
-
                     if (controlMessageInternalResponse != null) {
                         ControlMessageHelper.updateTheControlMessageResponseHolderMap(controlMessageInternalResponse, controlMessageResponseHolderMap);
                     }
-                    numOfIterations -= 1;
+
+                    numUpdates--;
                 }
 
-                // Handles multiple responses.
                 controlMessageResponseCount++;
 
                 if (controlMessageResponseCount >= config.getIndexExchangeRequestNumber()) {
@@ -646,7 +662,6 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
-
 
     /**
      * Once all the messages for a round are received, then perform the matching.
@@ -678,7 +693,7 @@ public final class Search extends ComponentDefinition {
 
     private void performLeaderUpdateMatching(List<LeaderInfoControlResponse> leaderControlResponses) {
 
-        VodAddress newLeader = null;
+        DecoratedAddress newLeader = null;
         PublicKey newLeaderPublicKey = null;
         boolean isFirst = true;
         //agree to a leader only if all received responses have leader as null or
@@ -687,7 +702,7 @@ public final class Search extends ComponentDefinition {
 
         for (LeaderInfoControlResponse leaderInfo : leaderControlResponses) {
 
-            VodAddress currentLeader = leaderInfo.getLeaderAddress();
+            DecoratedAddress currentLeader = leaderInfo.getLeaderAddress();
             PublicKey currentLeaderPublicKey = leaderInfo.getLeaderPublicKey();
 
             if (isFirst) {
@@ -726,7 +741,7 @@ public final class Search extends ComponentDefinition {
 
         Iterator<PartitionControlResponse> iterator = partitionControlResponses.iterator();
 
-        List<TimeoutId> finalPartitionUpdates = new ArrayList<TimeoutId>();
+        List<java.util.UUID> finalPartitionUpdates = new ArrayList<java.util.UUID>();
         boolean mismatchFound = false;
         boolean first = true;
 
@@ -781,22 +796,20 @@ public final class Search extends ComponentDefinition {
         }
 
         // Here we have to start a new flow with a different timrout id to fetch the updates from any random node and put it as current
-        Random random = new Random();
         // request for the updates from any random node.
-        VodAddress randomPeerAddress = partitionControlResponses.get(random.nextInt(partitionControlResponses.size())).getSourceAddress();
+        Random random = new Random();
+        DecoratedAddress randomPeerAddress = partitionControlResponses.get(random.nextInt(partitionControlResponses.size())).getSourceAddress();
 
+        se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getDelayedPartitioningRequestTimeout());
+        st.setTimeoutEvent(new DelayedPartitioning.Timeout(st));
+        java.util.UUID roundId = st.getTimeoutEvent().getTimeoutId();
 
-        TimeoutId timeoutId = UUID.nextUUID();
-        ScheduleTimeout st = new ScheduleTimeout(config.getDelayedPartitioningRequestTimeout());
-        DelayedPartitioningMessage.Timeout delayedPartitioningTimeout = new DelayedPartitioningMessage.Timeout(st, self.getId());
-        st.setTimeoutEvent(delayedPartitioningTimeout);
-        st.getTimeoutEvent().setTimeoutId(timeoutId);
-
-        currentPartitionInfoFetchRound = timeoutId;
+        currentPartitionInfoFetchRound = roundId;
         partitionUpdateFetchInProgress = true;
 
         // Trigger the new updates.
-        trigger(new DelayedPartitioningMessage.Request(self.getAddress(), randomPeerAddress, timeoutId, finalPartitionUpdates), networkPort);
+        DelayedPartitioning.Request request = new DelayedPartitioning.Request(roundId, finalPartitionUpdates);
+        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), randomPeerAddress, Transport.UDP, request), networkPort);
 
         // Trigger the Scehdule Timeout Event.
         trigger(st, timerPort);
@@ -804,55 +817,54 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Received Request for the Partitioning Updates.
+     * Handler for the delayed partitioning information request
+     * sent by the node which has found common in order hashes.
      */
-    Handler<DelayedPartitioningMessage.Request> handlerDelayedPartitioningMessageRequest = new Handler<DelayedPartitioningMessage.Request>() {
-
+    ClassMatchedHandler<DelayedPartitioning.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Request>> handlerDelayedPartitioningRequest = new ClassMatchedHandler<DelayedPartitioning.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Request>>() {
         @Override
-        public void handle(DelayedPartitioningMessage.Request event) {
+        public void handle(DelayedPartitioning.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Request> event) {
 
-            logger.debug(" Delayed Partitioning Message Request Received from: " + event.getSource().getId());
-            LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = fetchPartitioningUpdates(event.getPartitionRequestIds());
+            logger.debug("{}: Received delayed partitioning request from : {}", self.getId(), event.getSource());
 
-            trigger(new DelayedPartitioningMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), partitionUpdates), networkPort);
-
+            LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = fetchPartitioningUpdates(request.getPartitionRequestIds());
+            DelayedPartitioning.Response response = new DelayedPartitioning.Response(request.getRoundId(), partitionUpdates);
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
         }
     };
 
+
     /**
-     * Apply the partitioning updates to the local.
+     * Handler for the delayed partitioning information response. The response should contain
+     * partitioning history which needs to be applied at the node in order.
      */
-    Handler<DelayedPartitioningMessage.Response> delayedPartitioningResponseHandler = new Handler<DelayedPartitioningMessage.Response>() {
-
+    ClassMatchedHandler<DelayedPartitioning.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Response>> delayedPartitioningResponseHandler = new ClassMatchedHandler<DelayedPartitioning.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Response>>() {
         @Override
-        public void handle(DelayedPartitioningMessage.Response event) {
+        public void handle(DelayedPartitioning.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, DelayedPartitioning.Response> event) {
+            logger.debug("{}: Received delayed partitioning response from: {}", self.getId(), event.getSource());
 
-            if (!partitionUpdateFetchInProgress || !(event.getTimeoutId().equals(currentPartitionInfoFetchRound)))
+            if (currentPartitionInfoFetchRound != null || !(response.getRoundId().equals(currentPartitionInfoFetchRound))) {
+                logger.warn("{}: Response for the expired delayed partitioning round.");
                 return;
+            }
 
-            // Cancel the timeout event.
-            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(response.getRoundId());
             trigger(cancelTimeout, timerPort);
 
             // Simply apply the partitioning update and handle the duplicacy.
-            applyPartitioningUpdate(event.getPartitionHistory());
+            applyPartitioningUpdate(response.getPartitionHistory());
         }
     };
 
-    /**
-     * Handler for the Delayed Partitioning Timeout.
-     */
-    Handler<DelayedPartitioningMessage.Timeout> delayedPartitioningTimeoutHandler = new Handler<DelayedPartitioningMessage.Timeout>() {
 
+    Handler<DelayedPartitioning.Timeout> delayedPartitioningTimeoutHandler = new Handler<DelayedPartitioning.Timeout>() {
         @Override
-        public void handle(DelayedPartitioningMessage.Timeout event) {
+        public void handle(DelayedPartitioning.Timeout timeout) {
+            logger.debug("{}: Delayed partitioning round expired.", self.getId());
 
-            //Reset the partitionUpdateInProgress.
-            // Can also set the current partitioning round to a no timeout object.
-            partitionUpdateFetchInProgress = false;
+            if (!partitionUpdateFetchInProgress)
+                currentPartitionInfoFetchRound = null;
         }
     };
-
 
     /**
      * After the exchange round is complete or aborted, clean the response data held from precious round.
@@ -877,8 +889,8 @@ public final class Search extends ComponentDefinition {
 
             exchangeInProgress = true;
 
-            ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
-            timeout.setTimeoutEvent(new TimeoutCollection.IndexExchangeTimeout(timeout, self.getId()));
+            se.sics.kompics.timer.ScheduleTimeout timeout = new se.sics.kompics.timer.ScheduleTimeout(config.getIndexExchangeTimeout());
+            timeout.setTimeoutEvent(new TimeoutCollection.IndexExchangeTimeout(timeout));
 
             indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
 
@@ -894,20 +906,21 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Search for entries in the local store that the inquirer might need and
-     * send the ids and hashes.
+     * Handler for the index hash exchange request which
+     * signals the start of the index exchange round.
      */
-    final Handler<IndexHashExchangeMessage.Request> handleIndexHashExchangeRequest = new Handler<IndexHashExchangeMessage.Request>() {
+    ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>> handleIndexHashExchangeRequest = new ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>>() {
         @Override
-        public void handle(IndexHashExchangeMessage.Request event) {
+        public void handle(IndexHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request> event) {
+            logger.debug("{}: Received Index Hash Exchange from: {}", self.getId(), event.getSource());
 
             try {
 
                 List<IndexHash> hashes = new ArrayList<IndexHash>();
 
                 // Search for entries the inquirer is missing
-                long lastId = event.getOldestMissingIndexValue();
-                for (long i : event.getExistingEntries()) {
+                long lastId = request.getLowestMissingIndexEntry();
+                for (long i : request.getEntries()) {
                     Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
@@ -927,33 +940,33 @@ public final class Search extends ComponentDefinition {
                     }
                 }
 
-                trigger(new IndexHashExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), hashes), chunkManagerPort);
+                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
+
+
         }
     };
 
-    final Handler<GradientRoutingPort.IndexHashExchangeResponse> handleGradientIndexHashExchangeResponse = new Handler<GradientRoutingPort.IndexHashExchangeResponse>() {
+    ClassMatchedHandler<IndexHashExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Response>> handleIndexHashExchangeResponse = new ClassMatchedHandler<IndexHashExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Response>>() {
         @Override
-        public void handle(GradientRoutingPort.IndexHashExchangeResponse indexHashExchangeResponse) {
+        public void handle(IndexHashExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Response> event) {
 
-            nodesSelectedForIndexHashExchange = indexHashExchangeResponse.getNodesSelectedForExchange();
-        }
-    };
+            logger.debug("{}: Received index hash exchange response from the node: {}", self.getId(), event.getSource());
 
-    final Handler<IndexHashExchangeMessage.Response> handleIndexHashExchangeResponse = new Handler<IndexHashExchangeMessage.Response>() {
-        @Override
-        public void handle(IndexHashExchangeMessage.Response event) {
             // Drop old responses
-            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
+            if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
+                logger.warn("{}: Received response for an old index hash exchange request.", self.getId());
                 return;
             }
-
-            nodesRespondedInIndexHashExchange.add(event.getVodSource());
+            
+            nodesRespondedInIndexHashExchange.add(event.getSource());
 
             // TODO we somehow need to check here that the answer is from the correct node
-            collectedHashes.put(event.getVodSource(), event.getHashes());
+            collectedHashes.put(event.getSource(), response.getIndexHashes());
             if (collectedHashes.size() == config.getIndexExchangeRequestNumber()) {
                 intersection = new HashSet<IndexHash>(collectedHashes.values().iterator().next());
                 for (Collection<IndexHash> hashes : collectedHashes.values()) {
@@ -961,7 +974,7 @@ public final class Search extends ComponentDefinition {
                 }
 
                 if (intersection.isEmpty()) {
-                    CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+                    se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
                     trigger(cancelTimeout, timerPort);
                     indexExchangeTimeout = null;
                     exchangeInProgress = false;
@@ -973,59 +986,71 @@ public final class Search extends ComponentDefinition {
                     ids.add(hash.getId());
                 }
 
-                VodAddress node = collectedHashes.keySet().iterator().next();
-                trigger(new IndexExchangeMessage.Request(self.getAddress(), node, event.getTimeoutId(), ids), networkPort);
+                DecoratedAddress node = collectedHashes.keySet().iterator().next();
+                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node, Transport.UDP, request), networkPort);
+                
             }
         }
     };
 
+
     /**
-     * Search for entries in the local store that the inquirer requested and
-     * send them to him.
+     * Handle the index exchange request by supplied the index entries for the 
+     * requested ids by the node lower in the view.
      */
-    final Handler<IndexExchangeMessage.Request> handleIndexExchangeRequest = new Handler<IndexExchangeMessage.Request>() {
+    ClassMatchedHandler<IndexExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request>> handleIndexExchangeRequest = new ClassMatchedHandler<IndexExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request>>() {
         @Override
-        public void handle(IndexExchangeMessage.Request event) {
+        public void handle(IndexExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request> event) {
+            
+            logger.debug("{}: Received Index hash exchange request from: {}", self.getId(), event.getSource());
+            
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-                for (Id id : event.getIds()) {
-                    // TODO use the leader id to search
+                for (Id id : request.getIds()) {
+                    
                     IndexEntry entry = findById(id.getId());
                     if (entry != null)
                         indexEntries.add(entry);
                 }
-
-                trigger(new IndexExchangeMessage.Response(self.getAddress(), event.getVodSource(), event.getTimeoutId(), indexEntries, 0, 0), chunkManagerPort);
+                
+                IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), chunkManagerPort);
+                
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             }
         }
     };
-
-    /**
-     * Add all entries received from another node to the local index store.
-     */
-    final Handler<IndexExchangeMessage.Response> handleIndexExchangeResponse = new Handler<IndexExchangeMessage.Response>() {
+    
+    
+    
+    
+    
+    ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>> handleIndexExchangeResponse = new ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>>() {
         @Override
-        public void handle(IndexExchangeMessage.Response event) {
+        public void handle(IndexExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response> event) {
+            
+            logger.debug("{}: Received index exchange response from the node: {}", self.getId(), event.getSource());
             // Drop old responses
-            if (!event.getTimeoutId().equals(indexExchangeTimeout)) {
+            if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 return;
             }
 
-            // Stop accepting responses from lagging behind nodes.
-            if (isMessageFromNodeLaggingBehind(event.getVodSource())) {
-                return;
-            }
+            // Extra informtion for restating the check.
+//            // Stop accepting responses from lagging behind nodes.
+//            if (isMessageFromNodeLaggingBehind(event.getVodSource())) {
+//                return;
+//            }
 
 
-            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
+            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
             trigger(cancelTimeout, timerPort);
             indexExchangeTimeout = null;
             exchangeInProgress = false;
 
             try {
-                for (IndexEntry indexEntry : event.getIndexEntries()) {
+                for (IndexEntry indexEntry : response.getIndexEntries()) {
                     if (intersection.remove(new IndexHash(indexEntry)) && isIndexEntrySignatureValid(indexEntry)) {
                         addEntryLocal(indexEntry);
                     } else {
@@ -1046,26 +1071,8 @@ public final class Search extends ComponentDefinition {
             logger.debug(self.getId() + " index exchange timed out");
             indexExchangeTimeout = null;
             exchangeInProgress = false;
-
-            publishUnresponsiveNodeDuringHashExchange();
         }
     };
-
-    private void publishUnresponsiveNodeDuringHashExchange() {
-        //to get nodes that didn't respond during index hash exchange
-        HashSet<VodAddress> unresponsiveNodes = new HashSet<VodAddress>(nodesSelectedForIndexHashExchange);
-        unresponsiveNodes.removeAll(nodesRespondedInIndexHashExchange);
-
-        trigger(new FailureDetectorPort.FailureDetectorEvent(self.getAddress()), fdPort);
-
-        for (VodAddress node : unresponsiveNodes) {
-            publishUnresponsiveNode(node);
-        }
-    }
-
-    private void publishUnresponsiveNode(VodAddress nodeAddress) {
-        trigger(new FailureDetectorPort.FailureDetectorEvent(nodeAddress), fdPort);
-    }
 
     /**
      * Add index entries for the simulator.
@@ -1127,7 +1134,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            if(! entryAdditionTrackerUpdated.canTrack()){
+            if (!entryAdditionTrackerUpdated.canTrack()) {
                 logger.warn("Unable to track a new entry addition as one is going on.");
                 System.exit(-1);
             }
@@ -1159,10 +1166,10 @@ public final class Search extends ComponentDefinition {
             if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
                 logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getVodSource());
-                
-                EntryAdditionRoundInfo  additionRoundInfo = new EntryAdditionRoundInfo(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
+
+                EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(event.getTimeoutId(), leaderGroupInformation, newEntry, event.getVodSource());
                 entryAdditionTrackerUpdated.startTracking(event.getTimeoutId(), additionRoundInfo);
-                
+
                 for (VodAddress destination : leaderGroupInformation) {
                     logger.warn("Sending prepare commit request to : {}", destination.getId());
                     ReplicationPrepareCommitMessage.Request request = new ReplicationPrepareCommitMessage.Request(self.getAddress(), destination, event.getTimeoutId(), newEntry);
@@ -1170,14 +1177,13 @@ public final class Search extends ComponentDefinition {
                 }
 
                 // Trigger for a timeout and how would that work ?
-                
+
                 ScheduleTimeout st = new ScheduleTimeout(5000);
                 st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, event.getTimeoutId()));
                 entryPrepareTimeoutMap.put(event.getTimeoutId(), st.getTimeoutEvent().getTimeoutId());
-                
+
                 trigger(st, timerPort);
-            }
-            else{
+            } else {
                 logger.warn("{}: Unable to start the index entry commit due to insufficient information about leader group.", self.getId());
             }
 
@@ -1194,16 +1200,15 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.EntryPrepareResponseTimeout event) {
 
-            if(entryPrepareTimeoutMap != null && entryPrepareTimeoutMap.keySet().contains(event.getTimeoutId())){
-                
+            if (entryPrepareTimeoutMap != null && entryPrepareTimeoutMap.keySet().contains(event.getTimeoutId())) {
+
                 logger.warn("{}: Prepare phase timed out. Resetting the tracker information.");
                 entryAdditionTrackerUpdated.resetTracker(event.roundId);
                 entryPrepareTimeoutMap.remove(event.roundId);
-            }
-            else{
+            } else {
                 logger.warn(" Prepare Phase timeout edge case called. Not resetting the tracker.");
             }
-            
+
         }
     };
 
@@ -1283,7 +1288,7 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and 
+     * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and
      * then send the commit message request to the leader nodes who have replied yes.
      */
     final Handler<ReplicationPrepareCommitMessage.Response> handleEntryAdditionPrepareCommitResponse = new Handler<ReplicationPrepareCommitMessage.Response>() {
@@ -1292,31 +1297,31 @@ public final class Search extends ComponentDefinition {
 
             TimeoutId timeout = response.getTimeoutId();
             EntryAdditionRoundInfo info = entryAdditionTrackerUpdated.getEntryAdditionRoundInfo(timeout);
-            
-            if(info == null){
+
+            if (info == null) {
                 logger.debug("{}: Received Promise Response from: {} after the round has expired ", self.getId(), response.getVodSource());
                 return;
             }
-            
+
             info.addEntryAddPromiseResponse(response);
             if (info.isPromiseAccepted()) {
-                
+
                 try {
 
                     logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
                     CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(timeout));
                     trigger(ct, timerPort);
-                    
+
                     IndexEntry entryToCommit = info.getEntryToAdd();
                     TimeoutId commitTimeout = UUID.nextUUID(); //What's it purpose.
                     addEntryLocal(entryToCommit);   // Commit to local first.
-                    
+
                     ByteBuffer idBuffer = ByteBuffer.allocate(8);
                     idBuffer.putLong(entryToCommit.getId());
 
                     String signature = generateRSASignature(idBuffer.array(), privateKey);
-                    
-                    for(VodAddress destination : info.getLeaderGroupAddress()){
+
+                    for (VodAddress destination : info.getLeaderGroupAddress()) {
                         ReplicationCommitMessage.Request request = new ReplicationCommitMessage.Request(self.getAddress(), destination, commitTimeout, entryToCommit.getId(), signature);
                         trigger(request, networkPort);
                     }
@@ -1334,9 +1339,8 @@ public final class Search extends ComponentDefinition {
                     throw new RuntimeException("Entry addition failed", e);
                 } catch (IOException e) {
                     e.printStackTrace();
-                } 
-                finally {
-                    
+                } finally {
+
                     entryAdditionTrackerUpdated.resetTracker(timeout);
                     entryPrepareTimeoutMap.remove(timeout);
                 }
@@ -1408,11 +1412,8 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
-    
-    
-    
-    
-    
+
+
     /**
      * Save entry on the leader and send an ACK back to the client
      * Only execute in the role of the leader. Garbage collect replication
@@ -1799,7 +1800,7 @@ public final class Search extends ComponentDefinition {
             logger.error("{}: Unable to cleanly remove the entries from the partition.", self.getId());
             e.printStackTrace();
         }
-        self.setNumberOfIndexEntries(numberOfStoredIndexEntries);
+        self.setNumberOfEntries(numberOfStoredIndexEntries);
 
 
         if (maxStoredId < minStoredId) {
@@ -1933,7 +1934,7 @@ public final class Search extends ComponentDefinition {
      * @throws IOException in case the adding operation failed
      */
     private void addIndexEntry(LuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
-        
+
         logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getId());
         Document doc = new Document();
         doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
@@ -2053,12 +2054,12 @@ public final class Search extends ComponentDefinition {
      * Starting point of the two phase commit protocol for partitioning commit in the
      * system.
      *
-     * @param medianId index entry split id.
+     * @param medianId         index entry split id.
      * @param partitioningType partitioning type
      */
-    private void start2PhasePartitionCommit(long medianId, VodAddress.PartitioningType partitioningType){
+    private void start2PhasePartitionCommit(long medianId, VodAddress.PartitioningType partitioningType) {
 
-        if(leaderGroupInformation == null || leaderGroupInformation.size() < config.getLeaderGroupSize()){
+        if (leaderGroupInformation == null || leaderGroupInformation.size() < config.getLeaderGroupSize()) {
             logger.warn("Not enough nodes to start the two phase commit protocol.");
             return;
         }
@@ -2088,7 +2089,7 @@ public final class Search extends ComponentDefinition {
         partitionPreparePhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
         trigger(st, timerPort);
 
-        for(VodAddress destination : leaderGroupInformation){
+        for (VodAddress destination : leaderGroupInformation) {
             PartitionPrepareMessage.Request partitionPrepareRequest = new PartitionPrepareMessage.Request(self.getAddress(), destination, new OverlayId(self.getOverlayId()), partitionPreparePhaseTimeoutId, partitionInfo);
             trigger(partitionPrepareRequest, networkPort);
         }
@@ -2100,14 +2101,13 @@ public final class Search extends ComponentDefinition {
      * Be careful that the timeout can occur even if we have cancelled the timeout, this is the reason that we have to
      * externally track the timeout id to check if it has been reset by the application.
      * In case of sensitive timeouts, which can result in inconsistencies this step is necessary.
-     *
      */
     Handler<PartitionPrepareMessage.Timeout> partitionPrepareTimeoutHandler = new Handler<PartitionPrepareMessage.Timeout>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Timeout event) {
 
-            if(partitionPreparePhaseTimeoutId == null || !partitionPreparePhaseTimeoutId.equals(event.getTimeoutId())){
+            if (partitionPreparePhaseTimeoutId == null || !partitionPreparePhaseTimeoutId.equals(event.getTimeoutId())) {
 
                 logger.warn(" Partition Prepare Phase Timeout Occurred. ");
                 partitionInProgress = false;
@@ -2184,66 +2184,13 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-
-    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>() {
-
-        @Override
-        public void handle(PartitionPrepareMessage.Response event) {
-
-            // Step1: Filter the responses based on id's passed.
-            TimeoutId receivedTimeoutId = event.getTimeoutId();
-            PartitionReplicationCount count = partitionPrepareReplicationCountMap.get(receivedTimeoutId);
-
-            if (partitionInProgress && count != null) {
-
-                if (count.incrementAndCheckResponse(event.getVodSource())) {
-
-                    // Received the required responses. Start the commit phase.
-                    logger.debug("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
-                    List<VodAddress> leaderGroupAddress = count.getLeaderGroupNodesAddress();
-
-
-                    // Cancel the prepare phase timeout as all the replies have been received.
-                    CancelTimeout ct = new CancelTimeout(receivedTimeoutId);
-                    trigger(ct, timerPort);
-
-                    // Create a commit timeout.
-                    TimeoutId commitTimeoutId = UUID.nextUUID();
-                    ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
-                    PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), count.getPartitionInfo());
-                    st.setTimeoutEvent(pt);
-                    st.getTimeoutEvent().setTimeoutId(commitTimeoutId);
-
-                    // Send the nodes commit messages with the commit timeoutid.
-                    for (VodAddress dest : leaderGroupAddress) {
-                        PartitionCommitMessage.Request partitionCommitRequest = new PartitionCommitMessage.Request(self.getAddress(), dest, commitTimeoutId, count.getPartitionInfo().getRequestId());
-                        trigger(partitionCommitRequest, networkPort);
-                    }
-
-                    // Create a timeout for the responses. or Do we have to ?
-                    // TODO: Not sure if this is required.
-
-                    // Remove the data from the prepare map, to avoid handling of unnecessary messages.
-                    partitionPrepareReplicationCountMap.remove(receivedTimeoutId);
-                    count.resetLeaderGroupNodesAddress();
-
-                    // Insert the data in the commit map.
-                    partitionCommitReplicationCountMap.put(commitTimeoutId, count);         // Changing here to the committimeout id, not sure why it was running earlier.
-
-                }
-            }
-        }
-    };
-
-
     /**
      * Partition Prepare Response received from the leader group nodes. The leader once seeing the promises can either partition itself and then send the update to the nodes in the system
      * about the partitioning update or can first send the partitioning update to the leader group and then partition itself.
-     *
+     * <p/>
      * CURRENTLY, the node sends the partitioning commit update to the nodes in the system and waits for the commit responses and then partition self, which might be wrong in our case.
-     *
      */
-    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponseUpdated = new Handler<PartitionPrepareMessage.Response>() {
+    Handler<PartitionPrepareMessage.Response> handlerPartitionPrepareResponse = new Handler<PartitionPrepareMessage.Response>() {
 
         @Override
         public void handle(PartitionPrepareMessage.Response event) {
@@ -2251,7 +2198,7 @@ public final class Search extends ComponentDefinition {
             logger.trace("{}: Received partition prepare response from the node: {}", self.getId(), event.getVodSource());
             partitioningTracker.addPromiseResponse(event);
 
-            if(partitioningTracker.isPromiseAccepted()){
+            if (partitioningTracker.isPromiseAccepted()) {
 
                 // Received the required responses. Start the commit phase.
                 logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
@@ -2265,7 +2212,7 @@ public final class Search extends ComponentDefinition {
                 ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
                 PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, self.getId(), partitioningTracker.getPartitionInfo());
                 st.setTimeoutEvent(pt);
-                partitionCommitPhaseTimeoutId  = st.getTimeoutEvent().getTimeoutId();
+                partitionCommitPhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
 
                 Collection<DecoratedAddress> leaderGroupAddress = partitioningTracker.getLeaderGroupNodes();
 
@@ -2280,24 +2227,21 @@ public final class Search extends ComponentDefinition {
     };
 
 
-
     /**
      * Commit Phase Timeout Handler. At present we simply reset the partitioning tracker but do not address the issue that some nodes might have committed
      * the partitioning information and moved on.
-     *
+     * <p/>
      * REQUIREMENT : Need a retry mechanism for the same, but not sure how to deal with inconsistent partitioning states in the system.
-     *
      */
     Handler<PartitionCommitMessage.Timeout> handlerPartitionCommitTimeoutMessage = new Handler<PartitionCommitMessage.Timeout>() {
 
         @Override
         public void handle(PartitionCommitMessage.Timeout event) {
 
-            if(partitionCommitPhaseTimeoutId != null && partitionCommitPhaseTimeoutId.equals(event.getTimeoutId())){
+            if (partitionCommitPhaseTimeoutId != null && partitionCommitPhaseTimeoutId.equals(event.getTimeoutId())) {
 
                 logger.warn("Partition Commit Timeout Called at the leader.");
                 partitionInProgress = false;
-//                partitionCommitReplicationCountMap.remove(event.getTimeoutId());
                 partitioningTracker.resetTracker();
             }
         }
@@ -2349,57 +2293,18 @@ public final class Search extends ComponentDefinition {
             trigger(partitionCommitResponse, networkPort);
         }
     };
-
-
+    
     /**
-     * Partition Commit Responses.
+     * The partitioning commit response handler for the final phase of the two phase commit
+     * regarding the partitioning commit.
      */
     Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponse = new Handler<PartitionCommitMessage.Response>() {
         @Override
         public void handle(PartitionCommitMessage.Response event) {
 
-            // Filter responses based on current round.
-            TimeoutId receivedTimeoutId = event.getTimeoutId();
-            PartitionReplicationCount partitionReplicationCount = partitionCommitReplicationCountMap.get(receivedTimeoutId);
-
-            if (partitionInProgress && partitionReplicationCount != null) {
-
-                logger.debug("{PartitionCommitMessage.Response} received from the nodes at the Leader");
-
-                // Partitioning complete ( Reset the partitioning parameters. )
-//                partitionInProgress = false;
-                // Reset the partitionInProgress when removed entries from your partition.
-
-                leader = false;
-                partitionCommitReplicationCountMap.remove(receivedTimeoutId);
-
-                // Cancel the commit timeout.
-                CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
-                trigger(ct, timerPort);
-
-                logger.debug("Partitioning complete at the leader : " + self.getId());
-
-                LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
-                partitionUpdates.add(partitionReplicationCount.getPartitionInfo());
-
-                // Inform the gradient about the partitioning.
-                applyPartitioningUpdate(partitionUpdates);
-            }
-
-        }
-    };
-
-    /**
-     * The partitioning commit response handler for the final phase of the two phase commit
-     * regarding the partitioning commit.
-     */
-    Handler<PartitionCommitMessage.Response> handlerPartitionCommitResponseUpdated = new Handler<PartitionCommitMessage.Response>() {
-        @Override
-        public void handle(PartitionCommitMessage.Response event) {
-
             logger.trace("{}: Partitioning Commit Response received from: {}", self.getId(), event.getVodSource().getId());
             partitioningTracker.addCommitResponse(event);
-            if(partitioningTracker.isCommitAccepted()) {
+            if (partitioningTracker.isCommitAccepted()) {
 
                 CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
                 trigger(ct, timerPort);
@@ -2876,7 +2781,7 @@ public final class Search extends ComponentDefinition {
 
             boolean duplicateFound = false;
             for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory) {
-                if (partitionInfo.getRequestId().getId() == update.getRequestId().getId()) {
+                if (partitionInfo.getRequestId().equals(update.getRequestId())) {
                     duplicateFound = true;
                     break;
                 }
@@ -2906,7 +2811,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Based on the source address, provide the control message enum that needs to be associated with the control response object.
      */
-    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(VodAddress address, OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
+    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
 
         boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
 
@@ -2974,12 +2879,10 @@ public final class Search extends ComponentDefinition {
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                     self.getPartitioningDepth() + 1, newPartitionId, selfCategory);
-             self.setOverlayId(newOverlayId);
+            self.setOverlayId(newOverlayId);
         }
         logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
-        int partitionId = self.getPartitionId();
-        Snapshot.updateInfo(self.getAddress());                 // Overlay id present in the snapshot not getting updated, so added the method.
-        Snapshot.addPartition(new Pair<Integer, Integer>(self.getCategoryId(), partitionId));
+        
         return partitionSubId;
     }
 
@@ -2989,10 +2892,10 @@ public final class Search extends ComponentDefinition {
      * @param partitionUpdatesIds
      * @return
      */
-    public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<TimeoutId> partitionUpdatesIds) {
+    public LinkedList<PartitionHelper.PartitionInfo> fetchPartitioningUpdates(List<java.util.UUID> partitionUpdatesIds) {
 
         LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
-        for (TimeoutId partitionUpdateId : partitionUpdatesIds) {
+        for (java.util.UUID partitionUpdateId : partitionUpdatesIds) {
 
             boolean found = false;
             for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory) {
@@ -3013,19 +2916,19 @@ public final class Search extends ComponentDefinition {
     /**
      * Request To check if the source address is behind in terms of partitioning updates.
      */
-    private CheckPartitionInfoHashUpdate.Response getCheckPartitionInfoHashUpdateResponse(ControlMessage.Request event) {
+    private CheckPartitionInfoHashUpdate.Response getCheckPartitionInfoHashUpdateResponse(ControlInformation.Request event, DecoratedAddress source) {
 
         logger.debug("Check Partitioning Update Received.");
         LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
         ControlMessageEnum controlMessageEnum;
 
         if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
-            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getVodSource(), event.getOverlayId(), partitionUpdateHashes);
+            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getOverlayId(), partitionUpdateHashes);
         } else {
             controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
         }
 
-        return new CheckPartitionInfoHashUpdate.Response(event.getRoundId(), event.getVodSource(), partitionUpdateHashes, controlMessageEnum);
+        return new CheckPartitionInfoHashUpdate.Response(event.getRequestId(), source, partitionUpdateHashes, controlMessageEnum);
     }
 
 
@@ -3046,23 +2949,6 @@ public final class Search extends ComponentDefinition {
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
     }
 
-    /**
-     * Handle the sample from the gradient.
-     */
-//    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
-//        @Override
-//        public void handle(GradientSample event) {
-//
-//            logger.info("Received Gradient Sample");
-//            StringBuilder builder = new StringBuilder();
-//            for(Container cpv : event.gradientSample){
-//                builder.append("id:").append(cpv.src.getId()).append(":").append("member:").append(((SearchDescriptor)cpv.pv).isLGMember()).append(" , ");
-//            }
-////            logger.warn(builder.toString());
-//        }
-//    };
-
-
     // ======= LEADER ELECTION PROTOCOL HANDLERS.
 
     /**
@@ -3078,13 +2964,13 @@ public final class Search extends ComponentDefinition {
 
             BasicAddress selfPeerAddress = self.getAddress().getBase();
             Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
-            while(itr.hasNext()){
-                if(selfPeerAddress.equals(itr.next().getBase())){
+            while (itr.hasNext()) {
+                if (selfPeerAddress.equals(itr.next().getBase())) {
                     itr.remove();
                     break;
                 }
             }
-            
+
             informListeningComponentsAboutUpdates(self);
         }
     };

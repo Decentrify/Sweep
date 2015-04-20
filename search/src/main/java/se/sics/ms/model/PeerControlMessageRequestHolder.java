@@ -34,7 +34,7 @@ public class PeerControlMessageRequestHolder {
     public boolean addAndCheckStatus(){
 
         count++;
-        return (count >= maxCount) ? true : false;
+        return (count >= maxCount);
 
     }
 

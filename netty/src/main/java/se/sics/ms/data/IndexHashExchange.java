@@ -41,13 +41,19 @@ public class IndexHashExchange {
     public static class Response {
         
         private final Collection<IndexHash> indexHashes;
+        private final UUID exchangeRoundId;
         
-        public Response(Collection<IndexHash>indexHashes){
+        public Response(UUID exchangeRoundId, Collection<IndexHash>indexHashes){
             this.indexHashes = indexHashes;
+            this.exchangeRoundId = exchangeRoundId;
         }
 
         public Collection<IndexHash> getIndexHashes() {
             return indexHashes;
+        }
+        
+        public UUID getExchangeRoundId(){
+            return this.exchangeRoundId;
         }
     }
     

@@ -35,13 +35,19 @@ public class ControlInformation {
     public static class Response{
         
         private byte[] byteInfo;
+        private UUID roundId;
         
-        public Response(byte[] byteInfo){
+        public Response(UUID roundId, byte[] byteInfo){
+            this.roundId = roundId;
             this.byteInfo = byteInfo;
         }
 
         public byte[] getByteInfo() {
             return byteInfo;
+        }
+        
+        public UUID getRoundId(){
+            return this.roundId;
         }
     }
     

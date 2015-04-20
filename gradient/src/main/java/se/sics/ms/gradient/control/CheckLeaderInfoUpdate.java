@@ -1,8 +1,8 @@
 package se.sics.ms.gradient.control;
-import se.sics.gvod.timer.TimeoutId;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
+import java.util.UUID;
 
 /**
  * Internal message requesting the current leader information,
@@ -14,7 +14,8 @@ import java.security.PublicKey;
 public class CheckLeaderInfoUpdate {
 
     public static class Request extends ControlMessageInternal.Request {
-        public Request(TimeoutId roundId , DecoratedAddress sourceAddress){
+        
+        public Request(UUID roundId , DecoratedAddress sourceAddress){
             super(roundId, sourceAddress);
         }
     }
@@ -24,7 +25,7 @@ public class CheckLeaderInfoUpdate {
         private DecoratedAddress leader;
         private PublicKey leaderPublicKey;
 
-        public Response(TimeoutId roundId, DecoratedAddress sourceAddress, DecoratedAddress leader, PublicKey leaderPublicKey){
+        public Response(UUID roundId, DecoratedAddress sourceAddress, DecoratedAddress leader, PublicKey leaderPublicKey){
             super(roundId, sourceAddress, ControlMessageEnum.LEADER_UPDATE);
             this.leader = leader;
             this.leaderPublicKey = leaderPublicKey;

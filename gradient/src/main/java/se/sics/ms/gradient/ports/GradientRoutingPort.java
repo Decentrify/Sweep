@@ -16,6 +16,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.UUID;
 
 public class GradientRoutingPort extends PortType {
 	{
@@ -51,15 +52,15 @@ public class GradientRoutingPort extends PortType {
      * Simply inform the gradient component to begin the control message exchange.
      */
     public static class InitiateControlMessageExchangeRound extends Event{
-        private TimeoutId roundId;
+        private UUID roundId;
         private int controlMessageExchangeNumber;
 
-        public InitiateControlMessageExchangeRound(TimeoutId roundId , int controlMessageExchangeNumber){
+        public InitiateControlMessageExchangeRound(UUID roundId , int controlMessageExchangeNumber){
             this.roundId = roundId;
             this.controlMessageExchangeNumber = controlMessageExchangeNumber;
         }
 
-        public TimeoutId getRoundId(){
+        public UUID getRoundId(){
             return this.roundId;
         }
 
@@ -109,10 +110,10 @@ public class GradientRoutingPort extends PortType {
     public static class IndexHashExchangeRequest extends Event {
         private final long lowestMissingIndexEntry;
         private final Long[] existingEntries;
-        private final TimeoutId timeoutId;
+        private final UUID timeoutId;
         private final int numberOfRequests;
 
-        public IndexHashExchangeRequest(long lowestMissingIndexEntry, Long[] existingEntries, TimeoutId timeoutId, int numberOfRequests) {
+        public IndexHashExchangeRequest(long lowestMissingIndexEntry, Long[] existingEntries, UUID timeoutId, int numberOfRequests) {
             this.lowestMissingIndexEntry = lowestMissingIndexEntry;
             this.existingEntries = existingEntries;
             this.timeoutId = timeoutId;
@@ -127,7 +128,7 @@ public class GradientRoutingPort extends PortType {
             return existingEntries;
         }
 
-        public TimeoutId getTimeoutId() {
+        public UUID getTimeoutId() {
             return timeoutId;
         }
 

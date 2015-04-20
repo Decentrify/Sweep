@@ -1,18 +1,20 @@
 package se.sics.ms.control;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
 
 /**
+ * Leader Info Update received through the control pull mechanism.
  * Created by alidar on 8/12/14.
  */
 public class LeaderInfoControlResponse extends ControlBase {
 
-    private VodAddress leaderAddress;
+    private DecoratedAddress leaderAddress;
     private PublicKey leaderPublicKey;
 
-    public LeaderInfoControlResponse(VodAddress leaderAddress, PublicKey leaderPublicKey)
+    public LeaderInfoControlResponse(DecoratedAddress leaderAddress, PublicKey leaderPublicKey)
     {
         super(ControlMessageResponseTypeEnum.LEADER_UPDATE_RESPONSE);
         this.leaderAddress = leaderAddress;
@@ -37,7 +39,7 @@ public class LeaderInfoControlResponse extends ControlBase {
         return leaderAddress != null ? leaderAddress.hashCode() : 0;
     }
 
-    public VodAddress getLeaderAddress() {
+    public DecoratedAddress getLeaderAddress() {
         return leaderAddress;
     }
 

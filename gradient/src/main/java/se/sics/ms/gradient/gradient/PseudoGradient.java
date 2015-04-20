@@ -4,22 +4,16 @@ import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.common.RTTStore;
-import se.sics.gvod.common.net.RttStats;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.CroupierPort;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.*;
 import se.sics.gvod.timer.CancelTimeout;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.timer.*;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
-import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.common.RoutingTableContainer;
 import se.sics.ms.common.RoutingTableHandler;
 import se.sics.ms.configuration.MsConfig;
@@ -43,8 +37,6 @@ import java.util.UUID;
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
-import se.sics.ms.util.PartitionHelper;
-import se.sics.ms.util.SamplingServiceHelper;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
@@ -89,10 +81,6 @@ public final class PseudoGradient extends ComponentDefinition {
     private boolean leader;
     private DecoratedAddress leaderAddress;
     private PublicKey leaderPublicKey;
-
-    private Map<Integer, Long> shuffleTimes = new HashMap<Integer, Long>();
-    int latestRttRingBufferPointer = 0;
-    private long[] latestRtts;
     String compName;
 
     private TreeSet<SearchDescriptor> gradientEntrySet;
@@ -158,7 +146,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
         leader = false;
         leaderAddress = null;
-        latestRtts = new long[config.getLatestRttStoreLimit()];
 
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
@@ -252,24 +239,20 @@ public final class PseudoGradient extends ComponentDefinition {
                 if (leader) {
                     
                     logger.trace("Triggering entry addition request to self.");
-                    
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
                     AddIndexEntry.Request request = new AddIndexEntry.Request(null, event.getEntry()); // FIXME: RoundID.
                     
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
-//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), self.getAddress(), event.getTimeoutId(), event.getEntry()), networkPort);
                 }
 
                 // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
                     
                     logger.warn ("Triggering the entry request to leader: {}", leaderAddress);
-
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
                     AddIndexEntry.Request request = new AddIndexEntry.Request(null, event.getEntry()); // FIXME: RoundID.
 
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
-//                    trigger(new AddIndexEntryMessage.Request(self.getAddress(), leaderAddress, event.getTimeoutId(), event.getEntry()), networkPort);
                 }
                 // Ask nodes above me for the leader pointer.
                 else {
@@ -495,8 +478,7 @@ public final class PseudoGradient extends ComponentDefinition {
             }
 
             HashSet<DecoratedAddress> nodesSelectedForExchange = new HashSet<DecoratedAddress>();
-            // FIXME: RoundID.
-            IndexHashExchange.Request request = new IndexHashExchange.Request(null, event.getLowestMissingIndexEntry(), event.getExistingEntries());
+            IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries());
             
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
