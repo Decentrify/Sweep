@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import com.sun.xml.internal.fastinfoset.CommonResourceBundle;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
@@ -17,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.address.Address;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
@@ -31,7 +29,6 @@ import se.sics.gvod.timer.Timer;
 import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.timer.*;
 import se.sics.ms.aggregator.SearchComponentUpdate;
 import se.sics.ms.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
@@ -52,16 +49,13 @@ import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.model.LocalSearchRequest;
-import se.sics.ms.model.PartitionReplicationCount;
 import se.sics.ms.model.PeerControlMessageRequestHolder;
 import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.ports.UiPort;
-import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
-import se.sics.ms.timeout.CommitTimeout;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
@@ -75,10 +69,7 @@ import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
-import se.sics.p2ptoolbox.gradient.msg.GradientSample;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.serialization.serializer.UUIDSerializer;
-import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -1141,7 +1132,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            Snapshot.incrementReceivedAddRequests();
+//            Snapshot.incrementReceivedAddRequests();
             recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
 
             IndexEntry newEntry = request.getEntry();
@@ -1224,7 +1215,7 @@ public final class Search extends ComponentDefinition {
             timeStoringMap.remove(event.getTimeoutId());
 
             if (event.reachedRetryLimit()) {
-                Snapshot.incrementFailedddRequests();
+//                Snapshot.incrementFailedddRequests();
                 logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
             } else {
@@ -1433,7 +1424,7 @@ public final class Search extends ComponentDefinition {
 
             Long timeStarted = timeStoringMap.get(event.getTimeoutId());
             if (timeStarted != null)
-                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
+//                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
 
             timeStoringMap.remove(event.getTimeoutId());
 

@@ -22,8 +22,8 @@ public class SimpleUtilityComparator implements Comparator<SearchDescriptor>{
                 }*/
 
                 // LEADER GROUP MEMBERSHIP.
-                if(s1.isLGMember() != s2.isLGMember()){
-                    if(s1.isLGMember())
+                if(s1.isLeaderGroupMember() != s2.isLeaderGroupMember()){
+                    if(s1.isLeaderGroupMember())
                         return 1;
                     return -1;
                 }

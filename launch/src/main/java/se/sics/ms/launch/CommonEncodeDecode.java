@@ -28,15 +28,9 @@ import se.sics.ms.aggregator.serializer.SweepPacketSerializer;
 import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
 import se.sics.ms.election.aggregation.ElectionLeaderUpdateSerializer;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.serializer.SearchDescriptorSerializer;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.p2ptoolbox.aggregator.api.model.AggregatedStatePacket;
-import se.sics.p2ptoolbox.aggregator.core.AggregatorNetworkSettings;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
-import se.sics.p2ptoolbox.croupier.core.CroupierNetworkSettings;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.election.core.LENetworkSettings;
-import se.sics.p2ptoolbox.gradient.core.GradientNetworkSettings;
 import se.sics.p2ptoolbox.serialization.SerializationContext;
 import se.sics.p2ptoolbox.serialization.SerializationContextImpl;
 import se.sics.p2ptoolbox.serialization.msg.HeaderField;
@@ -54,6 +48,7 @@ import java.util.UUID;
  */
 public class CommonEncodeDecode {
 
+    /*
     //other aliases
     public static final byte HEADER_FIELD_CODE = (byte) 0x01;
     public static final byte PEER_VIEW_CODE = (byte) 0x02;
@@ -84,7 +79,7 @@ public class CommonEncodeDecode {
             context.registerSerializer(VodAddress.class, new VodAddressSerializer());
             
             context.registerAlias(PeerView.class, PEER_VIEW_ALIAS, PEER_VIEW_CODE);
-            context.registerSerializer(SearchDescriptor.class, new SearchDescriptorSerializer());
+            context.registerSerializer(SearchDescriptor.class, new SearchDescriptorSerializerOld());
             context.multiplexAlias(PEER_VIEW_ALIAS, SearchDescriptor.class, (byte)0x01);
 
             context.registerAlias(AggregatedStatePacket.class, AGGREGATED_STATE_PACKET_ALIAS, AGGREGATED_STATE_PACKET_CODE);
@@ -116,5 +111,6 @@ public class CommonEncodeDecode {
         AggregatorNetworkSettings.oneTimeSetup(context, MessageFrameDecoder.AGGREGATOR_ONE_WAY);
         LENetworkSettings.oneTimeSetup(context, MessageFrameDecoder.LEADER_PROMISE_REQUEST, MessageFrameDecoder.LEADER_PROMISE_RESPONSE, MessageFrameDecoder.LEADER_EXTENSION_ONEWAY, MessageFrameDecoder.LEASE_COMMIT_REQUEST, MessageFrameDecoder.LEASE_COMMIT_RESPONSE);
     }
+    */
     
 }

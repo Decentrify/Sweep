@@ -4,8 +4,10 @@ import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
+import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
 import java.util.LinkedList;
@@ -32,13 +34,13 @@ public class ControlMessageEncoderFactory {
         ApplicationTypesEncoderFactory.writePartitionUpdateHashSequence(buffer, partitionUpdateHashes);
     }
 
-    private static void encodeLeaderUpdate(ByteBuf buffer, VodAddress leader, PublicKey leaderPublicKey) throws MessageEncodingException {
+    private static void encodeLeaderUpdate(ByteBuf buffer, DecoratedAddress leader, PublicKey leaderPublicKey) throws MessageEncodingException {
 
         buffer.writeInt(ControlMessageEnum.LEADER_UPDATE.ordinal());
         if(leader != null) {
             //to indicate that leader info is available in the encoded message
             buffer.writeBoolean(true);
-            UserTypesEncoderFactory.writeVodAddress(buffer, leader);
+            Serializers.lookupSerializer(DecoratedAddress.class).toBinary(leader, buffer);
             ApplicationTypesEncoderFactory.writePublicKey(buffer, leaderPublicKey);
         }
         else {

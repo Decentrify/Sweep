@@ -28,7 +28,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLGMember());
+        this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLeaderGroupMember());
     }
 
     public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember){
@@ -38,9 +38,6 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         this.isLGMember = isLGMember;
     }
 
-    public boolean isLGMember() {
-        return isLGMember;
-    }
 
     public DecoratedAddress getVodAddress() {
         return this.overlayAddress.getAddress();

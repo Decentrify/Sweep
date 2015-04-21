@@ -146,9 +146,9 @@ public class ApplicationTypesEncoderFactory {
     
     public static void writeSearchDescriptor(ByteBuf buffer, SearchDescriptor descriptor) throws MessageEncodingException {
         
-        UserTypesEncoderFactory.writeVodAddress(buffer, descriptor.getVodAddress());
+        UserTypesEncoderFactory.writeVodAddress(buffer, null);
         buffer.writeLong(descriptor.getNumberOfIndexEntries());
-        buffer.writeBoolean(descriptor.isLGMember());
+        buffer.writeBoolean(descriptor.isLeaderGroupMember());
     }
     
 
@@ -180,7 +180,7 @@ public class ApplicationTypesEncoderFactory {
     public static void writePartitionUpdate(ByteBuf buffer, PartitionHelper.PartitionInfo partitionUpdate) throws MessageEncodingException {
 
         buffer.writeLong(partitionUpdate.getMedianId());
-        UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdate.getRequestId());
+        UserTypesEncoderFactory.writeTimeoutId(buffer, null);
         buffer.writeInt(partitionUpdate.getPartitioningTypeInfo().ordinal());
 
         // Added support for the hash string of the Partition Update.
@@ -234,7 +234,7 @@ public class ApplicationTypesEncoderFactory {
      */
     private static void writePartitionUpdateHash(ByteBuf buffer, PartitionHelper.PartitionInfoHash partitionUpdateHash) throws MessageEncodingException {
 
-        UserTypesEncoderFactory.writeTimeoutId(buffer, partitionUpdateHash.getPartitionRequestId());
+        UserTypesEncoderFactory.writeTimeoutId(buffer, null);
         UserTypesEncoderFactory.writeStringLength65536(buffer, partitionUpdateHash.getHash());
     }
 

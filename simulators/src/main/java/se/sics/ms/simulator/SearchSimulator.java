@@ -22,7 +22,6 @@ import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.simulation.*;
-import se.sics.ms.snapshot.Snapshot;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -214,7 +213,7 @@ public final class SearchSimulator extends ComponentDefinition {
     Handler<GenerateReport> handleGenerateReport = new Handler<GenerateReport>() {
         @Override
         public void handle(GenerateReport event) {
-            Snapshot.report();
+//            Snapshot.report();
         }
     };
 

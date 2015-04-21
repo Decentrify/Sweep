@@ -21,7 +21,7 @@ public class CheckPartitionInfoHashUpdate {
 
         private OverlayId overlayId;
 
-        public Request(TimeoutId roundId , VodAddress sourceAddress, OverlayId overlayId){
+        public Request(UUID roundId , DecoratedAddress sourceAddress, OverlayId overlayId){
             super(roundId, sourceAddress);
             this.overlayId = overlayId;
         }

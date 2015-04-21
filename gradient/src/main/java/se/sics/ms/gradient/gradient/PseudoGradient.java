@@ -513,8 +513,7 @@ public final class PseudoGradient extends ComponentDefinition {
                 if (partition == self.getPartitionId()
                         && category == categoryFromCategoryId(self.getCategoryId())) {
                     
-                    // FIXME: ROUNDID;
-                    SearchInfo.Request searchRequest = new SearchInfo.Request(null, partition, event.getPattern());
+                    SearchInfo.Request searchRequest = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), self.getAddress(), Transport.UDP, searchRequest), networkPort);
                     continue;
                 }
@@ -531,11 +530,9 @@ public final class PseudoGradient extends ComponentDefinition {
                     scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));
 
                     trigger(scheduleTimeout, timerPort);
-                    trigger(new SearchMessage.Request(null, null,
-                            scheduleTimeout.getTimeoutEvent().getTimeoutId(), event.getTimeoutId(), event.getPattern(),
-                            partition), networkPort);
 
-//                    shuffleTimes.put(scheduleTimeout.getTimeoutEvent().getTimeoutId().getId(), System.currentTimeMillis());
+                    SearchInfo.Request request = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), container.getSource(), Transport.UDP, request), networkPort);
                     searchDescriptor.setConnected(true);
                 }
             }

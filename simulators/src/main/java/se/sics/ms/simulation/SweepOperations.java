@@ -37,7 +37,7 @@ public class SweepOperations {
         try {
             // SWITCH TO SERIALIZERS REGISTRATION.
             VodConfig.init(new String[0]);
-            SimulatorEncodeDecode.init();
+//            SimulatorEncodeDecode.init();
         } 
         catch (UnknownHostException e) {
             e.printStackTrace();

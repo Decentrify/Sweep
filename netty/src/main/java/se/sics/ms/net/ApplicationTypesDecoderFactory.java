@@ -187,7 +187,7 @@ public class ApplicationTypesDecoderFactory {
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();
 
-        descriptor = new SearchDescriptor(new OverlayAddress(vodAddress), false, numberOfIndexEntries, isLGMember);
+        descriptor = new SearchDescriptor(new OverlayAddress(null, 0), false, numberOfIndexEntries, isLGMember);
         return descriptor;
     }
 
@@ -246,7 +246,7 @@ public class ApplicationTypesDecoderFactory {
         String hash = readStringLength65536(buffer);
         String stringKey = readStringLength65536(buffer);
         if (stringKey == null)
-            return new PartitionHelper.PartitionInfo(middleEntryId, requestId, VodAddress.PartitioningType.values()[partitionsNumber], hash, null);
+            return new PartitionHelper.PartitionInfo(middleEntryId, null, VodAddress.PartitioningType.values()[partitionsNumber], hash, null);
 
         KeyFactory keyFactory;
         PublicKey pub = null;
@@ -261,7 +261,7 @@ public class ApplicationTypesDecoderFactory {
             e.printStackTrace();
         }
 
-        return new PartitionHelper.PartitionInfo(middleEntryId, requestId, VodAddress.PartitioningType.values()[partitionsNumber], hash, pub);
+        return new PartitionHelper.PartitionInfo(middleEntryId, null , VodAddress.PartitioningType.values()[partitionsNumber], hash, pub);
     }
 
 
@@ -293,7 +293,7 @@ public class ApplicationTypesDecoderFactory {
 
         TimeoutId partitionUpdateId = UserTypesDecoderFactory.readTimeoutId(buffer);
         String hash = UserTypesDecoderFactory.readStringLength65536(buffer);
-        return new PartitionHelper.PartitionInfoHash(partitionUpdateId, hash);
+        return new PartitionHelper.PartitionInfoHash(null, hash);
     }
 
     public static PublicKey readPublicKey(ByteBuf buffer) throws MessageDecodingException {

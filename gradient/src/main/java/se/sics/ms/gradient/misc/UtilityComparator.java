@@ -15,16 +15,16 @@ public class UtilityComparator implements Comparator<SearchDescriptor> {
     @Override
     public int compare(SearchDescriptor o1, SearchDescriptor o2) {
 
-        // NAT TYPE.
-        if (o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {
-            if (o1.getVodAddress().isOpen())
-                return 1;
-            return -1;
-        }
+//        // NAT TYPE.
+//        if (o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {
+//            if (o1.getVodAddress().isOpen())
+//                return 1;
+//            return -1;
+//        }
 
         // LEADER GROUP MEMBERSHIP.
-        if(o1.isLGMember() != o2.isLGMember()){
-            if(o1.isLGMember())
+        if(o1.isLeaderGroupMember() != o2.isLeaderGroupMember()){
+            if(o1.isLeaderGroupMember())
                 return 1;
             return -1;
         }

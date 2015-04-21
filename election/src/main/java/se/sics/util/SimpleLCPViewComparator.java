@@ -1,7 +1,6 @@
 package se.sics.util;
 
 import se.sics.ms.types.SearchDescriptor;
-import se.sics.p2ptoolbox.croupier.api.util.PeerView;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 import java.util.Comparator;
@@ -23,16 +22,16 @@ public class SimpleLCPViewComparator implements Comparator<LCPeerView>{
             s1 = (SearchDescriptor)o1;
             s2 = (SearchDescriptor)o2;
 
-            // NAT TYPE.
-            if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
-                if (s1.getVodAddress().isOpen())
-                    return 1;
-                return -1;
-            }
+//            // NAT TYPE.
+//            if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
+//                if (s1.getVodAddress().isOpen())
+//                    return 1;
+//                return -1;
+//            }
 
             // LEADER GROUP MEMBERSHIP.
-            if(s1.isLGMember() != s2.isLGMember()){
-                if(s1.isLGMember())
+            if(s1.isLeaderGroupMember() != s2.isLeaderGroupMember()){
+                if(s1.isLeaderGroupMember())
                     return 1;
                 return -1;
             }

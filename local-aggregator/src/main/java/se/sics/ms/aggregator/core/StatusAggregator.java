@@ -126,7 +126,7 @@ public class StatusAggregator extends ComponentDefinition{
             logger.debug(" Sending the below information, {}", sap);
 
             DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self, globalAggregatorAddress, Transport.UDP);
-            BasicContentMsg<DecoratedAddress, DecoratedHeader, AggregatedStateContainer> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader, AggregatedStateContainer>(header, container);
+            BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AggregatedStateContainer> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AggregatedStateContainer>(header, container);
             trigger(msg, networkPositive);
 
         }
