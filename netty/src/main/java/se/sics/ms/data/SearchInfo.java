@@ -1,7 +1,5 @@
 package se.sics.ms.data;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -52,7 +50,7 @@ public class SearchInfo {
         private final UUID searchTimeoutId;
         private final int partitionId;
 
-        public Response(UUID searchTimeoutId, Collection<IndexEntry> results, int partitionId , int numResponses, int responseNumber) throws IllegalSearchString {
+        public Response(UUID searchTimeoutId, Collection<IndexEntry> results, int partitionId , int numResponses, int responseNumber) {
             
             this.partitionId = partitionId;
             this.numResponses = numResponses;

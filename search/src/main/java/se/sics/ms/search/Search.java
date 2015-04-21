@@ -1614,9 +1614,8 @@ public final class Search extends ComponentDefinition {
                 SearchInfo.Response searchMessageResponse = new SearchInfo.Response(request.getRequestId(), result, request.getPartitionId(), 0, 0);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, searchMessageResponse), networkPort);
 
-            } catch (IllegalSearchString illegalSearchString) {
-                illegalSearchString.printStackTrace();
-            } catch (LuceneAdaptorException e) {
+            }
+             catch (LuceneAdaptorException e) {
                 logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
                 e.printStackTrace();
             }

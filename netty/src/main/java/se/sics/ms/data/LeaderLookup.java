@@ -21,13 +21,15 @@ public class LeaderLookup {
     
     public static class Request {
         
-        public final UUID leaderLookupRound;
+        private final UUID leaderLookupRound;
         
         public Request(UUID leaderLookupRound){
             this.leaderLookupRound = leaderLookupRound;
         }
-        
-        
+
+        public UUID getLeaderLookupRound() {
+            return leaderLookupRound;
+        }
     }
     
     public static class Response {

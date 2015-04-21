@@ -360,7 +360,7 @@ public final class PseudoGradient extends ComponentDefinition {
                 }
             }
             
-            LeaderLookup.Response response = new LeaderLookup.Response(request.leaderLookupRound, leader, searchDescriptors);
+            LeaderLookup.Response response = new LeaderLookup.Response(request.getLeaderLookupRound(), leader, searchDescriptors);
             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
         }
     };
