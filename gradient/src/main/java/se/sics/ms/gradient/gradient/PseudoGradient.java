@@ -229,16 +229,16 @@ public final class PseudoGradient extends ComponentDefinition {
             openRequests.clear();
             leadersAlreadyComunicated.clear();
 
-            
-            
+
+            // If the node is from the same category.
             if (addCategory == selfCategory) {
                 
-                // If the node is from the same category.    
+                // If self is the leader.
                 if (leader) {
                     
-                    logger.trace("Triggering entry addition request to self.");
+                    logger.debug ("Triggering entry addition request to self.");
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
-                    AddIndexEntry.Request request = new AddIndexEntry.Request(null, event.getEntry()); // FIXME: RoundID.
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
                     
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
                 }
@@ -246,12 +246,13 @@ public final class PseudoGradient extends ComponentDefinition {
                 // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
                     
-                    logger.warn ("Triggering the entry request to leader: {}", leaderAddress);
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
-                    AddIndexEntry.Request request = new AddIndexEntry.Request(null, event.getEntry()); // FIXME: RoundID.
+                    logger.debug ("Triggering the entry request to leader: {}", leaderAddress);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), leaderAddress, Transport.UDP);
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
 
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
                 }
+
                 // Ask nodes above me for the leader pointer.
                 else {
                     
@@ -376,6 +377,7 @@ public final class PseudoGradient extends ComponentDefinition {
             logger.debug("{}: Received leader lookup response from the node: {} ", self.getId(), event.getSource());
             
             if(!openRequests.containsKey(response.getLeaderLookupRound())) {
+                logger.warn("Look up request timed out.");
                 return;
             }
 
@@ -521,14 +523,11 @@ public final class PseudoGradient extends ComponentDefinition {
                 for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
 
                     RoutingTableContainer container = iterator.next();
-
                     SearchDescriptor searchDescriptor = container.getContent();
-
                     ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
 //                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));  // FIXME: Create a timeout here to handle other clean up activities.
 
                     trigger(scheduleTimeout, timerPort);
-
                     SearchInfo.Request request = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), container.getSource(), Transport.UDP, request), networkPort);
                     searchDescriptor.setConnected(true);
@@ -599,16 +598,13 @@ public final class PseudoGradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
             ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
-
             if (preferredNodes.size() < event.getControlMessageExchangeNumber())
                 preferredNodes.addAll(getLowerUtilityNodes());
 
             if (preferredNodes.size() < event.getControlMessageExchangeNumber())
                 return;
             
-            // TODO: Fix ROUNDID.
-            ControlInformation.Request request = new ControlInformation.Request(null, new OverlayId(self.getOverlayId()));
-            
+            ControlInformation.Request request = new ControlInformation.Request(event.getRoundId(), new OverlayId(self.getOverlayId()));
             for (int i = 0; i < event.getControlMessageExchangeNumber(); i++) {
                 
                 DecoratedAddress destination = preferredNodes.get(i).getVodAddress();

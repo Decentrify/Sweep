@@ -1076,6 +1076,7 @@ public final class Search extends ComponentDefinition {
      * @param entry the {@link IndexEntry} to be added
      */
     private void addEntryGlobal(IndexEntry entry) {
+
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
         rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), entry));
         addEntryGlobal(entry, rst);
@@ -1088,9 +1089,9 @@ public final class Search extends ComponentDefinition {
      * @param timeout timeout for adding the entry
      */
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
+
         trigger(timeout, timerPort);
         trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
-
         timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
     }
 
