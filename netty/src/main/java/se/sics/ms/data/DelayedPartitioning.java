@@ -28,6 +28,35 @@ public class DelayedPartitioning {
             
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Request)) return false;
+
+            Request request = (Request) o;
+
+            if (partitionRequestIds != null ? !partitionRequestIds.equals(request.partitionRequestIds) : request.partitionRequestIds != null)
+                return false;
+            if (roundId != null ? !roundId.equals(request.roundId) : request.roundId != null) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = roundId != null ? roundId.hashCode() : 0;
+            result = 31 * result + (partitionRequestIds != null ? partitionRequestIds.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Request{" +
+                    "roundId=" + roundId +
+                    ", partitionRequestIds=" + partitionRequestIds +
+                    '}';
+        }
+
         public UUID getRoundId() {
             return roundId;
         }
@@ -47,6 +76,36 @@ public class DelayedPartitioning {
         public Response(UUID roundId, LinkedList<PartitionHelper.PartitionInfo> partitionHistory){
             this.roundId = roundId;
             this.partitionHistory = partitionHistory;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Response)) return false;
+
+            Response response = (Response) o;
+
+            if (partitionHistory != null ? !partitionHistory.equals(response.partitionHistory) : response.partitionHistory != null)
+                return false;
+            if (roundId != null ? !roundId.equals(response.roundId) : response.roundId != null) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = roundId != null ? roundId.hashCode() : 0;
+            result = 31 * result + (partitionHistory != null ? partitionHistory.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String
+        toString() {
+            return "Response{" +
+                    "roundId=" + roundId +
+                    ", partitionHistory=" + partitionHistory +
+                    '}';
         }
 
         public UUID getRoundId() {

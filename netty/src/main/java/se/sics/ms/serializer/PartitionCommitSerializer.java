@@ -68,10 +68,10 @@ public class PartitionCommitSerializer {
         @Override
         public void toBinary(Object o, ByteBuf byteBuf) {
 
-            PartitionCommit.Request request = (PartitionCommit.Request)o;
+            PartitionCommit.Response response = (PartitionCommit.Response)o;
             Serializer uuidSerializer = Serializers.lookupSerializer(UUID.class);
-            uuidSerializer.toBinary(request.getPartitionRequestId(), byteBuf);
-            uuidSerializer.toBinary(request.getPartitionCommitTimeout(), byteBuf);
+            uuidSerializer.toBinary(response.getPartitionRequestId(), byteBuf);
+            uuidSerializer.toBinary(response.getPartitionCommitTimeout(), byteBuf);
 
         }
 

@@ -29,12 +29,16 @@
             <version>${croupier.version}</version>
             <type>jar</type>
         </dependency>
-        
         <dependency>
             <groupId>se.sics.p2ptoolbox.gradient</groupId>
             <artifactId>gradient-core</artifactId>
             <version>${gradient.version}</version>
             <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.election</groupId>
+            <artifactId>election-network</artifactId>
+            <version>${election.version}</version>
         </dependency>
         
     </dependencies>

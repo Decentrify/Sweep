@@ -65,7 +65,7 @@ public class ControlInformationSerializer {
         public void toBinary(Object o, ByteBuf byteBuf) {
 
             ControlInformation.Response response = (ControlInformation.Response)o;
-            Serializers.lookupSerializer(UUID.class).toBinary(response, byteBuf);
+            Serializers.lookupSerializer(UUID.class).toBinary(response.getRoundId(), byteBuf);
 
             byte[] bytes = response.getByteInfo();
             if(bytes == null){

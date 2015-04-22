@@ -24,6 +24,36 @@ public class PartitionCommit {
             this.partitionRequestId = partitionRequestId;
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Request)) return false;
+
+            Request request = (Request) o;
+
+            if (partitionCommitTimeout != null ? !partitionCommitTimeout.equals(request.partitionCommitTimeout) : request.partitionCommitTimeout != null)
+                return false;
+            if (partitionRequestId != null ? !partitionRequestId.equals(request.partitionRequestId) : request.partitionRequestId != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = partitionCommitTimeout != null ? partitionCommitTimeout.hashCode() : 0;
+            result = 31 * result + (partitionRequestId != null ? partitionRequestId.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Request{" +
+                    "partitionCommitTimeout=" + partitionCommitTimeout +
+                    ", partitionRequestId=" + partitionRequestId +
+                    '}';
+        }
+
         public UUID getPartitionCommitTimeout() {
             return partitionCommitTimeout;
         }
@@ -42,6 +72,36 @@ public class PartitionCommit {
 
             this.partitionCommitTimeout = partitionCommitTimeout;
             this.partitionRequestId = partitionRequestId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Response)) return false;
+
+            Response response = (Response) o;
+
+            if (partitionCommitTimeout != null ? !partitionCommitTimeout.equals(response.partitionCommitTimeout) : response.partitionCommitTimeout != null)
+                return false;
+            if (partitionRequestId != null ? !partitionRequestId.equals(response.partitionRequestId) : response.partitionRequestId != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = partitionCommitTimeout != null ? partitionCommitTimeout.hashCode() : 0;
+            result = 31 * result + (partitionRequestId != null ? partitionRequestId.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "partitionCommitTimeout=" + partitionCommitTimeout +
+                    ", partitionRequestId=" + partitionRequestId +
+                    '}';
         }
 
         public UUID getPartitionCommitTimeout() {

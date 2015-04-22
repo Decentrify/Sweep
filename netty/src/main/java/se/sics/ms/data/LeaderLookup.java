@@ -27,6 +27,32 @@ public class LeaderLookup {
             this.leaderLookupRound = leaderLookupRound;
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Request)) return false;
+
+            Request request = (Request) o;
+
+            if (leaderLookupRound != null ? !leaderLookupRound.equals(request.leaderLookupRound) : request.leaderLookupRound != null)
+                return false;
+
+            return true;
+        }
+
+
+        @Override
+        public String toString() {
+            return "Request{" +
+                    "leaderLookupRound=" + leaderLookupRound +
+                    '}';
+        }
+
+        @Override
+        public int hashCode() {
+            return leaderLookupRound != null ? leaderLookupRound.hashCode() : 0;
+        }
+
         public UUID getLeaderLookupRound() {
             return leaderLookupRound;
         }
@@ -45,6 +71,40 @@ public class LeaderLookup {
             this.searchDescriptors = searchDescriptors;
         }
 
+
+        @Override
+        public boolean equals(Object o) {
+
+            if (this == o) return true;
+            if (!(o instanceof Response)) return false;
+
+            Response response = (Response) o;
+
+            if (leader != response.leader) return false;
+            if (leaderLookupRound != null ? !leaderLookupRound.equals(response.leaderLookupRound) : response.leaderLookupRound != null)
+                return false;
+            if (searchDescriptors != null ? !searchDescriptors.equals(response.searchDescriptors) : response.searchDescriptors != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = leaderLookupRound != null ? leaderLookupRound.hashCode() : 0;
+            result = 31 * result + (leader ? 1 : 0);
+            result = 31 * result + (searchDescriptors != null ? searchDescriptors.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "leaderLookupRound=" + leaderLookupRound +
+                    ", leader=" + leader +
+                    ", searchDescriptors=" + searchDescriptors +
+                    '}';
+        }
 
         public UUID getLeaderLookupRound() {
             return leaderLookupRound;

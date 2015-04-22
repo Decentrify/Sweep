@@ -11,6 +11,7 @@ import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -64,13 +65,15 @@ public class PartitionHelperTest {
         
         Address ad1 = new Address(ipAddress, 9000, 10000);
         VodAddress vod1 = new VodAddress(ad1, ovid1);
-        SearchDescriptor sd1 = new SearchDescriptor(vod1);
+
+        DecoratedAddress da1 = new DecoratedAddress(ipAddress, 54321, 1);
+        SearchDescriptor sd1 = new SearchDescriptor(da1);
         HashSet<SearchDescriptor> hs1 = new HashSet<SearchDescriptor>();
         hs1.add(sd1);
         
         Address ad2 = new Address(ipAddress, 10000, 110000);
-        VodAddress vod2 = new VodAddress(ad2, ovid2);
-        SearchDescriptor sd2 = new SearchDescriptor(vod2);
+        DecoratedAddress da2 = new DecoratedAddress(ipAddress, 54322, 2);
+        SearchDescriptor sd2 = new SearchDescriptor(da2);
         HashSet<SearchDescriptor> hs2 = new HashSet<SearchDescriptor>();
         hs2.add(sd2);
         
