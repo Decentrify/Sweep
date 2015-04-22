@@ -22,12 +22,6 @@ public class SimpleLCPViewComparator implements Comparator<LCPeerView>{
             s1 = (SearchDescriptor)o1;
             s2 = (SearchDescriptor)o2;
 
-//            // NAT TYPE.
-//            if (s1.getVodAddress().isOpen() != s2.getVodAddress().isOpen()) {
-//                if (s1.getVodAddress().isOpen())
-//                    return 1;
-//                return -1;
-//            }
 
             // LEADER GROUP MEMBERSHIP.
             if(s1.isLeaderGroupMember() != s2.isLeaderGroupMember()){

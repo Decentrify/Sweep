@@ -1,9 +1,8 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.timer.SchedulePeriodicTimeout;
-import se.sics.gvod.timer.ScheduleTimeout;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
+import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
-import se.sics.ms.timeout.IndividualTimeout;
 
 import java.util.UUID;
 
@@ -16,18 +15,18 @@ import java.util.UUID;
 public class TimeoutCollection {
 
 
-    public static class ExchangeRound extends IndividualTimeout {
+    public static class ExchangeRound extends Timeout {
 
-        public ExchangeRound(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
+        public ExchangeRound(SchedulePeriodicTimeout request) {
+            super(request);
         }
     }
 
     // Control Message Exchange Round.
-    public static class ControlMessageExchangeRound extends IndividualTimeout {
+    public static class ControlMessageExchangeRound extends Timeout {
 
-        public ControlMessageExchangeRound(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
+        public ControlMessageExchangeRound(SchedulePeriodicTimeout request) {
+            super(request);
         }
     }
 
@@ -49,21 +48,21 @@ public class TimeoutCollection {
      * Periodic scheduled timeout event to garbage collect the recent request
      * data structure of {@link se.sics.ms.search.Search}.
      */
-    public static class RecentRequestsGcTimeout extends IndividualTimeout {
+    public static class RecentRequestsGcTimeout extends Timeout {
 
-        public RecentRequestsGcTimeout(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
+        public RecentRequestsGcTimeout(SchedulePeriodicTimeout request) {
+            super(request);
         }
     }
     
     /**
      * Timeout for the prepare phase started by the index entry addition mechanism.
      */
-    public static  class EntryPrepareResponseTimeout extends se.sics.kompics.timer.Timeout{
+    public static  class EntryPrepareResponseTimeout extends Timeout{
 
         public UUID roundId;
         
-        public EntryPrepareResponseTimeout(se.sics.kompics.timer.ScheduleTimeout request, UUID roundId) {
+        public EntryPrepareResponseTimeout(ScheduleTimeout request, UUID roundId) {
             super(request);
             this.roundId = roundId;
         }

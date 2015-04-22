@@ -67,6 +67,32 @@
             <version>${new.kompics.version}</version>
         </dependency>
 
+        <!-- Network Registrations. -->
+
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.croupier</groupId>
+            <artifactId>croupier-network</artifactId>
+            <version>${croupier.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.gradient</groupId>
+            <artifactId>gradient-network</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.election</groupId>
+            <artifactId>election-network</artifactId>
+            <version>${election.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.p2ptoolbox.aggregator</groupId>
+            <artifactId>aggregator-network</artifactId>
+            <version>${global.aggregator.version}</version>
+        </dependency>
+
     </dependencies>
 
 

@@ -6,12 +6,11 @@ import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.croupier.CroupierPort;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.CancelTimeout;
-import se.sics.gvod.timer.ScheduleTimeout;
-import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.*;
+import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.common.RoutingTableContainer;
@@ -33,7 +32,6 @@ import se.sics.ms.types.OverlayId;
 import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
-
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
@@ -59,7 +57,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 public final class PseudoGradient extends ComponentDefinition {
 
     private static final Logger logger = LoggerFactory.getLogger(PseudoGradient.class);
-    Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
@@ -527,7 +525,7 @@ public final class PseudoGradient extends ComponentDefinition {
                     SearchDescriptor searchDescriptor = container.getContent();
 
                     ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
-                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));
+//                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));  // FIXME: Create a timeout here to handle other clean up activities.
 
                     trigger(scheduleTimeout, timerPort);
 
@@ -540,11 +538,13 @@ public final class PseudoGradient extends ComponentDefinition {
     };
 
 
-    final Handler<SearchMessage.Response> searchResponseHandler = new Handler<SearchMessage.Response>() {
-        @Override
-        public void handle(SearchMessage.Response event) {
 
-            CancelTimeout cancelTimeout = new CancelTimeout(event.getTimeoutId());
+    ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>> searchResponseHandler = new ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>>() {
+        @Override
+        public void handle(SearchInfo.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response> event) {
+            logger.debug("{}: Received Search Message Response:", self.getId());
+
+            CancelTimeout cancelTimeout = new CancelTimeout(response.getSearchTimeoutId());
             trigger(cancelTimeout, timerPort);
         }
     };

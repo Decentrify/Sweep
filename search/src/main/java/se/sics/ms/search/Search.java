@@ -20,15 +20,11 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.*;
-import se.sics.gvod.timer.CancelTimeout;
-import se.sics.gvod.timer.SchedulePeriodicTimeout;
-import se.sics.gvod.timer.ScheduleTimeout;
-import se.sics.gvod.timer.Timer;
-import se.sics.gvod.timer.UUID;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.*;
+import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.SearchComponentUpdate;
 import se.sics.ms.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
@@ -84,6 +80,7 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
+import java.util.UUID;
 import java.util.logging.Level;
 
 
@@ -103,7 +100,7 @@ public final class Search extends ComponentDefinition {
 
     // ====== PORTS.
     Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
-    Positive<VodNetwork> networkPort = positive(VodNetwork.class);
+    Positive<Network> networkPort = positive(Network.class);
     Positive<ChunkManagerPort> chunkManagerPort = positive(ChunkManagerPort.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
@@ -126,8 +123,8 @@ public final class Search extends ComponentDefinition {
     private SortedSet<Long> existingEntries;
     private long nextInsertionId;
 
-    private Map<TimeoutId, ReplicationCount> replicationRequests;
-    private Map<TimeoutId, ReplicationCount> commitRequests;
+    private Map<UUID, ReplicationCount> replicationRequests;
+    private Map<UUID, ReplicationCount> commitRequests;
     private Map<Long, UUID> gapTimeouts;
     private Map<java.util.UUID, Long> recentRequests;
 
@@ -151,14 +148,14 @@ public final class Search extends ComponentDefinition {
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
     private HashMap<IndexEntry, java.util.UUID> pendingForCommit = new HashMap<IndexEntry, java.util.UUID>();
-    private HashMap<TimeoutId, TimeoutId> replicationTimeoutToAdd = new HashMap<TimeoutId, TimeoutId>();
+    private HashMap<UUID, UUID> replicationTimeoutToAdd = new HashMap<UUID, UUID>();
     private HashMap<java.util.UUID, Integer> searchPartitionsNumber = new HashMap<java.util.UUID, Integer>();
 
     private HashMap<PartitionHelper.PartitionInfo, java.util.UUID> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, java.util.UUID>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
-    private HashMap<TimeoutId, Long> timeStoringMap = new HashMap<TimeoutId, Long>();
+    private HashMap<UUID, Long> timeStoringMap = new HashMap<UUID, Long>();
     private static HashMap<java.util.UUID, Pair<Long, Integer>> searchRequestStarted = new HashMap<java.util.UUID, Pair<Long, Integer>>();
 
 
@@ -195,7 +192,7 @@ public final class Search extends ComponentDefinition {
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
      */
-    private static class AddIndexTimeout extends IndividualTimeout {
+    private static class AddIndexTimeout extends Timeout {
         private final int retryLimit;
         private int numberOfRetries = 0;
         private final IndexEntry entry;
@@ -206,8 +203,8 @@ public final class Search extends ComponentDefinition {
          *                   {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
          * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
-        public AddIndexTimeout(ScheduleTimeout request, int id, int retryLimit, IndexEntry entry) {
-            super(request, id);
+        public AddIndexTimeout(ScheduleTimeout request, int retryLimit, IndexEntry entry) {
+            super(request);
             this.retryLimit = retryLimit;
             this.entry = entry;
         }
@@ -312,10 +309,10 @@ public final class Search extends ComponentDefinition {
         publicKey = init.getPublicKey();
         privateKey = init.getPrivateKey();
 
-        replicationRequests = new HashMap<TimeoutId, ReplicationCount>();
+        replicationRequests = new HashMap<UUID, ReplicationCount>();
         nextInsertionId = 0;
         lowestMissingIndexValue = 0;
-        commitRequests = new HashMap<TimeoutId, ReplicationCount>();
+        commitRequests = new HashMap<UUID, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
 
         // Tracker.
@@ -376,12 +373,12 @@ public final class Search extends ComponentDefinition {
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
-            rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
             // TODO move time to own config instead of using the gradient period. IndexHashExchangePeriod.
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
-            rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
 
             // Bootup the croupier with default configuration.
@@ -389,7 +386,7 @@ public final class Search extends ComponentDefinition {
             trigger(initialCroupierBootupUpdate, croupierPortPositive);
 
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
-            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst, self.getId()));
+            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
             trigger(rst, timerPort);
         }
     };
@@ -448,8 +445,6 @@ public final class Search extends ComponentDefinition {
 
     private boolean exchangeInProgress = false;
     private java.util.UUID indexExchangeTimeout;
-    private HashSet<VodAddress> nodesSelectedForIndexHashExchange = new HashSet<VodAddress>();
-    private HashSet<DecoratedAddress> nodesRespondedInIndexHashExchange = new HashSet<DecoratedAddress>();
     private HashMap<DecoratedAddress, Collection<IndexHash>> collectedHashes = new HashMap<DecoratedAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
@@ -881,8 +876,6 @@ public final class Search extends ComponentDefinition {
 
             trigger(timeout, timerPort);
             collectedHashes.clear();
-            nodesSelectedForIndexHashExchange.clear();
-            nodesRespondedInIndexHashExchange.clear();
 
             Long[] existing = existingEntries.toArray(new Long[existingEntries.size()]);
             trigger(new GradientRoutingPort.IndexHashExchangeRequest(lowestMissingIndexValue, existing,
@@ -948,7 +941,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
             
-            nodesRespondedInIndexHashExchange.add(event.getSource());
+//            nodesRespondedInIndexHashExchange.add(event.getSource());
 
             // TODO we somehow need to check here that the answer is from the correct node
             collectedHashes.put(event.getSource(), response.getIndexHashes());
@@ -1084,7 +1077,7 @@ public final class Search extends ComponentDefinition {
      */
     private void addEntryGlobal(IndexEntry entry) {
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddIndexTimeout(rst, self.getId(), config.getRetryCount(), entry));
+        rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), entry));
         addEntryGlobal(entry, rst);
     }
 
@@ -1413,22 +1406,23 @@ public final class Search extends ComponentDefinition {
 
 
 
-    /**
-     * An index entry has been successfully added. FIXME: Port it new kompics version.
-     */
-    final Handler<AddIndexEntryMessage.Response> handleAddIndexEntryResponse = new Handler<AddIndexEntryMessage.Response>() {
+
+    ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>> handleAddIndexEntryResponse = new ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>>(){
         @Override
-        public void handle(AddIndexEntryMessage.Response event) {
-            CancelTimeout ct = new CancelTimeout(event.getTimeoutId());
+        public void handle(AddIndexEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response> event) {
+
+            logger.debug("{}: Received add index entry response back:", self.getId());
+            CancelTimeout ct = new CancelTimeout(response.getEntryAdditionRound());
             trigger(ct, timerPort);
 
-            Long timeStarted = timeStoringMap.get(event.getTimeoutId());
-            if (timeStarted != null)
+            Long timeStarted = timeStoringMap.get(response.getEntryAdditionRound());
+            if (timeStarted != null){
 //                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
+            }
 
-            timeStoringMap.remove(event.getTimeoutId());
-
+            timeStoringMap.remove(response.getEntryAdditionRound());
             trigger(new UiAddIndexEntryResponse(true), uiPort);
+
         }
     };
 
@@ -1916,7 +1910,7 @@ public final class Search extends ComponentDefinition {
 //        Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
-        TimeoutId timeoutId = gapTimeouts.get(indexEntry.getId());
+        UUID timeoutId = gapTimeouts.get(indexEntry.getId());
         if (timeoutId != null) {
             CancelTimeout ct = new CancelTimeout(timeoutId);
             trigger(ct, timerPort);

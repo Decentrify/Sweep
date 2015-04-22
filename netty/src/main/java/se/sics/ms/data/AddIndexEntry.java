@@ -61,14 +61,14 @@ public class AddIndexEntry {
     
     public static class Response {
         
-        private final UUID electionRoundId;
+        private final UUID entryAdditionRound;
         
-        public Response(UUID electionRoundId){
-            this.electionRoundId = electionRoundId;
+        public Response(UUID entryAdditionRound){
+            this.entryAdditionRound = entryAdditionRound;
         }
         
-        public UUID getElectionRoundId(){
-            return this.electionRoundId;
+        public UUID getEntryAdditionRound(){
+            return this.entryAdditionRound;
         }
 
         @Override
@@ -78,7 +78,7 @@ public class AddIndexEntry {
 
             Response response = (Response) o;
 
-            if (electionRoundId != null ? !electionRoundId.equals(response.electionRoundId) : response.electionRoundId != null)
+            if (entryAdditionRound != null ? !entryAdditionRound.equals(response.entryAdditionRound) : response.entryAdditionRound != null)
                 return false;
 
             return true;
@@ -86,14 +86,14 @@ public class AddIndexEntry {
 
         @Override
         public int hashCode() {
-            return electionRoundId != null ? electionRoundId.hashCode() : 0;
+            return entryAdditionRound != null ? entryAdditionRound.hashCode() : 0;
         }
 
 
         @Override
         public String toString() {
             return "Response{" +
-                    "electionRoundId=" + electionRoundId +
+                    "electionRoundId=" + entryAdditionRound +
                     '}';
         }
     }

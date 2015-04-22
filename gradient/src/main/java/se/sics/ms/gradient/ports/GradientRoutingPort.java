@@ -90,9 +90,9 @@ public class GradientRoutingPort extends PortType {
 
     public static class AddIndexEntryRequest extends Event {
         private final IndexEntry entry;
-        private final TimeoutId timeoutId;
+        private final UUID timeoutId;
 
-        public AddIndexEntryRequest(IndexEntry entry, TimeoutId timeoutId) {
+        public AddIndexEntryRequest(IndexEntry entry, UUID timeoutId) {
 
             this.entry = entry;
             this.timeoutId = timeoutId;
@@ -102,7 +102,7 @@ public class GradientRoutingPort extends PortType {
             return entry;
         }
 
-        public TimeoutId getTimeoutId() {
+        public UUID getTimeoutId() {
             return timeoutId;
         }
     }
