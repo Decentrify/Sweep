@@ -342,13 +342,14 @@ public final class Search extends ComponentDefinition {
                 initializeIndexCaches(writeLuceneAdaptor);
             }
 
-            minStoredId = getMinStoredIdFromLucene(writeLuceneAdaptor);
-            maxStoredId = getMaxStoredIdFromLucene(writeLuceneAdaptor);
+            minStoredId = ApplicationLuceneQueries.getMinStoredIdFromLucene(writeLuceneAdaptor);
+            maxStoredId = ApplicationLuceneQueries.getMaxStoredIdFromLucene(writeLuceneAdaptor);
 
         } catch (LuceneAdaptorException e) {
-            // Proper exception handling.
+            
+            logger.warn("{}: Unable to initialize index from file");
             e.printStackTrace();
-            System.exit(-1);
+            throw new RuntimeException("Unable to initialize index from file", e);
         }
         recentRequests = new HashMap<java.util.UUID, Long>();
 
@@ -897,7 +898,7 @@ public final class Search extends ComponentDefinition {
                 // Search for entries the inquirer is missing
                 long lastId = request.getLowestMissingIndexEntry();
                 for (long i : request.getEntries()) {
-                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
+                    Collection<IndexEntry> indexEntries = ApplicationLuceneQueries.findIdRange(writeLuceneAdaptor, lastId, i - 1, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
                     }
@@ -910,7 +911,7 @@ public final class Search extends ComponentDefinition {
 
                 // In case there is some space left search for more
                 if (hashes.size() < config.getMaxExchangeCount()) {
-                    Collection<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
+                    Collection<IndexEntry> indexEntries = ApplicationLuceneQueries.findIdRange(writeLuceneAdaptor, lastId, Long.MAX_VALUE, config.getMaxExchangeCount() - hashes.size());
                     for (IndexEntry indexEntry : indexEntries) {
                         hashes.add((new IndexHash(indexEntry)));
                     }
@@ -1033,7 +1034,7 @@ public final class Search extends ComponentDefinition {
 
             try {
                 for (IndexEntry indexEntry : response.getIndexEntries()) {
-                    if (intersection.remove(new IndexHash(indexEntry)) && isIndexEntrySignatureValid(indexEntry)) {
+                    if (intersection.remove(new IndexHash(indexEntry)) && ApplicationSecurity.isIndexEntrySignatureValid(indexEntry)) {
                         addEntryLocal(indexEntry);
                     } else {
                         logger.warn("Unable to process Index Entry fetched via Index Hash Exchange.");
@@ -1149,7 +1150,7 @@ public final class Search extends ComponentDefinition {
             newEntry.setId(id);
             newEntry.setLeaderId(publicKey);
             newEntry.setGlobalId(java.util.UUID.randomUUID().toString());
-            String signature = generateSignedHash(newEntry, privateKey);
+            String signature = ApplicationSecurity.generateSignedHash(newEntry, privateKey);
 
             if (signature == null) {
                 logger.warn("Unable to generate the hash for the index entry with id: {}", newEntry.getId());
@@ -1253,7 +1254,7 @@ public final class Search extends ComponentDefinition {
             logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
 
             IndexEntry entry = request.getEntry();
-            if (!isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+            if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
                 return;
 
             ReplicationPrepareCommit.Response response = new ReplicationPrepareCommit.Response(request.getIndexAdditionRoundId(), request.getEntry().getId());
@@ -1318,7 +1319,7 @@ public final class Search extends ComponentDefinition {
                     ByteBuffer idBuffer = ByteBuffer.allocate(8);
                     idBuffer.putLong(entryToCommit.getId());
 
-                    String signature = generateRSASignature(idBuffer.array(), privateKey);
+                    String signature = ApplicationSecurity.generateRSASignature(idBuffer.array(), privateKey);
 
                     ReplicationCommit.Request commitRequest = new ReplicationCommit.Request(commitTimeout, entryToCommit.getId(), signature);
                     for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
@@ -1370,7 +1371,7 @@ public final class Search extends ComponentDefinition {
             ByteBuffer idBuffer = ByteBuffer.allocate(8);
             idBuffer.putLong(id);
             try {
-                if (!verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
+                if (!ApplicationSecurity.verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
                     return;
             } catch (NoSuchAlgorithmException e) {
                 logger.error(self.getId() + " " + e.getMessage());
@@ -1738,15 +1739,15 @@ public final class Search extends ComponentDefinition {
         try {
 
             if (isPartition) {
-                deleteDocumentsWithIdMoreThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
-                deleteHigherExistingEntries(middleId, existingEntries, false);
+                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
+                ApplicationLuceneQueries.deleteHigherExistingEntries(middleId, existingEntries, false);
             } else {
-                deleteDocumentsWithIdLessThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
-                deleteLowerExistingEntries(middleId, existingEntries, true);
+                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(writeLuceneAdaptor, middleId, minStoredId, maxStoredId);
+                ApplicationLuceneQueries.deleteLowerExistingEntries(middleId, existingEntries, true);
             }
 
-            minStoredId = getMinStoredIdFromLucene(writeLuceneAdaptor);
-            maxStoredId = getMaxStoredIdFromLucene(writeLuceneAdaptor);
+            minStoredId = ApplicationLuceneQueries.getMinStoredIdFromLucene(writeLuceneAdaptor);
+            maxStoredId = ApplicationLuceneQueries.getMaxStoredIdFromLucene(writeLuceneAdaptor);
 
             //Increment Max Store Id to keep in line with the original methodology.
             maxStoredId += 1;
@@ -1773,55 +1774,6 @@ public final class Search extends ComponentDefinition {
         lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
         partitionInProgress = false;
 
-    }
-
-
-    /**
-     * Modify the existingEntries set to remove the entries lower than mediaId.
-     *
-     * @param medianId
-     * @param existingEntries
-     * @param including
-     */
-    private void deleteLowerExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including) {
-
-        Iterator<Long> iterator = existingEntries.iterator();
-
-        while (iterator.hasNext()) {
-            Long currEntry = iterator.next();
-
-            if (including) {
-                if (currEntry.compareTo(medianId) <= 0)
-                    iterator.remove();
-            } else {
-                if (currEntry.compareTo(medianId) < 0)
-                    iterator.remove();
-            }
-        }
-    }
-
-    /**
-     * Modify the exstingEntries set to remove the entries higher than median Id.
-     *
-     * @param medianId
-     * @param existingEntries
-     * @param including
-     */
-    private void deleteHigherExistingEntries(Long medianId, Collection<Long> existingEntries, boolean including) {
-
-        Iterator<Long> iterator = existingEntries.iterator();
-
-        while (iterator.hasNext()) {
-            Long currEntry = iterator.next();
-
-            if (including) {
-                if (currEntry.compareTo(medianId) >= 0)
-                    iterator.remove();
-            } else {
-                if (currEntry.compareTo(medianId) > 0)
-                    iterator.remove();
-            }
-        }
     }
 
 
@@ -2004,7 +1956,7 @@ public final class Search extends ComponentDefinition {
         partitionInfo.setKey(publicKey);
 
         // Generate the hash information of the partition info for security purposes.
-        String signedHash = generatePartitionInfoSignedHash(partitionInfo, privateKey);
+        String signedHash = ApplicationSecurity.generatePartitionInfoSignedHash(partitionInfo, privateKey);
         if (signedHash == null) {
             logger.error("Unable to generate a signed hash for the partitioning two phase commit.");
             throw new RuntimeException("Unable to generate hash for the partitioning two phase commit. ");
@@ -2057,7 +2009,7 @@ public final class Search extends ComponentDefinition {
             
             logger.debug("{}: Received partition prepare request from : {}", self.getId(), event.getSource());
             // Step1: Verify that the data is from the leader only.
-            if (!isPartitionUpdateValid(request.getPartitionInfo()) || !leaderIds.contains(request.getPartitionInfo().getKey())) {
+            if (!ApplicationSecurity.isPartitionUpdateValid(request.getPartitionInfo()) || !leaderIds.contains(request.getPartitionInfo().getKey())) {
                 logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
                 return;
             }
@@ -2315,359 +2267,15 @@ public final class Search extends ComponentDefinition {
      * @throws IOException if Lucene errors occur
      */
     private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = findIdRange(writeLuceneAdaptor, id, id, 1);
+        List<IndexEntry> indexEntries = ApplicationLuceneQueries.findIdRange(writeLuceneAdaptor, id, id, 1);
         if (indexEntries.isEmpty()) {
             return null;
         }
         return indexEntries.get(0);
     }
 
-    /**
-     * Retrieve all indexes with ids in the given range from the local index
-     * store.
-     *
-     * @param min   the inclusive minimum of the range
-     * @param max   the inclusive maximum of the range
-     * @param limit the maximal amount of entries to be returned
-     * @return a list of the entries found
-     * @throws IOException if Lucene errors occur
-     */
-    private List<IndexEntry> findIdRange(LuceneAdaptor adaptor, long min, long max, int limit) throws IOException {
-
-        List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
-        try {
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, min, max, true, true);
-            indexEntries = adaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), limit);
-
-        } catch (LuceneAdaptorException e) {
-            e.printStackTrace();
-            logger.error("{}: Exception while trying to fetch the index entries between specified range.", self.getId());
-        }
-
-        return indexEntries;
-    }
-
-    /**
-     * Generates a SHA-1 hash on IndexEntry and signs it with a private key
-     *
-     * @param newEntry
-     * @return signed SHA-1 key
-     */
-    private static String generateSignedHash(IndexEntry newEntry, PrivateKey privateKey) {
-        if (newEntry.getLeaderId() == null)
-            return null;
-
-        //url
-        ByteBuffer dataBuffer = getByteDataFromIndexEntry(newEntry);
 
 
-        try {
-            return generateRSASignature(dataBuffer.array(), privateKey);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return null;
-    }
-
-
-    /**
-     * Generates the SHA-1 Hash Of the partition update and sign with private key.
-     *
-     * @param partitionInfo
-     * @param privateKey
-     * @return signed hash
-     */
-    private String generatePartitionInfoSignedHash(PartitionHelper.PartitionInfo partitionInfo, PrivateKey privateKey) {
-
-        if (partitionInfo.getKey() == null)
-            return null;
-
-        // generate the byte array from the partitioning data.
-        ByteBuffer byteBuffer = getByteDataFromPartitionInfo(partitionInfo);
-
-        // sign the array and return the signed hash value.
-        try {
-            return generateRSASignature(byteBuffer.array(), privateKey);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return null;
-    }
-
-
-    /**
-     * Generate the SHA-1 String.
-     * TODO: For more efficiency don't convert it to string as it becomes greater than 256bytes and encoding mechanism fails for index hash exchange.
-     * FIXME: Change the encoding hash mechanism.
-     *
-     * @param data
-     * @param privateKey
-     * @return
-     * @throws NoSuchAlgorithmException
-     * @throws InvalidKeyException
-     * @throws SignatureException
-     */
-    private static String generateRSASignature(byte[] data, PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-1");
-        String sha1 = byteArray2Hex(digest.digest(data));
-
-        Signature instance = Signature.getInstance("SHA1withRSA");
-        instance.initSign(privateKey);
-        instance.update(sha1.getBytes());
-        byte[] signature = instance.sign();
-        return byteArray2Hex(signature);
-    }
-
-    private static String byteArray2Hex(final byte[] hash) {
-        Formatter formatter = new Formatter();
-        for (byte b : hash) {
-            formatter.format("%02x", b);
-        }
-        return formatter.toString();
-    }
-
-    private static boolean isIndexEntrySignatureValid(IndexEntry newEntry) {
-        if (newEntry.getLeaderId() == null)
-            return false;
-        ByteBuffer dataBuffer = getByteDataFromIndexEntry(newEntry);
-
-
-        try {
-            return verifyRSASignature(dataBuffer.array(), newEntry.getLeaderId(), newEntry.getHash());
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return false;
-    }
-
-
-    /**
-     * Verify if the partition update is received from the leader itself only.
-     *
-     * @param partitionUpdate
-     * @return
-     */
-    private static boolean isPartitionUpdateValid(PartitionHelper.PartitionInfo partitionUpdate) {
-
-        if (partitionUpdate.getKey() == null)
-            return false;
-
-        ByteBuffer dataBuffer = getByteDataFromPartitionInfo(partitionUpdate);
-
-        try {
-            return verifyRSASignature(dataBuffer.array(), partitionUpdate.getKey(), partitionUpdate.getHash());
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        } catch (SignatureException e) {
-            logger.error(e.getMessage());
-        } catch (InvalidKeyException e) {
-            logger.error(e.getMessage());
-        }
-
-        return false;
-
-    }
-
-
-    private static ByteBuffer getByteDataFromIndexEntry(IndexEntry newEntry) {
-        //url
-        byte[] urlBytes;
-        if (newEntry.getUrl() != null)
-            urlBytes = newEntry.getUrl().getBytes(Charset.forName("UTF-8"));
-        else
-            urlBytes = new byte[0];
-
-        //filename
-        byte[] fileNameBytes;
-        if (newEntry.getFileName() != null)
-            fileNameBytes = newEntry.getFileName().getBytes(Charset.forName("UTF-8"));
-        else
-            fileNameBytes = new byte[0];
-
-        //language
-        byte[] languageBytes;
-        if (newEntry.getLanguage() != null)
-            languageBytes = newEntry.getLanguage().getBytes(Charset.forName("UTF-8"));
-        else
-            languageBytes = new byte[0];
-
-        //description
-        byte[] descriptionBytes;
-        if (newEntry.getDescription() != null)
-            descriptionBytes = newEntry.getDescription().getBytes(Charset.forName("UTF-8"));
-        else
-            descriptionBytes = new byte[0];
-
-        ByteBuffer dataBuffer;
-        if (newEntry.getUploaded() != null)
-            dataBuffer = ByteBuffer.allocate(8 * 3 + 4 + urlBytes.length + fileNameBytes.length +
-                    languageBytes.length + descriptionBytes.length);
-        else
-            dataBuffer = ByteBuffer.allocate(8 * 2 + 4 + urlBytes.length + fileNameBytes.length +
-                    languageBytes.length + descriptionBytes.length);
-        dataBuffer.putLong(newEntry.getId());
-        dataBuffer.putLong(newEntry.getFileSize());
-        if (newEntry.getUploaded() != null)
-            dataBuffer.putLong(newEntry.getUploaded().getTime());
-        dataBuffer.putInt(newEntry.getCategory().ordinal());
-        if (newEntry.getUrl() != null)
-            dataBuffer.put(urlBytes);
-        if (newEntry.getFileName() != null)
-            dataBuffer.put(fileNameBytes);
-        if (newEntry.getLanguage() != null)
-            dataBuffer.put(languageBytes);
-        if (newEntry.getDescription() != null)
-            dataBuffer.put(descriptionBytes);
-        return dataBuffer;
-    }
-
-    /**
-     * Converts the partitioning update in byte array.
-     * TODO: Uniform implementation.
-     * 
-     * @param partitionInfo
-     * @return partitionInfo byte array.
-     */
-    private static ByteBuffer getByteDataFromPartitionInfo(PartitionHelper.PartitionInfo partitionInfo) {
-
-        // Decide on a specific order.
-        ByteBuffer buffer = ByteBuffer.allocate((3 * 8) + (4));
-        
-        // Start filling the buffer with information.
-        buffer.putLong(partitionInfo.getMedianId());
-        buffer.putLong(partitionInfo.getRequestId().getMostSignificantBits());
-        buffer.putLong(partitionInfo.getRequestId().getLeastSignificantBits());
-        
-        buffer.putInt(partitionInfo.getPartitioningTypeInfo().ordinal());
-        
-        return buffer;
-    }
-
-    private static boolean verifyRSASignature(byte[] data, PublicKey key, String signature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-1");
-        String sha1 = byteArray2Hex(digest.digest(data));
-
-        Signature instance = Signature.getInstance("SHA1withRSA");
-        instance.initVerify(key);
-        instance.update(sha1.getBytes());
-        return instance.verify(hexStringToByteArray(signature));
-    }
-
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i + 1), 16));
-        }
-        return data;
-    }
-
-    /**
-     * Returns min id value stored in Lucene
-     *
-     * @return min Id value stored in Lucene
-     */
-    private long getMinStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
-
-        long minStoreId = 0;
-        Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
-        int numofEntries = 1;
-
-        Sort sort = new Sort(new SortField(IndexEntry.ID, Type.LONG));
-        List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
-
-        if (indexEntries.size() == 1) {
-            minStoreId = indexEntries.get(0).getId();
-        }
-        return minStoreId;
-    }
-
-    /**
-     * Returns max id value stored in Lucene
-     *
-     * @return max Id value stored in Lucene
-     */
-    private long getMaxStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
-
-        long maxStoreId = 0;
-        Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
-        int numofEntries = 1;
-        Sort sort = new Sort(new SortField(IndexEntry.ID, Type.LONG, true));
-        List<IndexEntry> indexEntries = adaptor.searchIndexEntriesInLucene(query, sort, numofEntries);
-
-        if (indexEntries.size() == 1) {
-            maxStoreId = indexEntries.get(0).getId();
-        }
-        return maxStoreId;
-    }
-
-    /**
-     * Deletes all documents from the index with ids less or equal then id
-     *
-     * @param id
-     * @param bottom
-     * @param top
-     * @return
-     */
-    private void deleteDocumentsWithIdLessThen(LuceneAdaptor adaptor, long id, long bottom, long top) throws LuceneAdaptorException {
-
-        if (bottom < top) {
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
-            adaptor.deleteDocumentsFromLucene(query);
-        } else {
-            if (id < bottom) {
-                Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, Long.MAX_VALUE - 1, true, true);
-                Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, id, true, true);
-                adaptor.deleteDocumentsFromLucene(query1, query2);
-            } else {
-                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, bottom, id, true, true);
-                adaptor.deleteDocumentsFromLucene(query);
-            }
-        }
-
-    }
-
-    /**
-     * Deletes all documents from the index with ids bigger then id (not including)
-     *
-     * @param id
-     * @param bottom
-     * @param top
-     */
-    private void deleteDocumentsWithIdMoreThen(LuceneAdaptor adaptor, long id, long bottom, long top) throws LuceneAdaptorException {
-
-
-        if (bottom < top) {
-            Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, top, true, true);
-            adaptor.deleteDocumentsFromLucene(query);
-
-        } else {
-            if (id >= top) {
-                Query query1 = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, Long.MAX_VALUE - 1, true, true);
-                Query query2 = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE + 1, top, true, true);
-                adaptor.deleteDocumentsFromLucene(query1, query2);
-            } else {
-                Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, id + 1, top, true, true);
-                adaptor.deleteDocumentsFromLucene(query);
-            }
-        }
-    }
 
 
     /**
