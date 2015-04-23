@@ -96,7 +96,7 @@ public final class PseudoGradient extends ComponentDefinition {
     final private HashSet<SearchDescriptor> queriedNodes = new HashSet<SearchDescriptor>();
 
     final private HashMap<UUID, SearchDescriptor> openRequests = new HashMap<UUID, SearchDescriptor>();
-    final private HashMap<DecoratedAddress, Integer> locatedLeaders = new HashMap<DecoratedAddress, Integer>();
+    final private HashMap<BasicAddress, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<BasicAddress, Pair<DecoratedAddress, Integer>>();
     private List<BasicAddress> leadersAlreadyComunicated = new ArrayList<BasicAddress>();
 
 
@@ -210,6 +210,19 @@ public final class PseudoGradient extends ComponentDefinition {
 
 
     /**
+     * Clear the parameters associated with the index entry addition and leader
+     * look up mechanism part of the protocol.
+     */
+    private void clearLookupParameters(){
+        
+        queriedNodes.clear();
+        openRequests.clear();
+        leadersAlreadyComunicated.clear();
+        locatedLeaders.clear();
+    }
+    
+
+    /**
      * Received an add entry request event from the application which requires the gradient
      * component to identify the parameters of the index entry to be added and take appropriate action.
      */
@@ -222,12 +235,8 @@ public final class PseudoGradient extends ComponentDefinition {
             MsConfig.Categories addCategory = event.getEntry().getCategory();
 
             indexEntryToAdd = event.getEntry();
-            addIndexEntryRequestTimeoutId = null; // FIXME: RoundID. Mechanism not correct. Overrides very easy.
-            locatedLeaders.clear();
-
-            queriedNodes.clear();
-            openRequests.clear();
-            leadersAlreadyComunicated.clear();
+            addIndexEntryRequestTimeoutId = event.getTimeoutId();       // At a time client can add only one index entry in the system.
+            clearLookupParameters();
 
 
             // If the node is from the same category.
@@ -390,11 +399,11 @@ public final class PseudoGradient extends ComponentDefinition {
                 DecoratedAddress source = event.getSource();
                 Integer numberOfAnswers;
                 if (locatedLeaders.containsKey(source)) {
-                    numberOfAnswers = locatedLeaders.get(event.getSource()) + 1;
+                    numberOfAnswers = locatedLeaders.get(event.getSource().getBase()).getValue1() + 1;
                 } else {
                     numberOfAnswers = 1;
                 }
-                locatedLeaders.put(event.getSource(), numberOfAnswers);
+                locatedLeaders.put(event.getSource().getBase(), Pair.with(event.getSource(),numberOfAnswers));
             }
 
             else {
@@ -408,8 +417,8 @@ public final class PseudoGradient extends ComponentDefinition {
                 if (higherUtilityNodes.size() > 0) {
                     SearchDescriptor first = higherUtilityNodes.get(0);
                     if (locatedLeaders.containsKey(first.getVodAddress())) {
-                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress()) + 1;
-                        locatedLeaders.put(first.getVodAddress(), numberOfAnswers);
+                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress().getBase()).getValue1() + 1;
+                        locatedLeaders.put(first.getVodAddress().getBase(), Pair.with(first.getVodAddress(),numberOfAnswers));
                     }
                 }
 
@@ -426,15 +435,14 @@ public final class PseudoGradient extends ComponentDefinition {
             }
 
             // Check it a quorum was reached
-            for (DecoratedAddress locatedLeader : locatedLeaders.keySet()) {
+            for (BasicAddress locatedLeader : locatedLeaders.keySet()) {
                 
-                if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2) {
-                    if (!leadersAlreadyComunicated.contains(locatedLeader.getBase())) {
+                if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookupMessage.QueryLimit / 2) {
+                    if (!leadersAlreadyComunicated.contains(locatedLeader)) {
                         
                         AddIndexEntry.Request entryAddRequest = new AddIndexEntry.Request(addIndexEntryRequestTimeoutId, indexEntryToAdd);
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), locatedLeader, Transport.UDP, entryAddRequest), networkPort);
-                        leadersAlreadyComunicated.add(locatedLeader.getBase());
-                        // FIXME:  Memory Leak
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), locatedLeaders.get(locatedLeader).getValue0(), Transport.UDP, entryAddRequest), networkPort);
+                        leadersAlreadyComunicated.add(locatedLeader);
                     }
                 }
             }
@@ -450,7 +458,7 @@ public final class PseudoGradient extends ComponentDefinition {
      */
     private void sendLeaderLookupRequest(SearchDescriptor node) {
         
-        se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getLeaderLookupTimeout());
+        ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLookupTimeout());
         st.setTimeoutEvent(new LeaderLookup.Timeout(st));
         UUID leaderLookupRoundId = st.getTimeoutEvent().getTimeoutId();
         

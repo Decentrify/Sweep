@@ -60,11 +60,15 @@ public class TimeoutCollection {
      */
     public static  class EntryPrepareResponseTimeout extends Timeout{
 
-        public UUID roundId;
+        public final UUID entryAdditionRoundId;
         
         public EntryPrepareResponseTimeout(ScheduleTimeout request, UUID roundId) {
             super(request);
-            this.roundId = roundId;
+            this.entryAdditionRoundId = roundId;
+        }
+        
+        public UUID getEntryAdditionRoundId(){
+            return this.entryAdditionRoundId;
         }
     }
 

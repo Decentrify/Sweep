@@ -181,7 +181,7 @@ public final class Search extends ComponentDefinition {
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
     // Trackers.
-    private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
+    private MultipleEntryAdditionTracker entryAdditionTracker;
     private Map<UUID, UUID> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
 
@@ -314,7 +314,7 @@ public final class Search extends ComponentDefinition {
 
         // Tracker.
         partitioningTracker = new PartitioningTracker();
-        entryAdditionTrackerUpdated = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
+        entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<java.util.UUID, java.util.UUID>();
 
         gapTimeouts = new HashMap<Long, UUID>();
@@ -366,21 +366,19 @@ public final class Search extends ComponentDefinition {
     final Handler<Start> handleStart = new Handler<Start>() {
         public void handle(Start init) {
 
+            logger.debug("{}: Main component initialized", self.getId());
+            
             informListeningComponentsAboutUpdates(self);
+            
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
                     config.getRecentRequestsGcInterval(),
                     config.getRecentRequestsGcInterval());
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            // TODO move time to own config instead of using the gradient period. IndexHashExchangePeriod.
             rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
-
-            // Bootup the croupier with default configuration.
-            CroupierUpdate initialCroupierBootupUpdate = new CroupierUpdate(self.getSelfDescriptor());
-            trigger(initialCroupierBootupUpdate, croupierPortPositive);
 
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
@@ -1110,15 +1108,16 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received add index entry request from : {}", self.getId(),  event.getSource());
             if (!leader || partitionInProgress) {
+                logger.warn("{}: Received request to add entry but self state doesn't permit to move ahead. Returning ... ");
                 return;
             }
 
-            if (!entryAdditionTrackerUpdated.canTrack()) {
-                logger.warn("Unable to track a new entry addition as one is going on.");
-                System.exit(-1);
+            if (!entryAdditionTracker.canTrack()) {
+                logger.warn("{}: Unable to track a new entry addition limit reached ... ");
+                return;
             }
 
-            // FIXME: Memory Leak. ( How to fix this ? Probability ... )
+            // FIX : The timeout for clearing the map is way too low
             if (recentRequests.containsKey(request.getEntryAdditionRound())) {
                 return;
             }
@@ -1144,7 +1143,7 @@ public final class Search extends ComponentDefinition {
 
                 logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), event.getSource());
                 EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, newEntry, event.getSource());
-                entryAdditionTrackerUpdated.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
+                entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
 
                 ReplicationPrepareCommit.Request  prepareRequest = new ReplicationPrepareCommit.Request(newEntry, request.getEntryAdditionRound());
                 for (DecoratedAddress destination : leaderGroupInformation) {
@@ -1153,7 +1152,7 @@ public final class Search extends ComponentDefinition {
                 }
 
                 // Trigger for a timeout and how would that work ?
-                se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(5000);
+                ScheduleTimeout st = new ScheduleTimeout(5000);
                 st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, request.getEntryAdditionRound()));
                 entryPrepareTimeoutMap.put(request.getEntryAdditionRound(), st.getTimeoutEvent().getTimeoutId());
                 trigger(st, timerPort);
@@ -1172,11 +1171,12 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.EntryPrepareResponseTimeout event) {
 
-            if (entryPrepareTimeoutMap != null && entryPrepareTimeoutMap.keySet().contains(event.getTimeoutId())) {
+            if (entryPrepareTimeoutMap != null && entryPrepareTimeoutMap.containsValue(event.getTimeoutId())) {
 
                 logger.warn("{}: Prepare phase timed out. Resetting the tracker information.");
-                entryAdditionTrackerUpdated.resetTracker(event.roundId);
-                entryPrepareTimeoutMap.remove(event.roundId);
+                entryAdditionTracker.resetTracker(event.getEntryAdditionRoundId());
+                entryPrepareTimeoutMap.remove(event.getEntryAdditionRoundId());
+
             } else {
                 logger.warn(" Prepare Phase timeout edge case called. Not resetting the tracker.");
             }
@@ -1277,7 +1277,7 @@ public final class Search extends ComponentDefinition {
             logger.debug("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
 
             java.util.UUID entryAdditionRoundId = response.getIndexAdditionRoundId();
-            EntryAdditionRoundInfo info = entryAdditionTrackerUpdated.getEntryAdditionRoundInfo(entryAdditionRoundId);
+            EntryAdditionRoundInfo info = entryAdditionTracker.getEntryAdditionRoundInfo(entryAdditionRoundId);
 
             if (info == null) {
                 logger.debug("{}: Received Promise Response from: {} after the round has expired ", self.getId(), event.getSource());
@@ -1290,7 +1290,7 @@ public final class Search extends ComponentDefinition {
                 try {
 
                     logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
-                    se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
+                    CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                     trigger(ct, timerPort);
 
                     IndexEntry entryToCommit = info.getEntryToAdd();
@@ -1306,8 +1306,10 @@ public final class Search extends ComponentDefinition {
                     for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, commitRequest), networkPort);
                     }
-
-                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), info.getEntryAddSourceNode(),Transport.UDP, info.getEntryAdditionRoundId()), networkPort);
+                    
+                    // Send reply to the originator node. ( Not actually two phase commit as I assume that they will have added entries. )
+                    AddIndexEntry.Response addEntryResponse = new AddIndexEntry.Response(info.getEntryAdditionRoundId());
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), info.getEntryAddSourceNode(),Transport.UDP, addEntryResponse), networkPort);
 
                 } catch (NoSuchAlgorithmException e) {
                     logger.error(self.getId() + " " + e.getMessage());
@@ -1322,7 +1324,7 @@ public final class Search extends ComponentDefinition {
                     e.printStackTrace();
                 } finally {
 
-                    entryAdditionTrackerUpdated.resetTracker(entryAdditionRoundId);
+                    entryAdditionTracker.resetTracker(entryAdditionRoundId);
                     entryPrepareTimeoutMap.remove(entryAdditionRoundId);
                 }
             }
@@ -1414,10 +1416,6 @@ public final class Search extends ComponentDefinition {
             trigger(ct, timerPort);
 
             Long timeStarted = timeStoringMap.get(response.getEntryAdditionRound());
-            if (timeStarted != null){
-//                Snapshot.reportAddingTime((new Date()).getTime() - timeStarted);
-            }
-
             timeStoringMap.remove(response.getEntryAdditionRound());
             trigger(new UiAddIndexEntryResponse(true), uiPort);
 
@@ -1493,15 +1491,14 @@ public final class Search extends ComponentDefinition {
         public void handle(TimeoutCollection.RecentRequestsGcTimeout event) {
             long referenceTime = System.currentTimeMillis();
 
-            ArrayList<java.util.UUID> removeList = new ArrayList<java.util.UUID>();
-            for (java.util.UUID id : recentRequests.keySet()) {
-                if (referenceTime - recentRequests.get(id) > config
-                        .getRecentRequestsGcInterval()) {
+            ArrayList<UUID> removeList = new ArrayList<UUID>();
+            for (UUID id : recentRequests.keySet()) {
+                if (referenceTime - recentRequests.get(id) > config.getRecentRequestsGcInterval()) {
                     removeList.add(id);
                 }
             }
 
-            for (java.util.UUID uuid : removeList) {
+            for (UUID uuid : removeList) {
                 recentRequests.remove(uuid);
             }
         }
