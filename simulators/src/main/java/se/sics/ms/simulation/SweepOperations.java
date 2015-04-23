@@ -8,13 +8,14 @@ import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.p2p.experiment.dsl.adaptor.Operation1;
-import se.sics.ms.main.SimulatorEncodeDecode;
 import se.sics.ms.search.SearchPeer;
+import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
+import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
@@ -52,13 +53,13 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd() {
+            return new StartNodeCmd<SearchPeer, BasicAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
                 @Override
                 public Integer getNodeId() {
-                    return null;
+                    return (int)nodeId;
                 }
 
                 @Override
@@ -72,13 +73,13 @@ public class SweepOperations {
                 }
 
                 @Override
-                public Init getNodeComponentInit(Address address, Set set) {
-                    return SweepOperationsHelper.generatePeerInit(null, nodeId);
+                public SearchPeerInit getNodeComponentInit(BasicAddress address, Set<BasicAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePeerInit(new DecoratedAddress(address), nodeId);
                 }
 
                 @Override
-                public Address getAddress() {
-                    return null;
+                public BasicAddress  getAddress() {
+                    return SweepOperationsHelper.getBasicAddress(nodeId);
                 }
             };
         }

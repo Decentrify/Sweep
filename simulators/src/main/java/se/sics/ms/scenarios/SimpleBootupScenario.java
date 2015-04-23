@@ -1,7 +1,7 @@
 package se.sics.ms.scenarios;
 
-import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 import se.sics.ms.simulation.SweepOperations;
+import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 
 
 /**
@@ -10,9 +10,9 @@ import se.sics.ms.simulation.SweepOperations;
  * Created by babbarshaer on 2015-02-04.
  */
 public class SimpleBootupScenario {
-    
-    
-    public static SimulationScenario boot(final long seed){
+
+
+    public static SimulationScenario boot(final long seed) {
         
         SimulationScenario scenario = new SimulationScenario() {
             
@@ -20,7 +20,7 @@ public class SimpleBootupScenario {
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(6 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
+                        raise(1 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
 
@@ -40,7 +40,7 @@ public class SimpleBootupScenario {
                 };
 
                 peerJoin.start();
-                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
+//                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
 //                addIndexEntryCommand.startAfterTerminationOf(10000, peerJoin);
                 // === Add a termination event.
             }

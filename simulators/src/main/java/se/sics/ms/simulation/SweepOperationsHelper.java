@@ -49,7 +49,9 @@ public class SweepOperationsHelper {
     private static Long identifierSpaceSize;
     private static DecoratedAddress bootstrapAddress = null;
     private static int counter =0;
-
+    private static List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
+    private static InetAddress ip;
+    private static int port;
     static{
 
         Config config = ConfigFactory.load("application.conf");
@@ -65,6 +67,13 @@ public class SweepOperationsHelper {
         chunkManagerConfiguration = new ChunkManagerConfig(config);
         gradientConfig= new GradientConfig(config);
         electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+        
+        try {
+            ip = InetAddress.getLocalHost();
+            port = 9999;
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -84,33 +93,26 @@ public class SweepOperationsHelper {
         return id;
     }
 
-
     /**
      * Based on the NodeId provided, generate an init configuration for the search peer.
      * @param id NodeId
      */
     public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress, long id){
-        
+
         logger.info(" Generating address for peer with id: {} ", id);
-        InetAddress ip = null;
-        try {
-            ip = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
 
-        BasicAddress basicAddress = new BasicAddress(ip, 9999 , (int)id);
-        ApplicationSelf applicationSelf = new ApplicationSelf(new DecoratedAddress(basicAddress));
-
+        BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
+        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
+        systemConfig = new SystemConfig(decoratedAddress, simulatorAddress, bootstrapNodes);
+        
+        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
         SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
         
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());
 
-        List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
+        bootstrapNodes = new ArrayList<DecoratedAddress>();
         bootstrapNodes.add(applicationSelf.getAddress());
-        systemConfig = new SystemConfig(null, simulatorAddress, bootstrapNodes);
         
         return init;
     }
@@ -162,5 +164,11 @@ public class SweepOperationsHelper {
         counter++;
         
         return sb.toString();
+    }
+    
+    
+    public static BasicAddress getBasicAddress(long id){
+        logger.info("C a l l e d .. .. .. " + id);
+        return new BasicAddress(ip, port, (int)id);
     }
 }
