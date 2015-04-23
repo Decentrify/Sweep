@@ -65,7 +65,7 @@ public class AddIndexEntrySerializer {
         public void toBinary(Object o, ByteBuf byteBuf) {
 
             AddIndexEntry.Response response = (AddIndexEntry.Response)o;
-            Serializers.lookupSerializer(UUID.class).toBinary(response.getElectionRoundId(), byteBuf);
+            Serializers.lookupSerializer(UUID.class).toBinary(response.getEntryAdditionRound(), byteBuf);
         }
 
         @Override

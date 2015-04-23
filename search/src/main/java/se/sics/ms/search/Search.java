@@ -38,7 +38,6 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
-import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.gradient.control.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -52,7 +51,6 @@ import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
-import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
@@ -106,7 +104,6 @@ public final class Search extends ComponentDefinition {
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
-    //    Negative<PublicKeyPort> publicKeyPort = negative(PublicKeyPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
@@ -149,32 +146,32 @@ public final class Search extends ComponentDefinition {
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
     private HashMap<IndexEntry, java.util.UUID> pendingForCommit = new HashMap<IndexEntry, java.util.UUID>();
     private HashMap<UUID, UUID> replicationTimeoutToAdd = new HashMap<UUID, UUID>();
-    private HashMap<java.util.UUID, Integer> searchPartitionsNumber = new HashMap<java.util.UUID, Integer>();
+    private HashMap<UUID, Integer> searchPartitionsNumber = new HashMap<UUID, Integer>();
 
-    private HashMap<PartitionHelper.PartitionInfo, java.util.UUID> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, java.util.UUID>();
+    private HashMap<PartitionHelper.PartitionInfo, UUID> partitionUpdatePendingCommit = new HashMap<PartitionHelper.PartitionInfo, UUID>();
     private long minStoredId = Long.MIN_VALUE;
     private long maxStoredId = Long.MIN_VALUE;
 
     private HashMap<UUID, Long> timeStoringMap = new HashMap<UUID, Long>();
-    private static HashMap<java.util.UUID, Pair<Long, Integer>> searchRequestStarted = new HashMap<java.util.UUID, Pair<Long, Integer>>();
+    private static HashMap<UUID, Pair<Long, Integer>> searchRequestStarted = new HashMap<UUID, Pair<Long, Integer>>();
 
 
     // Partitioning Protocol Information.
-    private java.util.UUID partitionPreparePhaseTimeoutId;
-    private java.util.UUID partitionCommitPhaseTimeoutId;
+    private UUID partitionPreparePhaseTimeoutId;
+    private UUID partitionCommitPhaseTimeoutId;
 
-    private java.util.UUID partitionRequestId;
+    private UUID partitionRequestId;
     private boolean partitionInProgress = false;
 
     // Generic Control Pull Mechanism.
     private java.util.UUID controlMessageExchangeRoundId;
-    private Map<BasicAddress, java.util.UUID> peerControlMessageAddressRequestIdMap = new HashMap<BasicAddress, java.util.UUID>();      // FIXME: Needs to be refactored in one message.
+    private Map<BasicAddress, UUID> peerControlMessageAddressRequestIdMap = new HashMap<BasicAddress, UUID>();      // FIXME: Needs to be refactored in one message.
     private Map<BasicAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<BasicAddress, PeerControlMessageRequestHolder>();
     private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
 
     private int controlMessageResponseCount = 0;
     private boolean partitionUpdateFetchInProgress = false;
-    private java.util.UUID currentPartitionInfoFetchRound;
+    private UUID currentPartitionInfoFetchRound;
 
     private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
     private static final int HISTORY_LENGTH = 5;
@@ -185,7 +182,7 @@ public final class Search extends ComponentDefinition {
     private Collection<DecoratedAddress> leaderGroupInformation;
     // Trackers.
     private MultipleEntryAdditionTracker entryAdditionTrackerUpdated;
-    private Map<java.util.UUID, java.util.UUID> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
+    private Map<UUID, UUID> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
 
     /**
@@ -537,8 +534,8 @@ public final class Search extends ComponentDefinition {
 
         try {
 
-            java.util.UUID roundIdReceived = event.getRoundId();
-            java.util.UUID currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress().getBase());
+            UUID roundIdReceived = event.getRoundId();
+            UUID currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress().getBase());
 
             // Perform initial checks to avoid old responses.
             if (currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
@@ -869,7 +866,7 @@ public final class Search extends ComponentDefinition {
 
             exchangeInProgress = true;
 
-            se.sics.kompics.timer.ScheduleTimeout timeout = new se.sics.kompics.timer.ScheduleTimeout(config.getIndexExchangeTimeout());
+            ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
             timeout.setTimeoutEvent(new TimeoutCollection.IndexExchangeTimeout(timeout));
 
             indexExchangeTimeout = timeout.getTimeoutEvent().getTimeoutId();
@@ -981,7 +978,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request> event) {
             
-            logger.debug("{}: Received Index hash exchange request from: {}", self.getId(), event.getSource());
+            logger.debug("{}: Received Index Exchange request from: {}", self.getId(), event.getSource());
             
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
@@ -1209,10 +1206,10 @@ public final class Search extends ComponentDefinition {
             timeStoringMap.remove(event.getTimeoutId());
 
             if (event.reachedRetryLimit()) {
-//                Snapshot.incrementFailedddRequests();
                 logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
-            } else {
+            }
+            else {
 
                 //If prepare phase was started but no response received, then replicationRequests will have left
                 // over data
@@ -1297,7 +1294,7 @@ public final class Search extends ComponentDefinition {
                     trigger(ct, timerPort);
 
                     IndexEntry entryToCommit = info.getEntryToAdd();
-                    java.util.UUID commitTimeout = java.util.UUID.randomUUID(); //What's it purpose.
+                    UUID commitTimeout = UUID.randomUUID(); //What's it purpose.
                     addEntryLocal(entryToCommit);   // Commit to local first.
 
                     ByteBuffer idBuffer = ByteBuffer.allocate(8);
@@ -1569,7 +1566,7 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();
         }
 
-        se.sics.kompics.timer.ScheduleTimeout rst = new se.sics.kompics.timer.ScheduleTimeout(config.getQueryTimeout());
+        ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId()); // FIXME: Fix the naming scheme.
 
@@ -1637,7 +1634,7 @@ public final class Search extends ComponentDefinition {
 
 
     /**
-     * Node received search response for the
+     * Node received search response for the current search request.
      */
     ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>> handleSearchResponse = new ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>>() {
         @Override
@@ -2057,13 +2054,13 @@ public final class Search extends ComponentDefinition {
             PartitionPrepare.Response response = new PartitionPrepare.Response(request.getPartitionPrepareRoundId(), request.getPartitionInfo().getRequestId());
             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
-            // Step4: Add timeout for this message.
-            se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getPartitionCommitRequestTimeout());
+            // Step3: Add timeout for this message.
+            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
             PartitionCommitTimeout pct = new PartitionCommitTimeout(st, request.getPartitionInfo());
             st.setTimeoutEvent(pct);
 
-            // Step3: Add this to the map of pending partition updates.
-            java.util.UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
+            // Step4: Add this to the map of pending partition updates.
+            UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
             PartitionHelper.PartitionInfo receivedPartitionInfo = request.getPartitionInfo();
             partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
             trigger(st, timerPort);
@@ -2121,7 +2118,7 @@ public final class Search extends ComponentDefinition {
                 partitionPreparePhaseTimeoutId = null;
 
                 // Create a commit timeout.
-                se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getPartitionCommitTimeout());
+                ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitTimeout());
                 PartitionCommitMessage.Timeout pt = new PartitionCommitMessage.Timeout(st, partitioningTracker.getPartitionInfo());
                 st.setTimeoutEvent(pt);
                 partitionCommitPhaseTimeoutId = st.getTimeoutEvent().getTimeoutId();
@@ -2168,7 +2165,7 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received partition commit request from node: {}", self.getId(), event.getSource());
 
-            java.util.UUID receivedPartitionRequestId = request.getPartitionRequestId();
+            UUID receivedPartitionRequestId = request.getPartitionRequestId();
             PartitionHelper.PartitionInfo partitionUpdate = null;
 
             for (PartitionHelper.PartitionInfo partitionInfo : partitionUpdatePendingCommit.keySet()) {
@@ -2187,8 +2184,8 @@ public final class Search extends ComponentDefinition {
 
             // If found, then cancel the timer.
 
-            java.util.UUID cancelTimeoutId = partitionUpdatePendingCommit.get(partitionUpdate);
-            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(cancelTimeoutId);
+            UUID cancelTimeoutId = partitionUpdatePendingCommit.get(partitionUpdate);
+            CancelTimeout cancelTimeout = new CancelTimeout(cancelTimeoutId);
             trigger(cancelTimeout, timerPort);
 
             LinkedList<PartitionHelper.PartitionInfo> partitionUpdates = new LinkedList<PartitionHelper.PartitionInfo>();
@@ -2218,7 +2215,7 @@ public final class Search extends ComponentDefinition {
             partitioningTracker.addCommitResponse(response);
             if (partitioningTracker.isCommitAccepted()) {
 
-                se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(response.getPartitionRequestId());
+                CancelTimeout ct = new CancelTimeout(response.getPartitionRequestId());
                 trigger(ct, timerPort);
                 partitionCommitPhaseTimeoutId = null;
 

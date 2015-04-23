@@ -9,7 +9,8 @@ import se.sics.gvod.croupier.CroupierPort;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.timer.*;
+import se.sics.kompics.timer.CancelTimeout;
+import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
@@ -19,20 +20,19 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
 import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
 import se.sics.ms.gradient.control.ControlMessageInternal;
-import se.sics.ms.gradient.events.*;
+import se.sics.ms.gradient.events.LeaderInfoUpdate;
+import se.sics.ms.gradient.events.NumberOfPartitions;
+import se.sics.ms.gradient.misc.LeaderLookupTracker;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.messages.*;
+import se.sics.ms.messages.LeaderLookupMessage;
+import se.sics.ms.messages.SearchMessage;
 import se.sics.ms.ports.SelfChangedPort;
-import se.sics.ms.types.*;
+import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.OverlayId;
-
-import java.security.PublicKey;
-import java.util.*;
-import java.util.UUID;
-
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
@@ -47,6 +47,9 @@ import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
+import java.security.PublicKey;
+import java.util.*;
+
 /**
  * The class is simply a wrapper over the Gradient service.
  * It handles all the tasks provided to it by other components.
@@ -54,9 +57,9 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
  * NOTE: Proper division of functionality is required. The class will soon be deprecated,
  * once the functionality move to there respective components.
  */
-public final class PseudoGradient extends ComponentDefinition {
+public final class PseudoGradientCopy extends ComponentDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger(PseudoGradient.class);
+    private static final Logger logger = LoggerFactory.getLogger(PseudoGradientCopy.class);
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
@@ -64,7 +67,7 @@ public final class PseudoGradient extends ComponentDefinition {
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = requires(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
-    
+
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
 
@@ -96,7 +99,7 @@ public final class PseudoGradient extends ComponentDefinition {
     final private HashSet<SearchDescriptor> queriedNodes = new HashSet<SearchDescriptor>();
 
     final private HashMap<UUID, SearchDescriptor> openRequests = new HashMap<UUID, SearchDescriptor>();
-    final private HashMap<DecoratedAddress, Integer> locatedLeaders = new HashMap<DecoratedAddress, Integer>();
+    final private HashMap<BasicAddress, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<BasicAddress, Pair<DecoratedAddress, Integer>>();
     private List<BasicAddress> leadersAlreadyComunicated = new ArrayList<BasicAddress>();
 
 
@@ -104,7 +107,11 @@ public final class PseudoGradient extends ComponentDefinition {
     private RoutingTableHandler routingTableHandler;
     private Comparator<RoutingTableContainer> invertedAgeComparator;
 
-    public PseudoGradient(PseudoGradientInit init) {
+    
+    // Leader Lookup and Entry Addition.
+    Map<String, UUID> entryAdditionTracker;
+    
+    public PseudoGradientCopy(PseudoGradientInit init) {
 
         doInit(init);
         subscribe(handleStart, control);
@@ -148,7 +155,8 @@ public final class PseudoGradient extends ComponentDefinition {
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
         gradientEntrySet = new TreeSet<SearchDescriptor>(utilityComparator);
-
+        entryAdditionTracker = new HashMap<String, UUID>();
+        
         this.converged = false;
         this.changed = false;
         this.convergenceTest = config.getConvergenceTest();
@@ -213,7 +221,7 @@ public final class PseudoGradient extends ComponentDefinition {
      * Received an add entry request event from the application which requires the gradient
      * component to identify the parameters of the index entry to be added and take appropriate action.
      */
-    
+
     final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequest = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
         @Override
         public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
@@ -222,9 +230,13 @@ public final class PseudoGradient extends ComponentDefinition {
             MsConfig.Categories addCategory = event.getEntry().getCategory();
 
             indexEntryToAdd = event.getEntry();
+            
+            if(indexEntryToAdd.getGlobalId() == null){
+                throw new RuntimeException("Global Id for the index entry is null.");
+            }
+            
             addIndexEntryRequestTimeoutId = null; // FIXME: RoundID. Mechanism not correct. Overrides very easy.
             locatedLeaders.clear();
-
             queriedNodes.clear();
             openRequests.clear();
             leadersAlreadyComunicated.clear();
@@ -232,30 +244,30 @@ public final class PseudoGradient extends ComponentDefinition {
 
             // If the node is from the same category.
             if (addCategory == selfCategory) {
-                
+
                 // If self is the leader.
                 if (leader) {
-                    
+
                     logger.debug ("Triggering entry addition request to self.");
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
-                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry());
-                    
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
+
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
                 }
 
                 // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
-                    
+
                     logger.debug ("Triggering the entry request to leader: {}", leaderAddress);
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), leaderAddress, Transport.UDP);
-                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry());
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
 
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
                 }
 
-                // Ask nodes above me for the leader pointer. ( Fix this. )
+                // Ask nodes above me for the leader pointer.
                 else {
-                    
+
                     NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
                     startNodes.addAll(getGradientSample());
 
@@ -269,7 +281,7 @@ public final class PseudoGradient extends ComponentDefinition {
             // In case the request is to add entry for a different category.
             else {
                 Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
-                
+
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
                     return;
@@ -277,7 +289,98 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
                 int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
-                
+
+                HashSet<SearchDescriptor> startNodes = getSearchDescriptorSet(partitions.get(categoryPartitionsIds.get(categoryPartitionId)).getValue1().values());
+                if (startNodes == null || startNodes.isEmpty()) {
+                    logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), categoryPartitionsIds.get(categoryPartitionId));
+                    return;
+                }
+
+                // Need to sort it every time because values like RTT might have been changed
+                SortedSet<SearchDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
+                Iterator iterator = sortedStartNodes.iterator();
+
+                for (int i = 0; i < LeaderLookup.QueryLimit && iterator.hasNext(); i++) {
+                    SearchDescriptor node = (SearchDescriptor) iterator.next();
+                    sendLeaderLookupRequest(node);
+                }
+            }
+        }
+    };
+
+
+
+
+    /**
+     * Received an add entry request event from the application which requires the gradient
+     * component to identify the parameters of the index entry to be added and take appropriate action.
+     */
+
+    final Handler<GradientRoutingPort.AddIndexEntryRequest> handleAddIndexEntryRequestUpdated = new Handler<GradientRoutingPort.AddIndexEntryRequest>() {
+        @Override
+        public void handle(GradientRoutingPort.AddIndexEntryRequest event) {
+
+            MsConfig.Categories selfCategory = categoryFromCategoryId(self.getCategoryId());
+            MsConfig.Categories addCategory = event.getEntry().getCategory();
+
+            indexEntryToAdd = event.getEntry();
+
+            if(indexEntryToAdd.getGlobalId() == null){
+                throw new RuntimeException("Global Id for the index entry is null.");
+            }
+            
+            if(entryAdditionTracker.containsKey(indexEntryToAdd.getGlobalId())){
+                logger.warn("Already a timeout configured for the entry");
+            }
+
+            // If the node is from the same category.
+            if (addCategory == selfCategory) {
+
+                // If self is the leader.
+                if (leader) {
+
+                    logger.debug ("Triggering entry addition request to self.");
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
+
+                    trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
+                }
+
+                // If we have direct pointer to the leader.
+                else if (leaderAddress != null) {
+
+                    logger.debug ("Triggering the entry request to leader: {}", leaderAddress);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), leaderAddress, Transport.UDP);
+                    AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry()); // FIXME: RoundID.
+
+                    trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
+                }
+
+                // Ask nodes above me for the leader pointer.
+                else {
+
+                    NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
+                    startNodes.addAll(getGradientSample());
+
+                    Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
+                    for (int i = 0; i < LeaderLookup.QueryLimit && iterator.hasNext(); i++) {
+                        SearchDescriptor node = iterator.next();
+                        sendLeaderLookupRequest(node);
+                    }
+                }
+            }
+            // In case the request is to add entry for a different category.
+            else {
+                Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
+
+                if (partitions == null || partitions.isEmpty()) {
+                    logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
+                    return;
+                }
+
+                ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
+                int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
+
                 HashSet<SearchDescriptor> startNodes = getSearchDescriptorSet(partitions.get(categoryPartitionsIds.get(categoryPartitionId)).getValue1().values());
                 if (startNodes == null || startNodes.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), categoryPartitionsIds.get(categoryPartitionId));
@@ -302,27 +405,27 @@ public final class PseudoGradient extends ComponentDefinition {
      * @return Set of Descriptors.
      */
     private HashSet<SearchDescriptor> getSearchDescriptorSet(Collection<RoutingTableContainer> cpvCollection){
-     
+
         HashSet<SearchDescriptor> descriptorSet = new HashSet<SearchDescriptor>();
         for(RoutingTableContainer container : cpvCollection){
             descriptorSet.add(container.getContent());
         }
-        
+
         return descriptorSet;
     }
 
 
     /**
-     * Leader lookup request timed out. Check if the request is still open and then 
+     * Leader lookup request timed out. Check if the request is still open and then
      * in order to prevent memory leak, remove the request from the open request list.
      */
     final Handler<LeaderLookup.Timeout> handleLeaderLookupTimeout = new Handler<LeaderLookup.Timeout>() {
         @Override
         public void handle(LeaderLookup.Timeout timeout) {
-            
+
             logger.debug("{}: Leader lookup timeout triggered.", self.getId());
             SearchDescriptor descriptor = openRequests.remove(timeout.getTimeoutId());
-            
+
             if(descriptor != null) {
                 logger.debug("{}: Node with Id: {} unresponsive in replying for leader response.", self.getId(), descriptor.getId());
             }
@@ -332,16 +435,16 @@ public final class PseudoGradient extends ComponentDefinition {
 
     /**
      * Handler for the leader lookup request from a peer in the system.
-     * If leader let the peer know about you being the leader, elese point to the nearest nodes to leader 
+     * If leader let the peer know about you being the leader, elese point to the nearest nodes to leader
      * above in the gradient.
-     * 
+     *
      */
     ClassMatchedHandler<LeaderLookup.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request>> handleLeaderLookupRequest = new ClassMatchedHandler<LeaderLookup.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request>>() {
         @Override
         public void handle(LeaderLookup.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request> event) {
-            
+
             logger.debug("{}: Received leader lookup request from : {}", self.getId(), event.getSource().getId());
-            
+
             TreeSet<SearchDescriptor> higherNodes = new TreeSet<SearchDescriptor>(getHigherUtilityNodes());
             ArrayList<SearchDescriptor> searchDescriptors = new ArrayList<SearchDescriptor>();
 
@@ -358,7 +461,7 @@ public final class PseudoGradient extends ComponentDefinition {
                     searchDescriptors.add(iterator.next());
                 }
             }
-            
+
             LeaderLookup.Response response = new LeaderLookup.Response(request.getLeaderLookupRound(), leader, searchDescriptors);
             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
         }
@@ -366,7 +469,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
 
     /**
-     * Handler for the leader lookup response from the nodes in the system. 
+     * Handler for the leader lookup response from the nodes in the system.
      * Capture the response and then analyze that the responses point to which leader in the system.
      * If initial criteria gets satisfied and the quorum is reached, then send request to the leader for the entry.
      *
@@ -375,26 +478,26 @@ public final class PseudoGradient extends ComponentDefinition {
         @Override
         public void handle(LeaderLookup.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Response> event) {
             logger.debug("{}: Received leader lookup response from the node: {} ", self.getId(), event.getSource());
-            
+
             if(!openRequests.containsKey(response.getLeaderLookupRound())) {
                 logger.warn("Look up request timed out.");
                 return;
             }
 
             openRequests.remove(response.getLeaderLookupRound());
-            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(response.getLeaderLookupRound());
+            CancelTimeout cancelTimeout = new CancelTimeout(response.getLeaderLookupRound());
             trigger(cancelTimeout, timerPort);
-            
+
             if(response.isLeader()) {
-                
+
                 DecoratedAddress source = event.getSource();
                 Integer numberOfAnswers;
                 if (locatedLeaders.containsKey(source)) {
-                    numberOfAnswers = locatedLeaders.get(event.getSource()) + 1;
+                    numberOfAnswers = locatedLeaders.get(event.getSource()).getValue1() + 1;
                 } else {
                     numberOfAnswers = 1;
                 }
-                locatedLeaders.put(event.getSource(), numberOfAnswers);
+                locatedLeaders.put(event.getSource().getBase(), Pair.with(event.getSource(), numberOfAnswers));
             }
 
             else {
@@ -407,9 +510,9 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 if (higherUtilityNodes.size() > 0) {
                     SearchDescriptor first = higherUtilityNodes.get(0);
-                    if (locatedLeaders.containsKey(first.getVodAddress())) {
-                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress()) + 1;
-                        locatedLeaders.put(first.getVodAddress(), numberOfAnswers);
+                    if (locatedLeaders.containsKey(first.getVodAddress().getBase())) {
+                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress().getBase()).getValue1() + 1;
+                        locatedLeaders.put(first.getVodAddress().getBase(), Pair.with(first.getVodAddress(), numberOfAnswers));
                     }
                 }
 
@@ -426,14 +529,14 @@ public final class PseudoGradient extends ComponentDefinition {
             }
 
             // Check it a quorum was reached
-            for (DecoratedAddress locatedLeader : locatedLeaders.keySet()) {
-                
-                if (locatedLeaders.get(locatedLeader) > LeaderLookupMessage.QueryLimit / 2) {
-                    if (!leadersAlreadyComunicated.contains(locatedLeader.getBase())) {
-                        
+            for (BasicAddress locatedLeader : locatedLeaders.keySet()) {
+
+                if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookupMessage.QueryLimit / 2) {
+                    if (!leadersAlreadyComunicated.contains(locatedLeader)) {
+
                         AddIndexEntry.Request entryAddRequest = new AddIndexEntry.Request(addIndexEntryRequestTimeoutId, indexEntryToAdd);
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), locatedLeader, Transport.UDP, entryAddRequest), networkPort);
-                        leadersAlreadyComunicated.add(locatedLeader.getBase());
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), locatedLeaders.get(locatedLeader).getValue0(), Transport.UDP, entryAddRequest), networkPort);
+                        leadersAlreadyComunicated.add(locatedLeader);
                         // FIXME:  Memory Leak
                     }
                 }
@@ -449,8 +552,8 @@ public final class PseudoGradient extends ComponentDefinition {
      * @param node Peer
      */
     private void sendLeaderLookupRequest(SearchDescriptor node) {
-        
-        se.sics.kompics.timer.ScheduleTimeout st = new se.sics.kompics.timer.ScheduleTimeout(config.getLeaderLookupTimeout());
+
+        ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLookupTimeout());
         st.setTimeoutEvent(new LeaderLookup.Timeout(st));
         UUID leaderLookupRoundId = st.getTimeoutEvent().getTimeoutId();
         
