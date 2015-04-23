@@ -606,16 +606,21 @@ public final class PseudoGradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
             ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
-            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
-                preferredNodes.addAll(getLowerUtilityNodes());
+//            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
+//                preferredNodes.addAll(getLowerUtilityNodes());
 
-            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
+            if (preferredNodes.size() < event.getControlMessageExchangeNumber()){
+                logger.warn("{}: Not enough higher nodes to start the control pull mechanism.", self.getId());
                 return;
-            
+            }
+
             ControlInformation.Request request = new ControlInformation.Request(event.getRoundId(), new OverlayId(self.getOverlayId()));
-            for (int i = 0; i < event.getControlMessageExchangeNumber(); i++) {
-                
-                DecoratedAddress destination = preferredNodes.get(i).getVodAddress();
+
+            Collections.reverse(preferredNodes); // Talking to highest nodes for faster fetch of data.
+            Iterator<SearchDescriptor> iterator = preferredNodes.iterator();
+            
+            for (int i = 0; i < event.getControlMessageExchangeNumber() && iterator.hasNext(); i++) {
+                DecoratedAddress destination = iterator.next().getVodAddress();
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
             }
         }

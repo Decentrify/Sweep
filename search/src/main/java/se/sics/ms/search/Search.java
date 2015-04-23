@@ -44,7 +44,7 @@ import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.model.LocalSearchRequest;
-import se.sics.ms.model.PeerControlMessageRequestHolder;
+import se.sics.ms.model.PeerControlRequestInfoHolder;
 import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
@@ -165,8 +165,8 @@ public final class Search extends ComponentDefinition {
 
     // Generic Control Pull Mechanism.
     private java.util.UUID controlMessageExchangeRoundId;
-    private Map<BasicAddress, UUID> peerControlMessageAddressRequestIdMap = new HashMap<BasicAddress, UUID>();      // FIXME: Needs to be refactored in one message.
-    private Map<BasicAddress, PeerControlMessageRequestHolder> peerControlMessageResponseMap = new HashMap<BasicAddress, PeerControlMessageRequestHolder>();
+    private Map<BasicAddress, UUID> peerControlRequestAddressIdMap = new HashMap<BasicAddress, UUID>();      // FIXME: Needs to be refactored in one message.
+    private Map<BasicAddress, PeerControlRequestInfoHolder> peerControlResponseMap = new HashMap<BasicAddress, PeerControlRequestInfoHolder>();
     private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
 
     private int controlMessageResponseCount = 0;
@@ -481,9 +481,7 @@ public final class Search extends ComponentDefinition {
 
             //Clear the previous rounds data to avoid clash in the responses.
             cleanControlMessageResponseData();
-
-            //Trigger the new exchange round.
-            controlMessageExchangeRoundId = java.util.UUID.randomUUID();
+            controlMessageExchangeRoundId = UUID.randomUUID();
             trigger(new GradientRoutingPort.InitiateControlMessageExchangeRound(controlMessageExchangeRoundId, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
         }
     };
@@ -499,13 +497,17 @@ public final class Search extends ComponentDefinition {
             logger.debug("{}: Received control message request from : {}", self.getId(), event.getSource());
             BasicAddress basicAddress = event.getSource().getBase();
 
-            if (peerControlMessageResponseMap.get(basicAddress) != null)
-                peerControlMessageResponseMap.get(basicAddress).reset();
-            else
-                peerControlMessageResponseMap.put(basicAddress, new PeerControlMessageRequestHolder(config.getControlMessageEnumSize()));
+            if (peerControlResponseMap.get(basicAddress) != null){
+                peerControlResponseMap.get(basicAddress).reset();
+            }
+                
+            else{
+                peerControlResponseMap.put(basicAddress, 
+                        new PeerControlRequestInfoHolder(config.getControlMessageEnumSize()));
+            }
 
-            peerControlMessageAddressRequestIdMap.put(basicAddress, request.getRequestId());
-            requestComponentsForInformation(request, event.getSource());
+            peerControlRequestAddressIdMap.put(basicAddress, request.getRequestId());
+            requestComponentsForInfo(request, event.getSource());
         }
     };
 
@@ -516,9 +518,9 @@ public final class Search extends ComponentDefinition {
      * @param request Request Information.
      * @param source  Source
      */
-    private void requestComponentsForInformation(ControlInformation.Request request, DecoratedAddress source) {
+    private void requestComponentsForInfo(ControlInformation.Request request, DecoratedAddress source) {
 
-        handleControlMessageInternalResponseEvent(getCheckPartitionInfoHashUpdateResponse(request, source));
+        handleInternalControlResponse(getPartitionInfoHashUpdate(request, source));
         trigger(new CheckLeaderInfoUpdate.Request(request.getRequestId(), source), gradientRoutingPort);
     }
 
@@ -528,12 +530,12 @@ public final class Search extends ComponentDefinition {
      *
      * @param event Control Message Response event.
      */
-    void handleControlMessageInternalResponseEvent(ControlMessageInternal.Response event) {
+    void handleInternalControlResponse(ControlMessageInternal.Response event) {
 
         try {
 
             UUID roundIdReceived = event.getRoundId();
-            UUID currentRoundId = peerControlMessageAddressRequestIdMap.get(event.getSourceAddress().getBase());
+            UUID currentRoundId = peerControlRequestAddressIdMap.get(event.getSourceAddress().getBase());
 
             // Perform initial checks to avoid old responses.
             if (currentRoundId == null || !currentRoundId.equals(roundIdReceived)) {
@@ -542,7 +544,7 @@ public final class Search extends ComponentDefinition {
             }
 
             // Update the peer control response map to add the new entry.
-            PeerControlMessageRequestHolder controlMessageResponse = peerControlMessageResponseMap.get(event.getSourceAddress().getBase());
+            PeerControlRequestInfoHolder controlMessageResponse = peerControlResponseMap.get(event.getSourceAddress().getBase());
             if (controlMessageResponse == null) {
                 logger.error(" Not able to Locate Response Object for Node: " + event.getSourceAddress().getId());
                 return;
@@ -553,18 +555,19 @@ public final class Search extends ComponentDefinition {
             ControlMessageEncoderFactory.encodeControlMessageInternal(buf, event); //FIX THIS.
 
             if (controlMessageResponse.addAndCheckStatus()) {
-
-                // TODO: Some kind of timeout mechanism needs to be there because there might be some issue with the components and hence they don't reply on time.
+                
+                // FIXME: Timeout preventing infinite waiting.
                 logger.debug(" Ready To Send back Control Message Response to the Requestor. ");
                 ControlInformation.Response response = new ControlInformation.Response(currentRoundId, buf.array());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSourceAddress(), Transport.UDP, response), networkPort);
                 cleanControlRequestMessageData(event.getSourceAddress().getBase());
             }
         } catch (MessageEncodingException e) {
-
-            logger.error(" Encoding Failed ... Please Check ... ");
+            
+            logger.warn("{}: Encoding during control response creation failed.", self.getId());
             e.printStackTrace();
             cleanControlRequestMessageData(event.getSourceAddress().getBase());
+            throw new RuntimeException("Encoding during control response creation failed.", e);
         }
     }
 
@@ -577,7 +580,7 @@ public final class Search extends ComponentDefinition {
 
         @Override
         public void handle(ControlMessageInternal.Response event) {
-            handleControlMessageInternalResponseEvent(event);
+            handleInternalControlResponse(event);
         }
     };
 
@@ -590,8 +593,8 @@ public final class Search extends ComponentDefinition {
     public void cleanControlRequestMessageData(BasicAddress sourceAddress) {
 
         logger.debug(" {}: Clean Control Message Data Called for: {} ", self.getId(), sourceAddress);
-        peerControlMessageAddressRequestIdMap.remove(sourceAddress);
-        peerControlMessageResponseMap.remove(sourceAddress);
+        peerControlRequestAddressIdMap.remove(sourceAddress);
+        peerControlResponseMap.remove(sourceAddress);
 
     }
 
@@ -947,10 +950,9 @@ public final class Search extends ComponentDefinition {
                 }
 
                 if (intersection.isEmpty()) {
-                    se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
+                    CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
                     trigger(cancelTimeout, timerPort);
-                    indexExchangeTimeout = null;
-                    exchangeInProgress = false;
+                    resetExchangeParameters();
                     return;
                 }
 
@@ -959,6 +961,7 @@ public final class Search extends ComponentDefinition {
                     ids.add(hash.getId());
                 }
 
+                // Use Softmax approach to select the node to ask the request for index entries from.
                 DecoratedAddress node = collectedHashes.keySet().iterator().next();
                 IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node, Transport.UDP, request), networkPort);
@@ -995,9 +998,16 @@ public final class Search extends ComponentDefinition {
             }
         }
     };
-    
-    
-    
+
+
+    /**
+     * Reset the exchange parameters.
+     */
+    private void resetExchangeParameters(){
+        
+        indexExchangeTimeout = null;
+        exchangeInProgress = false;
+    }
     
     
     ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>> handleIndexExchangeResponse = new ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>>() {
@@ -1017,10 +1027,9 @@ public final class Search extends ComponentDefinition {
 //            }
 
 
-            se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
+            CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
             trigger(cancelTimeout, timerPort);
-            indexExchangeTimeout = null;
-            exchangeInProgress = false;
+            resetExchangeParameters();
 
             try {
                 for (IndexEntry indexEntry : response.getIndexEntries()) {
@@ -1038,12 +1047,21 @@ public final class Search extends ComponentDefinition {
         }
     };
 
+    /**
+     * Index Exchange Timeout Collection.
+     */
     final Handler<TimeoutCollection.IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<TimeoutCollection.IndexExchangeTimeout>() {
         @Override
         public void handle(TimeoutCollection.IndexExchangeTimeout event) {
+            
             logger.debug(self.getId() + " index exchange timed out");
-            indexExchangeTimeout = null;
-            exchangeInProgress = false;
+            
+            if(indexExchangeTimeout != null && indexExchangeTimeout.equals(event.getTimeoutId())){
+                resetExchangeParameters();
+            }
+            else{
+                logger.warn("{}: Timeout triggered when already round reset or moved ahead");
+            }
         }
     };
 
@@ -1065,7 +1083,7 @@ public final class Search extends ComponentDefinition {
     };
 
     /**
-     * Add a new {link {@link IndexEntry} to the system and schedule a timeout
+     * Add a new {@link IndexEntry} to the system and schedule a timeout
      * to wait for the acknowledgment.
      *
      * @param entry the {@link IndexEntry} to be added
@@ -1078,7 +1096,7 @@ public final class Search extends ComponentDefinition {
     }
 
     /**
-     * Add a new {link {@link IndexEntry} to the system, add the given timeout to the timer.
+     * Add a new {@link IndexEntry} to the system, add the given timeout to the timer.
      *
      * @param entry   the {@link IndexEntry} to be added
      * @param timeout timeout for adding the entry
@@ -2719,7 +2737,7 @@ public final class Search extends ComponentDefinition {
     /**
      * Based on the source address, provide the control message enum that needs to be associated with the control response object.
      */
-    private ControlMessageEnum fetchPartitioningHashUpdatesMessageEnum(OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
+    private ControlMessageEnum getParitionUpdateStatus(OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
 
         boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
 
@@ -2824,18 +2842,17 @@ public final class Search extends ComponentDefinition {
     /**
      * Request To check if the source address is behind in terms of partitioning updates.
      */
-    private CheckPartitionInfoHashUpdate.Response getCheckPartitionInfoHashUpdateResponse(ControlInformation.Request event, DecoratedAddress source) {
+    private CheckPartitionInfoHashUpdate.Response getPartitionInfoHashUpdate(ControlInformation.Request event, DecoratedAddress source) {
 
-        logger.debug("Check Partitioning Update Received.");
+        logger.debug("{}: Request for partition info received.", self.getId());
+        
         LinkedList<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
-        ControlMessageEnum controlMessageEnum;
+        ControlMessageEnum controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
 
         if (self.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
-            controlMessageEnum = fetchPartitioningHashUpdatesMessageEnum(event.getOverlayId(), partitionUpdateHashes);
-        } else {
-            controlMessageEnum = ControlMessageEnum.PARTITION_UPDATE;
+            controlMessageEnum = getParitionUpdateStatus(event.getOverlayId(), partitionUpdateHashes);
         }
-
+        
         return new CheckPartitionInfoHashUpdate.Response(event.getRequestId(), source, partitionUpdateHashes, controlMessageEnum);
     }
 

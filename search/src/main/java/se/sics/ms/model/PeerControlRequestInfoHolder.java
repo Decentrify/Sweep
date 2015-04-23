@@ -9,7 +9,7 @@ import io.netty.buffer.Unpooled;
  *
  * @author babbarshaer
  */
-public class PeerControlMessageRequestHolder {
+public class PeerControlRequestInfoHolder {
 
     private int count;
     private final int maxCount;
@@ -19,7 +19,7 @@ public class PeerControlMessageRequestHolder {
      * Parametrized Constructor.
      * @param maxCount
      */
-    public PeerControlMessageRequestHolder(int maxCount){
+    public PeerControlRequestInfoHolder(int maxCount){
 
        this.count =0;
        this.buffer = Unpooled.buffer(0);
