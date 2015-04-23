@@ -94,7 +94,7 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(addIndexEntryRequestHandler, externalUiPort);
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
-        search = create(Search.class, new SearchInit(null, searchConfiguration, publicKey, privateKey));
+        search = create(Search.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 
         // External General Components in the system needs to be connected.

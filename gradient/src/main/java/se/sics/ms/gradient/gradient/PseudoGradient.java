@@ -479,7 +479,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
             ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
-                logger.debug(" {}: Not enough nodes to perform Index Hash Exchange." + self.getAddress().getId());
+                logger.debug(" {}: Not enough nodes to perform Index Hash Exchange.", self.getAddress().getId());
                 return;
             }
 

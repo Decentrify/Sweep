@@ -860,10 +860,14 @@ public final class Search extends ComponentDefinition {
     final Handler<TimeoutCollection.ExchangeRound> handleRound = new Handler<TimeoutCollection.ExchangeRound>() {
         @Override
         public void handle(TimeoutCollection.ExchangeRound event) {
+            
+            logger.debug("{}: Initiating Index Exchange Protocol.", self.getId());
+            
             if (exchangeInProgress) {
+                logger.warn("{}: Index Hash Exchange is in progress. Returning ..", self.getId());
                 return;
             }
-
+            
             exchangeInProgress = true;
 
             ScheduleTimeout timeout = new ScheduleTimeout(config.getIndexExchangeTimeout());
