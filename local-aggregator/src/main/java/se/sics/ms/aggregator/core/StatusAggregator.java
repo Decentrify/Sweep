@@ -2,16 +2,16 @@ package se.sics.ms.aggregator.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodNetwork;
-import se.sics.gvod.timer.SchedulePeriodicTimeout;
-import se.sics.gvod.timer.Timer;
 import se.sics.kompics.*;
+import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
+import se.sics.kompics.timer.Timeout;
+import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.data.ComponentUpdate;
 import se.sics.ms.aggregator.data.SweepAggregatedPacket;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.aggregator.type.ComponentUpdateEvent;
-import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.p2ptoolbox.aggregator.api.msg.AggregatedStateContainer;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -32,7 +32,7 @@ public class StatusAggregator extends ComponentDefinition{
     private Map<Class, Map<Integer, ComponentUpdate>> componentDataMap;
     private Logger logger = LoggerFactory.getLogger(StatusAggregator.class);
     private Negative<StatusAggregatorPort> statusAggregatorPort = provides(StatusAggregatorPort.class);
-    private Positive<VodNetwork> networkPositive = requires(VodNetwork.class);
+    private Positive<Network> networkPositive = requires(Network.class);
     private Positive<Timer> timerPositive = requires(Timer.class);
     
     private DecoratedAddress self;
@@ -48,10 +48,10 @@ public class StatusAggregator extends ComponentDefinition{
     }
     
     
-    private class AggregateStateUpdateTimeout extends IndividualTimeout{
+    private class AggregateStateUpdateTimeout extends Timeout{
 
         public AggregateStateUpdateTimeout(SchedulePeriodicTimeout request, int id) {
-            super(request, id);
+            super(request);
         }
     }
 

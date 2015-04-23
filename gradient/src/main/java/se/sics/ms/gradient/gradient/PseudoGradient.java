@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.croupier.CroupierPort;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
@@ -35,6 +34,7 @@ import java.util.UUID;
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
+import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
@@ -130,7 +130,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         subscribe(searchRequestHandler, gradientRoutingPort);
         subscribe(searchResponseHandler, networkPort);
-        subscribe(searchRequestTimeoutHandler, timerPort);
+//        subscribe(searchRequestTimeoutHandler, timerPort);
     }
 
     /**
@@ -556,13 +556,13 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    final Handler<SearchMessage.RequestTimeout> searchRequestTimeoutHandler = new Handler<SearchMessage.RequestTimeout>() {
-        @Override
-        public void handle(SearchMessage.RequestTimeout requestTimeout) {
-            // Probably do something with the RTT here.
-            logger.warn("Search Request to the node: {} timed out.", requestTimeout.getSearchDescriptor().getId());
-        }
-    };
+//    final Handler<SearchMessage.RequestTimeout> searchRequestTimeoutHandler = new Handler<SearchMessage.RequestTimeout>() {
+//        @Override
+//        public void handle(SearchMessage.RequestTimeout requestTimeout) {
+//            // Probably do something with the RTT here.
+//            logger.warn("Search Request to the node: {} timed out.", requestTimeout.getSearchDescriptor().getId());
+//        }
+//    };
 
 
 

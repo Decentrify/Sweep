@@ -93,6 +93,12 @@
             <version>${global.aggregator.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>se.sics.p2ptoolbox</groupId>
+            <artifactId>cm-network</artifactId>
+            <version>${chunk.manager.version}</version>
+        </dependency>
+
     </dependencies>
 
 

@@ -8,7 +8,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.cm.events.ChunkedMessageFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
@@ -187,8 +186,8 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
                 return DelayedPartitioningMessageFactory.Response.fromBuffer(buffer);
 
             //Chunked message to fragment big messages
-            case CHUNKED_MESSAGE:
-                return ChunkedMessageFactory.fromBuffer(buffer);
+//            case CHUNKED_MESSAGE:
+//                return ChunkedMessageFactory.fromBuffer(buffer);
             case CROUPIER_REQUEST:
                 SerializerAdapter.Request requestS = new SerializerAdapter.Request();
                 return requestS.decodeMsg(buffer);

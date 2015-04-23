@@ -1,16 +1,15 @@
 package se.sics.ms.search;
 
-import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
 import se.sics.ms.common.ApplicationSelf;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
 
@@ -20,14 +19,14 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final SearchConfiguration applicationConfiguration;
     private final GradientConfiguration pseudoGradientConfiguration;
     private final ElectionConfiguration electionConfiguration;
-    private final ChunkManagerConfiguration chunkManagerConfiguration;
+    private final ChunkManagerConfig chunkManagerConfiguration;
     private final GradientConfig gradientConfig;
     private final ElectionConfig electionConfig;
 
     public SearchPeerInit(ApplicationSelf self, SystemConfig systemConfig,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
-            ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig,
+            ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
             ElectionConfig electionConfig) {
         super();
         this.self = self;
@@ -70,7 +69,7 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         return this.gradientConfig;
     }
     
-    public ChunkManagerConfiguration getChunkManagerConfiguration() {
+    public ChunkManagerConfig getChunkManagerConfig() {
         return chunkManagerConfiguration;
     }
 

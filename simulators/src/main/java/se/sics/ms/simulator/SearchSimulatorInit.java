@@ -1,10 +1,10 @@
 package se.sics.ms.simulator;
 
-import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
@@ -14,13 +14,13 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
 	private final GradientConfiguration gradientConfiguration;
 	private final SearchConfiguration searchConfiguration;
 	private final ElectionConfiguration electionConfiguration;
-    private final ChunkManagerConfiguration chunkManagerConfiguration;
+    private final ChunkManagerConfig chunkManagerConfiguration;
     private final ElectionConfig electionConfig;
 
     private final GradientConfig gradientConfig;
 	public SearchSimulatorInit(CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
                                SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration,
-                               ChunkManagerConfiguration chunkManagerConfiguration, GradientConfig gradientConfig, ElectionConfig electionConfig) {
+                               ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig, ElectionConfig electionConfig) {
 		super();
 		this.croupierConfiguration = croupierConfiguration;
 		this.gradientConfiguration = gradientConfiguration;
@@ -47,7 +47,7 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
 		return this.electionConfiguration;
 	}
 
-    public ChunkManagerConfiguration getChunkManagerConfiguration() {
+    public ChunkManagerConfig getChunkManagerConfiguration() {
         return chunkManagerConfiguration;
     }
 

@@ -4,19 +4,14 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.cm.ChunkManagerConfiguration;
-import se.sics.gvod.address.Address;
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.common.ApplicationSelf;
-import se.sics.ms.common.MsSelfImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
-import se.sics.ms.util.OverlayIdHelper;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
@@ -45,7 +40,7 @@ public class SweepOperationsHelper {
     private final static SearchConfiguration searchConfiguration;
     private final static GradientConfiguration gradientConfiguration;
     private final static ElectionConfiguration electionConfiguration;
-    private final static ChunkManagerConfiguration chunkManagerConfiguration;
+    private final static ChunkManagerConfig chunkManagerConfiguration;
     private final static GradientConfig gradientConfig;
     private final static ElectionConfig electionConfig;
     private static SystemConfig systemConfig;
@@ -67,7 +62,7 @@ public class SweepOperationsHelper {
         searchConfiguration = SearchConfiguration.build();
         gradientConfiguration = GradientConfiguration.build();
         electionConfiguration = ElectionConfiguration.build();
-        chunkManagerConfiguration = ChunkManagerConfiguration.build();
+        chunkManagerConfiguration = new ChunkManagerConfig(config);
         gradientConfig= new GradientConfig(config);
         electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
     }

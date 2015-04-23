@@ -2,7 +2,6 @@ package se.sics.ms.simulator;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import se.sics.cm.ChunkManagerConfiguration;
 import se.sics.gvod.config.*;
 import se.sics.kompics.Component;
 import se.sics.kompics.ComponentDefinition;
@@ -14,6 +13,7 @@ import se.sics.kompics.network.Network;
 import se.sics.kompics.simulation.SimulatorScheduler;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
@@ -57,6 +57,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
 
         CroupierConfig newCroupierConfig = new CroupierConfig(config);
         GradientConfig gradientConfig = new GradientConfig(config);
+        ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
         ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
 
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
@@ -64,7 +65,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 GradientConfiguration.build(),
                 SearchConfiguration.build(),
                 ElectionConfiguration.build(),
-                ChunkManagerConfiguration.build(),
+                chunkManagerConfig,
                 gradientConfig,
                 electionConfig));
 

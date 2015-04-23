@@ -14,7 +14,6 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.common.msgs.MessageEncodingException;
@@ -99,7 +98,6 @@ public final class Search extends ComponentDefinition {
     // ====== PORTS.
     Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
     Positive<Network> networkPort = positive(Network.class);
-    Positive<ChunkManagerPort> chunkManagerPort = positive(ChunkManagerPort.class);
     Positive<Timer> timerPort = positive(Timer.class);
     Positive<GradientRoutingPort> gradientRoutingPort = positive(GradientRoutingPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
@@ -237,17 +235,17 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexHashExchangeRequest, networkPort);
 
         subscribe(handleIndexHashExchangeResponse, networkPort);
-        subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
+//        subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
-        subscribe(handleIndexExchangeResponse, chunkManagerPort);
+//        subscribe(handleIndexExchangeResponse, chunkManagerPort);
 
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(preparePhaseTimeout, timerPort);
 
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
-        subscribe(handleSearchResponse, chunkManagerPort);
+//        subscribe(handleSearchResponse, chunkManagerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
 
@@ -992,7 +990,7 @@ public final class Search extends ComponentDefinition {
                 }
                 
                 IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0);
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), chunkManagerPort);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                 
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());

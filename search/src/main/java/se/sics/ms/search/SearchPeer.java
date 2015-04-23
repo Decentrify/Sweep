@@ -1,9 +1,5 @@
 package se.sics.ms.search;
 
-import se.sics.cm.ChunkManager;
-import se.sics.cm.ChunkManagerConfiguration;
-import se.sics.cm.ChunkManagerInit;
-import se.sics.cm.ports.ChunkManagerPort;
 import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.*;
 import se.sics.kompics.*;
@@ -24,7 +20,6 @@ import se.sics.ms.gradient.gradient.SweepGradientFilter;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
@@ -35,6 +30,8 @@ import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierComp;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.croupier.CroupierControlPort;
@@ -50,9 +47,9 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.serialization.filter.OverlayHeaderFilter;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
+import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.util.SimpleLCPViewComparator;
 import se.sics.util.SweepLeaderFilter;
@@ -75,7 +72,7 @@ public final class SearchPeer extends ComponentDefinition {
     private SearchConfiguration searchConfiguration;
     private SystemConfig systemConfig;
     private GradientConfiguration pseudoGradientConfiguration;
-    private ChunkManagerConfiguration chunkManagerConfiguration;
+    private ChunkManagerConfig chunkManagerConfig;
 
     private PublicKey publicKey;
     private PrivateKey privateKey;
@@ -89,7 +86,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
         searchConfiguration = init.getSearchConfiguration();
-        chunkManagerConfiguration = init.getChunkManagerConfiguration();
+        chunkManagerConfig = init.getChunkManagerConfig();
         systemConfig = init.getSystemConfig();
 
         subscribe(handleStart, control);
@@ -98,13 +95,13 @@ public final class SearchPeer extends ComponentDefinition {
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(Search.class, new SearchInit(null, searchConfiguration, publicKey, privateKey));
-        chunkManager = create(ChunkManager.class, new ChunkManagerInit<ChunkManager>(chunkManagerConfiguration, MessageFrameDecoder.class));
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 
         // External General Components in the system needs to be connected.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
+        connectChunkManager(systemConfig, chunkManagerConfig);
 
         // Gradient Port Connections.
         connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
@@ -112,8 +109,6 @@ public final class SearchPeer extends ComponentDefinition {
 
         connect(network, pseudoGradient.getNegative(Network.class));
         connect(network, search.getNegative(Network.class));
-        
-        connect(network, chunkManager.getNegative(Network.class));
         connect(network, aggregatorComponent.getNegative(Network.class));
         
         // Other Components and Aggregator Component.
@@ -122,7 +117,6 @@ public final class SearchPeer extends ComponentDefinition {
 
         connect(timer, search.getNegative(Timer.class));
         connect(timer, pseudoGradient.getNegative(Timer.class));
-        connect(timer, chunkManager.getNegative(Timer.class));
         connect(timer, aggregatorComponent.getNegative(Timer.class));
         
         // ===
@@ -142,13 +136,13 @@ public final class SearchPeer extends ComponentDefinition {
         connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
         connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
 
-        connect(search.getNegative(ChunkManagerPort.class), chunkManager.getPositive(ChunkManagerPort.class));
+        connect(search.getNegative(Network.class), chunkManager.getPositive(Network.class));
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
 
 
         // Simulator Events.
-        subscribe(addEntrySimulatorEventHandler, network);
+//        subscribe(addEntrySimulatorEventHandler, network);
     }
 
     /**
@@ -221,6 +215,19 @@ public final class SearchPeer extends ComponentDefinition {
 
 
     /**
+     * Attach the chunk manager configuration and connect it to the appropriate ports.
+     * @param systemConfig system
+     * @param chunkManagerConfig chunk manager config.
+     */
+    private void connectChunkManager(SystemConfig systemConfig, ChunkManagerConfig chunkManagerConfig) {
+        
+        chunkManager = create(ChunkManagerComp.class, new ChunkManagerComp.CMInit(systemConfig, chunkManagerConfig));
+        connect(chunkManager.getNegative(Network.class), network);
+        connect(chunkManager.getNegative(Timer.class), timer);
+    }
+    
+    
+    /**
      * Connect gradient with the application.
      * @param gradientConfig System's Gradient Configuration.
      * @param seed Seed for the Random Generator.
@@ -229,7 +236,7 @@ public final class SearchPeer extends ComponentDefinition {
         
         log.info("connecting gradient configuration ...");
         gradient = create(GradientComp.class, new GradientComp.GradientInit(self.getAddress(), gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter(), seed));
-        connect(network, gradient.getNegative(Network.class), new OverlayHeaderFilter(0));
+        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(timer, gradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
     }
@@ -251,7 +258,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(config, 0, self.getAddress(), bootstrappingSet, seed));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(network , croupier.getNegative(Network.class), new OverlayHeaderFilter(0));
+        connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
