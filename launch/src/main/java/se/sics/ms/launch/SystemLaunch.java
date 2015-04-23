@@ -72,7 +72,6 @@ public class SystemLaunch extends ComponentDefinition{
         connect(network.getPositive(Network.class), searchPeer.getNegative(Network.class));
 
         logger.debug("All components booted up ...");
-        System.exit(-1);
         
         subscribe(startHandler, control);
         subscribe(stopHandler, control);

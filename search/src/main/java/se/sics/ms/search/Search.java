@@ -1578,11 +1578,12 @@ public final class Search extends ComponentDefinition {
             searchRequestLuceneAdaptor.initialEmptyWriterCommit();
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
+            throw new RuntimeException("Unable to open search index", e);
         }
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
-        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId()); // FIXME: Fix the naming scheme.
+        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
         trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
@@ -1805,6 +1806,7 @@ public final class Search extends ComponentDefinition {
             logger.warn("{} : Unable to search for the entries.", self.getId());
             e.printStackTrace();
         } finally {
+            searchRequest = null;   // Stop handling more searches.
             trigger(new UiSearchResponse(result), uiPort);
         }
     }

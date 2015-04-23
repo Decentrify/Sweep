@@ -129,8 +129,6 @@ public final class PseudoGradient extends ComponentDefinition {
         subscribe(croupierSampleHandler, croupierPort);
 
         subscribe(searchRequestHandler, gradientRoutingPort);
-        subscribe(searchResponseHandler, networkPort);
-//        subscribe(searchRequestTimeoutHandler, timerPort);
     }
 
     /**
@@ -513,6 +511,7 @@ public final class PseudoGradient extends ComponentDefinition {
             Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
 
             if (categoryRoutingMap == null) {
+                logger.warn("Unable to locate nodes for the category :{}, from the local routing table", category);
                 return;
             }
             trigger(new NumberOfPartitions(event.getTimeoutId(), categoryRoutingMap.keySet().size()), gradientRoutingPort);
@@ -532,10 +531,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
                     RoutingTableContainer container = iterator.next();
                     SearchDescriptor searchDescriptor = container.getContent();
-                    ScheduleTimeout scheduleTimeout = new ScheduleTimeout(event.getQueryTimeout());
-//                    scheduleTimeout.setTimeoutEvent(new SearchMessage.RequestTimeout(scheduleTimeout, self.getId(), searchDescriptor));  // FIXME: Create a timeout here to handle other clean up activities.
 
-                    trigger(scheduleTimeout, timerPort);
                     SearchInfo.Request request = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), container.getSource(), Transport.UDP, request), networkPort);
                     searchDescriptor.setConnected(true);
@@ -543,27 +539,6 @@ public final class PseudoGradient extends ComponentDefinition {
             }
         }
     };
-
-
-
-    ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>> searchResponseHandler = new ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>>() {
-        @Override
-        public void handle(SearchInfo.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response> event) {
-            logger.debug("{}: Received Search Message Response:", self.getId());
-
-            CancelTimeout cancelTimeout = new CancelTimeout(response.getSearchTimeoutId());
-            trigger(cancelTimeout, timerPort);
-        }
-    };
-
-//    final Handler<SearchMessage.RequestTimeout> searchRequestTimeoutHandler = new Handler<SearchMessage.RequestTimeout>() {
-//        @Override
-//        public void handle(SearchMessage.RequestTimeout requestTimeout) {
-//            // Probably do something with the RTT here.
-//            logger.warn("Search Request to the node: {} timed out.", requestTimeout.getSearchDescriptor().getId());
-//        }
-//    };
-
 
 
     private MsConfig.Categories categoryFromCategoryId(int categoryId) {
