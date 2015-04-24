@@ -233,7 +233,7 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectGradient(GradientConfig gradientConfig, int seed) {
         
         log.info("connecting gradient configuration ...");
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(self.getAddress(), gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter(), seed));
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter()));
         connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(timer, gradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
@@ -254,7 +254,7 @@ public final class SearchPeer extends ComponentDefinition {
         List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
         bootstrappingSet.addAll(systemConfig.bootstrapNodes);
 
-        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(config, 0, self.getAddress(), bootstrappingSet, seed));
+        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
 

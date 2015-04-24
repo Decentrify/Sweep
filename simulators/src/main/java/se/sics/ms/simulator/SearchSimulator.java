@@ -242,7 +242,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
         bootstrapNodes.add(self.getAddress());
-        systemConfig = new SystemConfig(self.getAddress(), null, bootstrapNodes);
+        systemConfig = new SystemConfig(gradientConfiguration.getSeed() + id, self.getAddress(), null, bootstrapNodes);
 
 
         trigger(Start.event, peer.getControl());
