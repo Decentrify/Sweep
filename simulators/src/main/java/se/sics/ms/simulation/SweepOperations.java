@@ -8,6 +8,7 @@ import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
+import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
@@ -119,9 +120,10 @@ public class SweepOperations {
                 public Msg getNetworkMsg(Address address) {
 
                     logger.debug("Add Index Entry id invoked for id -> " + id);
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress)address, destination, Transport.UDP);
-                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexEntry> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexEntry>(header, junkEntry);
 
+                    AddIndexEntryP2pSimulated request = new AddIndexEntryP2pSimulated(junkEntry);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress)address, destination, Transport.UDP);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>(header, request);
                     return msg;
                 }
             };

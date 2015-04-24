@@ -442,6 +442,31 @@ public class SerializerTest {
 
     }
 
+    @Test
+    public void indexHashRequestTest(){
+        logger.info("Index Hash Exchange Request Test");
+
+        IndexHashExchange.Request request = new IndexHashExchange.Request(UUID.randomUUID(), 10, new Long[]{(long)10, (long)11, (long)12});
+        Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Request.class);
+
+        IndexHashExchange.Request copiedRequest = (IndexHashExchange.Request) addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        Assert.assertEquals("Index Hash Exchange Request", request, copiedRequest);
+    }
+
+
+
+    @Test
+    public void indexHashExchangeResponseTest(){
+        logger.info("Index Hash Exchange Response Test");
+
+        IndexHashExchange.Response originalResponse = new IndexHashExchange.Response(UUID.randomUUID(), getIndexHashCollection(5));
+        Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Response.class);
+
+        IndexHashExchange.Response copiedResponse = (IndexHashExchange.Response) addObjectAndCreateCopiedObject(serializer, originalBuf, originalResponse, copiedBuf);
+        Assert.assertEquals("Index Hash Exchange Request", originalResponse.getIndexHashes().size(), copiedResponse.getIndexHashes().size());
+    }
+
+
 
     /**
      * Helper method to take the object and then add it to the buffer and then
@@ -510,4 +535,19 @@ public class SerializerTest {
     public IndexEntry getRandomIndexEntry() {
         return randomIndexEntry;
     }
+
+
+
+    public Collection<IndexHash> getIndexHashCollection(int length){
+
+        Collection<IndexHash> collection = new ArrayList<IndexHash>();
+        for(int i = 0 ; i < length; i++){
+            IndexHash hash = new IndexHash(getRandomIndexEntry());
+            collection.add(hash);
+        }
+
+        return collection;
+    }
+
+
 }

@@ -67,7 +67,7 @@ public class IndexHashExchangeSerializer {
                 size --;
             }
 
-            Long[] entriesArray = (Long[]) entries.toArray();
+            Long[] entriesArray = entries.toArray(new Long[0]);
             return new IndexHashExchange.Request(exchangeRoundId, lowestMissingEntry, entriesArray);
         }
     }
@@ -122,6 +122,7 @@ public class IndexHashExchangeSerializer {
             while(size > 0){
                 IndexHash value = (IndexHash)indexHashS.fromBinary(byteBuf, optional);
                 indexHashCollection.add(value);
+                size--;
             }
 
             UUID exchangeRoundId = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);

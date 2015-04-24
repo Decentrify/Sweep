@@ -50,7 +50,9 @@ import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
 import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
+import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import se.sics.util.SimpleLCPViewComparator;
 import se.sics.util.SweepLeaderFilter;
 
@@ -92,6 +94,7 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(addIndexEntryRequestHandler, externalUiPort);
+        subscribe(addEntrySimulatorHandler, network);
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(Search.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
@@ -309,15 +312,12 @@ public final class SearchPeer extends ComponentDefinition {
     // =====
     //  Simulator Event Handlers.
     // =====
-    
-    Handler<AddIndexEntryP2pSimulated.Request> addEntrySimulatorEventHandler = new Handler<AddIndexEntryP2pSimulated.Request>() {
-        
+
+    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
         @Override
-        public void handle(AddIndexEntryP2pSimulated.Request event) {
-            
-            log.debug("{}: Received PeerJoin Simulated Event. ", self.getId());
-            trigger(new SimulationEventsPort.AddIndexSimulated(event.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
+        public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> event) {
+            trigger(new SimulationEventsPort.AddIndexSimulated(request.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
         }
     };
-    
+
 }
