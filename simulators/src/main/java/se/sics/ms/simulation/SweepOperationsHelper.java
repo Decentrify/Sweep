@@ -21,10 +21,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /**
  * Utility class to help start the nodes in the system.
@@ -97,13 +94,13 @@ public class SweepOperationsHelper {
      * Based on the NodeId provided, generate an init configuration for the search peer.
      * @param id NodeId
      */
-    public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress, long id){
+    public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
         logger.info(" Generating address for peer with id: {} ", id);
 
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig = new SystemConfig(decoratedAddress, simulatorAddress, bootstrapNodes);
+        systemConfig= new SystemConfig(decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
         
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
         SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
@@ -167,8 +164,8 @@ public class SweepOperationsHelper {
     }
     
     
-    public static BasicAddress getBasicAddress(long id){
+    public static DecoratedAddress getBasicAddress(long id){
         logger.info("C a l l e d .. .. .. " + id);
-        return new BasicAddress(ip, port, (int)id);
+        return peersAddressMap.get(id);
     }
 }

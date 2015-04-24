@@ -2,6 +2,7 @@ package se.sics.ms.data;
 
 import se.sics.ms.types.IndexHash;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -22,6 +23,39 @@ public class IndexHashExchange {
             this.exchangeRoundId = exchangeRoundId;
             this.lowestMissingIndexEntry = lowestMissingIndexEntry;
             this.entries = entries;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Request)) return false;
+
+            Request request = (Request) o;
+
+            if (lowestMissingIndexEntry != request.lowestMissingIndexEntry) return false;
+            if (!Arrays.equals(entries, request.entries)) return false;
+            if (exchangeRoundId != null ? !exchangeRoundId.equals(request.exchangeRoundId) : request.exchangeRoundId != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = exchangeRoundId != null ? exchangeRoundId.hashCode() : 0;
+            result = 31 * result + (int) (lowestMissingIndexEntry ^ (lowestMissingIndexEntry >>> 32));
+            result = 31 * result + (entries != null ? Arrays.hashCode(entries) : 0);
+            return result;
+        }
+
+
+        @Override
+        public String toString() {
+            return "Request{" +
+                    "exchangeRoundId=" + exchangeRoundId +
+                    ", lowestMissingIndexEntry=" + lowestMissingIndexEntry +
+                    ", entries=" + Arrays.toString(entries) +
+                    '}';
         }
 
         public UUID getExchangeRoundId() {
@@ -46,6 +80,38 @@ public class IndexHashExchange {
         public Response(UUID exchangeRoundId, Collection<IndexHash>indexHashes){
             this.indexHashes = indexHashes;
             this.exchangeRoundId = exchangeRoundId;
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+
+            if (this == o) return true;
+            if (!(o instanceof Response)) return false;
+
+            Response response = (Response) o;
+
+            if (exchangeRoundId != null ? !exchangeRoundId.equals(response.exchangeRoundId) : response.exchangeRoundId != null)
+                return false;
+            if (indexHashes != null ? !indexHashes.equals(response.indexHashes) : response.indexHashes != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = indexHashes != null ? indexHashes.hashCode() : 0;
+            result = 31 * result + (exchangeRoundId != null ? exchangeRoundId.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "indexHashes=" + indexHashes +
+                    ", exchangeRoundId=" + exchangeRoundId +
+                    '}';
         }
 
         public Collection<IndexHash> getIndexHashes() {

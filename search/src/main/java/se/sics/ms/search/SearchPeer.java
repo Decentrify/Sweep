@@ -104,42 +104,40 @@ public final class SearchPeer extends ComponentDefinition {
         connectChunkManager(systemConfig, chunkManagerConfig);
 
         // Gradient Port Connections.
-        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
 
+        // Network Connections.
         connect(network, pseudoGradient.getNegative(Network.class));
-        connect(network, search.getNegative(Network.class));
         connect(network, aggregatorComponent.getNegative(Network.class));
-        
-        // Other Components and Aggregator Component.
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
+        connect(chunkManager.getPositive(Network.class),search.getNegative(Network.class));
+//        connect(network,search.getNegative(Network.class));
 
+        // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
         connect(timer, pseudoGradient.getNegative(Timer.class));
         connect(timer, aggregatorComponent.getNegative(Timer.class));
-        
+
+        // Aggregator Connections.
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
+        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
+
+        // Internal Connections.
+        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+        connect(indexPort, search.getNegative(SimulationEventsPort.class));
+        connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
+        connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
+        connect(internalUiPort, search.getPositive(UiPort.class));
+        connect(search.getNegative(FailureDetectorPort.class), fdPort);
+        connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
+        connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
+        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
+        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
+
         // ===
         // SEARCH + (PSEUDO - GRADIENT) <-- CROUPIER + GRADIENT + (LEADER - ELECTION)
         //===
         connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
         connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
-        
-        connect(indexPort, search.getNegative(SimulationEventsPort.class));
-        
-        connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
-        
-        connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
-        connect(internalUiPort, search.getPositive(UiPort.class));
-        
-        connect(search.getNegative(FailureDetectorPort.class), fdPort);
-        connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
-        connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
-
-        connect(search.getNegative(Network.class), chunkManager.getPositive(Network.class));
-        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
-        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
-
 
         // Simulator Events.
 //        subscribe(addEntrySimulatorEventHandler, network);
@@ -307,8 +305,8 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
     
-    
-    // ===== 
+
+    // =====
     //  Simulator Event Handlers.
     // =====
     

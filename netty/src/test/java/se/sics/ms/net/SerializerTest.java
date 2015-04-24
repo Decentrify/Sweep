@@ -57,7 +57,7 @@ public class SerializerTest {
     public static void oneTimeSetup() throws NoSuchAlgorithmException {
 
         logger.info("Executing the one time setup.");
-        int currentId = 0;
+        int currentId = 128;
         BasicSerializerSetup.registerBasicSerializers(currentId);
         currentId = currentId + BasicSerializerSetup.serializerIds;
         currentId = SerializerSetup.registerSerializers(currentId);

@@ -3,10 +3,7 @@ package se.sics.ms.net;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.data.*;
 import se.sics.ms.serializer.*;
-import se.sics.ms.types.Id;
-import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.SearchDescriptor;
-import se.sics.ms.types.SearchPattern;
+import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
@@ -24,6 +21,7 @@ public class SerializerSetup {
         indexEntry(IndexEntry.class, "indexEntry"),
         partitionInfo(PartitionHelper.PartitionInfo.class, "partitionInfo"),
         idInfo(Id.class, "idInfo"),
+        indexHash(IndexHash.class, "indexHash"),
 
         searchInfoRequest(SearchInfo.Request.class, "searchInfoRequest"),
         searchInfoResponse(SearchInfo.Response.class, "searchInfoResponse"),
@@ -43,6 +41,8 @@ public class SerializerSetup {
         delayedPartitioningRequest(DelayedPartitioning.Request.class, "delayedPartitioningRequest"),
         delayedPartitioningResponse(DelayedPartitioning.Response.class, "delayedPartitioningResponse"),
 
+        indexHashExchangeRequest(IndexHashExchange.Request.class, "indexHashExchangeRequest"),
+        indexHashExchangeResponse(IndexHashExchange.Response.class, "indexHashExchangeResponse"),
         indexExchangeRequest(IndexExchange.Request.class, "indexExchangeRequest"),
         indexExchangeResponse(IndexExchange.Response.class, "indexExchangeResponse"),
         repairRequest(Repair.Request.class, "repairRequest"),
@@ -100,6 +100,9 @@ public class SerializerSetup {
         Serializers.register(idSerializer, SweepSerializers.idInfo.serializerName);
         Serializers.register(SweepSerializers.idInfo.serializedClass, SweepSerializers.idInfo.serializerName);
 
+        IndexHashSerializer indexHashSerializer = new IndexHashSerializer(currentId++);
+        Serializers.register(indexHashSerializer, SweepSerializers.indexHash.serializerName);
+        Serializers.register(SweepSerializers.indexHash.serializedClass, SweepSerializers.indexHash.serializerName);
 
         // Search Request / Response.
         SearchInfoSerializer.Request siRequest = new SearchInfoSerializer.Request(currentId++);
@@ -131,6 +134,10 @@ public class SerializerSetup {
         ReplicationCommitSerializer.Request rcRequest = new ReplicationCommitSerializer.Request(currentId++);
         Serializers.register(rcRequest, SweepSerializers.replicationCommitRequest.serializerName);
         Serializers.register(SweepSerializers.replicationCommitRequest.serializedClass, SweepSerializers.replicationCommitRequest.serializerName);
+
+
+
+
 
 
         // Two Phase Commit Protocol.
@@ -168,6 +175,16 @@ public class SerializerSetup {
 
 
         //Index Exchange Protocol.
+
+        IndexHashExchangeSerializer.Request hashExchangeRequest = new IndexHashExchangeSerializer.Request(currentId++);
+        Serializers.register(hashExchangeRequest, SweepSerializers.indexHashExchangeRequest.serializerName);
+        Serializers.register(SweepSerializers.indexHashExchangeRequest.serializedClass, SweepSerializers.indexHashExchangeRequest.serializerName);
+
+        IndexHashExchangeSerializer.Response hashExchangeResponse = new IndexHashExchangeSerializer.Response(currentId++);
+        Serializers.register(hashExchangeResponse, SweepSerializers.indexHashExchangeResponse.serializerName);
+        Serializers.register(SweepSerializers.indexHashExchangeResponse.serializedClass, SweepSerializers.indexHashExchangeResponse.serializerName);
+
+
         IndexExchangeSerializer.Request ieRequest = new IndexExchangeSerializer.Request(currentId++);
         Serializers.register(ieRequest, SweepSerializers.indexExchangeRequest.serializerName);
         Serializers.register(SweepSerializers.indexExchangeRequest.serializedClass, SweepSerializers.indexExchangeRequest.serializerName);

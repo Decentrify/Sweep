@@ -162,7 +162,7 @@ public final class Search extends ComponentDefinition {
     private boolean partitionInProgress = false;
 
     // Generic Control Pull Mechanism.
-    private java.util.UUID controlMessageExchangeRoundId;
+    private UUID controlMessageExchangeRoundId;
     private Map<BasicAddress, UUID> peerControlRequestAddressIdMap = new HashMap<BasicAddress, UUID>();      // FIXME: Needs to be refactored in one message.
     private Map<BasicAddress, PeerControlRequestInfoHolder> peerControlResponseMap = new HashMap<BasicAddress, PeerControlRequestInfoHolder>();
     private Map<ControlMessageResponseTypeEnum, List<? extends ControlBase>> controlMessageResponseHolderMap = new HashMap<ControlMessageResponseTypeEnum, List<? extends ControlBase>>();
@@ -235,7 +235,6 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexHashExchangeRequest, networkPort);
 
         subscribe(handleIndexHashExchangeResponse, networkPort);
-//        subscribe(handleIndexHashExchangeResponse, chunkManagerPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
 //        subscribe(handleIndexExchangeResponse, chunkManagerPort);
@@ -375,7 +374,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(MsConfig.GRADIENT_SHUFFLE_PERIOD, MsConfig.GRADIENT_SHUFFLE_PERIOD);
+            rst = new SchedulePeriodicTimeout(7000  , 7000);
             rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -438,7 +437,7 @@ public final class Search extends ComponentDefinition {
     }
 
     private boolean exchangeInProgress = false;
-    private java.util.UUID indexExchangeTimeout;
+    private UUID indexExchangeTimeout;
     private HashMap<DecoratedAddress, Collection<IndexHash>> collectedHashes = new HashMap<DecoratedAddress, Collection<IndexHash>>();
     private HashSet<IndexHash> intersection;
 
@@ -934,15 +933,13 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexHashExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Response> event) {
 
-            logger.debug("{}: Received index hash exchange response from the node: {}", self.getId(), event.getSource());
+            logger.debug("{}: Received index hash exchange response from the node: {}", new Object[]{self.getId(), event.getSource()});
 
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
-                logger.warn("{}: Received response for an old index hash exchange request.", self.getId());
+                logger.warn("{}: Received response for an old index hash exchange request. Current UUID :{}, Received :{}, Source:{} ", new Object[]{self.getId(), indexExchangeTimeout, response.getExchangeRoundId(), event.getSource().getId()});
                 return;
             }
-            
-//            nodesRespondedInIndexHashExchange.add(event.getSource());
 
             // TODO we somehow need to check here that the answer is from the correct node
             collectedHashes.put(event.getSource(), response.getIndexHashes());
@@ -982,7 +979,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(IndexExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request> event) {
             
-            logger.debug("{}: Received Index Exchange request from: {}", self.getId(), event.getSource());
+            logger.warn("{}: Received Index Exchange request from: {}", self.getId(), event.getSource());
             
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
@@ -1016,8 +1013,9 @@ public final class Search extends ComponentDefinition {
     ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>> handleIndexExchangeResponse = new ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>>() {
         @Override
         public void handle(IndexExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response> event) {
-            
-            logger.debug("{}: Received index exchange response from the node: {}", self.getId(), event.getSource());
+
+            logger.debug("{}: Received index exchange response BEFORE CHECK from the node: {}", self.getId(), event.getSource());
+
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 return;
@@ -1056,7 +1054,7 @@ public final class Search extends ComponentDefinition {
     final Handler<TimeoutCollection.IndexExchangeTimeout> handleIndexExchangeTimeout = new Handler<TimeoutCollection.IndexExchangeTimeout>() {
         @Override
         public void handle(TimeoutCollection.IndexExchangeTimeout event) {
-            
+
             logger.debug(self.getId() + " index exchange timed out");
             
             if(indexExchangeTimeout != null && indexExchangeTimeout.equals(event.getTimeoutId())){
@@ -1733,10 +1731,9 @@ public final class Search extends ComponentDefinition {
      */
     void removeEntriesNotFromYourPartition(long middleId, boolean isPartition) {
 
-        se.sics.kompics.timer.CancelTimeout cancelTimeout = new se.sics.kompics.timer.CancelTimeout(indexExchangeTimeout);
+        CancelTimeout cancelTimeout = new CancelTimeout(indexExchangeTimeout);
         trigger(cancelTimeout, timerPort);
-        indexExchangeTimeout = null;
-        exchangeInProgress = false;
+        resetExchangeParameters();
 
         int numberOfStoredIndexEntries = 0;
         try {

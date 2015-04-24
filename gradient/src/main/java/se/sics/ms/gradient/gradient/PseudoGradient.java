@@ -173,18 +173,6 @@ public final class PseudoGradient extends ComponentDefinition {
         }
     };
 
-    /**
-     * Broadcast the current view to the listening components.
-     */
-
-    void sendGradientViewChange() {
-
-        if (isChanged()) {
-            // Create a copy so components don't affect each other
-            SortedSet<SearchDescriptor> view = new TreeSet<SearchDescriptor>(getGradientSample());
-            trigger(new GradientViewChangePort.GradientViewChanged(isConverged(), view), gradientViewChangePort);
-        }
-    }
 
 
     /**
@@ -477,6 +465,8 @@ public final class PseudoGradient extends ComponentDefinition {
         @Override
         public void handle(GradientRoutingPort.IndexHashExchangeRequest event) {
 
+            logger.debug("{}: Request for initiating index hash exchange with round Id: {}", self.getId(), event.getTimeoutId());
+
             ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
                 logger.debug(" {}: Not enough nodes to perform Index Hash Exchange.", self.getAddress().getId());
@@ -490,12 +480,12 @@ public final class PseudoGradient extends ComponentDefinition {
                 int n = random.nextInt(nodes.size());
                 SearchDescriptor node = nodes.get(n);
                 nodes.remove(node);
-
-                nodesSelectedForExchange.add(node.getVodAddress());
+                logger.debug("{}: Sending exchange request to :{} with round {}", new Object[]{ self.getId(), node.getId(), event.getTimeoutId()});
+//                nodesSelectedForExchange.add(node.getVodAddress());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node.getVodAddress(), Transport.UDP, request), networkPort);
             }
 
-            trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
+//            trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
         }
     };
 
@@ -585,7 +575,7 @@ public final class PseudoGradient extends ComponentDefinition {
 //                preferredNodes.addAll(getLowerUtilityNodes());
 
             if (preferredNodes.size() < event.getControlMessageExchangeNumber()){
-                logger.warn("{}: Not enough higher nodes to start the control pull mechanism.", self.getId());
+                logger.debug("{}: Not enough higher nodes to start the control pull mechanism.", self.getId());
                 return;
             }
 
@@ -606,7 +596,7 @@ public final class PseudoGradient extends ComponentDefinition {
         @Override
         public void handle(LeaderInfoUpdate leaderInfoUpdate) {
             
-            logger.warn("{}: Received the leader address through pull with address:{} ", self.getId(), leaderInfoUpdate.getLeaderAddress());
+            logger.debug("{}: Received the leader address through pull with address:{} ", self.getId(), leaderInfoUpdate.getLeaderAddress());
             leaderAddress = leaderInfoUpdate.getLeaderAddress();
             leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
@@ -695,8 +685,6 @@ public final class PseudoGradient extends ComponentDefinition {
      */
     private void performAdditionalHouseKeepingTasks(Collection<SearchDescriptor> oldGradientEntrySet) {
 
-        checkConvergence(oldGradientEntrySet, gradientEntrySet);
-        sendGradientViewChange();
         publishSample();
 
     }

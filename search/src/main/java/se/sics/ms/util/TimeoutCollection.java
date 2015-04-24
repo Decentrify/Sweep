@@ -37,9 +37,9 @@ public class TimeoutCollection {
         }
     }
 
-    public static class IndexExchangeTimeout extends se.sics.kompics.timer.Timeout {
+    public static class IndexExchangeTimeout extends Timeout {
 
-        public IndexExchangeTimeout(se.sics.kompics.timer.ScheduleTimeout request) {
+        public IndexExchangeTimeout(ScheduleTimeout request) {
             super(request);
         }
     }

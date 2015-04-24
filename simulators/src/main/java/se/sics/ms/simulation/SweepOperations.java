@@ -53,7 +53,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, BasicAddress>() {
+            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
@@ -64,7 +64,7 @@ public class SweepOperations {
 
                 @Override
                 public int bootstrapSize() {
-                    return 0;
+                    return 2;
                 }
 
                 @Override
@@ -73,12 +73,12 @@ public class SweepOperations {
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(BasicAddress address, Set<BasicAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePeerInit(new DecoratedAddress(address), nodeId);
+                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePeerInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
-                public BasicAddress  getAddress() {
+                public DecoratedAddress  getAddress() {
                     return SweepOperationsHelper.getBasicAddress(nodeId);
                 }
             };

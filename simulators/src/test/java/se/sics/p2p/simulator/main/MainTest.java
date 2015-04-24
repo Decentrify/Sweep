@@ -18,6 +18,7 @@ import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.ms.scenarios.SimpleBootupScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.net.InetAddress;
@@ -37,7 +38,7 @@ public class MainTest {
         int startId = 128;
         LauncherComp.scheduler = new SimulatorScheduler();
         LauncherComp.scenario = SimpleBootupScenario.boot(seed);
-        LauncherComp.simulatorClientAddress = new BasicAddress(InetAddress.getByName("127.0.0.1"), 30000, -1);
+        LauncherComp.simulatorClientAddress = new DecoratedAddress(new BasicAddress(InetAddress.getByName("127.0.0.1"), 30000, -1));
         
         registerSerializers(startId);
         
