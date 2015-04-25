@@ -22,7 +22,8 @@ public class SerializerSetup {
         partitionInfo(PartitionHelper.PartitionInfo.class, "partitionInfo"),
         idInfo(Id.class, "idInfo"),
         indexHash(IndexHash.class, "indexHash"),
-
+        partitionInfoHash(PartitionHelper.PartitionInfoHash.class, "partitionInfoHash"),
+        
         searchInfoRequest(SearchInfo.Request.class, "searchInfoRequest"),
         searchInfoResponse(SearchInfo.Response.class, "searchInfoResponse"),
 
@@ -104,6 +105,10 @@ public class SerializerSetup {
         Serializers.register(indexHashSerializer, SweepSerializers.indexHash.serializerName);
         Serializers.register(SweepSerializers.indexHash.serializedClass, SweepSerializers.indexHash.serializerName);
 
+        PartitionInfoHashSerializer partitionHashSerializer = new PartitionInfoHashSerializer(currentId++);
+        Serializers.register(partitionHashSerializer, SweepSerializers.partitionInfoHash.serializerName);
+        Serializers.register(SweepSerializers.partitionInfoHash.serializedClass, SweepSerializers.partitionInfoHash.serializerName);
+        
         // Search Request / Response.
         SearchInfoSerializer.Request siRequest = new SearchInfoSerializer.Request(currentId++);
         Serializers.register(siRequest, SweepSerializers.searchInfoRequest.serializerName);

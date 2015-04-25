@@ -467,6 +467,17 @@ public class SerializerTest {
     }
 
 
+    @Test
+    public void partitionHashInfoTest(){
+        logger.info("Partition Info Hash Test.");
+
+        PartitionHelper.PartitionInfoHash infoHash = new PartitionHelper.PartitionInfoHash(UUID.randomUUID(), "Abhi");
+        Serializer serializer = Serializers.lookupSerializer(PartitionHelper.PartitionInfoHash.class);
+
+        PartitionHelper.PartitionInfoHash copiedInfoHash = (PartitionHelper.PartitionInfoHash)addObjectAndCreateCopiedObject(serializer, originalBuf, infoHash, copiedBuf);
+        org.junit.Assert.assertEquals("Partition Hash Info Test", infoHash, copiedInfoHash);
+    }
+    
 
     /**
      * Helper method to take the object and then add it to the buffer and then

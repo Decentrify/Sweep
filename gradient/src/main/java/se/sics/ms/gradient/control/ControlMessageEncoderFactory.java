@@ -31,7 +31,18 @@ public class ControlMessageEncoderFactory {
 
         // Create an expandable buffer and encode the control message enum in it.
         buffer.writeInt(controlMessageEnum.ordinal());
-        ApplicationTypesEncoderFactory.writePartitionUpdateHashSequence(buffer, partitionUpdateHashes);
+        
+        if(partitionUpdateHashes == null){
+            buffer.writeInt(0);
+            partitionUpdateHashes = new LinkedList<PartitionHelper.PartitionInfoHash>();
+        }
+        else{
+            buffer.writeInt(partitionUpdateHashes.size());
+        }
+        
+        for(PartitionHelper.PartitionInfoHash infoHash : partitionUpdateHashes){
+            Serializers.lookupSerializer(PartitionHelper.PartitionInfoHash.class).toBinary(infoHash, buffer);
+        }
     }
 
     private static void encodeLeaderUpdate(ByteBuf buffer, DecoratedAddress leader, PublicKey leaderPublicKey) throws MessageEncodingException {
@@ -41,7 +52,7 @@ public class ControlMessageEncoderFactory {
             //to indicate that leader info is available in the encoded message
             buffer.writeBoolean(true);
             Serializers.lookupSerializer(DecoratedAddress.class).toBinary(leader, buffer);
-            ApplicationTypesEncoderFactory.writePublicKey(buffer, leaderPublicKey);
+            Serializers.lookupSerializer(PublicKey.class).toBinary(leaderPublicKey, buffer);
         }
         else {
             buffer.writeBoolean(false);

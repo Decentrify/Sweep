@@ -3,17 +3,16 @@ package se.sics.ms.control;
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
-import se.sics.ms.data.ControlInformation;
+import se.sics.kompics.network.netty.serialization.Serializer;
+import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.gradient.control.ControlMessageEnum;
-import se.sics.ms.messages.ControlMessage;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddressSerializer;
 
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,9 +50,10 @@ public class ControlMessageDecoderFactory {
         boolean hasLeaderInfo = UserTypesDecoderFactory.readBoolean(buffer);
 
         if(hasLeaderInfo) {
-            DecoratedAddressSerializer serializer = new DecoratedAddressSerializer(0);
+            
+            Serializer serializer = Serializers.lookupSerializer(DecoratedAddress.class);
             DecoratedAddress leaderAddress = (DecoratedAddress) serializer.fromBinary(buffer, Optional.absent());
-            PublicKey leaderPublicKey = ApplicationTypesDecoderFactory.readPublicKey(buffer);
+            PublicKey leaderPublicKey = (PublicKey) Serializers.lookupSerializer(PublicKey.class).fromBinary(buffer, Optional.absent());
 
             return new LeaderInfoControlResponse(leaderAddress, leaderPublicKey);
         }
@@ -66,9 +66,13 @@ public class ControlMessageDecoderFactory {
                                                  ByteBuf buffer) throws MessageDecodingException {
 
         // Fetch the list of partition hashes from the application decoder factory.
-        List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes;
-        partitionUpdateHashes = ApplicationTypesDecoderFactory.readPartitionUpdateHashSequence(buffer);
-
+        List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes = new ArrayList<PartitionHelper.PartitionInfoHash>();
+        int size = buffer.readInt();
+        while(size > 0) {
+            PartitionHelper.PartitionInfoHash infoHash = (PartitionHelper.PartitionInfoHash) Serializers.lookupSerializer(PartitionHelper.PartitionInfoHash.class).fromBinary(buffer, Optional.absent());
+            partitionUpdateHashes.add(infoHash);
+            size --;
+        }
         // Create a specific object.
         return new PartitionControlResponse(controlMessageEnum, partitionUpdateHashes, sourceAddress);
     }
@@ -100,7 +104,7 @@ public class ControlMessageDecoderFactory {
                 return ControlMessageDecoderFactory.decodeLeaderUpdate(buffer);
 
             default:
-                return null;
+                 throw new IllegalArgumentException("Unrecognized Update Type");
         }
     }
 }
