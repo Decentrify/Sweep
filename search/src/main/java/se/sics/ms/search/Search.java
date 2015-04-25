@@ -237,14 +237,12 @@ public final class Search extends ComponentDefinition {
         subscribe(handleIndexHashExchangeResponse, networkPort);
         subscribe(handleIndexExchangeRequest, networkPort);
         subscribe(handleIndexExchangeResponse, networkPort);
-//        subscribe(handleIndexExchangeResponse, chunkManagerPort);
 
         subscribe(handleAddIndexEntryRequest, networkPort);
         subscribe(preparePhaseTimeout, timerPort);
 
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
-//        subscribe(handleSearchResponse, chunkManagerPort);
         subscribe(handleSearchResponse, networkPort);
         subscribe(handleSearchTimeout, timerPort);
 
@@ -1611,7 +1609,10 @@ public final class Search extends ComponentDefinition {
     }
 
 
-
+    /**
+     * Handler for the search request received. The search request contains query to be searched in the local write lucene index.
+     *
+     */
     ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>> handleSearchRequest = new ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>>() {
         @Override
         public void handle(SearchInfo.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request> event) {
@@ -1690,7 +1691,7 @@ public final class Search extends ComponentDefinition {
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
             logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-            se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(searchRequest.getTimeoutId());
+            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
             trigger(ct, timerPort);
             answerSearchRequest();
         }
@@ -1800,7 +1801,7 @@ public final class Search extends ComponentDefinition {
         ArrayList<IndexEntry> result = null;
         try {
             result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
-            logger.warn("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
+            logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
 
         } catch (LuceneAdaptorException e) {
             result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
@@ -1873,7 +1874,6 @@ public final class Search extends ComponentDefinition {
 
         // Inform other components about the IndexEntry Update.
         informListeningComponentsAboutUpdates(self);
-//        Snapshot.incNumIndexEntries(self.getAddress());
 
         // Cancel gap detection timeouts for the given index
         UUID timeoutId = gapTimeouts.get(indexEntry.getId());
@@ -2004,6 +2004,10 @@ public final class Search extends ComponentDefinition {
     };
     
     
+    /**
+     * Handler for the partition prepare request. The node receives the partition prepare request from the leader
+     * in the system and therefore it acts as a promise request.
+     */
     ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest = new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
         @Override
         public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
@@ -2081,7 +2085,7 @@ public final class Search extends ComponentDefinition {
                 logger.warn("(PartitionPrepareMessage.Response): Time to start the commit phase. ");
 
                 // Cancel the prepare phase timeout as all the replies have been received.
-                se.sics.kompics.timer.CancelTimeout ct = new se.sics.kompics.timer.CancelTimeout(response.getPartitionPrepareRoundId());
+                CancelTimeout ct = new CancelTimeout(response.getPartitionPrepareRoundId());
                 trigger(ct, timerPort);
                 partitionPreparePhaseTimeoutId = null;
 

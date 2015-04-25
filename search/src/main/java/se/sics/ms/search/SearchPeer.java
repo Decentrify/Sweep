@@ -14,6 +14,7 @@ import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
+import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.gradient.gradient.PseudoGradient;
 import se.sics.ms.gradient.gradient.PseudoGradientInit;
 import se.sics.ms.gradient.gradient.SweepGradientFilter;
@@ -94,7 +95,6 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(addIndexEntryRequestHandler, externalUiPort);
-        subscribe(addEntrySimulatorHandler, network);
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(Search.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
@@ -112,7 +112,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(network, pseudoGradient.getNegative(Network.class));
         connect(network, aggregatorComponent.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class),search.getNegative(Network.class));
-//        connect(network,search.getNegative(Network.class));
 
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
@@ -143,7 +142,8 @@ public final class SearchPeer extends ComponentDefinition {
         connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
 
         // Simulator Events.
-//        subscribe(addEntrySimulatorEventHandler, network);
+        subscribe(addEntrySimulatorHandler, network);
+        subscribe(searchSimulatorHandler, network);
     }
 
     /**
@@ -312,7 +312,8 @@ public final class SearchPeer extends ComponentDefinition {
     // =====
     //  Simulator Event Handlers.
     // =====
-
+    
+    
     ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
         @Override
         public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> event) {
@@ -320,4 +321,15 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
+    
+    ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>> searchSimulatorHandler = new ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>>() {
+        @Override
+        public void handle(SearchP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> event) {
+            
+            log.warn("Search Event Received : {}", request.getSearchPattern());
+            trigger(new SimulationEventsPort.SearchSimulated(request.getSearchPattern()), search.getNegative(SimulationEventsPort.class));
+        }
+    };
+    
+    
 }

@@ -11,6 +11,7 @@ import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
@@ -147,6 +148,19 @@ public class SweepOperationsHelper {
         index.setLeaderId(null);
         
         return index;
+    }
+
+
+    /**
+     * Generate the constant search pattern. 
+     * For now generate a constant search pattern.
+     *
+     * <b>CAUTION:</b> Constant Search Pattern.
+     * @return SearchPattern
+     */
+    public static SearchPattern generateSearchPattern(){
+        SearchPattern searchPattern = new SearchPattern("sweep", 0, 0, null, null, null, MsConfig.Categories.Video, null);
+        return searchPattern;
     }
 
 
