@@ -64,7 +64,7 @@ public class SweepOperationsHelper {
         electionConfiguration = ElectionConfiguration.build();
         chunkManagerConfiguration = new ChunkManagerConfig(config);
         gradientConfig= new GradientConfig(config);
-        electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+        electionConfig = new ElectionConfig(config);
         
         try {
             ip = InetAddress.getLocalHost();
@@ -102,7 +102,7 @@ public class SweepOperationsHelper {
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
-        
+
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
         SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
         

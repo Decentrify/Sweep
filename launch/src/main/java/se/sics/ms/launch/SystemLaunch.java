@@ -55,7 +55,7 @@ public class SystemLaunch extends ComponentDefinition{
         SystemConfig systemConfig = new SystemConfig(config);
         GradientConfig gradientConfig  = new GradientConfig(config);
         CroupierConfig croupierConfig = new CroupierConfig(config);
-        ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+        ElectionConfig electionConfig = new ElectionConfig(config);
         ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
         
         logger.debug(" Loaded the configurations ... ");

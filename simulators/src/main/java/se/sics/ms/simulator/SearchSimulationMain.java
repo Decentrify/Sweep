@@ -58,7 +58,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
         CroupierConfig newCroupierConfig = new CroupierConfig(config);
         GradientConfig gradientConfig = new GradientConfig(config);
         ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
-        ElectionConfig electionConfig = new ElectionConfig.ElectionConfigBuilder(MsConfig.GRADIENT_VIEW_SIZE).buildElectionConfig();
+        ElectionConfig electionConfig = new ElectionConfig(config);
 
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
                 newCroupierConfig,
