@@ -40,6 +40,11 @@
             <artifactId>election-network</artifactId>
             <version>${election.version}</version>
         </dependency>
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>local-aggregator</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         
     </dependencies>
 </project>

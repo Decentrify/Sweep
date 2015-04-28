@@ -1,8 +1,4 @@
+se/sics/ms/launch/SystemLaunch$2.class
 se/sics/ms/launch/CommonEncodeDecode.class
-se/sics/ms/launch/SystemMain$5.class
-se/sics/ms/launch/SystemMain$1.class
-se/sics/ms/launch/SystemMain$4.class
-se/sics/ms/launch/SystemMain$3.class
-se/sics/ms/launch/SystemMain$2.class
-se/sics/ms/launch/SystemMain.class
-se/sics/ms/launch/SystemMain$PsPortBindResponse.class
+se/sics/ms/launch/SystemLaunch$1.class
+se/sics/ms/launch/SystemLaunch.class

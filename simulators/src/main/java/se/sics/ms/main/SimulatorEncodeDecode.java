@@ -1,26 +1,5 @@
 package se.sics.ms.main;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.ms.aggregator.SearchComponentUpdate;
-import se.sics.ms.aggregator.SearchComponentUpdateSerializer;
-import se.sics.ms.aggregator.data.SweepAggregatedPacket;
-import se.sics.ms.aggregator.serializer.SweepPacketSerializer;
-import se.sics.ms.election.aggregation.ElectionLeaderComponentUpdate;
-import se.sics.ms.election.aggregation.ElectionLeaderUpdateSerializer;
-import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.types.SearchDescriptor;
-import se.sics.p2ptoolbox.aggregator.api.model.AggregatedStatePacket;
-import se.sics.p2ptoolbox.serialization.SerializationContextImpl;
-import se.sics.p2ptoolbox.serialization.msg.HeaderField;
-import se.sics.p2ptoolbox.serialization.msg.NetMsg;
-import se.sics.p2ptoolbox.serialization.msg.OverlayHeaderField;
-import se.sics.p2ptoolbox.serialization.serializer.OverlayHeaderFieldSerializer;
-import se.sics.p2ptoolbox.serialization.serializer.SerializerAdapter;
-import se.sics.p2ptoolbox.serialization.serializer.UUIDSerializer;
-import se.sics.p2ptoolbox.serialization.serializer.VodAddressSerializer;
-
-import java.util.UUID;
-
 /**
  * Created by babbarshaer on 2015-03-20.
  */

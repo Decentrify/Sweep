@@ -1,4 +1,4 @@
-package se.sics.ms.election.aggregation;
+package se.sics.ms.data.aggregator;
 
 import se.sics.ms.aggregator.data.ComponentUpdate;
 

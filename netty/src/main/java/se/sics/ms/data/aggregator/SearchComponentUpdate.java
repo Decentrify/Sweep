@@ -1,4 +1,4 @@
-package se.sics.ms.aggregator;
+package se.sics.ms.data.aggregator;
 
 
 import se.sics.ms.aggregator.data.ComponentUpdate;
