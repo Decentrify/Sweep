@@ -109,9 +109,9 @@ public final class SearchPeer extends ComponentDefinition {
         // Gradient Port Connections.
 
         // Network Connections.
-        connect(network, pseudoGradient.getNegative(Network.class));
-        connect(network, aggregatorComponent.getNegative(Network.class));
-        connect(chunkManager.getPositive(Network.class),search.getNegative(Network.class));
+        connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
+        connect(chunkManager.getPositive(Network.class), pseudoGradient.getNegative(Network.class));
+        connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
 
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));

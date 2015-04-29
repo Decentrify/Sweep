@@ -202,12 +202,19 @@ public class IndexEntry implements Serializable {
 
     @Override
     public int hashCode() {
-        int result = (int) (id ^ (id >>> 32));
-        result = 31 * result + hash.hashCode();
+        int result = globalId != null ? globalId.hashCode() : 0;
+        result = 31 * result + (id != null ? id.hashCode() : 0);
+        result = 31 * result + (url != null ? url.hashCode() : 0);
+        result = 31 * result + (fileName != null ? fileName.hashCode() : 0);
+        result = 31 * result + (int) (fileSize ^ (fileSize >>> 32));
+        result = 31 * result + (uploaded != null ? uploaded.hashCode() : 0);
+        result = 31 * result + (language != null ? language.hashCode() : 0);
+        result = 31 * result + (category != null ? category.hashCode() : 0);
+        result = 31 * result + (description != null ? description.hashCode() : 0);
+        result = 31 * result + (hash != null ? hash.hashCode() : 0);
         result = 31 * result + (leaderId != null ? leaderId.hashCode() : 0);
         return result;
     }
-
 
     /**
      * Helper class for the index entry addition.

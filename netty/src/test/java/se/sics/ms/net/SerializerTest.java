@@ -130,7 +130,7 @@ public class SerializerTest {
     public void indexEntrySerializationTest(){
         logger.info("Index Entry Serialization Test");
 
-        IndexEntry originalEntry = getRandomIndexEntry();
+        IndexEntry originalEntry = getSpecialIndexEntry();
         Serializer serializer = Serializers.lookupSerializer(IndexEntry.class);
 
         IndexEntry copiedEntry = (IndexEntry) addObjectAndCreateCopiedObject(serializer, originalBuf, originalEntry, copiedBuf);
@@ -190,7 +190,7 @@ public class SerializerTest {
     public void addIndexEntryRequestTest() {
         logger.info("Add Index Entry Request Test");
 
-        IndexEntry entry = getRandomIndexEntry();
+        IndexEntry entry = getSpecialIndexEntry();
         AddIndexEntry.Request originalRequest = new AddIndexEntry.Request(UUID.randomUUID(), entry);
         Serializer addEntryRequestSerializer = Serializers.lookupSerializer(AddIndexEntry.Request.class);
 
@@ -560,5 +560,12 @@ public class SerializerTest {
         return collection;
     }
 
+
+
+    public IndexEntry getSpecialIndexEntry(){
+
+        IndexEntry entry = new IndexEntry(null, -9223372036854775808l,  "220", "messi.mp4", 1, new Date(), "english", MsConfig.Categories.Video, "Something", null, null);
+        return entry;
+    }
 
 }
