@@ -39,8 +39,17 @@ public class SearchPatternSerializer implements Serializer{
             SerializerEncoderHelper.writeStringLength256(byteBuf, searchPattern.getFileNamePattern());
             byteBuf.writeInt(searchPattern.getMinFileSize());
             byteBuf.writeInt(searchPattern.getMaxFileSize());
-            byteBuf.writeLong(searchPattern.getMinUploadDate().getTime());
-            byteBuf.writeLong(searchPattern.getMaxUploadDate().getTime());
+
+            if(searchPattern.getMinUploadDate() == null)
+                byteBuf.writeLong(0);
+            else
+                byteBuf.writeLong(searchPattern.getMinUploadDate().getTime());
+
+            if(searchPattern.getMaxUploadDate() == null)
+                byteBuf.writeLong(0);
+            else
+                byteBuf.writeLong(searchPattern.getMaxUploadDate().getTime());
+
             SerializerEncoderHelper.writeStringLength256(byteBuf, searchPattern.getLanguage());
             byteBuf.writeInt(searchPattern.getCategory().ordinal());
             SerializerEncoderHelper.writeStringLength65536(byteBuf, searchPattern.getDescriptionPattern());
@@ -61,8 +70,21 @@ public class SearchPatternSerializer implements Serializer{
             String filePattern = SerializerDecoderHelper.readStringLength256(byteBuf);
             int minFileSize = byteBuf.readInt();
             int maxFileSize = byteBuf.readInt();
-            Date minUploadDate = new Date(byteBuf.readLong());
-            Date maxUploadDate = new Date(byteBuf.readLong());
+            Date minUploadDate;
+            long minUploadDateTime = byteBuf.readLong();
+
+            if(minUploadDateTime == 0)
+                minUploadDate = null;
+            else
+                minUploadDate= new Date(minUploadDateTime);
+
+            Date maxUploadDate;
+            long maxUploadDateTime = byteBuf.readLong();
+
+            if(maxUploadDateTime == 0)
+                maxUploadDate = null;
+            else
+                maxUploadDate= new Date(maxUploadDateTime);
 
             String language = SerializerDecoderHelper.readStringLength256(byteBuf);
             MsConfig.Categories category = MsConfig.Categories.values()[byteBuf.readInt()];
