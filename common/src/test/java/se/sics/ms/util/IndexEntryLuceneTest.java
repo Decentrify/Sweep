@@ -10,9 +10,9 @@ import org.apache.lucene.util.Version;
 import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.ms.common.LuceneAdaptor;
+import se.sics.ms.common.IndexEntryLuceneAdaptor;
 import se.sics.ms.common.LuceneAdaptorException;
-import se.sics.ms.common.LuceneAdaptorImpl;
+import se.sics.ms.common.IndexEntryLuceneAdaptorImpl;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 import sun.misc.BASE64Encoder;
@@ -25,12 +25,12 @@ import java.util.List;
  * Test for the Lucene Adapter.
  * Created by babbarshaer on 2015-02-24.
  */
-public class LuceneAdaptorTest {
+public class IndexEntryLuceneTest {
     
     private static Directory directory;
     private static IndexWriterConfig config;
-    private static Logger logger = LoggerFactory.getLogger(LuceneAdaptorTest.class);
-    private static LuceneAdaptor luceneAdaptor;
+    private static Logger logger = LoggerFactory.getLogger(IndexEntryLuceneTest.class);
+    private static IndexEntryLuceneAdaptor luceneAdaptor;
     
     @BeforeClass    
     public static void beforeClass() throws LuceneAdaptorException {
@@ -41,7 +41,7 @@ public class LuceneAdaptorTest {
         directory = new RAMDirectory();
         
         // Initialize Lucene Adaptor.
-        luceneAdaptor = new LuceneAdaptorImpl(directory,config);
+        luceneAdaptor = new IndexEntryLuceneAdaptorImpl(directory,config);
         luceneAdaptor.initialEmptyWriterCommit();
     }
     

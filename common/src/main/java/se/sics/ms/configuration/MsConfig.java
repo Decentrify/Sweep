@@ -15,7 +15,7 @@ import java.io.IOException;
 public class MsConfig extends VodConfig {
 
     public static enum Categories {
-        Video, Music, Books
+        Video, Music, Books, Default
     }
 
     public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;

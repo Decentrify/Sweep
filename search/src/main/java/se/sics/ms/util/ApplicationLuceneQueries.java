@@ -6,6 +6,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.common.IndexEntryLuceneAdaptor;
 import se.sics.ms.common.LuceneAdaptor;
 import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.IndexEntry;
@@ -36,7 +37,7 @@ public class ApplicationLuceneQueries {
      * @return a list of the entries found
      * @throws java.io.IOException if Lucene errors occur
      */
-    public static List<IndexEntry> findIdRange(LuceneAdaptor adaptor, long min, long max, int limit) throws IOException {
+    public static List<IndexEntry> findIdRange(IndexEntryLuceneAdaptor adaptor, long min, long max, int limit) throws IOException {
 
         List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
         try {
@@ -57,7 +58,7 @@ public class ApplicationLuceneQueries {
      *
      * @return min Id value stored in Lucene
      */
-    public static long getMinStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
+    public static long getMinStoredIdFromLucene(IndexEntryLuceneAdaptor adaptor) throws LuceneAdaptorException {
 
         long minStoreId = 0;
         Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
@@ -77,7 +78,7 @@ public class ApplicationLuceneQueries {
      *
      * @return max Id value stored in Lucene
      */
-    public static long getMaxStoredIdFromLucene(LuceneAdaptor adaptor) throws LuceneAdaptorException {
+    public static long getMaxStoredIdFromLucene(IndexEntryLuceneAdaptor adaptor) throws LuceneAdaptorException {
 
         long maxStoreId = 0;
         Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);

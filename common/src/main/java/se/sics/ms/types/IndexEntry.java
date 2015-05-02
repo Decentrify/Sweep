@@ -1,10 +1,11 @@
 package se.sics.ms.types;
 
-import org.apache.lucene.document.Document;
+import org.apache.lucene.document.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.codec.binary.Base64;
 import se.sics.ms.configuration.MsConfig;
+import sun.misc.BASE64Encoder;
 
 import java.io.Serializable;
 import java.security.KeyFactory;
@@ -18,6 +19,8 @@ import java.util.Date;
  * Representation of one entry in the search database.
  */
 public class IndexEntry implements Serializable {
+
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry("none", 0, "landing-entry", "none", 0, null, "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";
@@ -194,7 +197,7 @@ public class IndexEntry implements Serializable {
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;
-        if (!uploaded.equals(that.uploaded)) return false;
+        if (uploaded!= null ? !uploaded.equals(that.uploaded): that.uploaded != null) return false;
         if (!url.equals(that.url)) return false;
 
         return true;
@@ -222,6 +225,43 @@ public class IndexEntry implements Serializable {
     public static class IndexEntryHelper{
         
         private static Logger logger = LoggerFactory.getLogger(IndexEntryHelper.class);
+
+
+        /**
+         *
+         * @param entry
+         * @return
+         */
+        public static Document addIndexEntryToDocument(Document doc , IndexEntry entry){
+
+            doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
+            doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
+            doc.add(new StoredField(IndexEntry.URL, entry.getUrl()));
+            doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
+            doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
+            doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
+            doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
+            if (entry.getLeaderId() == null)
+                doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
+            else
+                doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
+
+            if (entry.getFileSize() != 0) {
+                doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
+            }
+
+            if (entry.getUploaded() != null) {
+                doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(),
+                        Field.Store.YES));
+            }
+
+            if (entry.getLanguage() != null) {
+                doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
+            }
+
+            return doc;
+        }
+
 
 
         /**

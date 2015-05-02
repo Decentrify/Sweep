@@ -172,8 +172,8 @@ public final class Search extends ComponentDefinition {
 
     private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
     private static final int HISTORY_LENGTH = 5;
-    private LuceneAdaptor writeLuceneAdaptor;
-    private LuceneAdaptor searchRequestLuceneAdaptor;
+    private IndexEntryLuceneAdaptor writeLuceneAdaptor;
+    private IndexEntryLuceneAdaptor searchRequestLuceneAdaptor;
 
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
@@ -328,7 +328,7 @@ public final class Search extends ComponentDefinition {
             index = new RAMDirectory();
         }
 
-        writeLuceneAdaptor = new LuceneAdaptorImpl(index, indexWriterConfig);
+        writeLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(index, indexWriterConfig);
         try {
             writeLuceneAdaptor.initialEmptyWriterCommit();
 
@@ -384,10 +384,10 @@ public final class Search extends ComponentDefinition {
     /**
      * Initialize the Index Caches, from the indexes stored in files.
      *
-     * @param luceneAdaptor LuceneAdaptor for access to lucene instance.
+     * @param luceneAdaptor IndexEntryLuceneAdaptor for access to lucene instance.
      * @throws LuceneAdaptorException
      */
-    public void initializeIndexCaches(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
+    public void initializeIndexCaches(IndexEntryLuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
 
         boolean continuous = true;
         int readLimit = 20000;
@@ -443,7 +443,7 @@ public final class Search extends ComponentDefinition {
      *
      * @return number of Index Entries.
      */
-    private int queryBasedTotalHit(LuceneAdaptor adaptor, Query query) {
+    private int queryBasedTotalHit(IndexEntryLuceneAdaptor adaptor, Query query) {
 
         int numberOfEntries = 0;
         TotalHitCountCollector totalHitCountCollector = null;
@@ -460,7 +460,7 @@ public final class Search extends ComponentDefinition {
     }
 
 
-    private int getTotalStoredEntriesCount(LuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
+    private int getTotalStoredEntriesCount(IndexEntryLuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
         return luceneAdaptor.getSizeOfLuceneInstance();
     }
 
@@ -1571,7 +1571,7 @@ public final class Search extends ComponentDefinition {
         closeIndex(searchIndex);
 
         searchIndex = new RAMDirectory();
-        searchRequestLuceneAdaptor = new LuceneAdaptorImpl(searchIndex, indexWriterConfig);
+        searchRequestLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(searchIndex, indexWriterConfig);
 
         try {
             searchRequestLuceneAdaptor.initialEmptyWriterCommit();
@@ -1643,7 +1643,7 @@ public final class Search extends ComponentDefinition {
      * @return a list of matching entries
      * @throws IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(LuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+    private ArrayList<IndexEntry> searchLocal(IndexEntryLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
         TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
         ArrayList<IndexEntry> result = (ArrayList<IndexEntry>) adaptor.searchIndexEntriesInLucene(pattern.getQuery(), collector);
         return result;
@@ -1784,7 +1784,7 @@ public final class Search extends ComponentDefinition {
      * @param entries                    a collection of index entries to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntries(LuceneAdaptor searchRequestLuceneAdaptor, Collection<IndexEntry> entries)
+    private void addIndexEntries(IndexEntryLuceneAdaptor searchRequestLuceneAdaptor, Collection<IndexEntry> entries)
             throws IOException {
         try {
             for (IndexEntry entry : entries) {
@@ -1820,34 +1820,12 @@ public final class Search extends ComponentDefinition {
      * @param entry   the {@link IndexEntry} to be added
      * @throws IOException in case the adding operation failed
      */
-    private void addIndexEntry(LuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
+    private void addIndexEntry(IndexEntryLuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
 
         logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getId());
+
         Document doc = new Document();
-        doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
-        doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
-        doc.add(new StoredField(IndexEntry.URL, entry.getUrl()));
-        doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
-        doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
-        doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
-        doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
-        if (entry.getLeaderId() == null)
-            doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
-        else
-            doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
-
-        if (entry.getFileSize() != 0) {
-            doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
-        }
-
-        if (entry.getUploaded() != null) {
-            doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(),
-                    Field.Store.YES));
-        }
-
-        if (entry.getLanguage() != null) {
-            doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
-        }
+        doc = IndexEntry.IndexEntryHelper.addIndexEntryToDocument(doc, entry);
         adaptor.addDocumentToLucene(doc);
     }
 
