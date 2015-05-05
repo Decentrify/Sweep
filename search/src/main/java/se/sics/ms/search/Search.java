@@ -2180,25 +2180,7 @@ public final class Search extends ComponentDefinition {
     };
 
     private IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
-        IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
-                Long.valueOf(d.get(IndexEntry.ID)),
-                d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
-
-        String fileSize = d.get(IndexEntry.FILE_SIZE);
-        if (fileSize != null)
-            indexEntry.setFileSize(Long.valueOf(fileSize));
-
-        String uploadedDate = d.get(IndexEntry.UPLOADED);
-        if (uploadedDate != null)
-            indexEntry.setUploaded(new Date(Long.valueOf(uploadedDate)));
-
-        String language = d.get(IndexEntry.LANGUAGE);
-        if (language != null)
-            indexEntry.setLanguage(language);
-
-        return indexEntry;
+        return IndexEntry.IndexEntryHelper.createIndexEntryInternal(d, pub);
     }
 
     /**

@@ -144,7 +144,7 @@ public class SweepOperationsHelper {
      */
     public static IndexEntry generateIndexEntry(){
 
-        IndexEntry index = new IndexEntry("sweep test url", randomText(), new Date(), MsConfig.Categories.Video, "", "sweep test desc", "");
+        IndexEntry index = new IndexEntry("","sweep test url", randomText(),0, new Date(),"english", MsConfig.Categories.Video, "sweep test desc");
         index.setLeaderId(null);
         
         return index;

@@ -21,7 +21,7 @@ import java.util.Date;
  */
 public class MagnetParser {
 	private SAXParser saxParser;
-    private IndexEntry entry = new IndexEntry("", "", new Date(), MsConfig.Categories.Books, "", "", "");
+    private IndexEntry entry = new IndexEntry("","", "",0, new Date(),"", MsConfig.Categories.Books, "");
 
 	/**
 	 * Handler implementing the callback functions triggered by the parser.

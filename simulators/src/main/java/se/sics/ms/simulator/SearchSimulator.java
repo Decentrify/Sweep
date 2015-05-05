@@ -130,7 +130,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("test url", randomText(), new Date(), MsConfig.Categories.Video, "", "Test Desc", "");
+            IndexEntry index = new IndexEntry("","test url", randomText(),0, new Date(),"english", MsConfig.Categories.Video, "test desc");;
             index.setLeaderId(null);
             trigger(new AddIndexSimulated(index), peer.getNegative(SimulationEventsPort.class));
         }

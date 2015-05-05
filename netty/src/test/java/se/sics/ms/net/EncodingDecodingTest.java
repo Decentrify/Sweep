@@ -170,7 +170,7 @@ public class EncodingDecodingTest {
             Date time = new Date();
             String language = "language";
             String description = "description";
-            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+            IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
             TimeoutId timeoutId = UUID.nextUUID();
             Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
             int partitionId = 1;
@@ -207,7 +207,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -278,7 +278,7 @@ public class EncodingDecodingTest {
         String language = "language";
         String description = "description";
         IndexEntry entry;
-        entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         Collection<IndexEntry> items = new ArrayList<IndexEntry>();
         items.add(entry);
         int numResponses=1;
@@ -751,7 +751,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
