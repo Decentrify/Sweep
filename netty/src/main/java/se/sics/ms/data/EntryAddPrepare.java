@@ -1,39 +1,37 @@
 package se.sics.ms.data;
 
 import se.sics.ms.types.ApplicationEntry;
-import se.sics.ms.types.IndexEntry;
 
 import java.util.UUID;
 
 /**
- * Index Entry Addition Request / Response Container.
- *
- * Created by babbarshaer on 2015-04-18.
+ * Marker Interface for adding entry
+ * Created by babbarshaer on 2015-05-04.
  */
-public class AddApplicationEntry {
-    
-    public static class Request {
-        
+public class EntryAddPrepare {
+
+    public abstract static class Request {
+
         protected final UUID entryAdditionRound;
         protected final ApplicationEntry entry;
-        
+
         public Request(UUID entryAdditionRound, ApplicationEntry entry){
             this.entryAdditionRound = entryAdditionRound;
             this.entry = entry;
         }
-        
+
         public UUID getEntryAdditionRound(){
             return this.entryAdditionRound;
         }
-        
-        public ApplicationEntry getEntry(){
+
+        public ApplicationEntry getApplicationEntry(){
             return this.entry;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || this.getClass().equals(o.getClass())) return false;
+            if (! (o instanceof Request)) return false;
 
             Request request = (Request) o;
 
@@ -59,15 +57,21 @@ public class AddApplicationEntry {
                     '}';
         }
     }
-    
-    public static class Response {
-        
+
+    public abstract static class Response {
+
         protected final UUID entryAdditionRound;
-        
-        public Response(UUID entryAdditionRound){
+        protected final long entryId;
+
+        public Response(UUID entryAdditionRound, long entryId){
             this.entryAdditionRound = entryAdditionRound;
+            this.entryId = entryId;
         }
-        
+
+        public long getEntryId() {
+            return entryId;
+        }
+
         public UUID getEntryAdditionRound(){
             return this.entryAdditionRound;
         }
@@ -75,7 +79,7 @@ public class AddApplicationEntry {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || this.getClass().equals(o.getClass())) return false;
+            if (! (o instanceof Response)) return false;
 
             Response response = (Response) o;
 
@@ -98,4 +102,5 @@ public class AddApplicationEntry {
                     '}';
         }
     }
+
 }

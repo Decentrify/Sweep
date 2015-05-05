@@ -4,6 +4,7 @@ import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.data.ReplicationPrepareCommit;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -22,6 +23,7 @@ public class EntryAdditionRoundInfo {
     private IndexEntry entryToAdd;
     private DecoratedAddress entryAddSourceNode;
     private UUID entryAdditionRoundId;
+    private ApplicationEntry applicationEntry;
     
     public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress> leaderGroupAddress, IndexEntry entry, DecoratedAddress entryAddSourceNode){
 
@@ -29,6 +31,14 @@ public class EntryAdditionRoundInfo {
         this.leaderGroupAddress = leaderGroupAddress;
         this.promiseResponses = 0;
         this.entryToAdd = entry;
+        this.entryAddSourceNode = entryAddSourceNode;
+    }
+
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress>leaderGroupAddress, ApplicationEntry applicationEntry, DecoratedAddress entryAddSourceNode){
+        this.entryAdditionRoundId = entryAdditionRoundId;
+        this.leaderGroupAddress = leaderGroupAddress;
+        this.promiseResponses = 0;
+        this.applicationEntry = applicationEntry;
         this.entryAddSourceNode = entryAddSourceNode;
     }
 
@@ -50,6 +60,10 @@ public class EntryAdditionRoundInfo {
 
     public IndexEntry getEntryToAdd() {
         return entryToAdd;
+    }
+
+    public ApplicationEntry getApplicationEntry(){
+        return this.applicationEntry;
     }
 
     public DecoratedAddress getEntryAddSourceNode() {

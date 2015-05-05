@@ -2,7 +2,6 @@ package se.sics.ms.data;
 
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.EpochUpdate;
-import se.sics.ms.types.IndexEntry;
 
 import java.util.UUID;
 
@@ -10,13 +9,13 @@ import java.util.UUID;
  * Special Landing Entry Container Object.
  * Created by babbarshaer on 2015-05-04.
  */
-public class AddLandingEntry {
+public class LandingEntryAddPrepare {
     
-    public static class Request extends AddIndexEntry.Request{
+    public static class Request extends EntryAddPrepare.Request{
 
         private EpochUpdate previousEpochUpdate;
         
-        public Request(UUID entryAdditionRound, IndexEntry entry, EpochUpdate previousEpochUpdate) {
+        public Request(UUID entryAdditionRound, ApplicationEntry entry, EpochUpdate previousEpochUpdate) {
             super(entryAdditionRound, entry);
             this.previousEpochUpdate = previousEpochUpdate;
         }
@@ -24,9 +23,8 @@ public class AddLandingEntry {
         @Override
         public boolean equals(Object o) {
             
-            if(o == null || o.getClass() != this.getClass()){
-                return false;
-            }
+            if(o == this) return true;
+            if(! (o instanceof  Request)) return false;
             
             Request request = (Request)o;
             if (entry != null ? !entry.equals(request.entry) : request.entry != null) return false;
@@ -51,7 +49,7 @@ public class AddLandingEntry {
     }
     
 
-    public static class Response extends AddIndexEntry.Response{
+    public static class Response extends EntryAddPrepare.Response{
 
         public Response(UUID entryAdditionRound) {
             super(entryAdditionRound);
@@ -59,10 +57,9 @@ public class AddLandingEntry {
 
         @Override
         public boolean equals(Object o) {
-            
-            if(o == null || this.getClass() != o.getClass()){
-                return false;
-            }
+
+            if(o == this) return true;
+            if(! (o instanceof  Response)) return false;
             
             Response response = (Response)o;
             return this.entryAdditionRound.equals(response.entryAdditionRound);

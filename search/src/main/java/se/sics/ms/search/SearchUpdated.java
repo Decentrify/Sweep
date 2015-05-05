@@ -147,7 +147,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<IndexEntry, UUID> pendingForCommit = new HashMap<IndexEntry, UUID>();
+    private HashMap<ApplicationEntry, UUID> pendingForCommit = new HashMap<ApplicationEntry, UUID>();
     private HashMap<UUID, UUID> replicationTimeoutToAdd = new HashMap<UUID, UUID>();
     private HashMap<UUID, Integer> searchPartitionsNumber = new HashMap<UUID, Integer>();
 
@@ -1174,7 +1174,6 @@ public final class SearchUpdated extends ComponentDefinition {
         long id = newEntry.equals(IndexEntry.DEFAULT_ENTRY) ? LANDING_ENTRY_ID : getNextInsertionId();  // Special Entry Id for Landing Entry.
         newEntry.setId(id);
         newEntry.setLeaderId(publicKey);
-        newEntry.setGlobalId(UUID.randomUUID().toString());
         String signature = ApplicationSecurity.generateSignedHash(newEntry, privateKey);
 
         if (signature == null) {
@@ -1183,26 +1182,41 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
         newEntry.setHash(signature);
+
         if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
-            logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
-            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, newEntry, source);
-            entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
+            EntryAddPrepare.Request addPrepareRequest;
+            ApplicationEntry applicationEntry;
 
-            ReplicationPrepareCommit.Request prepareRequest = new ReplicationPrepareCommit.Request(newEntry, request.getEntryAdditionRound());
-            for (DecoratedAddress destination : leaderGroupInformation) {
-                logger.warn("Sending prepare commit request to : {}", destination.getId());
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, prepareRequest), networkPort);
+            if(newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
+
+                applicationEntry = new ApplicationEntry(landingEntryTracker.getEpochId(), self.getId(), id, newEntry);
+                EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
+                addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
             }
 
-            // Trigger for a timeout and how would that work ?
+            else {
+
+                applicationEntry = new ApplicationEntry(currentEpoch, self.getId(), id, newEntry);
+                addPrepareRequest = new ApplicationEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry);
+            }
+
+            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, applicationEntry, source);
+            entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
+            logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
+
+            for (DecoratedAddress destination : leaderGroupInformation) {
+                logger.warn("Sending prepare commit request to : {}", destination.getId());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, addPrepareRequest), networkPort);
+            }
+
             ScheduleTimeout st = new ScheduleTimeout(5000);
             st.setTimeoutEvent(new TimeoutCollection.EntryPrepareResponseTimeout(st, request.getEntryAdditionRound()));
             entryPrepareTimeoutMap.put(request.getEntryAdditionRound(), st.getTimeoutEvent().getTimeoutId());
             trigger(st, timerPort);
 
         } else {
-            logger.warn("{}: Unable to start the index entry commit due to insufficient information about leader group.", self.getId());
+            logger.warn("{}: Unable to start the index entry commit due to insufficient information about leader group.", prefix);
         }
 
     }
@@ -1266,6 +1280,34 @@ public final class SearchUpdated extends ComponentDefinition {
             }
         }
     };
+
+
+    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handlePrepareRequest = new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
+        @Override
+        public void handle(EntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request> event) {
+
+            logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
+
+            IndexEntry entry = request.getApplicationEntry().getEntry();
+
+            if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+                return;
+
+            EntryAddPrepare.Response response;
+
+            if(entry.equals())
+
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
+            ScheduleTimeout st = new ScheduleTimeout(config.getReplicationTimeout());
+            st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getApplicationEntry()));
+            st.getTimeoutEvent().getTimeoutId();
+
+            pendingForCommit.put(request.getApplicationEntry(), st.getTimeoutEvent().getTimeoutId());
+            trigger(st, timerPort);
+        }
+    };
+
 
 
     /**
@@ -2248,18 +2290,6 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
         return createIndexEntryInternal(d, pub);
-    }
-
-    /**
-     * Check if an entry with the given id exists in the local index store.
-     *
-     * @param id the id of the entry
-     * @return true if an entry with the given id exists
-     * @throws java.io.IOException if Lucene errors occur
-     */
-    private boolean entryExists(long id) throws IOException {
-        IndexEntry indexEntry = findById(id);
-        return indexEntry != null ? true : false;
     }
 
     /**
