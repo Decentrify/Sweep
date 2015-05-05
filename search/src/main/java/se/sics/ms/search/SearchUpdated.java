@@ -12,6 +12,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
+import org.javatuples.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
@@ -57,6 +58,7 @@ import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
+import se.sics.ms.util.Pair;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -147,7 +149,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<ApplicationEntry, UUID> pendingForCommit = new HashMap<ApplicationEntry, UUID>();
+    private HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochUpdate>> pendingForCommit = new HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochUpdate>>();
     private HashMap<UUID, UUID> replicationTimeoutToAdd = new HashMap<UUID, UUID>();
     private HashMap<UUID, Integer> searchPartitionsNumber = new HashMap<UUID, Integer>();
 
@@ -261,10 +263,10 @@ public final class SearchUpdated extends ComponentDefinition {
         
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
-        subscribe(handlePrepareCommit, networkPort);
+        subscribe(handleEntryAddPrepareRequest, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
 
-        subscribe(handleEntryAdditionPrepareCommitResponse, networkPort);
+        subscribe(handleEntryAdditionPrepareResponse, networkPort);
         subscribe(handleEntryCommitRequest, networkPort);
         subscribe(addIndexEntryRequestHandler, uiPort);
 
@@ -1282,20 +1284,39 @@ public final class SearchUpdated extends ComponentDefinition {
     };
 
 
-    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handlePrepareRequest = new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
+    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handleEntryAddPrepareRequest = new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
         @Override
         public void handle(EntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request> event) {
 
             logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
+            
+            ApplicationEntry applicationEntry = request.getApplicationEntry();
+            IndexEntry entry = applicationEntry.getEntry();
 
-            IndexEntry entry = request.getApplicationEntry().getEntry();
-
-            if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
+            if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId())){
+                logger.warn("{}: Received a promise for entry addition from unknown node: {}", prefix, event.getSource());
                 return;
-
+            }
+            
             EntryAddPrepare.Response response;
-
-            if(entry.equals())
+            EpochUpdate previousEpochUpdate;
+            ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId());
+            
+            if(entry.equals(IndexEntry.DEFAULT_ENTRY)){
+                
+                logger.debug("{}: Promising for landing entry with details : epoch: {}, leaderId: {}, entry:{} ", new Object[] {prefix, applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId()});
+                
+                LandingEntryAddPrepare.Request landingEntryRequest = (LandingEntryAddPrepare.Request)request;
+                previousEpochUpdate = landingEntryRequest.getPreviousEpochUpdate();
+                response = new LandingEntryAddPrepare.Response(request.getEntryAdditionRound(), entryId);
+            }
+            
+            else{
+                
+                logger.debug("{}: Promising for entry with details : epoch: {}, leaderId: {}, entry:{} ", new Object[] {prefix, applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId()});
+                previousEpochUpdate = EpochUpdate.NONE;
+                response = new ApplicationEntryAddPrepare.Response(request.getEntryAdditionRound(),entryId);
+            }
 
             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
@@ -1303,39 +1324,11 @@ public final class SearchUpdated extends ComponentDefinition {
             st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getApplicationEntry()));
             st.getTimeoutEvent().getTimeoutId();
 
-            pendingForCommit.put(request.getApplicationEntry(), st.getTimeoutEvent().getTimeoutId());
+            pendingForCommit.put(applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate));
             trigger(st, timerPort);
         }
     };
 
-
-
-    /**
-     * The request depicting leader request for the promises from the nodes present in the leader group.
-     * The request needs to be validated that it is from the correct leader and then added to maping depicting pending for commit.
-     */
-    ClassMatchedHandler<ReplicationPrepareCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request>> handlePrepareCommit = new ClassMatchedHandler<ReplicationPrepareCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request>>() {
-        @Override
-        public void handle(ReplicationPrepareCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Request> event) {
-
-            logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
-
-            IndexEntry entry = request.getEntry();
-            if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))
-                return;
-
-            ReplicationPrepareCommit.Response response = new ReplicationPrepareCommit.Response(request.getIndexAdditionRoundId(), request.getEntry().getId());
-            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-
-            ScheduleTimeout st = new ScheduleTimeout(config.getReplicationTimeout());
-            st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getEntry()));
-            st.getTimeoutEvent().getTimeoutId();
-
-            pendingForCommit.put(request.getEntry(), st.getTimeoutEvent().getTimeoutId());
-            trigger(st, timerPort);
-
-        }
-    };
 
     /**
      * The promise for the index entry addition expired and therefore the entry needs to be removed from the map.
@@ -1345,23 +1338,24 @@ public final class SearchUpdated extends ComponentDefinition {
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
 
             logger.warn("{}: Index entry prepare phase timed out. Reset the map information.");
-            if (pendingForCommit.containsKey(awaitingForCommitTimeout.getEntry()))
-                pendingForCommit.remove(awaitingForCommitTimeout.getEntry());
+            if (pendingForCommit.containsKey(awaitingForCommitTimeout.getApplicationEntry()))
+                pendingForCommit.remove(awaitingForCommitTimeout.getApplicationEntry());
         }
     };
+
 
 
     /**
      * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and
      * then send the commit message request to the leader nodes who have replied yes.
      */
-    ClassMatchedHandler<ReplicationPrepareCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response>> handleEntryAdditionPrepareCommitResponse = new ClassMatchedHandler<ReplicationPrepareCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response>>() {
+    ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>> handleEntryAdditionPrepareResponse = new ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>>() {
         @Override
-        public void handle(ReplicationPrepareCommit.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationPrepareCommit.Response> event) {
+        public void handle(EntryAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response> event) {
 
             logger.debug("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
 
-            UUID entryAdditionRoundId = response.getIndexAdditionRoundId();
+            UUID entryAdditionRoundId = response.getEntryAdditionRound();
             EntryAdditionRoundInfo info = entryAdditionTracker.getEntryAdditionRoundInfo(entryAdditionRoundId);
 
             if (info == null) {
@@ -1378,18 +1372,20 @@ public final class SearchUpdated extends ComponentDefinition {
                     CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                     trigger(ct, timerPort);
 
-                    IndexEntry entryToCommit = info.getEntryToAdd();
+                    ApplicationEntry entryToCommit = info.getApplicationEntry();
                     UUID commitTimeout = UUID.randomUUID(); //What's it purpose.
-                    addEntryLocal(entryToCommit);   // Commit to local first.
+                    addEntryLocal(entryToCommit.getEntry());   // Commit to local first. // FIXME: Commit the application entry, Also check for the
 
-                    ByteBuffer idBuffer = ByteBuffer.allocate(8);
-                    idBuffer.putLong(entryToCommit.getId());
+                    ByteBuffer idBuffer = ByteBuffer.allocate( (8*2) + 4);
+                    idBuffer.putLong(entryToCommit.getEpochId());
+                    idBuffer.putInt(entryToCommit.getLeaderId());
+                    idBuffer.putLong(entryToCommit.getEntryId());
 
                     String signature = ApplicationSecurity.generateRSASignature(idBuffer.array(), privateKey);
-
-                    ReplicationCommit.Request commitRequest = new ReplicationCommit.Request(commitTimeout, entryToCommit.getId(), signature);
+                    EntryAddCommit.Request entryCommitRequest = new EntryAddCommit.Request(commitTimeout, new ApplicationEntry.ApplicationEntryId(entryToCommit.getEpochId(), entryToCommit.getLeaderId(), entryToCommit.getEntryId()), signature);
+                    
                     for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, commitRequest), networkPort);
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, entryCommitRequest), networkPort);
                     }
 
                     // Send reply to the originator node. ( Not actually two phase commit as I assume that they will have added entries. )
@@ -1424,18 +1420,22 @@ public final class SearchUpdated extends ComponentDefinition {
      * <b>CAUTION :</b> Currently we are not replying to the node back and simply without any questioning add the entry
      * locally, simply the verifying the signature.
      */
-    ClassMatchedHandler<ReplicationCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationCommit.Request>> handleEntryCommitRequest = new ClassMatchedHandler<ReplicationCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationCommit.Request>>() {
+    ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>> handleEntryCommitRequest = new ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>>() {
+        
         @Override
-        public void handle(ReplicationCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ReplicationCommit.Request> event) {
+        public void handle(EntryAddCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request> event) {
 
             logger.debug("{}: Received index entry commit request from : {}", self.getId(), event.getSource());
-            long id = request.getEntryId();
-
+            ApplicationEntry.ApplicationEntryId applicationEntryId = request.getEntryId();
+            
             if (leaderIds.isEmpty())
                 return;
 
-            ByteBuffer idBuffer = ByteBuffer.allocate(8);
-            idBuffer.putLong(id);
+            ByteBuffer idBuffer = ByteBuffer.allocate((2*8) + 4);
+            idBuffer.putLong(applicationEntryId.getEpochId());
+            idBuffer.putInt(applicationEntryId.getLeaderId());
+            idBuffer.putLong(applicationEntryId.getEntryId());
+            
             try {
                 if (!ApplicationSecurity.verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
                     return;
@@ -1447,39 +1447,39 @@ public final class SearchUpdated extends ComponentDefinition {
                 logger.error(self.getId() + " " + e.getMessage());
             }
 
-            IndexEntry toCommit = null;
-            for (IndexEntry entry : pendingForCommit.keySet()) {
-                if (entry.getId() == id) {
-                    toCommit = entry;
+            ApplicationEntry toCommit = null;
+            for (ApplicationEntry appEntry : pendingForCommit.keySet()) {
+                if (appEntry.getEpochId() == applicationEntryId.getEpochId() && appEntry.getLeaderId() == applicationEntryId.getLeaderId() && appEntry.getEntryId() == appEntry.getEntryId()) {
+                    toCommit = appEntry;
                     break;
                 }
             }
 
             if (toCommit == null) {
-                logger.warn("{}: Unable to find index entry with id: {} to commit.", self.getId(), id);
+                logger.warn("{}: Unable to find index entry to commit.", self.getId());
                 return;
             }
 
-            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit));
+            CancelTimeout ct = new CancelTimeout(pendingForCommit.get(toCommit).getValue0());
             trigger(ct, timerPort);
 
             try {
 
-                addEntryLocal(toCommit);
+                addEntryLocal(toCommit.getEntry()); // Fix the
                 pendingForCommit.remove(toCommit);
-                long maxStoredId = getMaxStoredId();
-
-                ArrayList<Long> missingIds = new ArrayList<Long>();
-                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
-                while (currentMissingValue < toCommit.getId()) {
-                    missingIds.add(currentMissingValue);
-                    currentMissingValue++;
-                }
-
-                if (missingIds.size() > 0) {
-                    Repair.Request repairRequest = new Repair.Request(request.getCommitRoundId(), missingIds.toArray(new Long[missingIds.size()]));     // FIXME: Repair Message has no associated round.
-                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, repairRequest), networkPort);
-                }
+//                long maxStoredId = getMaxStoredId();
+//
+//                ArrayList<Long> missingIds = new ArrayList<Long>();
+//                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
+//                while (currentMissingValue < toCommit.getId()) {
+//                    missingIds.add(currentMissingValue);
+//                    currentMissingValue++;
+//                }
+//
+//                if (missingIds.size() > 0) {
+//                    Repair.Request repairRequest = new Repair.Request(request.getCommitRoundId(), missingIds.toArray(new Long[missingIds.size()]));     // FIXME: Repair Message has no associated round.
+//                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, repairRequest), networkPort);
+//                }
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             } catch (LuceneAdaptorException e) {

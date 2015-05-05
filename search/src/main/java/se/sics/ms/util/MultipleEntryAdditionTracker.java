@@ -39,18 +39,6 @@ public class MultipleEntryAdditionTracker {
     }
 
     /**
-     * Convenience Method for collating and adding promise responses.
-     * @param response Promise Response.
-     */
-    public void addEntryAddPromiseResponse(ReplicationPrepareCommit.Response response){
-
-        UUID roundId = response.getIndexAdditionRoundId();
-        if(this.entryAdditionRoundInfoMap != null && this.entryAdditionRoundInfoMap.containsKey(roundId)){
-            this.entryAdditionRoundInfoMap.get(roundId).addEntryAddPromiseResponse(response);
-        }
-    }
-
-    /**
      * Based on the entry addition round id, fetch the entry addition round information
      * stored locally in the map.
      *

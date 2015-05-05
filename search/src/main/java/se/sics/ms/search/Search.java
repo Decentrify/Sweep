@@ -1300,7 +1300,7 @@ public final class Search extends ComponentDefinition {
                 return;
             }
 
-            info.addEntryAddPromiseResponse(response);
+            info.addEntryAddPromiseResponse(null); // FIXME: Will be fixed when ported to epoch mechanism.
             if (info.isPromiseAccepted()) {
 
                 try {

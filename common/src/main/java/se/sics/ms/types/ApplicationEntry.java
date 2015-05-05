@@ -88,6 +88,64 @@ public class ApplicationEntry {
     }
 
 
+    public static class ApplicationEntryId {
+        
+        private final long epochId;
+        private final int leaderId;
+        private final long entryId;
+        
+        public ApplicationEntryId(long epochId, int leaderId, long entryId){
+            
+            this.epochId = epochId;
+            this.leaderId = leaderId;
+            this.entryId = entryId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ApplicationEntryId that = (ApplicationEntryId) o;
+
+            if (entryId != that.entryId) return false;
+            if (epochId != that.epochId) return false;
+            if (leaderId != that.leaderId) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = (int) (epochId ^ (epochId >>> 32));
+            result = 31 * result + leaderId;
+            result = 31 * result + (int) (entryId ^ (entryId >>> 32));
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "ApplicationEntryId{" +
+                    "epochId=" + epochId +
+                    ", leaderId=" + leaderId +
+                    ", entryId=" + entryId +
+                    '}';
+        }
+
+        public long getEpochId() {
+            return epochId;
+        }
+
+        public int getLeaderId() {
+            return leaderId;
+        }
+
+        public long getEntryId() {
+            return entryId;
+        }
+    }
+    
+    
 
     public static class ApplicationEntryHelper {
 

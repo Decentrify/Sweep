@@ -2,6 +2,7 @@ package se.sics.ms.util;
 
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
+import se.sics.ms.data.EntryAddPrepare;
 import se.sics.ms.data.ReplicationPrepareCommit;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
 import se.sics.ms.types.ApplicationEntry;
@@ -43,9 +44,9 @@ public class EntryAdditionRoundInfo {
     }
 
 
-    public void addEntryAddPromiseResponse(ReplicationPrepareCommit.Response response){
+    public void addEntryAddPromiseResponse(EntryAddPrepare.Response response){
         
-        if(entryAdditionRoundId != null && response.getIndexAdditionRoundId().equals(entryAdditionRoundId)){
+        if(entryAdditionRoundId != null && response.getEntryAdditionRound().equals(entryAdditionRoundId)){
             promiseResponses +=1;
         }
     }

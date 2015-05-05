@@ -61,45 +61,49 @@ public class EntryAddPrepare {
     public abstract static class Response {
 
         protected final UUID entryAdditionRound;
-        protected final long entryId;
+        protected final ApplicationEntry.ApplicationEntryId entryId;
 
-        public Response(UUID entryAdditionRound, long entryId){
+        public Response(UUID entryAdditionRound, ApplicationEntry.ApplicationEntryId entryId){
             this.entryAdditionRound = entryAdditionRound;
             this.entryId = entryId;
         }
 
-        public long getEntryId() {
-            return entryId;
-        }
-
-        public UUID getEntryAdditionRound(){
-            return this.entryAdditionRound;
-        }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (! (o instanceof Response)) return false;
+            if (o == null || getClass() != o.getClass()) return false;
 
             Response response = (Response) o;
 
             if (entryAdditionRound != null ? !entryAdditionRound.equals(response.entryAdditionRound) : response.entryAdditionRound != null)
                 return false;
+            if (entryId != null ? !entryId.equals(response.entryId) : response.entryId != null) return false;
 
             return true;
         }
 
         @Override
         public int hashCode() {
-            return entryAdditionRound != null ? entryAdditionRound.hashCode() : 0;
+            int result = entryAdditionRound != null ? entryAdditionRound.hashCode() : 0;
+            result = 31 * result + (entryId != null ? entryId.hashCode() : 0);
+            return result;
         }
-
 
         @Override
         public String toString() {
             return "Response{" +
-                    "electionRoundId=" + entryAdditionRound +
+                    "entryAdditionRound=" + entryAdditionRound +
+                    ", entryId=" + entryId +
                     '}';
+        }
+
+        public ApplicationEntry.ApplicationEntryId getEntryId() {
+            return entryId;
+        }
+
+        public UUID getEntryAdditionRound(){
+            return this.entryAdditionRound;
         }
     }
 

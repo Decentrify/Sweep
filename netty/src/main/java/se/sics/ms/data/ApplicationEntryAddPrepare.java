@@ -32,8 +32,8 @@ public class ApplicationEntryAddPrepare {
 
     public static class Response extends EntryAddPrepare.Response{
 
-        public Response(UUID entryAdditionRound) {
-            super(entryAdditionRound);
+        public Response(UUID entryAdditionRound, ApplicationEntry.ApplicationEntryId entryId) {
+            super(entryAdditionRound, entryId);
         }
     }
 

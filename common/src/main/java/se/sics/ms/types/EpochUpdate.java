@@ -8,6 +8,7 @@ package se.sics.ms.types;
  */
 public class EpochUpdate implements Comparable<EpochUpdate>{
 
+    public static final EpochUpdate NONE = new EpochUpdate((long)-1, 0 , (long)-1);
     private final long epochId;
     private final int leaderId;
     private long numEntries;
