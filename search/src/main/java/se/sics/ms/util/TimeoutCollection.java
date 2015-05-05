@@ -71,10 +71,14 @@ public class TimeoutCollection {
             return this.entryAdditionRoundId;
         }
     }
-
-
-
     
+    
+    public static class LandingEntryAddTimeout extends Timeout{
+
+        public LandingEntryAddTimeout(ScheduleTimeout request) {
+            super(request);
+        }
+    }
     
                 
 }

@@ -1,5 +1,6 @@
 package se.sics.ms.data;
 
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
 
 import java.util.UUID;
@@ -9,14 +10,14 @@ import java.util.UUID;
  *
  * Created by babbarshaer on 2015-04-18.
  */
-public class AddIndexEntry {
+public class AddApplicationEntry {
     
     public static class Request {
         
         protected final UUID entryAdditionRound;
-        protected final IndexEntry entry;
+        protected final ApplicationEntry entry;
         
-        public Request(UUID entryAdditionRound, IndexEntry entry){
+        public Request(UUID entryAdditionRound, ApplicationEntry entry){
             this.entryAdditionRound = entryAdditionRound;
             this.entry = entry;
         }
@@ -25,14 +26,14 @@ public class AddIndexEntry {
             return this.entryAdditionRound;
         }
         
-        public IndexEntry getEntry(){
+        public ApplicationEntry getEntry(){
             return this.entry;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof Request)) return false;
+            if (o == null || this.getClass().equals(o.getClass())) return false;
 
             Request request = (Request) o;
 
@@ -74,7 +75,7 @@ public class AddIndexEntry {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof Response)) return false;
+            if (o == null || this.getClass().equals(o.getClass())) return false;
 
             Response response = (Response) o;
 

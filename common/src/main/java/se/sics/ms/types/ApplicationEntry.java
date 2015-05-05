@@ -1,7 +1,6 @@
-package se.sics.ms.data;
+package se.sics.ms.types;
 
 import org.apache.lucene.document.*;
-import se.sics.ms.types.IndexEntry;
 
 /**
  * Composite Object keeping track of entries added in the system and other important metadata associated

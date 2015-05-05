@@ -14,13 +14,14 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Representation of one entry in the search database.
  */
 public class IndexEntry implements Serializable {
 
-    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry("none", 0, "landing-entry", "none", 0, null, "none", MsConfig.Categories.Default, "none", "none", null);
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, null, "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";

@@ -7,6 +7,7 @@ import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.store.Directory;
 import se.sics.ms.common.LuceneAdaptorBasic;
 import se.sics.ms.common.LuceneAdaptorException;
+import se.sics.ms.types.ApplicationEntry;
 
 import java.util.List;
 
