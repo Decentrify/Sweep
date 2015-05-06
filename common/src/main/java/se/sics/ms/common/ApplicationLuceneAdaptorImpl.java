@@ -1,4 +1,4 @@
-package se.sics.ms.data;
+package se.sics.ms.common;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -8,7 +8,6 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.ApplicationEntry;
 
 import java.io.IOException;

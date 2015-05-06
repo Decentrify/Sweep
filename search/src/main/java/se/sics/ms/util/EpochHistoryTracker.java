@@ -32,5 +32,17 @@ public class EpochHistoryTracker {
     public EpochUpdate getLastUpdate(){
         return this.epochUpdateHistory.last();
     }
-    
+
+    public EpochUpdate getNextUpdateToTrack(EpochUpdate update){
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public EpochUpdate getSelfUpdate(EpochUpdate update){
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public EpochUpdate getInitialEpochUpdate(){
+        throw new UnsupportedOperationException("Not supported yet");
+    }
+
 }

@@ -17,8 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.ApplicationEntry;
-import se.sics.ms.data.ApplicationLuceneAdaptor;
-import se.sics.ms.data.ApplicationLuceneAdaptorImpl;
+import se.sics.ms.common.ApplicationLuceneAdaptor;
+import se.sics.ms.common.ApplicationLuceneAdaptorImpl;
 import se.sics.ms.types.IndexEntry;
 
 import java.io.IOException;

@@ -26,10 +26,7 @@ import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
-import se.sics.ms.common.ApplicationSelf;
-import se.sics.ms.common.IndexEntryLuceneAdaptor;
-import se.sics.ms.common.IndexEntryLuceneAdaptorImpl;
-import se.sics.ms.common.LuceneAdaptorException;
+import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.data.*;
@@ -1471,7 +1468,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             try {
 
-                addEntryLocal(toCommit.getEntry()); // Fix the
+                addEntryLocal(toCommit.getEntry()); // FIX ADD ENTRY MECHANISM.
                 pendingForCommit.remove(toCommit);
 //                long maxStoredId = getMaxStoredId();
 //
@@ -1790,7 +1787,7 @@ public final class SearchUpdated extends ComponentDefinition {
         if (searchIssued == null)
             return;
 
-        if (searchIssued.getSecond() != numOfPartitions)
+        if (!searchIssued.getSecond().equals(numOfPartitions))
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
                     config.getQueryTimeout(), numOfPartitions, searchIssued.getSecond()));
         else
@@ -1902,6 +1899,22 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
     /**
+     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the Lucene index using the given
+     * writer.
+     *
+     * @param adaptor the adaptor used to add the {@link se.sics.ms.types.IndexEntry}
+     * @param entry   the {@link se.sics.ms.types.IndexEntry} to be added
+     * @throws se.sics.ms.common.LuceneAdaptorException in case the adding operation failed
+     */
+    private void addEntryToLucene(ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws LuceneAdaptorException {
+
+        logger.trace("{}: Going to add entry :{} ", prefix, entry.getApplicationEntryId());
+        Document doc = new Document();
+        doc = ApplicationEntry.ApplicationEntryHelper.createDocumentFromEntry(doc, entry);
+        adaptor.addDocumentToLucene(doc);
+    }
+
+    /**
      * Add the given {@link se.sics.ms.types.IndexEntry} to the Lucene index using the given
      * writer.
      *
@@ -1918,7 +1931,33 @@ public final class SearchUpdated extends ComponentDefinition {
         adaptor.addDocumentToLucene(doc);
     }
 
-    ;
+    /**
+     * Add a new {@link se.sics.ms.types.IndexEntry} to the local Lucene index.
+     *
+     * @param entry the {@link se.sics.ms.types.ApplicationEntry} to be added
+     * @throws java.io.IOException if the Lucene index fails to store the entry
+     */
+    private void addEntryLocalUpdated(ApplicationEntry entry, EpochUpdate previousEpoch) throws IOException, LuceneAdaptorException {
+
+        // FIX: This requires of lowest missing entry tracker.
+        // FIX: Add entry to local index of lucene.
+        // FIX: Inform the components about the self.
+        // FIX: Update the lowest missing tracker and also come with a strategy to synchronize the epoch update history and lowest missing tracker information.
+
+        if(entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
+
+            logger.debug("{}: Request to add a new landing entry in system");
+            EpochUpdate update = new EpochUpdate(entry.getEpochId(), entry.getLeaderId());
+            epochHistoryTracker.addEpochUpdate(update);
+
+            // Close the previous epoch update also.
+        }
+
+        // Inform the lowest missing entry tracker of the entry addition.
+
+        addEntryToLucene(null, entry); // TODO: Create updated lucene adaptor.
+        throw new UnsupportedOperationException("Functionality Under Development.");
+    }
 
     /**
      * Add a new {@link se.sics.ms.types.IndexEntry} to the local Lucene index.
@@ -2662,6 +2701,126 @@ public final class SearchUpdated extends ComponentDefinition {
             informListeningComponentsAboutUpdates(self);
         }
     };
+
+
+    /**
+     * Inner class used to keep track of the lowest missing index entry and also
+     * communicate with the Epoch History Tracker, which for now keeps history of the
+     * epoch updates.
+     */
+    private class LowestMissingEntryTracker {
+
+        private EpochUpdate currentTrackingUpdate;
+        private Set<ApplicationEntry.ApplicationEntryId> existingEntries;
+        private long currentTrackingId;
+        private EpochHistoryTracker historyTracker;
+
+        public LowestMissingEntryTracker (EpochHistoryTracker historyTracker) {
+
+            this.historyTracker = historyTracker;
+            this.existingEntries = new HashSet<ApplicationEntry.ApplicationEntryId>();
+            this.currentTrackingId = 0;
+        }
+
+
+        Handler<TimeoutCollection.EntryExchangeRound> entryExchangeRoundHandler = new Handler<TimeoutCollection.EntryExchangeRound>() {
+            @Override
+            public void handle(TimeoutCollection.EntryExchangeRound entryExchangeRound) {
+
+                logger.info("Entry Exchange Round initiated ... ");
+
+                updateCurrentTracking();
+
+                startEntryPullMechanism();
+            }
+        };
+
+
+        /**
+         * Initiate the main entry pull mechanism.
+         */
+        private void startEntryPullMechanism() {
+
+            if ( currentTrackingUpdate != null ){
+
+                logger.info("Starting with the index pull mechanism.");
+                getApplicationEntryIdTracked();
+            }
+            else{
+                logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update : {} ", prefix, currentTrackingUpdate);
+            }
+        }
+
+        /**
+         * Analyze the current tracking information based on the information provided by the
+         * History Tracker.
+         */
+        private void updateCurrentTracking() {
+
+            if(currentTrackingUpdate == null){
+                // ASK FOR THE INITIAL TRACKING UPDATE.
+                currentTrackingUpdate = historyTracker.getInitialEpochUpdate();
+            }
+
+            else{
+
+                if (currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.ONGOING){
+                    // CHECK IF WE RECEIVED THE UPDATE TO CLOSE THE CURRENT UPDATE.
+                    currentTrackingUpdate = historyTracker.getSelfUpdate(currentTrackingUpdate);
+                }
+
+                // CHECK IF TIME TO TRACK OR PULL FROM NEW EPOCH UPDATE.
+                if( (currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.COMPLETED)
+                        && (currentTrackingId >= currentTrackingUpdate.getNumEntries()) ) {
+
+                    EpochUpdate nextUpdate = epochHistoryTracker.getNextUpdateToTrack(currentTrackingUpdate);
+                    if(nextUpdate != null){
+
+                        currentTrackingUpdate = nextUpdate;
+                        currentTrackingId = 0;
+                    }
+                }
+            }
+        }
+
+        /**
+         * In case the node adds a new entry information, this needs to be conveyed to the
+         * @param entryIdInfo Entry ID component information.
+         */
+        public void checkAndUpdateExistingEntries(ApplicationEntry.ApplicationEntryId entryIdInfo){
+
+            if(currentTrackingUpdate != null) {
+                ApplicationEntry.ApplicationEntryId idBeingTracked =
+                        getApplicationEntryIdTracked();
+
+                if(idBeingTracked.equals(entryIdInfo)) {
+                    logger.info("Received update for the current tracked entry");
+                    currentTrackingId ++;
+                    return;
+                }
+
+                else if (idBeingTracked.compareTo(entryIdInfo) > 0){
+                    logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entryIdInfo, getApplicationEntryIdTracked());
+                    throw new IllegalStateException(" Trying to add entry that is smaller than the entry tracked");
+                }
+            }
+
+            existingEntries.add(entryIdInfo);
+        }
+
+        /**
+         * Check for the current entry information that is being tracked by
+         * the application in form of Entry Pull Mechanism.
+         *
+         * @return Entry Being
+         */
+        public ApplicationEntry.ApplicationEntryId getApplicationEntryIdTracked(){
+
+            return (currentTrackingUpdate != null)
+                    ? new ApplicationEntry.ApplicationEntryId(currentTrackingUpdate.getEpochId(), currentTrackingUpdate.getLeaderId(), currentTrackingId)
+                    : null;
+        }
+    }
 
 }
 

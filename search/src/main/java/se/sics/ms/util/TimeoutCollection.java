@@ -22,6 +22,15 @@ public class TimeoutCollection {
         }
     }
 
+
+    public static class EntryExchangeRound extends Timeout{
+
+        protected EntryExchangeRound(SchedulePeriodicTimeout request) {
+            super(request);
+        }
+    }
+
+
     // Control Message Exchange Round.
     public static class ControlMessageExchangeRound extends Timeout {
 

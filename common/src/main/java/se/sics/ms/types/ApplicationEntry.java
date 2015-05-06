@@ -78,7 +78,11 @@ public class ApplicationEntry {
         return this.applicationEntryId;
     }
 
-    public static class ApplicationEntryId {
+
+    /**
+     * Entry Id class encapsulating the components of the entry id used to create dense spaces.
+     */
+    public static class ApplicationEntryId implements  Comparable<ApplicationEntryId>{
         
         private final long epochId;
         private final int leaderId;
@@ -132,6 +136,27 @@ public class ApplicationEntry {
 
         public long getEntryId() {
             return entryId;
+        }
+
+        @Override
+        public int compareTo(ApplicationEntryId o) {
+
+            if(o == null){
+                throw new IllegalArgumentException("Cannot perform comparison with Null Value");
+            }
+
+            int epochCompareResult = Long.valueOf(this.epochId).compareTo(o.epochId);
+            if(epochCompareResult != 0){
+                return epochCompareResult;
+            }
+
+            int leaderIdCompareResult = Integer.valueOf(this.leaderId).compareTo(o.leaderId);
+            if(leaderIdCompareResult != 0){
+                return leaderIdCompareResult;
+            }
+
+            return Long.valueOf(this.entryId).compareTo(o.entryId);
+
         }
     }
     

@@ -1,4 +1,4 @@
-package se.sics.ms.data;
+package se.sics.ms.common;
 
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.Query;

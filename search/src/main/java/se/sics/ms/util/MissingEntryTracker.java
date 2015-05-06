@@ -16,7 +16,7 @@ public class MissingEntryTracker {
     private Map<Long, org.javatuples.Pair<Integer, Long>> entriesAdded;
     private long missingEntryId;
 
-    public MissingEntryTracker(){
+    public MissingEntryTracker(EpochHistoryTracker tracker){
         entriesAdded = new HashMap<Long, Pair<Integer, Long>>();
     }
     
