@@ -74,6 +74,9 @@ public class ApplicationEntry {
         return entry;
     }
 
+    public ApplicationEntryId getApplicationEntryId(){
+        return this.applicationEntryId;
+    }
 
     public static class ApplicationEntryId {
         

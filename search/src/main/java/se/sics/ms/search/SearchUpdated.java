@@ -1246,7 +1246,10 @@ public final class SearchUpdated extends ComponentDefinition {
     };
 
 
-    /*
+    /**
+     * Get the current insertion id and
+     * increment it to keep track of the next one.
+     *
      * @return a new id for a new {@link IndexEntry}
      */
     private long getNextInsertionId() {
@@ -1283,7 +1286,10 @@ public final class SearchUpdated extends ComponentDefinition {
         }
     };
 
-
+    /**
+     * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry 
+     * and make necessary modifications in the structure used to hold the associated data.
+     */
     ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handleEntryAddPrepareRequest = new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
         @Override
         public void handle(EntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request> event) {
@@ -1304,7 +1310,7 @@ public final class SearchUpdated extends ComponentDefinition {
             
             if(entry.equals(IndexEntry.DEFAULT_ENTRY)){
                 
-                logger.debug("{}: Promising for landing entry with details : epoch: {}, leaderId: {}, entry:{} ", new Object[] {prefix, applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId()});
+                logger.debug("{}: Promising for landing entry with details : {}", prefix, applicationEntry.getApplicationEntryId());
                 
                 LandingEntryAddPrepare.Request landingEntryRequest = (LandingEntryAddPrepare.Request)request;
                 previousEpochUpdate = landingEntryRequest.getPreviousEpochUpdate();
@@ -1313,7 +1319,7 @@ public final class SearchUpdated extends ComponentDefinition {
             
             else{
                 
-                logger.debug("{}: Promising for entry with details : epoch: {}, leaderId: {}, entry:{} ", new Object[] {prefix, applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId()});
+                logger.debug("{}: Promising for entry with details : {} ", prefix, applicationEntry.getApplicationEntryId());
                 previousEpochUpdate = EpochUpdate.NONE;
                 response = new ApplicationEntryAddPrepare.Response(request.getEntryAdditionRound(),entryId);
             }
