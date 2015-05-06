@@ -1192,14 +1192,14 @@ public final class SearchUpdated extends ComponentDefinition {
 
             if(newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
-                applicationEntry = new ApplicationEntry(landingEntryTracker.getEpochId(), self.getId(), id, newEntry);
+                applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(landingEntryTracker.getEpochId(), self.getId(), id), newEntry);
                 EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
                 addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
             }
 
             else {
 
-                applicationEntry = new ApplicationEntry(currentEpoch, self.getId(), id, newEntry);
+                applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(currentEpoch, self.getId(), id), newEntry);
                 addPrepareRequest = new ApplicationEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry);
             }
 
@@ -1449,7 +1449,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             ApplicationEntry toCommit = null;
             for (ApplicationEntry appEntry : pendingForCommit.keySet()) {
-                if (appEntry.getEpochId() == applicationEntryId.getEpochId() && appEntry.getLeaderId() == applicationEntryId.getLeaderId() && appEntry.getEntryId() == appEntry.getEntryId()) {
+                if (appEntry.getEpochId() == applicationEntryId.getEpochId() && appEntry.getLeaderId() == applicationEntryId.getLeaderId() && appEntry.getEntryId() == applicationEntryId.getEntryId()) {
                     toCommit = appEntry;
                     break;
                 }

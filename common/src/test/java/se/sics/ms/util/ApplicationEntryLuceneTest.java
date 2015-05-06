@@ -109,7 +109,8 @@ public class ApplicationEntryLuceneTest {
      * @return Entry
      */
     public ApplicationEntry createDefaultApplicationEntry (long epochId, int leaderId, long entryId){
-        return new ApplicationEntry(epochId, leaderId, entryId);
+        ApplicationEntry.ApplicationEntryId applicationEntryId = new ApplicationEntry.ApplicationEntryId(epochId, leaderId, entryId);
+        return new ApplicationEntry(applicationEntryId);
     }
 
 

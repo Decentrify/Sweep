@@ -14,35 +14,25 @@ public class ApplicationEntry {
     public static String LEADER_ID = "leaderId";
     public static String ENTRY_ID = "entryId";
 
-    private long epochId;
-    private int leaderId;
-    private long entryId;
-
+    ApplicationEntryId applicationEntryId;
     private IndexEntry entry;
 
 
-    public ApplicationEntry(long epochId, int leaderId, long entryId){
-
-        this.epochId = epochId;
-        this.leaderId =leaderId;
-        this.entryId = entryId;
+    public ApplicationEntry(ApplicationEntryId applicationEntryId){
+        this.applicationEntryId = applicationEntryId;
         this.entry = IndexEntry.DEFAULT_ENTRY;
     }
 
-    public ApplicationEntry(long epochId, int leaderId, long entryId, IndexEntry entry){
-
-        this.epochId = epochId;
-        this.leaderId = leaderId;
-        this.entryId = entryId;
+    public ApplicationEntry(ApplicationEntryId applicationEntryId, IndexEntry entry){
+        this.applicationEntryId=applicationEntryId;
         this.entry = entry;
     }
+
 
     @Override
     public String toString() {
         return "ApplicationEntry{" +
-                "epochId=" + epochId +
-                ", leaderId=" + leaderId +
-                ", entryId=" + entryId +
+                "applicationEntryId=" + applicationEntryId +
                 ", entry=" + entry +
                 '}';
     }
@@ -50,13 +40,12 @@ public class ApplicationEntry {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof ApplicationEntry)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
 
         ApplicationEntry that = (ApplicationEntry) o;
 
-        if (entryId != that.entryId) return false;
-        if (epochId != that.epochId) return false;
-        if (leaderId != that.leaderId) return false;
+        if (applicationEntryId != null ? !applicationEntryId.equals(that.applicationEntryId) : that.applicationEntryId != null)
+            return false;
         if (entry != null ? !entry.equals(that.entry) : that.entry != null) return false;
 
         return true;
@@ -64,23 +53,21 @@ public class ApplicationEntry {
 
     @Override
     public int hashCode() {
-        int result = (int) (epochId ^ (epochId >>> 32));
-        result = 31 * result + leaderId;
-        result = 31 * result + (int) (entryId ^ (entryId >>> 32));
+        int result = applicationEntryId != null ? applicationEntryId.hashCode() : 0;
         result = 31 * result + (entry != null ? entry.hashCode() : 0);
         return result;
     }
 
     public long getEpochId() {
-        return epochId;
+        return this.applicationEntryId.getEpochId();
     }
 
     public int getLeaderId() {
-        return leaderId;
+        return this.applicationEntryId.getLeaderId();
     }
 
     public long getEntryId() {
-        return entryId;
+        return this.applicationEntryId.getEntryId();
     }
 
     public IndexEntry getEntry() {
@@ -161,8 +148,9 @@ public class ApplicationEntry {
             int leaderId = Integer.valueOf(d.get(ApplicationEntry.LEADER_ID));
             long entryId = Long.valueOf(d.get(ApplicationEntry.ENTRY_ID));
             IndexEntry entry = IndexEntry.IndexEntryHelper.createIndexEntry(d);
-
-            return new ApplicationEntry(epochId, leaderId, entryId, entry);
+            
+            ApplicationEntryId applicationEntryId = new ApplicationEntryId(epochId, leaderId, entryId);
+            return new ApplicationEntry(applicationEntryId, entry);
         }
 
 

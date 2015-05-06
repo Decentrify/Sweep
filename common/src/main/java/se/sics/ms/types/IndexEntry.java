@@ -21,7 +21,7 @@ import java.util.UUID;
  */
 public class IndexEntry implements Serializable {
 
-    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, null, "none", MsConfig.Categories.Default, "none", "none", null);
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, new Date(), "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";
@@ -223,22 +223,25 @@ public class IndexEntry implements Serializable {
             doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
             doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
             doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
+            doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
+            
             if (entry.getLeaderId() == null)
                 doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
             else
                 doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
 
-            if (entry.getFileSize() != 0) {
-                doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
-            }
-
             if (entry.getUploaded() != null) {
-                doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(),
-                        Field.Store.YES));
+                doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(), Field.Store.YES));
+            }
+            else {
+                doc.add(new LongField(IndexEntry.UPLOADED, (new Date()).getTime(), Field.Store.YES));
             }
 
             if (entry.getLanguage() != null) {
                 doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
+            }
+            else{
+                doc.add(new StringField(IndexEntry.LANGUAGE, "english", Field.Store.YES));
             }
 
             return doc;
@@ -290,7 +293,7 @@ public class IndexEntry implements Serializable {
             String description = d.get(IndexEntry.DESCRIPTION) != null ? d.get(IndexEntry.DESCRIPTION) : "";
             String hash = d.get(IndexEntry.HASH) != null ? d.get(IndexEntry.HASH) : "";
             long fileSize = d.get(IndexEntry.FILE_SIZE) != null ? Long.valueOf(d.get(IndexEntry.FILE_SIZE)) : 0;
-            Date uploadedDate = d.get(IndexEntry.UPLOADED) != null ? new Date(Long.valueOf(IndexEntry.UPLOADED)) : new Date();
+            Date uploadedDate = d.get(IndexEntry.UPLOADED) != null ? new Date(Long.valueOf(d.get(IndexEntry.UPLOADED))) : new Date();
             String language = d.get(IndexEntry.LANGUAGE) != null ? d.get(IndexEntry.LANGUAGE) : "";
 
             return new IndexEntry(globalId, id, url, fileName, fileSize, uploadedDate, language, category, description, hash, pub);
