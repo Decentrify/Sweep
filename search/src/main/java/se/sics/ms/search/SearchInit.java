@@ -12,7 +12,7 @@ import java.security.PublicKey;
 /**
  * The init event for Search.
  */
-public final class SearchInit extends Init<Search> {
+public final class SearchInit extends Init<SearchUpdated> {
     
 	private final ApplicationSelf self;
 	private final SearchConfiguration configuration;

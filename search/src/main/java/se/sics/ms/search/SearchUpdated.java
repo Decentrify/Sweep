@@ -179,6 +179,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
     private ApplicationLuceneAdaptor searchEntryLuceneAdaptor;
+    private LowestMissingEntryTracker lowestMissingEntryTracker;
 
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
@@ -237,7 +238,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
         doInit(init);
         subscribe(handleStart, control);
-        subscribe(handleRound, timerPort);
+//        subscribe(handleRound, timerPort);
         subscribe(handleAddIndexSimulated, simulationEventsPort);
         subscribe(handleIndexHashExchangeRequest, networkPort);
 
@@ -261,6 +262,7 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(handleRepairRequest, networkPort);
         subscribe(handleRepairResponse, networkPort);
         subscribe(handleEntryAddPrepareRequest, networkPort);
+        subscribe(handleEntryAddPrepareRequestUpdated, networkPort);
         subscribe(handleAwaitingForCommitTimeout, timerPort);
 
         subscribe(handleEntryAdditionPrepareResponse, networkPort);
@@ -297,6 +299,9 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(leaderUpdateHandler, electionPort);
         subscribe(enableLGMembershipHandler, electionPort);
         subscribe(disableLGMembershipHandler, electionPort);
+
+        // Updated Missing tracker information.
+        subscribe(lowestMissingEntryTracker.entryExchangeRoundHandler, timerPort);
     }
 
     /**
@@ -311,18 +316,14 @@ public final class SearchUpdated extends ComponentDefinition {
         privateKey = init.getPrivateKey();
 
         replicationRequests = new HashMap<UUID, ReplicationCount>();
+        recentRequests = new HashMap<UUID, Long>();
         nextInsertionId = LANDING_ENTRY_ID;
         lowestMissingIndexValue = 0;
         commitRequests = new HashMap<UUID, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
 
-        // Tracker.
-        partitioningTracker = new PartitioningTracker();
-        entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
-        entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
-        epochHistoryTracker = new EpochHistoryTracker();
-        landingEntryTracker = new LandingEntryTracker();
-
+        // Trackers.
+        initializeTrackers();
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         index = new RAMDirectory();
@@ -333,6 +334,21 @@ public final class SearchUpdated extends ComponentDefinition {
         // FIX : Remove dependency on the max and min store id.
         minStoredId = maxStoredId = 0;
     }
+
+
+    /**
+     * Initialize the trackers to be used in the application.
+     */
+    private void initializeTrackers(){
+
+        partitioningTracker = new PartitioningTracker();
+        entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
+        entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
+        epochHistoryTracker = new EpochHistoryTracker();
+        landingEntryTracker = new LandingEntryTracker();
+        lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
+    }
+
 
     /**
      * Setting up of the old lucene index entry writer.
@@ -378,7 +394,6 @@ public final class SearchUpdated extends ComponentDefinition {
         public void handle(Start init) {
 
             logger.debug("{}: Main component initialized", self.getId());
-
             informListeningComponentsAboutUpdates(self);
 
             SchedulePeriodicTimeout rst = new SchedulePeriodicTimeout(
@@ -388,12 +403,12 @@ public final class SearchUpdated extends ComponentDefinition {
             trigger(rst, timerPort);
 
             rst = new SchedulePeriodicTimeout(7000, 7000);
-            rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
+            rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
-            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
-            trigger(rst, timerPort);
+//            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+//            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
+//            trigger(rst, timerPort);
         }
     };
 
@@ -1021,7 +1036,9 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
 
-    ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>> handleIndexExchangeResponse = new ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>>() {
+    ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>> handleIndexExchangeResponse =
+            new ClassMatchedHandler<IndexExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response>>() {
+
         @Override
         public void handle(IndexExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Response> event) {
 
@@ -1131,7 +1148,9 @@ public final class SearchUpdated extends ComponentDefinition {
      * enough nodes, as specified in the config, responded.
      */
 
-    ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>> handleAddIndexEntryRequest = new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>>() {
+    ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>> handleAddIndexEntryRequest =
+            new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>>() {
+
         @Override
         public void handle(AddIndexEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request> event) {
 
@@ -1173,6 +1192,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
         if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
+            logger.warn("{} :Reached at the stage of starting with the entry commit ... ", prefix);
+
             recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
             IndexEntry newEntry = request.getEntry();
 
@@ -1194,10 +1215,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
             if(newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
-                logger.debug(" {}: Became a leader and going to add a new landing entry:" , prefix );
+                logger.warn(" {}: Became a leader and going to add a new landing entry:", prefix);
                 lastEpochUpdate = landingEntryTracker.getPreviousEpochUpdate()!= null ? landingEntryTracker.getPreviousEpochUpdate() : EpochUpdate.NONE;
                 applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(landingEntryTracker.getEpochId(), self.getId(), id), newEntry);
                 addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
+
             }
 
             else {
@@ -1293,12 +1315,15 @@ public final class SearchUpdated extends ComponentDefinition {
      * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry 
      * and make necessary modifications in the structure used to hold the associated data.
      */
-    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handleEntryAddPrepareRequest = new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
+    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handleEntryAddPrepareRequest =
+            new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
+
         @Override
         public void handle(EntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request> event) {
 
-            logger.debug("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
-            
+            logger.warn("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
+            System.exit(-1);
+
             ApplicationEntry applicationEntry = request.getApplicationEntry();
             IndexEntry entry = applicationEntry.getEntry();
 
@@ -1339,6 +1364,65 @@ public final class SearchUpdated extends ComponentDefinition {
     };
 
 
+
+    /**
+     * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry
+     * and make necessary modifications in the structure used to hold the associated data.
+     */
+    ClassMatchedHandler<LandingEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request>> handleEntryAddPrepareRequestUpdated =
+            new ClassMatchedHandler<LandingEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request>>() {
+
+                @Override
+                public void handle(LandingEntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request> event) {
+
+                    logger.warn("{}: Received Index Entry prepare request from the node: {}", self.getId(), event.getSource());
+                    System.exit(-1);
+
+                    ApplicationEntry applicationEntry = request.getApplicationEntry();
+                    IndexEntry entry = applicationEntry.getEntry();
+
+                    if (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId())){
+                        logger.warn("{}: Received a promise for entry addition from unknown node: {}", prefix, event.getSource());
+                        return;
+                    }
+
+                    EntryAddPrepare.Response response;
+                    EpochUpdate previousEpochUpdate;
+                    ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId());
+
+                    if(entry.equals(IndexEntry.DEFAULT_ENTRY)){
+
+                        logger.debug("{}: Promising for landing entry with details : {}", prefix, applicationEntry.getApplicationEntryId());
+
+                        LandingEntryAddPrepare.Request landingEntryRequest = (LandingEntryAddPrepare.Request)request;
+                        previousEpochUpdate = landingEntryRequest.getPreviousEpochUpdate();
+                        response = new LandingEntryAddPrepare.Response(request.getEntryAdditionRound(), entryId);
+                    }
+
+                    else{
+
+                        logger.debug("{}: Promising for entry with details : {} ", prefix, applicationEntry.getApplicationEntryId());
+                        previousEpochUpdate = EpochUpdate.NONE;
+                        response = new ApplicationEntryAddPrepare.Response(request.getEntryAdditionRound(),entryId);
+                    }
+
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
+                    ScheduleTimeout st = new ScheduleTimeout(config.getReplicationTimeout());
+                    st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getApplicationEntry()));
+                    st.getTimeoutEvent().getTimeoutId();
+
+                    pendingForCommit.put(applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate));
+                    trigger(st, timerPort);
+                }
+            };
+
+
+
+
+
+
+
     /**
      * The promise for the index entry addition expired and therefore the entry needs to be removed from the map.
      */
@@ -1358,7 +1442,10 @@ public final class SearchUpdated extends ComponentDefinition {
      * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and
      * then send the commit message request to the leader nodes who have replied yes.
      */
-    ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>> handleEntryAdditionPrepareResponse = new ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>>() {
+    ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>> handleEntryAdditionPrepareResponse =
+            new ClassMatchedHandler<EntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response>>() {
+
+
         @Override
         public void handle(EntryAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Response> event) {
 
@@ -1378,6 +1465,8 @@ public final class SearchUpdated extends ComponentDefinition {
                 try {
 
                     logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
+                    System.exit(-1);
+
                     CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                     trigger(ct, timerPort);
 
@@ -1429,7 +1518,8 @@ public final class SearchUpdated extends ComponentDefinition {
      * <b>CAUTION :</b> Currently we are not replying to the node back and simply without any questioning add the entry
      * locally, simply the verifying the signature.
      */
-    ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>> handleEntryCommitRequest = new ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>>() {
+    ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>> handleEntryCommitRequest =
+            new ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>>() {
         
         @Override
         public void handle(EntryAddCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request> event) {
@@ -1489,7 +1579,13 @@ public final class SearchUpdated extends ComponentDefinition {
     };
 
 
-    ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>> handleAddIndexEntryResponse = new ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>>() {
+    /**
+     * Handler for the add index entry response message in the system.
+     * The response is sent by the leader.
+     */
+    ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>> handleAddIndexEntryResponse =
+            new ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>>() {
+
         @Override
         public void handle(AddIndexEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response> event) {
 
@@ -1539,9 +1635,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
     /**
      * Handles situations regarding a peer in the leader group is behind in the updates during add operation
-     * and asks for missing data
+     * and asks for missing data.
      */
-    ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>> handleRepairRequest = new ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>>() {
+    ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>> handleRepairRequest =
+            new ClassMatchedHandler<Repair.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request>>() {
+
         @Override
         public void handle(Repair.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Request> event) {
 
@@ -1566,7 +1664,9 @@ public final class SearchUpdated extends ComponentDefinition {
      * Handles missing data on the peer from the leader group when adding a new entry, but the peer is behind
      * with the updates
      */
-    ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>> handleRepairResponse = new ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>>() {
+    ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>> handleRepairResponse =
+            new ClassMatchedHandler<Repair.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response>>() {
+
         @Override
         public void handle(Repair.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, Repair.Response> event) {
 
@@ -2608,8 +2708,9 @@ public final class SearchUpdated extends ComponentDefinition {
         long currentEpoch;
 
         if (lastEpochUpdate == null) {
-            logger.info(" I think I am the first leader in the system. ");
+            logger.warn(" I think I am the first leader in the system. ");
             currentEpoch = STARTING_EPOCH;
+
         } else {
             logger.info("Found the highest known epoch");
             currentEpoch = lastEpochUpdate.getEpochId() + 1;
@@ -2626,9 +2727,11 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
     /**
-     * Returning closing information for the previous highest known update.
+     * Returning the last closed epoch update.
+     * The application needs to fetch the last known epoch update and close it by calculating
+     * the entries added in that update.
      *
-     * @return Previous Update Closed by Leader.
+     * @return Previous Update.
      */
     private EpochUpdate getPreviousClosedEpoch() throws LuceneAdaptorException {
 
@@ -2757,13 +2860,19 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
 
-        Handler<TimeoutCollection.EntryExchangeRound> entryExchangeRoundHandler = new Handler<TimeoutCollection.EntryExchangeRound>() {
+        /**
+         * Handler for the periodic exchange round handler in the system.
+         * The purpose of the exchange round is to initiate the index pull mechanism in the system.
+         * The nodes try to catch up as quickly as possible to the leader group nodes and therefore the frequency of the updates should be more.
+         */
+        public Handler<TimeoutCollection.EntryExchangeRound> entryExchangeRoundHandler = new Handler<TimeoutCollection.EntryExchangeRound>() {
             @Override
             public void handle(TimeoutCollection.EntryExchangeRound entryExchangeRound) {
 
                 logger.info("Entry Exchange Round initiated ... ");
 
                 updateCurrentTracking();
+                logger.info("{}: Current Tracking Information: {}", prefix, currentTrackingUpdate);
 
                 startEntryPullMechanism();
             }
@@ -2779,6 +2888,8 @@ public final class SearchUpdated extends ComponentDefinition {
                 
                 logger.info("Starting with the index pull mechanism.");
                 getApplicationEntryIdTracked();
+
+                System.exit(-1);
             }
             else{
                 logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update", prefix);

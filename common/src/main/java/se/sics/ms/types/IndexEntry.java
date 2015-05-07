@@ -21,7 +21,7 @@ import java.util.UUID;
  */
 public class IndexEntry implements Serializable {
 
-    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, new Date(), "none", MsConfig.Categories.Default, "none", "none", null);
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, new Date(0), "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";
