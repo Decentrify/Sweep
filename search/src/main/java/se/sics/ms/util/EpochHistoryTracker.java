@@ -4,10 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.EpochUpdate;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Stores and keep tracks of the epoch history.
@@ -34,7 +31,7 @@ public class EpochHistoryTracker {
      *
      * @param epochUpdate Epoch Update.
      */
-    public void addEpochUpdate(EpochUpdate epochUpdate){
+    public void addEpochUpdate(EpochUpdate epochUpdate) {
         
         int index = -1;
         for(int i =0; i < epochUpdateHistory.size() ; i ++){
@@ -51,8 +48,15 @@ public class EpochHistoryTracker {
         else{
             epochUpdateHistory.addLast(epochUpdate);
         }
+        Collections.sort(epochUpdateHistory);   // SORT the collection before returning. ( SORTING based on Natural Ordering ).
     }
 
+    /**
+     * Get the last update that has been added to the history tracker.
+     * The application needs this information to know where to pull from.
+     * 
+     * @return Epoch Update.
+     */
     public EpochUpdate getLastUpdate(){
         
         return !this.epochUpdateHistory.isEmpty()
@@ -60,6 +64,13 @@ public class EpochHistoryTracker {
                 : null;
     }
 
+    /**
+     * Based on epoch update provided calculate the next epoch update that needs to be tracked by
+     * the index pull mechanism.
+     *  
+     * @param update
+     * @return
+     */
     public EpochUpdate getNextUpdateToTrack(EpochUpdate update){
         
         EpochUpdate nextUpdate = null;
@@ -76,7 +87,6 @@ public class EpochHistoryTracker {
         }
         return nextUpdate;
     }
-
 
     /**
      * Check for any updates to the entry matching the value provided by the
@@ -102,7 +112,7 @@ public class EpochHistoryTracker {
      * Search for the update with the starting epochId.
      * Return the first known reference.
      * 
-     * @return
+     * @return Initial Epoch Update.
      */
     public EpochUpdate getInitialEpochUpdate() {
         
