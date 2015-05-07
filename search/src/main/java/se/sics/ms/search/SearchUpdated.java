@@ -1947,16 +1947,17 @@ public final class SearchUpdated extends ComponentDefinition {
         if(entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
             logger.debug("{}: Request to add a new landing entry in system");
+
+            epochHistoryTracker.addEpochUpdate(previousEpoch);
             EpochUpdate update = new EpochUpdate(entry.getEpochId(), entry.getLeaderId());
             epochHistoryTracker.addEpochUpdate(update);
 
-            // Close the previous epoch update also.
+
         }
 
         // Inform the lowest missing entry tracker of the entry addition.
-
         addEntryToLucene(null, entry); // TODO: Create updated lucene adaptor.
-        throw new UnsupportedOperationException("Functionality Under Development.");
+        
     }
 
     /**
@@ -2742,12 +2743,12 @@ public final class SearchUpdated extends ComponentDefinition {
         private void startEntryPullMechanism() {
 
             if ( currentTrackingUpdate != null ){
-
+                
                 logger.info("Starting with the index pull mechanism.");
                 getApplicationEntryIdTracked();
             }
             else{
-                logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update : {} ", prefix, currentTrackingUpdate);
+                logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update", prefix);
             }
         }
 
