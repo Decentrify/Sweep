@@ -92,13 +92,8 @@ public class ApplicationSelf {
         return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries);
     }
 
-
     public void setNumberOfEntries(long entries){
         this.numberOfEntries = entries;
     }
 
-
-    public void incrementNumberOfIndexEntries() {
-        this.numberOfEntries ++;
-    }
 }

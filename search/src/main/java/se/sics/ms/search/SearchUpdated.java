@@ -180,6 +180,9 @@ public final class SearchUpdated extends ComponentDefinition {
     private IndexEntryLuceneAdaptor writeLuceneAdaptor;
     private IndexEntryLuceneAdaptor searchRequestLuceneAdaptor;
 
+    private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
+    private ApplicationLuceneAdaptor searchEntryLuceneAdaptor;
+
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
 
@@ -325,46 +328,50 @@ public final class SearchUpdated extends ComponentDefinition {
 
         gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
-        File file = null;
-        if (PERSISTENT_INDEX) {
-            file = new File("resources/index_" + self.getId());
-            try {
-                index = FSDirectory.open(file);
-            } catch (IOException e1) {
-                // TODO proper exception handling
-                e1.printStackTrace();
-                System.exit(-1);
-            }
+        index = new RAMDirectory();
 
-        } else {
-            index = new RAMDirectory();
-        }
+        setupLuceneIndexWriter(index,indexWriterConfig);
+        setupApplicationLuceneWriter(index, indexWriterConfig);
 
-        writeLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(index, indexWriterConfig);
-        try {
+        // FIX : Remove dependency on the max and min store id.
+        minStoredId = maxStoredId = 0;
+    }
+
+    /**
+     * Setting up of the old lucene index entry writer.
+     * @deprecated
+     * @param index Directory
+     * @param indexWriterConfig writer config.
+     */
+    private void setupLuceneIndexWriter(Directory index, IndexWriterConfig indexWriterConfig){
+        try{
+            writeLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(index, indexWriterConfig);
             writeLuceneAdaptor.initialEmptyWriterCommit();
-
-            if (PERSISTENT_INDEX && file != null && file.exists()) {
-                initializeIndexCaches(writeLuceneAdaptor);
-            }
-
-            minStoredId = ApplicationLuceneQueries.getMinStoredIdFromLucene(writeLuceneAdaptor);
-            maxStoredId = ApplicationLuceneQueries.getMaxStoredIdFromLucene(writeLuceneAdaptor);
-
-        } catch (LuceneAdaptorException e) {
-
-            logger.warn("{}: Unable to initialize index from file");
+        }
+        catch (LuceneAdaptorException e) {
             e.printStackTrace();
-            throw new RuntimeException("Unable to initialize index from file", e);
+            throw new RuntimeException("Unable to open index for Lucene");
         }
-        recentRequests = new HashMap<UUID, Long>();
+    }
 
-        if (minStoredId > maxStoredId) {
-            long temp = minStoredId;
-            minStoredId = maxStoredId;
-            maxStoredId = temp;
+
+
+    /**
+     * Based on the information provided, create a lucene writer for adding application
+     * entries in the system.
+     *
+     * @param index Directory
+     * @param indexWriterConfig Index Writer Configuration.
+     */
+    private void setupApplicationLuceneWriter (Directory index, IndexWriterConfig indexWriterConfig){
+        try{
+            writeEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(index, indexWriterConfig);
+            writeEntryLuceneAdaptor.initialEmptyWriterCommit();
         }
-
+        catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            throw new RuntimeException(" Unable to open index for Lucene");
+        }
     }
 
     /**
@@ -1452,7 +1459,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             ApplicationEntry toCommit = null;
             for (ApplicationEntry appEntry : pendingForCommit.keySet()) {
-                if (appEntry.getEpochId() == applicationEntryId.getEpochId() && appEntry.getLeaderId() == applicationEntryId.getLeaderId() && appEntry.getEntryId() == applicationEntryId.getEntryId()) {
+                if (appEntry.getApplicationEntryId().equals(applicationEntryId)) {
                     toCommit = appEntry;
                     break;
                 }
@@ -1468,21 +1475,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
             try {
 
-                addEntryLocal(toCommit.getEntry()); // FIX ADD ENTRY MECHANISM.
+                EpochUpdate associatedEpochUpdate = pendingForCommit.get(toCommit).getValue1();
+                addEntryLocalUpdated(toCommit, associatedEpochUpdate); // FIX ADD ENTRY MECHANISM.
+
                 pendingForCommit.remove(toCommit);
-//                long maxStoredId = getMaxStoredId();
-//
-//                ArrayList<Long> missingIds = new ArrayList<Long>();
-//                long currentMissingValue = maxStoredId < 0 ? 0 : maxStoredId + 1;
-//                while (currentMissingValue < toCommit.getId()) {
-//                    missingIds.add(currentMissingValue);
-//                    currentMissingValue++;
-//                }
-//
-//                if (missingIds.size() > 0) {
-//                    Repair.Request repairRequest = new Repair.Request(request.getCommitRoundId(), missingIds.toArray(new Long[missingIds.size()]));     // FIXME: Repair Message has no associated round.
-//                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, repairRequest), networkPort);
-//                }
+
             } catch (IOException e) {
                 logger.error(self.getId() + " " + e.getMessage());
             } catch (LuceneAdaptorException e) {
@@ -1946,18 +1943,20 @@ public final class SearchUpdated extends ComponentDefinition {
 
         if(entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
-            logger.debug("{}: Request to add a new landing entry in system");
-
+            logger.debug("{}: Request to add a new landing entry in system", prefix);
             epochHistoryTracker.addEpochUpdate(previousEpoch);
             EpochUpdate update = new EpochUpdate(entry.getEpochId(), entry.getLeaderId());
             epochHistoryTracker.addEpochUpdate(update);
 
-
         }
 
-        // Inform the lowest missing entry tracker of the entry addition.
-        addEntryToLucene(null, entry); // TODO: Create updated lucene adaptor.
-        
+        // INFORM LOWEST MISSING INDEX ENTRY TRACKER.
+        addEntryToLucene(writeEntryLuceneAdaptor, entry); // TODO: Create updated lucene adaptor.
+
+        // MECHANISM TO UPDATE THE MAX ENTRY COUNT AND OTHER STUFF AND INFORM LISTENING COMPONENTS ABOUT UPDATED SELF.
+        maxStoredId++;
+        self.incrementEntries();
+        informListeningComponentsAboutUpdates(self);
     }
 
     /**
@@ -1976,7 +1975,7 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
         addIndexEntry(writeLuceneAdaptor, indexEntry);
-        self.incrementNumberOfIndexEntries();
+        self.incrementEntries();
 
         // Inform other components about the IndexEntry Update.
         informListeningComponentsAboutUpdates(self);

@@ -32,7 +32,12 @@ public class EpochHistoryTracker {
      * @param epochUpdate Epoch Update.
      */
     public void addEpochUpdate(EpochUpdate epochUpdate) {
-        
+
+        if(epochUpdate == null || epochUpdate.equals(EpochUpdate.NONE)){
+            logger.debug("Request to add default epoch update received, returning ... ");
+            return;
+        }
+
         int index = -1;
         for(int i =0; i < epochUpdateHistory.size() ; i ++){
             if(epochUpdateHistory.get(i).getEpochId() == epochUpdate.getEpochId() &&  

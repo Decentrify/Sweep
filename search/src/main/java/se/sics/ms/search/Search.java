@@ -1847,7 +1847,7 @@ public final class Search extends ComponentDefinition {
         }
 
         addIndexEntry(writeLuceneAdaptor, indexEntry);
-        self.incrementNumberOfIndexEntries();
+        self.incrementEntries();
 
         // Inform other components about the IndexEntry Update.
         informListeningComponentsAboutUpdates(self);
