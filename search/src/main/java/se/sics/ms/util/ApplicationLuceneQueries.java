@@ -1,9 +1,6 @@
 package se.sics.ms.util;
 
-import org.apache.lucene.search.NumericRangeQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.common.IndexEntryLuceneAdaptor;
@@ -194,6 +191,22 @@ public class ApplicationLuceneQueries {
     }
 
 
+    /**
+     * Generate Query to help locate entries for a particular leader packet in lucene.
+     * @param epochId
+     * @param leaderId
+     * @return
+     */
+    public static Query entriesInLeaderPacketQuery(String epochString, long epochId, String leaderString, int leaderId){
 
+        BooleanQuery query = new BooleanQuery();
 
+        Query epochQuery = NumericRangeQuery.newLongRange(epochString, epochId, epochId, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+
+        Query leaderQuery = NumericRangeQuery.newIntRange(leaderString, leaderId, leaderId, true, true);
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+
+        return query;
+    }
 }

@@ -9,10 +9,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
-import org.javatuples.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
@@ -70,7 +68,6 @@ import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.*;
@@ -1174,30 +1171,32 @@ public final class SearchUpdated extends ComponentDefinition {
             return;
         }
 
-        recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
-        IndexEntry newEntry = request.getEntry();
-        
-        long id = newEntry.equals(IndexEntry.DEFAULT_ENTRY) ? LANDING_ENTRY_ID : getNextInsertionId();  // Special Entry Id for Landing Entry.
-        newEntry.setId(id);
-        newEntry.setLeaderId(publicKey);
-        String signature = ApplicationSecurity.generateSignedHash(newEntry, privateKey);
-
-        if (signature == null) {
-            logger.warn("Unable to generate the hash for the index entry with id: {}", newEntry.getId());
-            return;
-        }
-
-        newEntry.setHash(signature);
-
         if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
+
+            recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
+            IndexEntry newEntry = request.getEntry();
+
+            long id = newEntry.equals(IndexEntry.DEFAULT_ENTRY) ? LANDING_ENTRY_ID : getNextInsertionId();  // Special Entry Id for Landing Entry.
+            newEntry.setId(id);
+            newEntry.setLeaderId(publicKey);
+            String signature = ApplicationSecurity.generateSignedHash(newEntry, privateKey);
+
+            if (signature == null) {
+                logger.warn("Unable to generate the hash for the index entry with id: {}", newEntry.getId());
+                return;
+            }
+
+            newEntry.setHash(signature);
 
             EntryAddPrepare.Request addPrepareRequest;
             ApplicationEntry applicationEntry;
+            EpochUpdate lastEpochUpdate = EpochUpdate.NONE;
 
             if(newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
+                logger.debug(" {}: Became a leader and going to add a new landing entry:" , prefix );
+                lastEpochUpdate = landingEntryTracker.getPreviousEpochUpdate()!= null ? landingEntryTracker.getPreviousEpochUpdate() : EpochUpdate.NONE;
                 applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(landingEntryTracker.getEpochId(), self.getId(), id), newEntry);
-                EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
                 addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
             }
 
@@ -1207,7 +1206,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 addPrepareRequest = new ApplicationEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry);
             }
 
-            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, applicationEntry, source);
+            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, applicationEntry, source, lastEpochUpdate);
             entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
             logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
 
@@ -1384,7 +1383,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     ApplicationEntry entryToCommit = info.getApplicationEntry();
                     UUID commitTimeout = UUID.randomUUID(); //What's it purpose.
-                    addEntryLocal(entryToCommit.getEntry());   // Commit to local first. // FIXME: Commit the application entry, Also check for the
+                    addEntryLocalUpdated(entryToCommit, info.getAssociatedEpochUpdate());   // Commit to local first.
 
                     ByteBuffer idBuffer = ByteBuffer.allocate( (8*2) + 4);
                     idBuffer.putLong(entryToCommit.getEpochId());
@@ -1651,7 +1650,6 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private void startSearch(SearchPattern pattern) {
 
-        // TODO: Add check for the same request but a different page ( Implement Pagination ).
         searchRequest = new LocalSearchRequest(pattern);
         closeIndex(searchIndex);
 
@@ -1951,7 +1949,7 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
         // INFORM LOWEST MISSING INDEX ENTRY TRACKER.
-        addEntryToLucene(writeEntryLuceneAdaptor, entry); // TODO: Create updated lucene adaptor.
+        addEntryToLucene(writeEntryLuceneAdaptor, entry);
 
         // MECHANISM TO UPDATE THE MAX ENTRY COUNT AND OTHER STUFF AND INFORM LISTENING COMPONENTS ABOUT UPDATED SELF.
         maxStoredId++;
@@ -2567,21 +2565,30 @@ public final class SearchUpdated extends ComponentDefinition {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
 
-            logger.warn("{}: Self node is elected as leader.", self.getId());
-            leader = true;
-            leaderGroupInformation = event.leaderGroup;
+            try{
 
-            BasicAddress selfPeerAddress = self.getAddress().getBase();
-            Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
-            while (itr.hasNext()) {
-                if (selfPeerAddress.equals(itr.next().getBase())) {
-                    itr.remove();
-                    break;
+                logger.warn("{}: Self node is elected as leader.", self.getId());
+                leader = true;
+                leaderGroupInformation = event.leaderGroup;
+
+                BasicAddress selfPeerAddress = self.getAddress().getBase();
+                Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
+                while (itr.hasNext()) {
+                    if (selfPeerAddress.equals(itr.next().getBase())) {
+                        itr.remove();
+                        break;
+                    }
                 }
+
+                informListeningComponentsAboutUpdates(self);
+                addLandingEntry();
+            }
+            catch (LuceneAdaptorException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Unable to calculate the Landing Entry on becoming the leader.");
             }
 
-            informListeningComponentsAboutUpdates(self);
-            addLandingEntry();
+
         }
     };
 
@@ -2591,13 +2598,13 @@ public final class SearchUpdated extends ComponentDefinition {
      * Then the leader needs to add landing index entry before anything else.
      */
 
-    private void addLandingEntry() {
+    private void addLandingEntry() throws LuceneAdaptorException {
 
         // Reset the landing entry addition check for the current round of becoming the leader.
         landingEntryAdded = false;
 
         // Create metadata for the updated epoch update.
-        EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
+        EpochUpdate lastEpochUpdate = getPreviousClosedEpoch();
         long currentEpoch;
 
         if (lastEpochUpdate == null) {
@@ -2612,12 +2619,39 @@ public final class SearchUpdated extends ComponentDefinition {
         st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
         UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
 
-        landingEntryTracker.startTracking(currentEpoch, landingEntryRoundId, LANDING_ENTRY_ID);
+        landingEntryTracker.startTracking(currentEpoch, landingEntryRoundId, LANDING_ENTRY_ID, lastEpochUpdate);
         initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
         
         trigger(st, timerPort);
     }
-    
+
+    /**
+     * Returning closing information for the previous highest known update.
+     *
+     * @return Previous Update Closed by Leader.
+     */
+    private EpochUpdate getPreviousClosedEpoch() throws LuceneAdaptorException {
+
+        EpochUpdate lastClosedUpdate = null;
+        EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
+
+        if(lastEpochUpdate != null) {
+
+            Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
+                    ApplicationEntry.EPOCH_ID,  lastEpochUpdate.getEpochId(),
+                    ApplicationEntry.LEADER_ID, lastEpochUpdate.getLeaderId() );
+
+            TotalHitCountCollector hitCollector = new TotalHitCountCollector();
+            writeEntryLuceneAdaptor.searchDocumentsInLucene(epochUpdateEntriesQuery, hitCollector);
+
+            int numEntries = hitCollector.getTotalHits();
+            if(numEntries == 0){ throw new IllegalStateException("Unable to find any entries for the previous epoch update"); }
+            lastClosedUpdate = new EpochUpdate(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
+        }
+
+        return lastClosedUpdate;
+    }
+
     /**
      * In case the landing entry was not added in the system.
      */
@@ -2637,7 +2671,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
                     
                     // Reset the tracker information for the round.
-                    landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID);
+                    landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID, landingEntryTracker.getPreviousEpochUpdate());
                     initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
                     trigger(st, timerPort);

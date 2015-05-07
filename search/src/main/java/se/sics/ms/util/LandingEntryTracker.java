@@ -1,5 +1,7 @@
 package se.sics.ms.util;
 
+import se.sics.ms.types.EpochUpdate;
+
 import java.util.UUID;
 
 /**
@@ -15,15 +17,17 @@ public class LandingEntryTracker {
     private long epochId;
     private UUID landingEntryRoundId;
     private long landingEntryId;
-    
+    private EpochUpdate previousEpochUpdate;
+
     public LandingEntryTracker(){
     }
     
-    public void startTracking(long epochId, UUID landingEntryRoundId, long landingEntryId) {
+    public void startTracking(long epochId, UUID landingEntryRoundId, long landingEntryId, EpochUpdate previousEpochUpdate) {
         
         this.epochId = epochId;
         this.landingEntryRoundId = landingEntryRoundId;
         this.landingEntryId = landingEntryId;
+        this.previousEpochUpdate = previousEpochUpdate;
     }
 
     public void resetTracker(){
@@ -45,5 +49,9 @@ public class LandingEntryTracker {
     
     public long getLandingEntryId(){
         return this.landingEntryId;
+    }
+
+    public EpochUpdate getPreviousEpochUpdate(){
+        return this.previousEpochUpdate;
     }
 }
