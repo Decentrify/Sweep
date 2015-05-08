@@ -25,7 +25,7 @@ public class TimeoutCollection {
 
     public static class EntryExchangeRound extends Timeout{
 
-        protected EntryExchangeRound(SchedulePeriodicTimeout request) {
+        public EntryExchangeRound(SchedulePeriodicTimeout request) {
             super(request);
         }
     }

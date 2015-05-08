@@ -84,9 +84,9 @@ public class ApplicationEntry {
      */
     public static class ApplicationEntryId implements  Comparable<ApplicationEntryId>{
         
-        private final long epochId;
-        private final int leaderId;
-        private final long entryId;
+        private  long epochId;
+        private  int leaderId;
+        private  long entryId;
         
         public ApplicationEntryId(long epochId, int leaderId, long entryId){
             
@@ -138,6 +138,10 @@ public class ApplicationEntry {
             return entryId;
         }
 
+        public void setEntryId(long entryId){
+            this.entryId = entryId;
+        }
+        
         @Override
         public int compareTo(ApplicationEntryId o) {
 
