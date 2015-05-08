@@ -27,6 +27,11 @@
             <version>${gradient.version}</version>
         </dependency>
         <dependency>
+            <groupId>se.sics.p2ptoolbox.gradient</groupId>
+            <artifactId>tree-gradient-core</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-json</artifactId>
             <version>1.18.1</version>

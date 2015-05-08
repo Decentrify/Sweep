@@ -16,6 +16,7 @@ import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -42,6 +43,7 @@ public class SweepOperationsHelper {
     private final static GradientConfig gradientConfig;
     private final static ElectionConfig electionConfig;
     private static SystemConfig systemConfig;
+    private final static TreeGradientConfig treeGradientConfig;
 
     private static Logger logger = LoggerFactory.getLogger(SweepOperationsHelper.class);
     private static Long identifierSpaceSize;
@@ -65,7 +67,7 @@ public class SweepOperationsHelper {
         chunkManagerConfiguration = new ChunkManagerConfig(config);
         gradientConfig= new GradientConfig(config);
         electionConfig = new ElectionConfig(config);
-        
+        treeGradientConfig = new TreeGradientConfig(config);
         try {
             ip = InetAddress.getLocalHost();
             port = 9999;
@@ -104,7 +106,7 @@ public class SweepOperationsHelper {
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
+        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
         
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());

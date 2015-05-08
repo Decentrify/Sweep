@@ -2479,7 +2479,7 @@ public final class Search extends ComponentDefinition {
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
 
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
+//        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);

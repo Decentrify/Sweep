@@ -48,6 +48,9 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
+import se.sics.p2ptoolbox.gradient.temp.UpdatePort;
+import se.sics.p2ptoolbox.tgradient.TreeGradientComp;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
 import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
@@ -68,7 +71,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
-    private Component gradient;
+    private Component gradient, tgradient;
     private Component search, chunkManager, aggregatorComponent, pseudoGradient;
     private Component electionLeader, electionFollower;
     private ApplicationSelf self;
@@ -103,6 +106,7 @@ public final class SearchPeer extends ComponentDefinition {
         // External General Components in the system needs to be connected.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
+        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
         connectChunkManager(systemConfig, chunkManagerConfig);
 
@@ -123,8 +127,8 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+
+        
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
@@ -140,6 +144,8 @@ public final class SearchPeer extends ComponentDefinition {
         //===
         connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
         connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
+        connect(pseudoGradient.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
 
         // Simulator Events.
         subscribe(addEntrySimulatorHandler, network);
@@ -236,10 +242,26 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectGradient(GradientConfig gradientConfig, int seed) {
         
         log.info("connecting gradient configuration ...");
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter()));
-        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(0));
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 1 , new SimpleUtilityComparator(), new SweepGradientFilter()));
+        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(1));
         connect(timer, gradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
+    }
+
+    /**
+     * Connect gradient with the application.
+     * @param gradientConfig System's Gradient Configuration.
+     */
+    private void connectTreeGradient(TreeGradientConfig tgradientConfig, GradientConfig gradientConfig) {
+
+        log.info("connecting tree gradient configuration ...");
+        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(systemConfig, gradientConfig, tgradientConfig, 2 , new SweepGradientFilter()));
+        connect(network, tgradient.getNegative(Network.class), new IntegerOverlayFilter(2));
+        connect(timer, tgradient.getNegative(Timer.class));
+        connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
+        connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
+        connect(gradient.getPositive(UpdatePort.class), tgradient.getNegative(UpdatePort.class));
+
     }
 
     /**

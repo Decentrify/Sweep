@@ -29,6 +29,7 @@ import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -48,6 +49,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private GradientConfig gradientConfig;
     private ElectionConfig electionConfig;
     private SystemConfig systemConfig;
+    private TreeGradientConfig treeGradientConfig;
 
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
@@ -76,7 +78,8 @@ public final class SearchSimulator extends ComponentDefinition {
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         electionConfig = init.getElectionConfig();
-
+        treeGradientConfig = init.getTreeGradientConfig();
+        
         identifierSpaceSize = (long) 3000;
         ipGenerator = AsIpGenerator.getInstance(init.getGradientConfiguration().getSeed());
         
@@ -233,7 +236,7 @@ public final class SearchSimulator extends ComponentDefinition {
         self = new ApplicationSelf(new DecoratedAddress(address));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig));
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
         connect(network, peer.getNegative(Network.class));
