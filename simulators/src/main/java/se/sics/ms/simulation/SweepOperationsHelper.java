@@ -109,7 +109,8 @@ public class SweepOperationsHelper {
         try {
             ip = InetAddress.getLocalHost();
             port = 9999;
-        } catch (UnknownHostException e) {
+        } 
+        catch (UnknownHostException e) {
             e.printStackTrace();
         }
     }
@@ -137,7 +138,7 @@ public class SweepOperationsHelper {
      */
     public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
-        logger.info(" Generating address for peer with id: {} with bootstrap: {}", id , bootstrap);
+        logger.warn(" Generating address for peer with id: {} with bootstrap: {} aggregator:{}", new Object[]{id , bootstrap, simulatorAddress});
 
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
@@ -278,9 +279,12 @@ public class SweepOperationsHelper {
 
         logger.warn("Partition Node Map : {}", partitionNodeMap);
     }
-    
 
-    
+    public static DecoratedAddress getAggregatorAddress() {
+        return new DecoratedAddress(ip, port, 0);
+    }
+
+
     public static class PartitionOperationsHelper {
         
         public static Map<Integer, Set<Integer>> generateNodeList(int depth, int bucketSize, Random random){

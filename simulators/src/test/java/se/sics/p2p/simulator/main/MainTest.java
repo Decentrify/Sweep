@@ -51,7 +51,7 @@ public class MainTest {
 //            throw new RuntimeException(ex.getMessage());
 //        }
 
-        SimpleBootupScenario.boot(seed).simulate(LauncherComp.class);
+        SimplePartitioningScenario.boot(seed).simulate(LauncherComp.class);
 //        Assert.assertEquals(null, MyExperimentResult.failureCause);
     }
 

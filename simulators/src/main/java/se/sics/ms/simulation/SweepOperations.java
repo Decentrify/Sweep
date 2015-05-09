@@ -2,6 +2,7 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.kompics.Init;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
@@ -12,10 +13,14 @@ import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.p2ptoolbox.aggregator.core.GlobalAggregatorComponent;
+import se.sics.p2ptoolbox.aggregator.core.GlobalAggregatorComponentInit;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
+import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
+import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation2;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
@@ -32,6 +37,36 @@ public class SweepOperations {
 
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
 
+    
+    public static Operation<StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>> startAggregatorNodeCmd =
+            new Operation<StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>>() {
+
+                @Override
+                public StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress> generate() {
+                    final DecoratedAddress aggregatorAddress = SweepOperationsHelper.getAggregatorAddress();
+                    
+                    return new StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>() {
+
+                        @Override
+                        public Class<GlobalAggregatorComponent> getNodeComponentDefinition() {
+                            return GlobalAggregatorComponent.class;
+                        }
+
+                        @Override
+                        public Init<GlobalAggregatorComponent> getNodeComponentInit() {
+                            return new GlobalAggregatorComponentInit(5000, 5000);
+                        }
+
+                        @Override
+                        public DecoratedAddress getAddress() {
+                            return aggregatorAddress;
+                        }
+                    };
+                }
+    };
+    
+    
+    
     public static Operation1<StartNodeCmd, Long> startNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
         @Override
         public StartNodeCmd generate(final Long id) {

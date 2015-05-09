@@ -12,14 +12,21 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 public class SimplePartitioningScenario {
 
     
-    private static long depth= 1;
-    private static long bucketSize = 2;
+    private static long depth= 0;
+    private static long bucketSize = 1;
 
     public static SimulationScenario boot(final long seed) {
         
         SimulationScenario scenario = new SimulationScenario() {
             
             {
+
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startAggregatorNodeCmd);
+                    }
+                };
 
                 StochasticProcess generatePartitionNodeMap = new StochasticProcess() {
                     {
@@ -66,8 +73,9 @@ public class SimplePartitioningScenario {
                         
                     }
                 };
-
-                generatePartitionNodeMap.start();
+                
+                startAggregatorNode.start();
+                generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                 
 //                peerJoin.start();
