@@ -12,8 +12,8 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 public class SimplePartitioningScenario {
 
     
-    private static long depth= 2;
-    private static long bucketSize = 2;
+    private static long depth= 1;
+    private static long bucketSize = 5;
 
     public static SimulationScenario boot(final long seed) {
         
@@ -83,9 +83,8 @@ public class SimplePartitioningScenario {
                     }
                 };
                 
-//                startAggregatorNode.start();
-//                generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
-                generatePartitionNodeMap.start();
+                startAggregatorNode.start();
+                generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                 partitionEntryAdd.startAfterTerminationOf(10000, partitionPeerJoin);
                 

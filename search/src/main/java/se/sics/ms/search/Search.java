@@ -2495,6 +2495,7 @@ public final class Search extends ComponentDefinition {
     Handler<LeaderState.ElectedAsLeader> leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
+            
             logger.warn("{}: Self node is elected as leader.", self.getId());
             leader = true;
             leaderGroupInformation = event.leaderGroup;
@@ -2544,7 +2545,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
 
-            logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
+            logger.debug("{}: Node is chosen to be a part of leader group.", self.getId());
             self.setIsLGMember(true);
             electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
