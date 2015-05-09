@@ -41,7 +41,7 @@ public class SystemAggregatorApplication extends ComponentDefinition{
     private Positive<Network> networkPort = requires(Network.class);
     private Positive<Timer> timerPositive = requires(Timer.class);
     private SystemAggregatorApplication myComp;
-    private BufferedWriter writer;
+    private FileWriter writer;
     private static String DEFAULT_FILE = "src/test/resources/shardLogs.csv";
     
     public SystemAggregatorApplication(SystemAggregatorApplicationInit init) throws IOException {
@@ -76,7 +76,7 @@ public class SystemAggregatorApplication extends ComponentDefinition{
         }
 
         System.out.println(" File Path : " + file.getAbsolutePath());
-        writer = new BufferedWriter(new FileWriter(file.getAbsolutePath()));
+        writer = new FileWriter(file.getAbsolutePath());
     }
 
     Handler<Start> startHandler = new Handler<Start>() {

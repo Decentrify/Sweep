@@ -1,5 +1,6 @@
 package se.sics.p2p.simulator.main;
 
+import se.sics.ms.scenarios.special.BasicConvergenceScenario;
 import se.sics.ms.scenarios.special.FastConvergenceScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
 
@@ -8,7 +9,7 @@ import se.sics.p2ptoolbox.simulator.run.LauncherComp;
  * 
  * Created by babbarshaer on 2015-05-09.
  */
-public class CovergenceMainTest {
+public class ConvergenceMainTest {
     
     public static void main(String[] args) {
         
@@ -23,7 +24,7 @@ public class CovergenceMainTest {
         int numEntries = Integer.valueOf(args[4]);
 
         System.out.println(" Starting the Convergence Scenario with" + " seed: " + seed + " depth: " + depth + " bucketSize: " + bucketSize + " throughput: " + throughput + " entries: " + numEntries);
-        FastConvergenceScenario.boot(seed, depth, bucketSize, throughput,numEntries).simulate(LauncherComp.class);
+        FastConvergenceScenario.boot(seed, depth, bucketSize, throughput, numEntries).simulate(LauncherComp.class);
     }
 
 }
