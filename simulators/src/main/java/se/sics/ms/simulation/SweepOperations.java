@@ -9,12 +9,12 @@ import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
+import se.sics.ms.launch.global.aggregator.SystemAggregatorApplication;
+import se.sics.ms.launch.global.aggregator.SystemAggregatorApplicationInit;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
-import se.sics.p2ptoolbox.aggregator.core.GlobalAggregatorComponent;
-import se.sics.p2ptoolbox.aggregator.core.GlobalAggregatorComponentInit;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
@@ -38,23 +38,23 @@ public class SweepOperations {
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
 
     
-    public static Operation<StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>> startAggregatorNodeCmd =
-            new Operation<StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>>() {
+    public static Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>> startAggregatorNodeCmd =
+            new Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>>() {
 
                 @Override
-                public StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress> generate() {
+                public StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress> generate() {
                     final DecoratedAddress aggregatorAddress = SweepOperationsHelper.getAggregatorAddress();
                     
-                    return new StartAggregatorCmd<GlobalAggregatorComponent, DecoratedAddress>() {
+                    return new StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>() {
 
                         @Override
-                        public Class<GlobalAggregatorComponent> getNodeComponentDefinition() {
-                            return GlobalAggregatorComponent.class;
+                        public Class<SystemAggregatorApplication> getNodeComponentDefinition() {
+                            return SystemAggregatorApplication.class;
                         }
 
                         @Override
-                        public Init<GlobalAggregatorComponent> getNodeComponentInit() {
-                            return new GlobalAggregatorComponentInit(5000, 5000);
+                        public Init getNodeComponentInit() {
+                            return new SystemAggregatorApplicationInit();
                         }
 
                         @Override
