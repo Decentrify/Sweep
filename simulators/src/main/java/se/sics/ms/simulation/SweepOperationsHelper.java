@@ -45,6 +45,7 @@ public class SweepOperationsHelper {
     private final static HashMap<Long, DecoratedAddress> peersAddressMap;
     private final static ConsistentHashtable<Long> ringNodes;
     private static Map<Integer, Set<Integer>> partitionNodeMap;
+    private static Map<Integer, Set<Integer>> partitionNodeMapCopy;
     private final static CroupierConfig croupierConfiguration;
     private final static SearchConfiguration searchConfiguration;
     private final static GradientConfiguration gradientConfiguration;
@@ -138,7 +139,7 @@ public class SweepOperationsHelper {
      */
     public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
-        logger.warn(" Generating address for peer with id: {} with bootstrap: {} aggregator:{}", new Object[]{id , bootstrap, simulatorAddress});
+        logger.warn(" Generating address for peer with id: {} with bootstrap: {} aggregator:{}", new Object[]{id, bootstrap, simulatorAddress});
 
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
@@ -177,6 +178,51 @@ public class SweepOperationsHelper {
         return address;
     }
 
+
+    
+    private static int partitionBucketId = 0;
+    
+    /**
+     * Bucket to communicate to.
+     * @param id
+     * @return
+     */
+    public static DecoratedAddress getBucketNodeToAddEntry(long id){
+        
+        DecoratedAddress address = null;
+        
+        if(partitionNodeMapCopy.size() > 0){
+            
+            if(partitionBucketId >= partitionNodeMapCopy.size()){
+                partitionBucketId = 0;
+            }
+            
+            List<Integer> bucketIds = new ArrayList<Integer>(partitionNodeMapCopy.get(partitionBucketId));
+            
+            if(bucketIds.size() > 0){
+                
+                address = peersAddressMap.get((long)bucketIds.get(random.nextInt(bucketIds.size())));
+                if(address == null){
+                    throw new RuntimeException("Unable to find the bucket node in the base map");
+                }
+                
+                logger.debug("Returning node for adding entry: {} from bucket: {}", address.getId(), partitionBucketId);
+            }
+            
+            else{
+                logger.warn("{}: Not enough nodes in a partition bucket, falling back to default");
+                address = getNodeAddressToCommunicate(id);
+            }
+            
+            partitionBucketId++; // Get the node from the next partition bucket now.
+        }
+        else{
+            logger.warn("{}: Returning nodes from default pool.");
+            address = getNodeAddressToCommunicate(id);
+        }
+        
+        return address;
+    }
 
     /**
      * Generate an instance of Index Entry.
@@ -238,13 +284,13 @@ public class SweepOperationsHelper {
                 
                 Map.Entry<Integer, Set<Integer>> entry = partitionNodeMap.entrySet().iterator().next();
                 randomPartitionBucket = entry.getKey();
-                logger.warn("Random Partition Bucket Info: {}", randomPartitionBucket);
+                logger.debug("Random Partition Bucket Info: {}", randomPartitionBucket);
                 partitionBucketNodes = new ArrayList<Integer>(entry.getValue());
                 logger.warn("Partition Bucket Nodes : {}" , partitionBucketNodes);
             }
             
             else {
-                
+
                 logger.warn("Returning nodes not part of partition bucket. ");
                 logger.warn("Partition Bucket: {}", partitionBucketNodes);
                 return getStableId(id);    
@@ -269,10 +315,11 @@ public class SweepOperationsHelper {
      * @param depth partition depth.
      * @param bucketSize size of bucket.
      */
-    public static void generateNodesPerPartition (long depth, long bucketSize){
+    public static void generateNodesPerPartition (long depth, long bucketSize, int seed){
         
-        partitionNodeMap = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random());
-        
+        partitionNodeMap = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random(seed));
+        partitionNodeMapCopy = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random(seed));
+
         if(partitionNodeMap.isEmpty()){
             throw new RuntimeException(" Unable to generate partition buckets.");
         }
