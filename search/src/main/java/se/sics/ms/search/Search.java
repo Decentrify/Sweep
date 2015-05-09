@@ -186,7 +186,8 @@ public final class Search extends ComponentDefinition {
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
      */
-    private static class AddIndexTimeout extends Timeout {
+    private class AddIndexTimeout extends Timeout {
+        
         private final int retryLimit;
         private int numberOfRetries = 0;
         private final IndexEntry entry;
@@ -197,17 +198,10 @@ public final class Search extends ComponentDefinition {
          *                   {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
          * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
-        public AddIndexTimeout(ScheduleTimeout request, int retryLimit, IndexEntry entry) {
+        public AddIndexTimeout(ScheduleTimeout request, int retryLimit, int numberOfRetries,  IndexEntry entry) {
             super(request);
             this.retryLimit = retryLimit;
             this.entry = entry;
-        }
-
-        /**
-         * Increment the number of retries executed.
-         */
-        public void incrementTries() {
-            numberOfRetries++;
         }
 
         /**
@@ -217,6 +211,7 @@ public final class Search extends ComponentDefinition {
             return numberOfRetries == retryLimit;
         }
 
+        
         /**
          * @return the {@link IndexEntry} this timeout was scheduled for
          */
@@ -1088,8 +1083,10 @@ public final class Search extends ComponentDefinition {
      */
     private void addEntryGlobal(IndexEntry entry) {
 
+        logger.error("{}: Triggering entry addition timeout. EntryId: {}", self.getId(), entry);
+
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), entry));
+        rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), 0, entry));
         addEntryGlobal(entry, rst);
     }
 
@@ -1100,7 +1097,8 @@ public final class Search extends ComponentDefinition {
      * @param timeout timeout for adding the entry
      */
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
-
+        
+        
         trigger(timeout, timerPort);
         trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
         timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
@@ -1222,18 +1220,21 @@ public final class Search extends ComponentDefinition {
             timeStoringMap.remove(event.getTimeoutId());
 
             if (event.reachedRetryLimit()) {
-                logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
+                logger.warn("{} reached retry limit for adding a new entry {} with timeoutId: {}", new Object[]{self.getAddress(), event.entry, event.getTimeoutId()});
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
             }
             else {
 
+                logger.error("Retry is called in :{} for entry: {} ", new Object[]{self.getAddress().getId(), event.getEntry()});
+                
                 //If prepare phase was started but no response received, then replicationRequests will have left
                 // over data
                 replicationRequests.remove(event.getTimeoutId());
 
-                event.incrementTries();
+                
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-                rst.setTimeoutEvent(event);
+                AddIndexTimeout timeout = new AddIndexTimeout(rst, event.retryLimit, event.numberOfRetries++, event.entry);
+                rst.setTimeoutEvent(timeout);
                 addEntryGlobal(event.getEntry(), rst);
             }
         }

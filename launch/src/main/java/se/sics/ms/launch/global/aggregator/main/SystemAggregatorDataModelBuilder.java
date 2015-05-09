@@ -1,4 +1,4 @@
-package se.sics.ms.launch.global.aggregator;
+package se.sics.ms.launch.global.aggregator.main;
 
 import se.sics.ms.aggregator.data.ComponentUpdate;
 import se.sics.ms.aggregator.data.SweepAggregatedPacket;

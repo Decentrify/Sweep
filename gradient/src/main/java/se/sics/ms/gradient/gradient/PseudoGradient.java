@@ -699,7 +699,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.debug(compName + sb);
+        logger.debug (compName + sb);
     }
 
     /**

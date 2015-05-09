@@ -1,4 +1,4 @@
-package se.sics.ms.launch.global.aggregator;
+package se.sics.ms.launch.global.aggregator.main;
 
 import se.sics.kompics.Init;
 import se.sics.p2ptoolbox.util.config.SystemConfig;

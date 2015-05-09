@@ -57,7 +57,7 @@ public class MsConfig extends VodConfig {
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
     // Generic control exchange message.
-    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 30*1000;
+    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 10*1000;
     public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5*1000;
     public static final int CONTROL_MESSAGE_ENUM_SIZE = 2;
 
