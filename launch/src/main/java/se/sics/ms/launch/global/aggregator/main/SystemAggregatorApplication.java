@@ -35,18 +35,18 @@ public class SystemAggregatorApplication extends ComponentDefinition{
     private ConcurrentMap<BasicAddress, SweepAggregatedPacket> systemGlobalState;
     private Logger logger = LoggerFactory.getLogger(SystemAggregatorApplication.class);
     private Component globalAggregator;
-    private long timeout = 5000;
+    private long timeout = 1000;
     private long windowTimeout = 10000;
     
     private Positive<Network> networkPort = requires(Network.class);
     private Positive<Timer> timerPositive = requires(Timer.class);
     private SystemAggregatorApplication myComp;
     private BufferedWriter writer;
-    private static final String DEFAULT_FILE = "src/test/resources/shardLogs.txt";
+    private static String DEFAULT_FILE = "src/test/resources/shardLogs.csv";
     
     public SystemAggregatorApplication(SystemAggregatorApplicationInit init) throws IOException {
         
-        doInit();
+        doInit(init);
         subscribe(startHandler, control);
         
         globalAggregator = create(GlobalAggregatorComponent.class, new GlobalAggregatorComponentInit(timeout, windowTimeout));
@@ -59,18 +59,18 @@ public class SystemAggregatorApplication extends ComponentDefinition{
     
     
     
-    public void doInit() throws IOException {
+    public void doInit(SystemAggregatorApplicationInit init) throws IOException {
         
         logger.info("init");
         systemGlobalState = new ConcurrentHashMap<BasicAddress, SweepAggregatedPacket>();
         myComp = this;
-        
-        createWriter();
+        String fileLoc = init.getCsvLoc() != null ? init.getCsvLoc() : DEFAULT_FILE;
+        createWriter(fileLoc);
     }
 
-    private void createWriter() throws IOException {
+    private void createWriter(String fileLoc) throws IOException {
         
-        File file = new File(DEFAULT_FILE);
+        File file = new File(fileLoc);
         if(!file.exists()){
             file.createNewFile();
         }

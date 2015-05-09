@@ -50,7 +50,7 @@ public class DataAnalyzer {
         StringBuilder builder = new StringBuilder();
         
         for(Map.Entry<Pair<Integer, Integer>, ShardEntryDivisionBucket> entry : filteredInfoMap.entrySet()){
-            builder.append(generateShardOverviewString(entry));
+            builder.append(generateCSVString(entry));
         }
         
         return builder.toString();
@@ -63,6 +63,7 @@ public class DataAnalyzer {
         
         builder.append("\n");
         builder.append("=================================\n");
+        builder.append(" TIME(ms): ").append(System.currentTimeMillis()).append("\n");
         builder.append("=================================\n");
 
         builder.append("Partition Id :").append(entry.getKey().getValue0()).append(" ").append("Partition Depth: " ).append(entry.getKey().getValue1()).append("\n");
@@ -84,5 +85,33 @@ public class DataAnalyzer {
         return builder.toString();
     }
     
+    
+    
+    
+    private static String generateCSVString(Map.Entry<Pair<Integer, Integer>, ShardEntryDivisionBucket> entry){
+        
+        StringBuilder builder = new StringBuilder();
+        ShardOverview overview = entry.getValue().calculateBucketDivision();
+        
+        if(overview == null){
+            return "";
+        }
+        
+        
+        builder.append(entry.getKey().getValue0()).append(",")
+                .append(entry.getKey().getValue1()).append(",")
+                .append(System.currentTimeMillis()).append(",")
+                .append(overview.getNumEntries()).append(",")
+                .append(overview.getSize()).append(",")
+                .append(overview.getBucketDivision().getValue0()).append(",")
+                .append(overview.getBucketDivision().getValue1()).append(",")
+                .append(overview.getBucketDivision().getValue2()).append(",");
+        
+        
+        builder.append("\n");
 
+        return builder.toString();
+    }
+
+    
 }

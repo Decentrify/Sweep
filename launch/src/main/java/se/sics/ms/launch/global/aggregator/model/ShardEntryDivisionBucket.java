@@ -52,7 +52,7 @@ public class ShardEntryDivisionBucket {
         
         int fiftyAndGreater = 0;
         int seventyFiveAndGreater = 0;
-        int hundredAndGreater = 0;
+        int ninetyNineAndGreater = 0;
         
         
         if( leaderId == null ){
@@ -75,13 +75,13 @@ public class ShardEntryDivisionBucket {
                     seventyFiveAndGreater++;
                 }
                 
-                if(fraction >= 1){
-                    hundredAndGreater++;
+                if(fraction >= 0.99){
+                    ninetyNineAndGreater++;
                 }
             }
             
             shardOverview = new ShardOverview(leaderId, leaderEntries, bucketEntryList.size(), 
-                    Triplet.with(fiftyAndGreater, seventyFiveAndGreater, hundredAndGreater));
+                    Triplet.with(fiftyAndGreater, seventyFiveAndGreater, ninetyNineAndGreater));
         }
         
         else{

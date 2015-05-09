@@ -10,6 +10,13 @@ import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
  */
 public class SystemAggregatorApplicationInit extends Init<SystemAggregatorApplication>{
 
-    public SystemAggregatorApplicationInit(){
+    String csvLoc;
+    
+    public SystemAggregatorApplicationInit(String csvLoc){
+        this.csvLoc = csvLoc;
+    }
+    
+    public String getCsvLoc(){
+        return this.csvLoc;
     }
 }

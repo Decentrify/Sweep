@@ -54,7 +54,7 @@ public class SweepOperations {
 
                         @Override
                         public Init getNodeComponentInit() {
-                            return new SystemAggregatorApplicationInit();
+                            return new SystemAggregatorApplicationInit(null);
                         }
 
                         @Override
