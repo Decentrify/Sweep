@@ -9,18 +9,38 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
  *
  * Created by babbarshaer on 2015-02-04.
  */
-public class SimpleBootupScenario {
+public class SimplePartitioningScenario {
 
+    
+    private static long depth= 1;
+    private static long bucketSize = 2;
 
     public static SimulationScenario boot(final long seed) {
         
         SimulationScenario scenario = new SimulationScenario() {
             
             {
+
+                StochasticProcess generatePartitionNodeMap = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.generatePartitionNodeMap, constant(depth), constant(bucketSize));
+                    }
+                };
+
+
+                StochasticProcess partitionPeerJoin = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise( (int) (Math.pow(2, depth) * bucketSize ) , SweepOperations.startPartitionNodeCmd, uniform(0,Integer.MAX_VALUE));
+                    }
+                };
+                
+                
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(6 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
+                        raise(1 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
 
@@ -47,7 +67,10 @@ public class SimpleBootupScenario {
                     }
                 };
 
-                peerJoin.start();
+                generatePartitionNodeMap.start();
+                partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
+                
+//                peerJoin.start();
 //                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
 //                addIndexEntryCommand.startAfterTerminationOf(30000, peerJoin);
 //                searchIndexEntry.startAfterTerminationOf(50000, addIndexEntryCommand);

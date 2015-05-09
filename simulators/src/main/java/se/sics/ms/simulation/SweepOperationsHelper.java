@@ -7,20 +7,30 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.config.VodConfig;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
+import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -34,7 +44,7 @@ public class SweepOperationsHelper {
 
     private final static HashMap<Long, DecoratedAddress> peersAddressMap;
     private final static ConsistentHashtable<Long> ringNodes;
-
+    private static Map<Integer, Set<Integer>> partitionNodeMap;
     private final static CroupierConfig croupierConfiguration;
     private final static SearchConfiguration searchConfiguration;
     private final static GradientConfiguration gradientConfiguration;
@@ -52,14 +62,42 @@ public class SweepOperationsHelper {
     private static List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
     private static InetAddress ip;
     private static int port;
+    
     static{
 
+        try {
+            
+            // SWITCH TO SERIALIZERS REGISTRATION.
+            VodConfig.init(new String[0]);
+
+            int startId = 128;
+            int currentId = startId;
+            BasicSerializerSetup.registerBasicSerializers(currentId);
+            currentId += BasicSerializerSetup.serializerIds;
+            currentId = CroupierSerializerSetup.registerSerializers(currentId);
+            currentId = GradientSerializerSetup.registerSerializers(currentId);
+            currentId = ElectionSerializerSetup.registerSerializers(currentId);
+            currentId = AggregatorSerializerSetup.registerSerializers(currentId);
+            currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
+            SerializerSetup.registerSerializers(currentId);
+
+//            SimulatorEncodeDecode.init();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        
+        
+        
         Config config = ConfigFactory.load("application.conf");
 
         identifierSpaceSize = new Long(3000);
         peersAddressMap  = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
-
+        
+        partitionNodeMap = new HashMap<Integer, Set<Integer>>();
         croupierConfiguration = new CroupierConfig(config);
         searchConfiguration = SearchConfiguration.build();
         gradientConfiguration = GradientConfiguration.build();
@@ -99,7 +137,7 @@ public class SweepOperationsHelper {
      */
     public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
-        logger.info(" Generating address for peer with id: {} ", id);
+        logger.info(" Generating address for peer with id: {} with bootstrap: {}", id , bootstrap);
 
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
@@ -180,8 +218,115 @@ public class SweepOperationsHelper {
     }
     
     
-    public static DecoratedAddress getBasicAddress(long id){
-        logger.info("C a l l e d .. .. .. " + id);
+    public static DecoratedAddress getBasicAddress(long id) {
         return peersAddressMap.get(id);
     }
+    
+    private static Integer randomPartitionBucket;
+    private static List<Integer> partitionBucketNodes;
+    private static Random random = new Random();
+    
+    
+    public static long getPartitionBucketNode(long id){
+
+        if (( partitionBucketNodes == null || partitionBucketNodes.isEmpty() )) {
+
+            partitionNodeMap.remove(randomPartitionBucket);
+            
+            if(partitionNodeMap.size() > 0){
+                
+                Map.Entry<Integer, Set<Integer>> entry = partitionNodeMap.entrySet().iterator().next();
+                randomPartitionBucket = entry.getKey();
+                logger.warn("Random Partition Bucket Info: {}", randomPartitionBucket);
+                partitionBucketNodes = new ArrayList<Integer>(entry.getValue());
+                logger.warn("Partition Bucket Nodes : {}" , partitionBucketNodes);
+            }
+            
+            else {
+                
+                logger.warn("Returning nodes not part of partition bucket. ");
+                logger.warn("Partition Bucket: {}", partitionBucketNodes);
+                return getStableId(id);    
+            }
+            
+        }
+        
+        
+        if(partitionBucketNodes.isEmpty()){
+            String str = "Unable to find bucket nodes for partition: " + randomPartitionBucket;
+            throw new RuntimeException(str);
+        }
+        
+        return partitionBucketNodes.remove(0);
+    }
+    
+    
+    
+    /**
+     * Based on the parameters generate an equal sized node entries per partition.
+     *
+     * @param depth partition depth.
+     * @param bucketSize size of bucket.
+     */
+    public static void generateNodesPerPartition (long depth, long bucketSize){
+        
+        partitionNodeMap = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random());
+        
+        if(partitionNodeMap.isEmpty()){
+            throw new RuntimeException(" Unable to generate partition buckets.");
+        }
+
+        logger.warn("Partition Node Map : {}", partitionNodeMap);
+    }
+    
+
+    
+    public static class PartitionOperationsHelper {
+        
+        public static Map<Integer, Set<Integer>> generateNodeList(int depth, int bucketSize, Random random){
+
+            Map<Integer, Set<Integer>> nodeList = new HashMap<Integer, Set<Integer>>();
+            List<Boolean> filledBuckets = new ArrayList<Boolean>();
+            int maxSize = (int)Math.pow(2, depth);
+            
+            while(filledBuckets.size() < maxSize){
+
+                int id = random.nextInt();
+                int genBucketId = generateBucketId(id, depth);
+                Set<Integer> idSet = nodeList.get(genBucketId);
+
+                if(idSet == null){
+                    idSet = new HashSet<Integer>();
+                    nodeList.put(genBucketId, idSet);
+                }
+
+                else if(idSet.size() == bucketSize){
+                    continue;
+                }
+
+                idSet.add(id);
+                if(idSet.size() == bucketSize){
+                    filledBuckets.add(true);
+                }
+            }
+            
+            return nodeList;
+        }
+
+        
+        
+        private static int generateBucketId(int nodeId, int depth){
+
+            int partition =0;
+            for(int i=0; i< depth; i++){
+                partition = partition | (nodeId & (1 << i));
+            }
+            
+            return partition;
+        }
+        
+        
+    }
+    
+    
 }
