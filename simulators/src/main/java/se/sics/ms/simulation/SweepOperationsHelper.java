@@ -337,6 +337,8 @@ public class SweepOperationsHelper {
         return new DecoratedAddress(ip, port, 0);
     }
 
+    
+    
 
     /**
      * Access the ring node structure and then determine the node to kill.
@@ -344,18 +346,22 @@ public class SweepOperationsHelper {
      */
     public static Integer removeNode ( long id ) {
 
-        Integer result = null;
-        
-        while ( true ){
+        long result;
+        result = ringNodes.getNode(id);
+        while(result < 0){
             
-            result = (int) getStableId(id);
-            if( result == Integer.MIN_VALUE )       // Do not remove the leader node id.
-                continue;
-            
-            break;
+            id = (id + 1) % identifierSpaceSize;
+            result = ringNodes.getNode(id);
         }
         
-        return result;
+        ringNodes.removeNode(result);
+        return (int)result;
+    }
+
+    
+    static long leaderGroupNodeId = Integer.MIN_VALUE;
+    public static long getLeaderGroupNodeId(Long id){
+        return ++leaderGroupNodeId;
     }
 
 

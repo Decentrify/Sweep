@@ -65,6 +65,47 @@ public class SweepOperations {
                     };
                 }
     };
+
+
+
+    public static Operation1<StartNodeCmd, Long> startLeaderGroupNodes = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+
+            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+
+                long nodeId = SweepOperationsHelper.getLeaderGroupNodeId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int) nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 2;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return SearchPeer.class;
+                }
+
+                @Override
+                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePeerInit(address, bootstrapNodes, nodeId);
+                }
+
+                @Override
+                public DecoratedAddress getAddress() {
+                    return SweepOperationsHelper.getBasicAddress(nodeId);
+                }
+            };
+        }
+    };
+    
+    
+    
     
     
     
