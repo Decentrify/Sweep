@@ -172,9 +172,9 @@ public class SweepOperationsHelper {
      * @return
      */
     public static DecoratedAddress getNodeAddressToCommunicate(Long id){
-        
-        logger.info(" Fetching random node address from the map. ");
+
         Long successor = ringNodes.getNode(id);
+//        logger.error(" Fetching random node address from the map. {} ", successor );
         
         DecoratedAddress address = peersAddressMap.get(successor);
         if(address == null){
@@ -335,6 +335,27 @@ public class SweepOperationsHelper {
 
     public static DecoratedAddress getAggregatorAddress() {
         return new DecoratedAddress(ip, port, 0);
+    }
+
+
+    /**
+     * Access the ring node structure and then determine the node to kill.
+     * * @return
+     */
+    public static Integer removeNode ( long id ) {
+
+        Integer result = null;
+        
+        while ( true ){
+            
+            result = (int) getStableId(id);
+            if( result == Integer.MIN_VALUE )       // Do not remove the leader node id.
+                continue;
+            
+            break;
+        }
+        
+        return result;
     }
 
 

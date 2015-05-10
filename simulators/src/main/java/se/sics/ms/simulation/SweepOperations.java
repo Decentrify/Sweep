@@ -18,6 +18,7 @@ import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
+import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation;
@@ -312,5 +313,32 @@ public class SweepOperations {
         }
     };
 
+
+    /**
+     * Kill the node command operation, 
+     * in which the node fetches the node id to kill the node.
+     *
+     */
+    public static Operation1<KillNodeCmd, Long> killNodeCmdOperation = new Operation1<KillNodeCmd, Long>() {
+
+        @Override
+        public KillNodeCmd generate(final Long id) {
+            
+            return new KillNodeCmd() {
+                
+                Integer nodeId = SweepOperationsHelper.removeNode(id);
+                
+                @Override
+                public Integer getNodeId() {
+
+                    System.out.println(" Node To Kill : " + nodeId);
+                    return nodeId;
+                }
+            };
+        }
+    };
+    
+    
+    
 
 }

@@ -11,7 +11,7 @@ Below is a list of simulations necessary:
 
 * Flash Crowd Test which adds a bucnh of new nodes in already running system and the time required them to catch up.
 
-
+* Churn Test in which we create a constant removing of adding nodes in the system and then see that the system works fine.
 
 ### Information:
 The above list is not exhaustive and as more testing will be done, cases will be added on need basis.
