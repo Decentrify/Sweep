@@ -1823,9 +1823,10 @@ public final class Search extends ComponentDefinition {
     private void answerSearchRequest() {
         ArrayList<IndexEntry> result = null;
         try {
+            
             result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
             logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
-
+            logger.error("Partitions Hit : {}", searchRequest.getNumberOfRespondedPartitions());
         } catch (LuceneAdaptorException e) {
             result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
             logger.warn("{} : Unable to search for the entries.", self.getId());

@@ -356,6 +356,53 @@ public class SweepOperations {
     };
 
 
+    public static Operation1<NetworkOpCmd, Long> bucketAwareSearchEntry = new Operation1<NetworkOpCmd, Long>() {
+
+        @Override
+        public NetworkOpCmd generate(final Long bucketId) {
+            return new NetworkOpCmd() {
+
+                DecoratedAddress destination = SweepOperationsHelper.getNodeForBucket(bucketId);
+                SearchPattern pattern = SweepOperationsHelper.generateSearchPattern();
+
+                @Override
+                public void beforeCmd(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public boolean myResponse(KompicsEvent kompicsEvent) {
+                    return false;
+                }
+
+                @Override
+                public void validate(SimulationContext simulationContext, KompicsEvent kompicsEvent) throws ValidationException {
+
+                }
+
+                @Override
+                public void afterValidation(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public Msg getNetworkMsg(Address address) {
+
+                    logger.error("Search Index Entry Command invoked for ->" + destination.getId());
+                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
+
+                    return msg;
+                }
+            };
+        }
+    };
+    
+    
+    
+    
+
     public static Operation1<NetworkOpCmd, Long> searchIndexEntry = new Operation1<NetworkOpCmd, Long>() {
 
         @Override
