@@ -63,10 +63,12 @@ public class SweepOperationsHelper {
     private static List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
     private static InetAddress ip;
     private static int port;
+    private static List<Long> reservedIdList;
     
     static{
 
         try {
+            
             
             // SWITCH TO SERIALIZERS REGISTRATION.
             VodConfig.init(new String[0]);
@@ -82,6 +84,10 @@ public class SweepOperationsHelper {
             currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
             SerializerSetup.registerSerializers(currentId);
 
+            
+            reservedIdList = new ArrayList<Long>();
+            reservedIdList.add((long)0);
+            
 //            SimulatorEncodeDecode.init();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -125,7 +131,7 @@ public class SweepOperationsHelper {
         
         Long successor = ringNodes.getNode(id);
         
-        while (successor != null && successor.equals(id)) {
+        while (successor != null && successor.equals(id) && reservedIdList.contains(successor)) {
             id = (id + 1) % identifierSpaceSize;
             successor = ringNodes.getNode(id);
         }
@@ -286,7 +292,7 @@ public class SweepOperationsHelper {
                 randomPartitionBucket = entry.getKey();
                 logger.debug("Random Partition Bucket Info: {}", randomPartitionBucket);
                 partitionBucketNodes = new ArrayList<Integer>(entry.getValue());
-                logger.warn("Partition Bucket Nodes : {}" , partitionBucketNodes);
+                logger.error("Partition Bucket Nodes : {}", partitionBucketNodes);
             }
             
             else {

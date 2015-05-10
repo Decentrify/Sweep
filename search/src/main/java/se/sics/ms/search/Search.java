@@ -366,7 +366,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(7000  , 7000);
+            rst = new SchedulePeriodicTimeout(4000  , 4000);
             rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -1220,7 +1220,7 @@ public final class Search extends ComponentDefinition {
             timeStoringMap.remove(event.getTimeoutId());
 
             if (event.reachedRetryLimit()) {
-                logger.warn("{} reached retry limit for adding a new entry {} with timeoutId: {}", new Object[]{self.getAddress(), event.entry, event.getTimeoutId()});
+                logger.error("{} reached retry limit for adding a new entry {} with timeoutId: {}", new Object[]{self.getAddress(), event.entry, event.getTimeoutId()});
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
             }
             else {
