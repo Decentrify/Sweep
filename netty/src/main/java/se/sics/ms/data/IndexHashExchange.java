@@ -18,21 +18,24 @@ public class IndexHashExchange {
         private final UUID exchangeRoundId;
         private final long lowestMissingIndexEntry;
         private final Long[] entries;
+        private final int overlayId;
         
-        public Request(UUID exchangeRoundId, long lowestMissingIndexEntry, Long[] entries){
+        public Request(UUID exchangeRoundId, long lowestMissingIndexEntry, Long[] entries, int overlayId){
             this.exchangeRoundId = exchangeRoundId;
             this.lowestMissingIndexEntry = lowestMissingIndexEntry;
             this.entries = entries;
+            this.overlayId = overlayId;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof Request)) return false;
+            if (o == null || getClass() != o.getClass()) return false;
 
             Request request = (Request) o;
 
             if (lowestMissingIndexEntry != request.lowestMissingIndexEntry) return false;
+            if (overlayId != request.overlayId) return false;
             if (!Arrays.equals(entries, request.entries)) return false;
             if (exchangeRoundId != null ? !exchangeRoundId.equals(request.exchangeRoundId) : request.exchangeRoundId != null)
                 return false;
@@ -45,9 +48,9 @@ public class IndexHashExchange {
             int result = exchangeRoundId != null ? exchangeRoundId.hashCode() : 0;
             result = 31 * result + (int) (lowestMissingIndexEntry ^ (lowestMissingIndexEntry >>> 32));
             result = 31 * result + (entries != null ? Arrays.hashCode(entries) : 0);
+            result = 31 * result + overlayId;
             return result;
         }
-
 
         @Override
         public String toString() {
@@ -55,7 +58,12 @@ public class IndexHashExchange {
                     "exchangeRoundId=" + exchangeRoundId +
                     ", lowestMissingIndexEntry=" + lowestMissingIndexEntry +
                     ", entries=" + Arrays.toString(entries) +
+                    ", overlayId=" + overlayId +
                     '}';
+        }
+
+        public int getOverlayId() {
+            return overlayId;
         }
 
         public UUID getExchangeRoundId() {
@@ -76,21 +84,22 @@ public class IndexHashExchange {
         
         private final Collection<IndexHash> indexHashes;
         private final UUID exchangeRoundId;
+        private final int overlayId;
         
-        public Response(UUID exchangeRoundId, Collection<IndexHash>indexHashes){
+        public Response(UUID exchangeRoundId, Collection<IndexHash>indexHashes, int overlayId){
             this.indexHashes = indexHashes;
             this.exchangeRoundId = exchangeRoundId;
+            this.overlayId = overlayId;
         }
-
 
         @Override
         public boolean equals(Object o) {
-
             if (this == o) return true;
-            if (!(o instanceof Response)) return false;
+            if (o == null || getClass() != o.getClass()) return false;
 
             Response response = (Response) o;
 
+            if (overlayId != response.overlayId) return false;
             if (exchangeRoundId != null ? !exchangeRoundId.equals(response.exchangeRoundId) : response.exchangeRoundId != null)
                 return false;
             if (indexHashes != null ? !indexHashes.equals(response.indexHashes) : response.indexHashes != null)
@@ -103,6 +112,7 @@ public class IndexHashExchange {
         public int hashCode() {
             int result = indexHashes != null ? indexHashes.hashCode() : 0;
             result = 31 * result + (exchangeRoundId != null ? exchangeRoundId.hashCode() : 0);
+            result = 31 * result + overlayId;
             return result;
         }
 
@@ -111,9 +121,14 @@ public class IndexHashExchange {
             return "Response{" +
                     "indexHashes=" + indexHashes +
                     ", exchangeRoundId=" + exchangeRoundId +
+                    ", overlayId=" + overlayId +
                     '}';
         }
 
+        public int getOverlayId() {
+            return overlayId;
+        }
+        
         public Collection<IndexHash> getIndexHashes() {
             return indexHashes;
         }

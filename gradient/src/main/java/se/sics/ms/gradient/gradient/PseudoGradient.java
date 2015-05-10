@@ -467,25 +467,22 @@ public final class PseudoGradient extends ComponentDefinition {
 
             logger.debug("{}: Request for initiating index hash exchange with round Id: {}", self.getId(), event.getTimeoutId());
 
-            ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
-            if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
+//            ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
+            
+            NavigableSet<SearchDescriptor> higherNodes = new TreeSet<SearchDescriptor>(getHigherUtilityNodes());
+            if (higherNodes.isEmpty() || higherNodes.size() < event.getNumberOfRequests()) {
                 logger.debug(" {}: Not enough nodes to perform Index Hash Exchange.", self.getAddress().getId());
                 return;
             }
 
-            HashSet<DecoratedAddress> nodesSelectedForExchange = new HashSet<DecoratedAddress>();
-            IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries());
+            IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), self.getOverlayId());
             
-            for (int i = 0; i < event.getNumberOfRequests(); i++) {
-                int n = random.nextInt(nodes.size());
-                SearchDescriptor node = nodes.get(n);
-                nodes.remove(node);
-                logger.debug("{}: Sending exchange request to :{} with round {}", new Object[]{ self.getId(), node.getId(), event.getTimeoutId()});
-//                nodesSelectedForExchange.add(node.getVodAddress());
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node.getVodAddress(), Transport.UDP, request), networkPort);
+            Iterator<SearchDescriptor> iterator = higherNodes.descendingIterator();
+            for(int i=0; i< event.getNumberOfRequests() ; i ++){
+                SearchDescriptor desc = iterator.next();
+                logger.debug("{}: Sending exchange request to :{} with round {}", new Object[]{ self.getId(), desc.getId(), event.getTimeoutId()});
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), desc.getVodAddress() , Transport.UDP, request), networkPort);
             }
-
-//            trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
         }
     };
 

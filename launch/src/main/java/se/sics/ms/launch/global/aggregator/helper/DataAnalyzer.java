@@ -94,7 +94,8 @@ public class DataAnalyzer {
         ShardOverview overview = entry.getValue().calculateBucketDivision();
         
         if(overview == null){
-            return "";
+            return builder.append(entry.getKey().getValue0()).append(",")
+                    .append(entry.getKey().getValue1()).append(",").toString();
         }
         
         

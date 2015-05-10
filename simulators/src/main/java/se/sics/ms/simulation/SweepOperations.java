@@ -259,8 +259,54 @@ public class SweepOperations {
             };
         }
     };
-    
-    
+
+
+
+
+
+
+    public static Operation1<NetworkOpCmd, Long> addBucketAwareEntry = new Operation1<NetworkOpCmd, Long>() {
+
+        @Override
+        public NetworkOpCmd generate(final Long bucketId) {
+            return new NetworkOpCmd() {
+
+                DecoratedAddress destination = SweepOperationsHelper.getNodeForBucket(bucketId);
+                IndexEntry junkEntry = SweepOperationsHelper.generateIndexEntry();
+
+                @Override
+                public void beforeCmd(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public boolean myResponse(KompicsEvent kompicsEvent) {
+                    return false;
+                }
+
+                @Override
+                public void validate(SimulationContext simulationContext, KompicsEvent kompicsEvent) throws ValidationException {
+
+                }
+
+                @Override
+                public void afterValidation(SimulationContext simulationContext) {
+
+                }
+
+                @Override
+                public Msg getNetworkMsg(Address address) {
+
+                    logger.debug("Add Index Entry id invoked for id -> " + destination.getId());
+
+                    AddIndexEntryP2pSimulated request = new AddIndexEntryP2pSimulated(junkEntry);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>(header, request);
+                    return msg;
+                }
+            };
+        }
+    };
     
     
     
@@ -345,7 +391,7 @@ public class SweepOperations {
                     logger.debug("Search Index Entry Command invoked for ->" + destination.getId());
 
                     SearchP2pSimulated simulated = new SearchP2pSimulated(pattern);
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, (DecoratedAddress) address, Transport.UDP);
                     BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
 
                     return msg;

@@ -283,6 +283,9 @@ public final class Search extends ComponentDefinition {
         subscribe(leaderUpdateHandler, electionPort);
         subscribe(enableLGMembershipHandler, electionPort);
         subscribe(disableLGMembershipHandler, electionPort);
+        
+        // SHARDING.
+        subscribe(preShardingTimeoutHandler, timerPort);
     }
 
     /**
@@ -882,8 +885,14 @@ public final class Search extends ComponentDefinition {
     ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>> handleIndexHashExchangeRequest = new ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>>() {
         @Override
         public void handle(IndexHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request> event) {
+            
             logger.debug("{}: Received Index Hash Exchange from: {}", self.getId(), event.getSource());
-
+            
+            if(self.getOverlayId() != request.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), request.getOverlayId()});
+                return;
+            }
+            
             try {
 
                 List<IndexHash> hashes = new ArrayList<IndexHash>();
@@ -910,7 +919,7 @@ public final class Search extends ComponentDefinition {
                     }
                 }
 
-                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes);
+                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
             } catch (IOException e) {
@@ -927,6 +936,11 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received index hash exchange response from the node: {}", new Object[]{self.getId(), event.getSource()});
 
+            if(self.getOverlayId() != response.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), response.getOverlayId()});
+                return;
+            }
+            
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 logger.warn("{}: Received response for an old index hash exchange request. Current UUID :{}, Received :{}, Source:{} ", new Object[]{self.getId(), indexExchangeTimeout, response.getExchangeRoundId(), event.getSource().getId()});
@@ -955,7 +969,7 @@ public final class Search extends ComponentDefinition {
 
                 // Use Softmax approach to select the node to ask the request for index entries from.
                 DecoratedAddress node = collectedHashes.keySet().iterator().next();
-                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids);
+                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node, Transport.UDP, request), networkPort);
                 
             }
@@ -972,6 +986,12 @@ public final class Search extends ComponentDefinition {
         public void handle(IndexExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request> event) {
             
             logger.warn("{}: Received Index Exchange request from: {}", self.getId(), event.getSource());
+
+            if(self.getOverlayId() != request.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), request.getOverlayId()});
+                return;
+            }
+            
             
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
@@ -982,7 +1002,7 @@ public final class Search extends ComponentDefinition {
                         indexEntries.add(entry);
                 }
                 
-                IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0);
+                IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                 
             } catch (IOException e) {
@@ -1008,6 +1028,11 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received index exchange response BEFORE CHECK from the node: {}", self.getId(), event.getSource());
 
+            if(self.getOverlayId() != response.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), response.getOverlayId()});
+                return;
+            }
+            
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 return;
@@ -1769,8 +1794,6 @@ public final class Search extends ComponentDefinition {
             minStoredId = temp;
         }
 
-        // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested and some edge cases exists in this implementation.
-        // FIXME: More cleaner solution is required.
         nextInsertionId = maxStoredId;
         lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
         partitionInProgress = false;
@@ -1912,7 +1935,7 @@ public final class Search extends ComponentDefinition {
         long medianId;
 
         if (maxStoredId > minStoredId) {
-            medianId = (maxStoredId - minStoredId) / 2;
+            medianId = ((maxStoredId-1) - minStoredId) / 2;
         } else {
             long values = numberOfEntries / 2;
 
@@ -1927,15 +1950,33 @@ public final class Search extends ComponentDefinition {
 
         // Avoid start of partitioning in case if one is already going on.
         if (!partitionInProgress) {
-
-            logger.warn(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
+            
             partitionInProgress = true;
-            start2PhasePartitionCommit(minStoredId + medianId, partitionsNumber);
+            logger.error(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + +maxStoredId + "and Median id: " + medianId);
+            preShardingTimeout(minStoredId, medianId, partitionsNumber);
         }
 
 
     }
 
+    private void preShardingTimeout (long minStoredId, long medianId, VodAddress.PartitioningType partitioningType) {
+        
+        ScheduleTimeout st = new ScheduleTimeout(30000);
+        TimeoutCollection.PreShardingTimeout timeout = new TimeoutCollection.PreShardingTimeout (minStoredId, medianId, partitioningType, st);
+        st.setTimeoutEvent(timeout);
+        
+        trigger(st, timerPort);
+    }
+
+    
+    Handler<TimeoutCollection.PreShardingTimeout> preShardingTimeoutHandler  = new Handler<TimeoutCollection.PreShardingTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.PreShardingTimeout event) {
+            logger.error("{}: Presharding timeout handler invoked, initiate sharding");
+            start2PhasePartitionCommit(event.minStoreId + event.medianId, event.partitioningType);
+        }
+    };
+    
     /**
      * Starting point of the two phase commit protocol for partitioning commit in the
      * system.
@@ -2412,12 +2453,19 @@ public final class Search extends ComponentDefinition {
             self.setOverlayId(newOverlayId);
 
         } else {
-            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionId());
+
+            int newDepth = self.getPartitioningDepth() +1;
+            int partition =0;
+            for(int i=0; i< newDepth; i++){
+                partition = partition | (nodeId & (1 << i));
+            }
+            
+//            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionId());
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                    self.getPartitioningDepth() + 1, newPartitionId, selfCategory);
+                    self.getPartitioningDepth() + 1, partition, selfCategory);
             self.setOverlayId(newOverlayId);
         }
         logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());

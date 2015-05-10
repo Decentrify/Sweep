@@ -43,6 +43,8 @@ public class IndexExchangeSerializer {
             for(Id id : request.getIds()){
                 Serializers.lookupSerializer(Id.class).toBinary(id, byteBuf);
             }
+            
+            byteBuf.writeInt(request.getOverlayId());
         }
 
         @Override
@@ -58,8 +60,9 @@ public class IndexExchangeSerializer {
                 idList.add(id);
                 idLen --;
             }
-
-            return new IndexExchange.Request(roundId, idList);
+            
+           int overlayId = byteBuf.readInt();
+            return new IndexExchange.Request(roundId, idList, overlayId);
         }
     }
 
@@ -95,6 +98,7 @@ public class IndexExchangeSerializer {
 
             byteBuf.writeInt(response.getNumResponses());
             byteBuf.writeInt(response.getResponseNumber());
+            byteBuf.writeInt(response.getOverlayId());
         }
 
         @Override
@@ -114,8 +118,9 @@ public class IndexExchangeSerializer {
 
             int numResponses = byteBuf.readInt();
             int responseNumber = byteBuf.readInt();
+            int overlayId = byteBuf.readInt();
 
-            return new IndexExchange.Response(roundId, entryCollection, numResponses, responseNumber);
+            return new IndexExchange.Response(roundId, entryCollection, numResponses, responseNumber,overlayId);
         }
     }
 

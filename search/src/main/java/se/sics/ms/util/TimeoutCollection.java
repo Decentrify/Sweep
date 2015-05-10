@@ -1,5 +1,6 @@
 package se.sics.ms.util;
 
+import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
@@ -72,7 +73,21 @@ public class TimeoutCollection {
         }
     }
 
+    
+    public static class PreShardingTimeout extends Timeout {
 
+        public long minStoreId;
+        public long medianId;
+        public VodAddress.PartitioningType partitioningType;
+        
+        
+        public PreShardingTimeout(long minStoreId, long medianId, VodAddress.PartitioningType partitioningType, ScheduleTimeout request) {
+            super(request);
+            this.medianId = medianId;
+            this.minStoreId = minStoreId;
+            this.partitioningType = partitioningType;
+        }
+    }
 
     
     

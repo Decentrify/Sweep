@@ -44,8 +44,8 @@ public class SweepOperationsHelper {
 
     private final static HashMap<Long, DecoratedAddress> peersAddressMap;
     private final static ConsistentHashtable<Long> ringNodes;
-    private static Map<Integer, Set<Integer>> partitionNodeMap;
-    private static Map<Integer, Set<Integer>> partitionNodeMapCopy;
+    private static Map<Integer, TreeSet<Integer>> partitionNodeMap;
+    private static Map<Integer, TreeSet<Integer>> partitionNodeMapCopy;
     private final static CroupierConfig croupierConfiguration;
     private final static SearchConfiguration searchConfiguration;
     private final static GradientConfiguration gradientConfiguration;
@@ -104,7 +104,7 @@ public class SweepOperationsHelper {
         peersAddressMap  = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
         
-        partitionNodeMap = new HashMap<Integer, Set<Integer>>();
+        partitionNodeMap = new HashMap<Integer, TreeSet<Integer>>();
         croupierConfiguration = new CroupierConfig(config);
         searchConfiguration = SearchConfiguration.build();
         gradientConfiguration = GradientConfiguration.build();
@@ -288,12 +288,14 @@ public class SweepOperationsHelper {
             
             if(partitionNodeMap.size() > 0){
                 
-                Map.Entry<Integer, Set<Integer>> entry = partitionNodeMap.entrySet().iterator().next();
+                Map.Entry<Integer, TreeSet<Integer>> entry = partitionNodeMap.entrySet().iterator().next();
                 randomPartitionBucket = entry.getKey();
                 logger.debug("Random Partition Bucket Info: {}", randomPartitionBucket);
                 partitionBucketNodes = new ArrayList<Integer>(entry.getValue());
-                logger.error("Partition Bucket Nodes : {}", partitionBucketNodes);
+                logger.error("Partition Bucket Nodes for partition:{} : {}", randomPartitionBucket, partitionBucketNodes);
             }
+            
+          
             
             else {
 
@@ -325,7 +327,7 @@ public class SweepOperationsHelper {
         
         partitionNodeMap = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random(seed));
         partitionNodeMapCopy = PartitionOperationsHelper.generateNodeList((int)depth, (int)bucketSize, new Random(seed));
-
+        
         if(partitionNodeMap.isEmpty()){
             throw new RuntimeException(" Unable to generate partition buckets.");
         }
@@ -365,11 +367,34 @@ public class SweepOperationsHelper {
     }
 
 
+    /**
+     * The Tree Set picks up the first node from the bucket i.e. the expected leader node.
+     *
+     * @param bucketId
+     * @return
+     */
+    public static DecoratedAddress getNodeForBucket(long bucketId) {
+
+        if( partitionNodeMapCopy == null ){
+            throw new RuntimeException("Bucket Map empty");
+        }
+        
+        TreeSet<Integer> bucketNodes = partitionNodeMapCopy.get((int)bucketId);
+        
+        if(bucketNodes == null || bucketNodes.isEmpty()){
+            throw new RuntimeException("No nodes for the bucket found");
+        }
+        
+        int nodeId = bucketNodes.first();
+        return peersAddressMap.get((long)nodeId);
+    }
+
+
     public static class PartitionOperationsHelper {
         
-        public static Map<Integer, Set<Integer>> generateNodeList(int depth, int bucketSize, Random random){
+        public static Map<Integer, TreeSet<Integer>> generateNodeList(int depth, int bucketSize, Random random){
 
-            Map<Integer, Set<Integer>> nodeList = new HashMap<Integer, Set<Integer>>();
+            Map<Integer, TreeSet<Integer>> nodeList = new HashMap<Integer, TreeSet<Integer>>();
             List<Boolean> filledBuckets = new ArrayList<Boolean>();
             int maxSize = (int)Math.pow(2, depth);
             
@@ -377,10 +402,10 @@ public class SweepOperationsHelper {
 
                 int id = random.nextInt();
                 int genBucketId = generateBucketId(id, depth);
-                Set<Integer> idSet = nodeList.get(genBucketId);
+                TreeSet<Integer> idSet = nodeList.get(genBucketId);
 
                 if(idSet == null){
-                    idSet = new HashSet<Integer>();
+                    idSet = new TreeSet<Integer>();
                     nodeList.put(genBucketId, idSet);
                 }
 
