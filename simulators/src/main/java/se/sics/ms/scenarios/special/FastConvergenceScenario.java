@@ -43,7 +43,7 @@ public class FastConvergenceScenario {
                 StochasticProcess partitionPeerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise( (int) (Math.pow(2, depth) * bucketSize ) , SweepOperations.startPartitionNodeCmd, uniform(0,Integer.MAX_VALUE));
+                        raise( (int) (Math.pow(2, depth) * bucketSize ) , SweepOperations.startPartitionNodeCmd, uniform(1 , Integer.MAX_VALUE));
                     }
                 };
 
@@ -83,7 +83,7 @@ public class FastConvergenceScenario {
                     {
                         eventInterArrivalTime(constant(3000));
                         raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(3000), constant(3));
-                        
+
                     }
                 };
 
@@ -91,7 +91,7 @@ public class FastConvergenceScenario {
                 startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
                 generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
-                partitionEntryAdd.startAfterTerminationOf(40000, partitionPeerJoin);
+                partitionEntryAdd.startAfterTerminationOf(200 * 1000, partitionPeerJoin);
                 
 //                peerJoin.start();
 //                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);

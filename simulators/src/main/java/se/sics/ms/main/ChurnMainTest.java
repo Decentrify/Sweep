@@ -1,4 +1,4 @@
-package se.sics.p2p.simulator.main;
+package se.sics.ms.main;
 
 import se.sics.ms.scenarios.special.BasicChurnScenario;
 import se.sics.ms.scenarios.special.FastConvergenceScenario;

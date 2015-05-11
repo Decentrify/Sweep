@@ -1,4 +1,4 @@
-package se.sics.p2p.simulator.main;
+package se.sics.ms.main;
 
 import org.junit.Test;
 import se.sics.ms.scenarios.general.SimplePartitioningScenario;

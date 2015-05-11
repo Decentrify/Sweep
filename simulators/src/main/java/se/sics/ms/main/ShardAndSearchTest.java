@@ -1,4 +1,4 @@
-package se.sics.p2p.simulator.main;
+package se.sics.ms.main;
 
 import se.sics.ms.scenarios.special.ShardingAndSearchScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
