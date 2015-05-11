@@ -218,7 +218,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
             SearchPattern searchPattern = new SearchPattern("abhi", 0, 0, null, null, null, MsConfig.Categories.Video, null);
-            trigger(new SimulationEventsPort.SearchSimulated(searchPattern, null, null), peer.getNegative(SimulationEventsPort.class));
+            trigger(new SimulationEventsPort.SearchSimulated.Request(searchPattern, null, null), peer.getNegative(SimulationEventsPort.class));
         }
     };
 

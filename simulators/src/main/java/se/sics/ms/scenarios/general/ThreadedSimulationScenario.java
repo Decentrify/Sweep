@@ -1,4 +1,4 @@
-package se.sics.ms.scenarios;
+package se.sics.ms.scenarios.general;
 
 import javassist.ClassPool;
 import javassist.Loader;

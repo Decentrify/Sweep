@@ -4,6 +4,7 @@ import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
+import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
@@ -31,6 +32,7 @@ import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.util.CommonHelper;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierComp;
@@ -155,6 +157,7 @@ public final class SearchPeer extends ComponentDefinition {
         // Simulator Events.
         subscribe(addEntrySimulatorHandler, network);
         subscribe(searchSimulatorHandler, network);
+        subscribe(searchSimulatedResponseHandler, search.getNegative(SimulationEventsPort.class));
     }
 
     /**
@@ -350,14 +353,34 @@ public final class SearchPeer extends ComponentDefinition {
     };
 
     
+    DecoratedAddress currentSimAddress = null;
+    
     ClassMatchedHandler<SearchP2pSimulated.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>> searchSimulatorHandler = 
             new ClassMatchedHandler<SearchP2pSimulated.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>>() {
                 
         @Override
         public void handle(SearchP2pSimulated.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request> event) {
-            
+
+            currentSimAddress = event.getSource();
             log.debug("Search Event Received : {}", request.getSearchPattern());
-            trigger(new SimulationEventsPort.SearchSimulated(request.getSearchPattern(), request.getSearchTimeout(), request.getFanoutParameter()), search.getNegative(SimulationEventsPort.class));
+            trigger(new SimulationEventsPort.SearchSimulated.Request(request.getSearchPattern(), request.getSearchTimeout(), request.getFanoutParameter()), search.getNegative(SimulationEventsPort.class));
+        }
+    };
+
+    /**
+     * Handler for the Response from the Search Component regarding the responses and the partitions 
+     * hit for the request.
+     */
+    Handler<SimulationEventsPort.SearchSimulated.Response> searchSimulatedResponseHandler = new Handler<SimulationEventsPort.SearchSimulated.Response>() {
+        @Override
+        public void handle(SimulationEventsPort.SearchSimulated.Response event) {
+            
+            log.debug("{}: Received the search simulated response from the child component", self.getId());
+            if(currentSimAddress != null){
+                log.debug("Responses: {}, Partitions Hit: {}", event.getResponses(), event.getPartitionHit());
+                SearchP2pSimulated.Response response = new SearchP2pSimulated.Response(event.getResponses(), event.getPartitionHit());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), currentSimAddress, Transport.UDP, response), network);
+            }
         }
     };
     

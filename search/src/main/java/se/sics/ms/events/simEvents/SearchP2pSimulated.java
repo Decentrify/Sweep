@@ -62,13 +62,11 @@ public class SearchP2pSimulated {
         
         public int responses;
         public int partitionHit;
-        
-        
+
         public Response(int responses, int partitionHit){
             this.responses = responses;
             this.partitionHit = partitionHit;
         }
-        
         
         public int getResponses() {
             return responses;

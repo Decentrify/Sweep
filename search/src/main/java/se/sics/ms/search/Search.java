@@ -1093,9 +1093,9 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<SimulationEventsPort.SearchSimulated> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated>() {
+    final Handler<SimulationEventsPort.SearchSimulated.Request> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated.Request>() {
         @Override
-        public void handle(SimulationEventsPort.SearchSimulated event) {
+        public void handle(SimulationEventsPort.SearchSimulated.Request event) {
             startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
         }
     };
@@ -1833,8 +1833,10 @@ public final class Search extends ComponentDefinition {
             logger.warn("{} : Unable to search for the entries.", self.getId());
             e.printStackTrace();
         } finally {
-            searchRequest = null;   // Stop handling more searches.
+            
             trigger(new UiSearchResponse(result), uiPort);
+            trigger(new SimulationEventsPort.SearchSimulated.Response(result.size(), searchRequest.getNumberOfRespondedPartitions()), simulationEventsPort);
+            searchRequest = null;   // Stop handling more searches.
         }
     }
 

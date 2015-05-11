@@ -11,6 +11,7 @@ import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplication;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplicationInit;
+import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
@@ -376,17 +377,27 @@ public class SweepOperations {
 
                 @Override
                 public boolean myResponse(KompicsEvent kompicsEvent) {
+                    
+                    if(kompicsEvent instanceof  BasicContentMsg){
+                        BasicContentMsg msg = (BasicContentMsg)kompicsEvent;
+                        return (msg.getContent() != null && msg.getContent() instanceof SearchP2pSimulated.Response);
+                    }
                     return false;
                 }
 
                 @Override
                 public void validate(SimulationContext simulationContext, KompicsEvent kompicsEvent) throws ValidationException {
-
+                    
+                    SearchP2pSimulated.Response response = (SearchP2pSimulated.Response)(((BasicContentMsg)kompicsEvent).getContent());
+                    
+                    logger.error("Simulator Received the response from the container component.");
+                    logger.error("Partition Hit: {}, Responses:{}", response.getPartitionHit(), response.getResponses());
                 }
 
                 @Override
                 public void afterValidation(SimulationContext simulationContext) {
-
+                    // Log the Result in the class.
+                    logger.error("Will log the search time results.");
                 }
 
                 @Override
