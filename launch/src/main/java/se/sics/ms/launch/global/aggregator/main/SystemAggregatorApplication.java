@@ -108,6 +108,7 @@ public class SystemAggregatorApplication extends ComponentDefinition{
                 }
                 
                 writer.write(DataAnalyzer.constructShardInfoBuckets(SystemAggregatorDataModelBuilder.getSimpleDataModel(systemGlobalState)));
+                writer.flush();
             } 
             catch (IOException e) {
                 
