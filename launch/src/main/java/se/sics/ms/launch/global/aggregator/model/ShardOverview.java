@@ -28,7 +28,7 @@ public class ShardOverview {
                 "leaderId=" + leaderId +
                 ", numEntries=" + numEntries +
                 ", size=" + size +
-                ", bucketDivision (50, 75, 100)=" + bucketDivision +
+                ", bucketDivision (50, 75, 99)=" + bucketDivision +
                 '}';
     }
 
