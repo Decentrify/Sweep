@@ -19,7 +19,7 @@ import java.util.Map;
 public class ShardingAndSearchScenario {
 
 
-    public static SimulationScenario boot(final long seed, final long depth, final long bucketSize, final int throughput, final int numEntries) {
+    public static SimulationScenario boot(final long seed, final long depth, final long bucketSize, final int throughput, final int numEntries, final int searchTimeout, final int fanoutParam) {
 
 
         final SimulationScenario scenario = new SimulationScenario() {
@@ -61,7 +61,7 @@ public class ShardingAndSearchScenario {
                 
                 Map<Integer, List<StochasticProcess>> fillLevelCommand = new HashMap<Integer, List<StochasticProcess>>();
                 
-                final int shardSize = 8;
+                final int shardSize = numEntries;
                 
                 StochasticProcess fillBucket0 = new StochasticProcess() {{
                         eventInterArrivalTime(constant(4000));
@@ -92,7 +92,7 @@ public class ShardingAndSearchScenario {
                     {
                         long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(3000), constant(3) , constant(expectedEntries) );
+                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(searchTimeout), constant(fanoutParam) , constant(expectedEntries) );
 
                     }
                 };
