@@ -369,7 +369,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(4000  , 4000);
+            rst = new SchedulePeriodicTimeout(5000  , 5000);
             rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -1108,7 +1108,7 @@ public final class Search extends ComponentDefinition {
      */
     private void addEntryGlobal(IndexEntry entry) {
 
-        logger.error("{}: Triggering entry addition timeout. EntryId: {}", self.getId(), entry);
+        System.out.println("{}: Triggering entry addition timeout. EntryId: {}" +  self.getId() + entry);
 
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
         rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), 0, entry));

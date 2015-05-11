@@ -7,17 +7,17 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
  * Scenario for generating the flash crowd in the system.
  * Flash Crowd means that once the system has stabalized in terms of nodes have added entries, send in a burst
  * of new nodes joining the system.
- * 
+ *
  * The
  * Created by babbarshaer on 2015-05-10.
  */
-public class BasicChurnScenario {
+public class BasicAvailabilityScenario {
 
 
-    public static SimulationScenario boot(final long seed, final int throughput, final int initialClusterSize,  final int numEntries, final int time, final int nodeChangePerSecond , final int entryChangePerSec) {
+    public static SimulationScenario boot(final long seed, final int throughput, final int initialClusterSize,  final int numEntries, final int time, final int entryChangePerSec) {
 
-        
-        
+
+
         SimulationScenario scenario = new SimulationScenario() {
 
             {
@@ -43,8 +43,8 @@ public class BasicChurnScenario {
                         raise(7 , SweepOperations.startLeaderGroupNodes, constant(Integer.MIN_VALUE));
                     }
                 };
-                
-                
+
+
                 StochasticProcess initialPeerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -59,25 +59,8 @@ public class BasicChurnScenario {
                     }
                 };
 
-                
-                StochasticProcess churnPeerKillProcess = new StochasticProcess() {
-                    {
-                        System.out.println(" Initiating Killing of Nodes as part of churn ... ");
-                        eventInterArrivalTime(constant(1000 / nodeChangePerSecond));
-                        raise( (time * nodeChangePerSecond) , SweepOperations.killNodeCmdOperation, uniform(1 , Integer.MAX_VALUE));
-                    }
-                };
 
-                StochasticProcess churnPeerJoin = new StochasticProcess() {
-                    {
-                        System.out.println(" Initiating the peer join as part of churn ... ");
-                        eventInterArrivalTime(constant(1000 / nodeChangePerSecond));
-                        raise( (time * nodeChangePerSecond) , SweepOperations.startNodeCmdOperation, uniform(1 , Integer.MAX_VALUE));
-                    }
-                };
-                
-                
-                
+
                 StochasticProcess churnEntryAddition = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000 / entryChangePerSec));
@@ -92,9 +75,9 @@ public class BasicChurnScenario {
                 addIndexEntryCommand.startAfterTerminationOf(50000, initialPeerJoin);
 
                 // Churn Scenario Commands.
-                churnPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
-                churnPeerKillProcess.startAtSameTimeWith(churnPeerJoin);
-                churnEntryAddition.startAtSameTimeWith(churnPeerJoin);
+//                churnPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
+//                churnPeerKillProcess.startAtSameTimeWith(churnPeerJoin);
+                churnEntryAddition.startAfterTerminationOf(150*1000, addIndexEntryCommand);
 
             }
         };
@@ -103,7 +86,7 @@ public class BasicChurnScenario {
 
         return scenario;
     }
-    
-    
-    
+
+
+
 }

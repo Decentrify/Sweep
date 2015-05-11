@@ -50,7 +50,7 @@ public class DataAnalyzer {
         StringBuilder builder = new StringBuilder();
         
         for(Map.Entry<Pair<Integer, Integer>, ShardEntryDivisionBucket> entry : filteredInfoMap.entrySet()){
-            builder.append(generateCSVString(entry)).append("\n");
+            builder.append(generateCSVString(entry));
         }
         
         return builder.toString();
@@ -95,7 +95,7 @@ public class DataAnalyzer {
         
         if(overview == null){
             return builder.append(entry.getKey().getValue0()).append(",")
-                    .append(entry.getKey().getValue1()).append(",").toString();
+                    .append(entry.getKey().getValue1()).append(",").append("\n").toString();
         }
         
         

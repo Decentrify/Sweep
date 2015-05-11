@@ -83,7 +83,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>se.sics.ms.main.ConvergenceMainTest</mainClass>
+                            <mainClass>se.sics.ms.main.AvailabilityMainTest</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

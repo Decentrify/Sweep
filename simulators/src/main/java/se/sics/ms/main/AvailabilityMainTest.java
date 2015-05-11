@@ -1,7 +1,7 @@
 package se.sics.ms.main;
 
+import se.sics.ms.scenarios.special.BasicAvailabilityScenario;
 import se.sics.ms.scenarios.special.BasicChurnScenario;
-import se.sics.ms.scenarios.special.FastConvergenceScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
 
 /**
@@ -9,12 +9,12 @@ import se.sics.p2ptoolbox.simulator.run.LauncherComp;
  * 
  * Created by babbarshaer on 2015-05-09.
  */
-public class ChurnMainTest {
+public class AvailabilityMainTest {
     
     public static void main(String[] args) {
         
-        if(args.length < 7){
-            throw new RuntimeException("Arguments Expected: { seed, throughput, initialClusterSize, numEntries, time, nodeChangePerSecond, entryChangePerSecond }");
+        if(args.length < 6){
+            throw new RuntimeException("Arguments Expected: { seed, throughput, initialClusterSize, numEntries, time, entryChangePerSecond }");
         }
 
         long seed = Long.valueOf(args[0]);
@@ -22,21 +22,19 @@ public class ChurnMainTest {
         int initialClusterSize = Integer.valueOf(args[2]);
         int numEntries = Integer.valueOf(args[3]);
         int time = Integer.valueOf(args[4]);
-        int nodeChangePerSecond = Integer.valueOf(args[5]);
-        int entryChangePerSecond = Integer.valueOf(args[6]);
+        int entryChangePerSecond = Integer.valueOf(args[5]);
 
         
 
-        System.out.println(" Starting the Churn Scenario with"
+        System.out.println(" Starting the Availability Scenario with"
                 + " seed: " + seed 
                 + " throughput: " + throughput 
                 + " initialClusterSize: "+ initialClusterSize 
                 + " entries: " + numEntries
                 + " time: " + time
-                + " nodeChangePerSecond: " + nodeChangePerSecond
                 + " entryChangePerSecond: "  + entryChangePerSecond);
 
-        BasicChurnScenario.boot(seed, throughput, initialClusterSize, numEntries, time, nodeChangePerSecond, entryChangePerSecond).simulate(LauncherComp.class);
+        BasicAvailabilityScenario.boot(seed, throughput, initialClusterSize, numEntries, time, entryChangePerSecond).simulate(LauncherComp.class);
     }
 
 }
