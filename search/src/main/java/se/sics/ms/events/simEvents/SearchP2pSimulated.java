@@ -10,11 +10,18 @@ import se.sics.ms.types.SearchPattern;
 public class SearchP2pSimulated {
     
     private final SearchPattern searchPattern;
+    private final Integer searchTimeout;
+    private final Integer fanoutParameter;
     
-    public SearchP2pSimulated(SearchPattern pattern){
+    public SearchP2pSimulated(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter){
         this.searchPattern = pattern;
+        this.searchTimeout  = searchTimeout;
+        this.fanoutParameter = fanoutParameter;
     }
 
+    
+    
+    
     @Override
     public boolean equals(Object o) {
         
@@ -32,6 +39,15 @@ public class SearchP2pSimulated {
     @Override
     public int hashCode() {
         return searchPattern != null ? searchPattern.hashCode() : 0;
+    }
+
+    
+    public Integer getSearchTimeout() {
+        return searchTimeout;
+    }
+
+    public Integer getFanoutParameter() {
+        return fanoutParameter;
     }
 
     public SearchPattern getSearchPattern() {

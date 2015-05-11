@@ -24,10 +24,23 @@ public class SimulationEventsPort extends PortType {
 	}
 
     public static final class SearchSimulated extends Event {
+        
         private final SearchPattern searchPattern;
-
-        public SearchSimulated(SearchPattern searchPattern) {
+        private final Integer searchTimeout;
+        private final Integer searchParallelism;
+        
+        public SearchSimulated(SearchPattern searchPattern, Integer searchTimeout, Integer searchParallelism) {
             this.searchPattern = searchPattern;
+            this.searchTimeout = searchTimeout;
+            this.searchParallelism = searchParallelism;
+        }
+
+        public Integer getSearchTimeout() {
+            return searchTimeout;
+        }
+
+        public Integer getSearchParallelism() {
+            return searchParallelism;
         }
 
         public SearchPattern getSearchPattern() {

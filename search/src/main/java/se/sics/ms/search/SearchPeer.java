@@ -355,7 +355,7 @@ public final class SearchPeer extends ComponentDefinition {
         public void handle(SearchP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> event) {
             
             log.debug("Search Event Received : {}", request.getSearchPattern());
-            trigger(new SimulationEventsPort.SearchSimulated(request.getSearchPattern()), search.getNegative(SimulationEventsPort.class));
+            trigger(new SimulationEventsPort.SearchSimulated(request.getSearchPattern(), request.getSearchTimeout(), request.getFanoutParameter()), search.getNegative(SimulationEventsPort.class));
         }
     };
     

@@ -84,7 +84,7 @@ public class ShardingAndSearchScenario {
                 
                 Map<Integer, List<StochasticProcess>> fillLevelCommand = new HashMap<Integer, List<StochasticProcess>>();
                 
-                final int shardSize = 10;
+                final int shardSize = 8;
                 
                 StochasticProcess fillBucket0 = new StochasticProcess() {{
                         eventInterArrivalTime(constant(4000));
@@ -114,7 +114,7 @@ public class ShardingAndSearchScenario {
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0));
+                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(30000), constant(3));
 
                     }
                 };

@@ -1096,7 +1096,7 @@ public final class Search extends ComponentDefinition {
     final Handler<SimulationEventsPort.SearchSimulated> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated>() {
         @Override
         public void handle(SimulationEventsPort.SearchSimulated event) {
-            startSearch(event.getSearchPattern());
+            startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
         }
     };
 
@@ -1564,7 +1564,7 @@ public final class Search extends ComponentDefinition {
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
         public void handle(UiSearchRequest searchRequest) {
-            startSearch(searchRequest.getPattern());
+            startSearch(searchRequest.getPattern(), null, null);
         }
     };
 
@@ -1590,9 +1590,9 @@ public final class Search extends ComponentDefinition {
      *
      * @param pattern the search pattern
      */
-    private void startSearch(SearchPattern pattern) {
+    private void startSearch(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter) {
 
-        // TODO: Add check for the same request but a different page ( Implement Pagination ).
+        // TO DO: Add check for the same request but a different page ( Implement Pagination ).
         searchRequest = new LocalSearchRequest(pattern);
         closeIndex(searchIndex);
 
@@ -1606,12 +1606,13 @@ public final class Search extends ComponentDefinition {
             throw new RuntimeException("Unable to open search index", e);
         }
 
-        ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
+        logger.error("Search Timeout from Application: {}", searchTimeout);
+        ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
 

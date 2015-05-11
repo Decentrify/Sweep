@@ -75,7 +75,7 @@ public class FastConvergenceScenario {
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE));
+                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(3000), constant(3));
                         
                     }
                 };

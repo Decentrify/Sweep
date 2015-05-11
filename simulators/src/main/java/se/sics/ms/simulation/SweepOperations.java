@@ -24,6 +24,7 @@ import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation2;
+import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation3;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
@@ -356,10 +357,11 @@ public class SweepOperations {
     };
 
 
-    public static Operation1<NetworkOpCmd, Long> bucketAwareSearchEntry = new Operation1<NetworkOpCmd, Long>() {
+    public static Operation3<NetworkOpCmd, Long, Long, Long> bucketAwareSearchEntry = new Operation3<NetworkOpCmd, Long, Long, Long>() {
 
         @Override
-        public NetworkOpCmd generate(final Long bucketId) {
+        public NetworkOpCmd generate(final Long bucketId, final Long searchTimeout, final Long fanoutParameter) {
+            
             return new NetworkOpCmd() {
 
                 DecoratedAddress destination = SweepOperationsHelper.getNodeForBucket(bucketId);
@@ -389,7 +391,7 @@ public class SweepOperations {
                 public Msg getNetworkMsg(Address address) {
 
                     logger.error("Search Index Entry Command invoked for ->" + destination.getId());
-                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern);
+                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
                     BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
 
@@ -403,10 +405,10 @@ public class SweepOperations {
     
     
 
-    public static Operation1<NetworkOpCmd, Long> searchIndexEntry = new Operation1<NetworkOpCmd, Long>() {
+    public static Operation3<NetworkOpCmd, Long, Long, Long> searchIndexEntry = new Operation3<NetworkOpCmd, Long, Long, Long>() {
 
         @Override
-        public NetworkOpCmd generate(final Long id) {
+        public NetworkOpCmd generate(final Long id, final Long searchTimeout, final Long fanoutParameter) {
             return new NetworkOpCmd() {
 
                 DecoratedAddress destination = SweepOperationsHelper.getNodeAddressToCommunicate(id);
@@ -437,7 +439,7 @@ public class SweepOperations {
 
                     logger.debug("Search Index Entry Command invoked for ->" + destination.getId());
 
-                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern);
+                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, (DecoratedAddress) address, Transport.UDP);
                     BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
 

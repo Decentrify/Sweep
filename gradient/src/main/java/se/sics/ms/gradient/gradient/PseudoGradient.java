@@ -497,6 +497,9 @@ public final class PseudoGradient extends ComponentDefinition {
             MsConfig.Categories category = event.getPattern().getCategory();
             Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
 
+            int parallelism = event.getFanoutParameter() != null ? event.getFanoutParameter() : config.getSearchParallelism();
+            logger.warn("Updated the fanout parameter to: {}", parallelism);
+            
             if (categoryRoutingMap == null) {
                 logger.warn("Unable to locate nodes for the category :{}, from the local routing table", category);
                 return;
@@ -514,7 +517,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 Collection<RoutingTableContainer> bucket = sortCollection(categoryRoutingMap.get(partition).getValue1().values(), invertedAgeComparator);
                 Iterator<RoutingTableContainer> iterator = bucket.iterator();
-                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
+                for (int i = 0; i < parallelism && iterator.hasNext(); i++) {
 
                     RoutingTableContainer container = iterator.next();
                     SearchDescriptor searchDescriptor = container.getContent();
