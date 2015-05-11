@@ -42,7 +42,7 @@ public class SystemAggregatorApplication extends ComponentDefinition{
     private Positive<Timer> timerPositive = requires(Timer.class);
     private SystemAggregatorApplication myComp;
     private FileWriter writer;
-    private static String DEFAULT_FILE = "src/test/resources/shardLogs.csv";
+    private static String DEFAULT_FILE = "shardLogs.csv";
     
     public SystemAggregatorApplication(SystemAggregatorApplicationInit init) throws IOException {
         

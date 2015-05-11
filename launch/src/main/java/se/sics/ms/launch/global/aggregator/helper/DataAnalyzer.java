@@ -50,7 +50,7 @@ public class DataAnalyzer {
         StringBuilder builder = new StringBuilder();
         
         for(Map.Entry<Pair<Integer, Integer>, ShardEntryDivisionBucket> entry : filteredInfoMap.entrySet()){
-            builder.append(generateCSVString(entry));
+            builder.append(generateCSVString(entry)).append("\n");
         }
         
         return builder.toString();

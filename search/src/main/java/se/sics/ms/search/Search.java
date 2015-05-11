@@ -1823,9 +1823,11 @@ public final class Search extends ComponentDefinition {
 
     private void answerSearchRequest() {
         ArrayList<IndexEntry> result = null;
+        int allResults =0 ;
         try {
             
             result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+            allResults = searchRequestLuceneAdaptor.getSizeOfLuceneInstance();   // HACK For All.
             logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
             logger.error("Partitions Hit : {}", searchRequest.getNumberOfRespondedPartitions());
         } catch (LuceneAdaptorException e) {
@@ -1835,7 +1837,7 @@ public final class Search extends ComponentDefinition {
         } finally {
             
             trigger(new UiSearchResponse(result), uiPort);
-            trigger(new SimulationEventsPort.SearchSimulated.Response(result.size(), searchRequest.getNumberOfRespondedPartitions()), simulationEventsPort);
+            trigger(new SimulationEventsPort.SearchSimulated.Response(allResults, searchRequest.getNumberOfRespondedPartitions()), simulationEventsPort);
             searchRequest = null;   // Stop handling more searches.
         }
     }

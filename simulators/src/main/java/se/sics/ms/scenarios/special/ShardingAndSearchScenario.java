@@ -22,9 +22,18 @@ public class ShardingAndSearchScenario {
     public static SimulationScenario boot(final long seed, final long depth, final long bucketSize, final int throughput, final int numEntries) {
 
 
-        SimulationScenario scenario = new SimulationScenario() {
+        final SimulationScenario scenario = new SimulationScenario() {
 
             {
+                
+                
+                StochasticProcess changeNetworkModel = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.uniformNetworkModel);
+                    }
+                };
+                
 
                 StochasticProcess startAggregatorNode = new StochasticProcess() {
                     {
@@ -47,38 +56,6 @@ public class ShardingAndSearchScenario {
                         raise((int) (Math.pow(2, depth) * bucketSize), SweepOperations.startPartitionNodeCmd, uniform(0, Integer.MAX_VALUE));
                     }
                 };
-
-
-                StochasticProcess partitionEntryAdd = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(4000 / throughput));
-                        raise(numEntries, SweepOperations.addPartitionIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
-                    }
-                };
-
-
-                StochasticProcess peerJoin = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, SweepOperations.startNodeCmdOperation, uniform(0, Integer.MAX_VALUE));
-                    }
-                };
-
-
-                StochasticProcess specialPeerJoin = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, SweepOperations.startNodeCmdOperation, constant(Integer.MIN_VALUE));
-                    }
-                };
-
-                StochasticProcess addIndexEntryCommand = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(3000 / throughput));
-                        raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
-                    }
-                };
-
                 
                 // =====================================
                 
@@ -113,13 +90,15 @@ public class ShardingAndSearchScenario {
 
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(3000), constant(3));
+                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(3000), constant(3) , constant(expectedEntries) );
 
                     }
                 };
 
-                startAggregatorNode.start();
+                changeNetworkModel.start();
+                startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
                 generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                 

@@ -19,16 +19,19 @@ import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
+import se.sics.p2ptoolbox.simulator.cmd.impl.ChangeNetworkModelCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
-import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation;
-import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
-import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation2;
-import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation3;
+import se.sics.p2ptoolbox.simulator.core.network.impl.UniformRandomModel;
+import se.sics.p2ptoolbox.simulator.dsl.adaptor.*;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -39,7 +42,32 @@ import java.util.Set;
 public class SweepOperations {
 
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
+    private static FileWriter writer = null;
+    static {
 
+        try {
+            File file = new File("search.csv");
+            writer = new FileWriter(file);
+            logger.error("File Location: "+ file.getAbsolutePath());
+        } 
+        
+        catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Can't construct writer");
+        }
+    }
+    
+    
+    
+    public static Operation<ChangeNetworkModelCmd> uniformNetworkModel = new Operation<ChangeNetworkModelCmd>() {
+        @Override
+        public ChangeNetworkModelCmd generate() {
+            return new ChangeNetworkModelCmd(new UniformRandomModel(50, 250));
+        }
+    };
+    
+    
+    
     
     public static Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>> startAggregatorNodeCmd =
             new Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>>() {
@@ -358,10 +386,10 @@ public class SweepOperations {
     };
 
 
-    public static Operation3<NetworkOpCmd, Long, Long, Long> bucketAwareSearchEntry = new Operation3<NetworkOpCmd, Long, Long, Long>() {
+    public static Operation4<NetworkOpCmd, Long, Long, Long,Long> bucketAwareSearchEntry = new Operation4<NetworkOpCmd, Long, Long, Long, Long>() {
 
         @Override
-        public NetworkOpCmd generate(final Long bucketId, final Long searchTimeout, final Long fanoutParameter) {
+        public NetworkOpCmd generate(final Long bucketId, final Long searchTimeout, final Long fanoutParameter, final Long expectedEntries) {
             
             return new NetworkOpCmd() {
 
@@ -388,10 +416,16 @@ public class SweepOperations {
                 @Override
                 public void validate(SimulationContext simulationContext, KompicsEvent kompicsEvent) throws ValidationException {
                     
-                    SearchP2pSimulated.Response response = (SearchP2pSimulated.Response)(((BasicContentMsg)kompicsEvent).getContent());
-                    
-                    logger.error("Simulator Received the response from the container component.");
-                    logger.error("Partition Hit: {}, Responses:{}", response.getPartitionHit(), response.getResponses());
+                    try {
+                        SearchP2pSimulated.Response response = (SearchP2pSimulated.Response)(((BasicContentMsg)kompicsEvent).getContent());
+                        logger.error("Simulator Received the response from the container component.");
+                        logger.error("Partition Hit: {}, Responses:{}", response.getPartitionHit(), response.getResponses());
+                        writer.write(response.getPartitionHit() +"," + expectedEntries +"," +response.getResponses());
+                        writer.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        throw new RuntimeException("Unable to log the results.");
+                    }
                 }
 
                 @Override

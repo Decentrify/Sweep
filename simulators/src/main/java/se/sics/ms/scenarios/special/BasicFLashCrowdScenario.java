@@ -20,6 +20,13 @@ public class BasicFLashCrowdScenario {
 
             {
 
+                StochasticProcess changeNetworkModel = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.uniformNetworkModel);
+                    }
+                };
+
                 StochasticProcess startAggregatorNode = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -76,8 +83,9 @@ public class BasicFLashCrowdScenario {
 
                 };
 
-                
-                startAggregatorNode.start();
+
+                changeNetworkModel.start();
+                startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
                 specialPeerJoin.startAfterTerminationOf(10000, startAggregatorNode);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(40000, initialPeerJoin);

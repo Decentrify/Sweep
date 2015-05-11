@@ -17,6 +17,13 @@ public class FastConvergenceScenario {
         SimulationScenario scenario = new SimulationScenario() {
             
             {
+                StochasticProcess changeNetworkModel = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.uniformNetworkModel);
+                    }
+                };
+                
 
                 StochasticProcess startAggregatorNode = new StochasticProcess() {
                     {
@@ -79,8 +86,9 @@ public class FastConvergenceScenario {
                         
                     }
                 };
-                
-                startAggregatorNode.start();
+
+                changeNetworkModel.start();
+                startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
                 generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                 partitionEntryAdd.startAfterTerminationOf(40000, partitionPeerJoin);
