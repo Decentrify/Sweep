@@ -366,10 +366,12 @@ public class SweepOperations {
 
                 DecoratedAddress destination = SweepOperationsHelper.getNodeForBucket(bucketId);
                 SearchPattern pattern = SweepOperationsHelper.generateSearchPattern();
-
+                
+                long startTime;
+                
                 @Override
                 public void beforeCmd(SimulationContext simulationContext) {
-
+                    startTime = System.currentTimeMillis();
                 }
 
                 @Override
@@ -391,9 +393,9 @@ public class SweepOperations {
                 public Msg getNetworkMsg(Address address) {
 
                     logger.error("Search Index Entry Command invoked for ->" + destination.getId());
-                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
+                    SearchP2pSimulated.Request simulated = new SearchP2pSimulated.Request(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
-                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>(header, simulated);
 
                     return msg;
                 }
@@ -439,9 +441,9 @@ public class SweepOperations {
 
                     logger.debug("Search Index Entry Command invoked for ->" + destination.getId());
 
-                    SearchP2pSimulated simulated = new SearchP2pSimulated(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
+                    SearchP2pSimulated.Request simulated = new SearchP2pSimulated.Request(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, (DecoratedAddress) address, Transport.UDP);
-                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>(header, simulated);
+                    BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>(header, simulated);
 
                     return msg;
                 }
