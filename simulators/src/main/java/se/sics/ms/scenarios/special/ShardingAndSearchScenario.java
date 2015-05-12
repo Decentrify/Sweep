@@ -3,10 +3,7 @@ package se.sics.ms.scenarios.special;
 import se.sics.ms.simulation.SweepOperations;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * This scenario deals with the sharding of the system in terms of the easing the load on the system by dividing the data into separate
@@ -19,7 +16,7 @@ import java.util.Map;
 public class ShardingAndSearchScenario {
 
 
-    public static SimulationScenario boot(final long seed, final long depth, final long bucketSize, final int throughput, final int numEntries, final int searchTimeout, final int fanoutParam) {
+    public static SimulationScenario boot(final long seed, final long depth, final long bucketSize, final int throughput, final int numEntries, final int searchTimeout, final int fanoutParam, final int searchRequests) {
 
 
         final SimulationScenario scenario = new SimulationScenario() {
@@ -87,12 +84,69 @@ public class ShardingAndSearchScenario {
                         spList.add(bucketFill);
                     }
                 }
-
-                StochasticProcess searchIndexEntry = new StochasticProcess() {
+                
+                
+                final Random random = new Random(seed);
+                StochasticProcess searchIndexEntry250 = new StochasticProcess() {
                     {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
                         long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
-                        eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.bucketAwareSearchEntry, constant(0), constant(searchTimeout), constant(fanoutParam) , constant(expectedEntries) );
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(250), constant(fanoutParam) , constant(expectedEntries) );
+
+                    }
+                };
+
+
+                StochasticProcess searchIndexEntry300 = new StochasticProcess() {
+                    {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(300), constant(fanoutParam) , constant(expectedEntries) );
+
+                    }
+                };
+
+
+                StochasticProcess searchIndexEntry350 = new StochasticProcess() {
+                    {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(350), constant(fanoutParam) , constant(expectedEntries) );
+
+                    }
+                };
+
+
+                StochasticProcess searchIndexEntry400 = new StochasticProcess() {
+                    {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(400), constant(fanoutParam) , constant(expectedEntries) );
+
+                    }
+                };
+
+                StochasticProcess searchIndexEntry450 = new StochasticProcess() {
+                    {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(450), constant(fanoutParam) , constant(expectedEntries) );
+
+                    }
+                };
+
+
+                StochasticProcess searchIndexEntry500 = new StochasticProcess() {
+                    {
+                        int bucketId = random.nextInt((int)Math.pow(2,depth));
+                        long expectedEntries = (depth == 0 ? shardSize : (shardSize/2) * (int)Math.pow(2, depth));
+                        eventInterArrivalTime(constant(8000));
+                        raise( searchRequests , SweepOperations.bucketAwareSearchEntry, constant(bucketId), constant(500), constant(fanoutParam) , constant(expectedEntries) );
 
                     }
                 };
@@ -114,7 +168,12 @@ public class ShardingAndSearchScenario {
                     previous = bucketCmdList.get(0);
                 }
                 
-                searchIndexEntry.startAfterTerminationOf(90000, previous);
+                searchIndexEntry250.startAfterTerminationOf(90000, previous);
+                searchIndexEntry300.startAfterTerminationOf(5000, searchIndexEntry250);
+                searchIndexEntry350.startAfterTerminationOf(5000, searchIndexEntry300);
+                searchIndexEntry400.startAfterTerminationOf(5000, searchIndexEntry350);
+                searchIndexEntry450.startAfterTerminationOf(5000, searchIndexEntry400);
+                searchIndexEntry500.startAfterTerminationOf(5000, searchIndexEntry450);
             }
 
         };

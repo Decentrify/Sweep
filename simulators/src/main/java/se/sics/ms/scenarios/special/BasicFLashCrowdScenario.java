@@ -46,7 +46,7 @@ public class BasicFLashCrowdScenario {
                 StochasticProcess initialPeerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(initialClusterSize , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
+                        raise(initialClusterSize-1 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
 
@@ -89,7 +89,7 @@ public class BasicFLashCrowdScenario {
                 specialPeerJoin.startAfterTerminationOf(10000, startAggregatorNode);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(40000, initialPeerJoin);
-                flashCrowdPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
+                flashCrowdPeerJoin.startAfterTerminationOf(150 * 1000, addIndexEntryCommand);
                 
                 
                 

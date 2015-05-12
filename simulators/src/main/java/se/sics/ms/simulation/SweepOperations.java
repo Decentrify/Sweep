@@ -393,7 +393,7 @@ public class SweepOperations {
             
             return new NetworkOpCmd() {
 
-                DecoratedAddress destination = SweepOperationsHelper.getNodeForBucket(bucketId);
+                DecoratedAddress destination = SweepOperationsHelper.getRandomNodeForBucket(bucketId);
                 SearchPattern pattern = SweepOperationsHelper.generateSearchPattern();
                 
                 long startTime;
@@ -420,7 +420,7 @@ public class SweepOperations {
                         SearchP2pSimulated.Response response = (SearchP2pSimulated.Response)(((BasicContentMsg)kompicsEvent).getContent());
                         logger.error("Simulator Received the response from the container component.");
                         logger.error("Partition Hit: {}, Responses:{}", response.getPartitionHit(), response.getResponses());
-                        writer.write(response.getPartitionHit() +"," + expectedEntries +"," +response.getResponses());
+                        writer.write(response.getPartitionHit() +"," + expectedEntries +"," +response.getResponses() +"\n");
                         writer.flush();
                     } catch (IOException e) {
                         e.printStackTrace();

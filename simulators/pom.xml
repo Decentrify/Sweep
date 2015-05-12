@@ -83,7 +83,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>se.sics.ms.main.AvailabilityMainTest</mainClass>
+                            <mainClass>se.sics.ms.main.FlashCrowdMainTest</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

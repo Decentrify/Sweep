@@ -390,6 +390,30 @@ public class SweepOperationsHelper {
     }
 
 
+    /**
+     * The Tree Set picks up the first node from the bucket i.e. the expected leader node.
+     *
+     * @param bucketId
+     * @return
+     */
+    public static DecoratedAddress getRandomNodeForBucket(long bucketId) {
+
+        if( partitionNodeMapCopy == null ){
+            throw new RuntimeException("Bucket Map empty");
+        }
+
+        List<Integer> bucketNodes = new ArrayList<Integer>(partitionNodeMapCopy.get((int)bucketId));
+
+        if(bucketNodes == null || bucketNodes.isEmpty()){
+            throw new RuntimeException("No nodes for the bucket found");
+        }
+
+        int nodeId = bucketNodes.get(random.nextInt(bucketNodes.size()));
+        return peersAddressMap.get((long)nodeId);
+    }
+    
+    
+
     public static class PartitionOperationsHelper {
         
         public static Map<Integer, TreeSet<Integer>> generateNodeList(int depth, int bucketSize, Random random){
