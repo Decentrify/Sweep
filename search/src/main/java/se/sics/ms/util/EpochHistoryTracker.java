@@ -28,6 +28,7 @@ public class EpochHistoryTracker {
     /**
      * General Interface to add an epoch to the history.
      * In case it is epoch update is already present in the history, update the entry with the new one.
+     * FIX : Identify the methodology in case the epoch update is ahead and is a partition merge update.
      *
      * @param epochUpdate Epoch Update.
      */
