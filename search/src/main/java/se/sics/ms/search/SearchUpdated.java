@@ -309,6 +309,9 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(lowestMissingEntryTracker.entryExchangeRoundHandler, timerPort);
         subscribe(lowestMissingEntryTracker.entryHashExchangeRequestHandler, networkPort);
         subscribe(lowestMissingEntryTracker.entryHashExchangeResponseHandler, networkPort);
+        subscribe(lowestMissingEntryTracker.entryExchangeRequestHandler, networkPort);
+        subscribe(lowestMissingEntryTracker.entryExchangeResponseHandler, networkPort);
+
     }
 
     /**
@@ -1448,7 +1451,17 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     ApplicationEntry entryToCommit = info.getApplicationEntry();
                     UUID commitTimeout = UUID.randomUUID(); //What's it purpose.
-                    addEntryLocalUpdated(entryToCommit, info.getAssociatedEpochUpdate());   // Commit to local first.
+
+                    if(entryToCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
+
+                        logger.warn("{}: Request to add a new landing entry in system", prefix);
+                        epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
+                        EpochUpdate update = new EpochUpdate(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
+                        epochHistoryTracker.addEpochUpdate(update);
+
+                    }
+                    
+                    addEntryLocalUpdated(entryToCommit);   // Commit to local first.
 
                     ByteBuffer idBuffer = ByteBuffer.allocate( (8*2) + 4);
                     idBuffer.putLong(entryToCommit.getEpochId());
@@ -1541,7 +1554,15 @@ public final class SearchUpdated extends ComponentDefinition {
             try {
 
                 EpochUpdate associatedEpochUpdate = pendingForCommit.get(toCommit).getValue1();
-                addEntryLocalUpdated(toCommit, associatedEpochUpdate); // FIX ADD ENTRY MECHANISM.
+                if(toCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
+
+                    logger.warn("{}: Request to add a new landing entry in system", prefix);
+                    epochHistoryTracker.addEpochUpdate(associatedEpochUpdate);
+                    EpochUpdate update = new EpochUpdate(toCommit.getEpochId(), toCommit.getLeaderId());
+                    epochHistoryTracker.addEpochUpdate(update);
+
+                }
+                addEntryLocalUpdated(toCommit); // FIX ADD ENTRY MECHANISM.
 
                 pendingForCommit.remove(toCommit);
 
@@ -2009,27 +2030,17 @@ public final class SearchUpdated extends ComponentDefinition {
      * @param entry the {@link se.sics.ms.types.ApplicationEntry} to be added
      * @throws java.io.IOException if the Lucene index fails to store the entry
      */
-    private void addEntryLocalUpdated(ApplicationEntry entry, EpochUpdate previousEpoch) throws IOException, LuceneAdaptorException {
-
-        // FIX: This requires of lowest missing entry tracker.
-        // FIX: Add entry to local index of lucene.
-        // FIX: Inform the components about the self.
-        // FIX: Update the lowest missing tracker and also come with a strategy to synchronize the epoch update history and lowest missing tracker information.
-
-        if(entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
-
-            logger.warn("{}: Request to add a new landing entry in system", prefix);
-            epochHistoryTracker.addEpochUpdate(previousEpoch);
-            EpochUpdate update = new EpochUpdate(entry.getEpochId(), entry.getLeaderId());
-            epochHistoryTracker.addEpochUpdate(update);
-
-        }
-
+    private void addEntryLocalUpdated(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+        
+        
+        // TO DO: ONUS needs to be placed at the tracker end to keep the track of the extra entries that can be added out of order and prevent
+        // them from getting added by storing them locally and then moving forward.
+        
+        
         // Add to Lucene and Inform Tracker About the Update.
         addEntryToLucene(writeEntryLuceneAdaptor, entry);
         lowestMissingEntryTracker.checkAndUpdateExistingEntries(entry.getApplicationEntryId());
         
-        // MECHANISM TO UPDATE THE MAX ENTRY COUNT AND OTHER STUFF AND INFORM LISTENING COMPONENTS ABOUT UPDATED SELF.
         maxStoredId++;
         self.incrementEntries();
         informListeningComponentsAboutUpdates(self);
@@ -2430,32 +2441,18 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
     /**
-     * In case the dynamic utilities, if a leader partition, then it might happen that its utility falls below the nodes which have not yet partitioned.
-     * Thus, it starts asking from the nodes which have not yet partitioned for the updates.
+     * Find an entry for the given id in the local index store.
      *
-     * @return true in case the message from node ahead in terms of partitioning.
-     *
-     * FIXME: Find a better solution of blocking index pull from higher nodes when partitioning happens.
+     * @param entryId the id of the entry
+     * @return the entry if found or null if non-existing
      */
-    /*
-    private boolean isMessageFromNodeLaggingBehind(VodAddress address) {
-
-        boolean result = false;
-
-        OverlayAddress receivedOverlayAddress = new OverlayAddress(address);
-        OverlayAddress selfOverlayAddress = new OverlayAddress(self.getAddress());
-
-        if (!receivedOverlayAddress.getOverlayId().equals(selfOverlayAddress.getOverlayId())) {
-
-            if (selfOverlayAddress.getPartitioningType() != VodAddress.PartitioningType.NEVER_BEFORE) {
-                if ((selfOverlayAddress.getPartitionIdDepth() - receivedOverlayAddress.getPartitionIdDepth()) > 0) {
-                    result = true;
-                }
-            }
+    private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
+        List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor, entryId, entryId, collector);
+        if (entries.isEmpty()) {
+            return null;
         }
-        return result;
+        return entries.get(0);
     }
-    */
 
     /**
      * Apply the partitioning updates received.
@@ -3031,13 +3028,81 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
                             // Trigger request to get application entries from a particular user.
-
-                            DecoratedAddress address = entryExchangeTracker.getSoftMaxBasedNode();
-                            EntryExchange.Request request = new EntryExchange.Request()
-                            entryExchangeTracker.resetTracker();
+                            
+                            DecoratedAddress destination = entryExchangeTracker.getSoftMaxBasedNode();
+                            EntryExchange.Request request = new EntryExchange.Request(entryExchangeTracker.getExchangeRoundId(), entryIds);
+                            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination,Transport.UDP, request), networkPort);
                         }
                     }
                 };
+
+
+        /**
+         * In case the common required index hashes are located by the nodes in the system, 
+         * the node requests for the actual value of the exchange entry from the peer in the system.
+         *
+         * The node simply locates for the individual entries required by the node from the lucene instance adds them to the collection
+         * to be returned.
+         */
+        ClassMatchedHandler<EntryExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request>> entryExchangeRequestHandler = 
+                new ClassMatchedHandler<EntryExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request>>() {
+                    
+            @Override
+            public void handle(EntryExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request> event) {
+                
+                logger.debug("{}: Received Entry Exchange Request", prefix);
+                int defaultLimit = 1;
+                
+                List<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
+                TopScoreDocCollector collector = TopScoreDocCollector.create(defaultLimit, true);
+                Collection<ApplicationEntry.ApplicationEntryId> applicationEntryIds = request.getEntryIds();
+                
+                for(ApplicationEntry.ApplicationEntryId entryId : applicationEntryIds){
+                    ApplicationEntry applicationEntry = findEntryById(entryId, collector);
+                    if(applicationEntry != null){
+                        applicationEntries.add(applicationEntry);
+                    }
+                }
+                
+                EntryExchange.Response response = new EntryExchange.Response(request.getExchangeRoundId(), applicationEntries);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+            }
+        };
+
+
+        /**
+         * Handler for the actual entries that are received through the last phase of the index pull mechanism.
+         * Simply add them to the lowest missing tracker instance, which will itself handle everything from not allowing the wrong 
+         * or entries out of order to be added in the system.
+         *
+         */
+        ClassMatchedHandler<EntryExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response>> entryExchangeResponseHandler = 
+                new ClassMatchedHandler<EntryExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response>>() {
+                    
+            @Override
+            public void handle(EntryExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response> event) {
+                logger.debug("{}: Received Entry Exchange Response from :{}", prefix, event.getSource());
+                
+                try{
+
+                    if(entryExchangeTracker.getExchangeRoundId() == null || ! entryExchangeTracker.getExchangeRoundId().equals(response.getEntryExchangeRound())){
+                        logger.debug("{}: Received exchange response for the expired round, returning ...", prefix);
+                        return;
+                    }
+
+                    for(ApplicationEntry entry : response.getApplicationEntries()){
+                        addEntryLocalUpdated(entry);
+                    }
+                    
+                } 
+                catch(Exception e){
+                    throw new RuntimeException("Unable to add entries in the Lucene. State Corrupted, exiting ...", e);
+                }
+            }
+        };
+        
+        
+        
 
         /**
          * Analyze the current tracking information based on the information provided by the

@@ -55,6 +55,53 @@ public class EntryExchange {
 
     public static class Response {
 
+        private UUID entryExchangeRound;
+        private Collection<ApplicationEntry> applicationEntries;
+        
+        public Response ( UUID entryExchangeRound, Collection<ApplicationEntry> applicationEntries){
+            
+            this.entryExchangeRound = entryExchangeRound;
+            this.applicationEntries = applicationEntries;
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Response response = (Response) o;
+
+            if (applicationEntries != null ? !applicationEntries.equals(response.applicationEntries) : response.applicationEntries != null)
+                return false;
+            if (entryExchangeRound != null ? !entryExchangeRound.equals(response.entryExchangeRound) : response.entryExchangeRound != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = entryExchangeRound != null ? entryExchangeRound.hashCode() : 0;
+            result = 31 * result + (applicationEntries != null ? applicationEntries.hashCode() : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Response{" +
+                    "entryExchangeRound=" + entryExchangeRound +
+                    ", applicationEntries=" + applicationEntries +
+                    '}';
+        }
+
+        public UUID getEntryExchangeRound() {
+            return entryExchangeRound;
+        }
+
+        public Collection<ApplicationEntry> getApplicationEntries() {
+            return applicationEntries;
+        }
     }
 
 }
