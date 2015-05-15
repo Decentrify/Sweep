@@ -19,12 +19,10 @@ public class EntryHashExchange {
         
         private final UUID exchangeRoundId;
         private final ApplicationEntry.ApplicationEntryId lowestMissingEntryId;
-        private final Long[] entries;
-        
-        public Request(UUID exchangeRoundId, ApplicationEntry.ApplicationEntryId lowestMissingEntryId, Long[] entries){
+
+        public Request(UUID exchangeRoundId, ApplicationEntry.ApplicationEntryId lowestMissingEntryId){
             this.exchangeRoundId = exchangeRoundId;
             this.lowestMissingEntryId = lowestMissingEntryId;
-            this.entries = entries;
         }
 
         @Override
@@ -35,7 +33,6 @@ public class EntryHashExchange {
             Request request = (Request) o;
 
             if (lowestMissingEntryId != request.lowestMissingEntryId) return false;
-            if (!Arrays.equals(entries, request.entries)) return false;
             if (exchangeRoundId != null ? !exchangeRoundId.equals(request.exchangeRoundId) : request.exchangeRoundId != null)
                 return false;
 
@@ -46,7 +43,6 @@ public class EntryHashExchange {
         public int hashCode() {
             int result = exchangeRoundId != null ? exchangeRoundId.hashCode() : 0;
             result = 31 * result + (lowestMissingEntryId!= null ? lowestMissingEntryId.hashCode() : 0);
-            result = 31 * result + (entries != null ? Arrays.hashCode(entries) : 0);
             return result;
         }
 
@@ -56,7 +52,6 @@ public class EntryHashExchange {
             return "Request{" +
                     "exchangeRoundId=" + exchangeRoundId +
                     ", lowestMissingIndexEntry=" + lowestMissingEntryId +
-                    ", entries=" + Arrays.toString(entries) +
                     '}';
         }
 
@@ -68,9 +63,6 @@ public class EntryHashExchange {
             return lowestMissingEntryId;
         }
 
-        public Long[] getEntries() {
-            return entries;
-        }
     }
     
         
