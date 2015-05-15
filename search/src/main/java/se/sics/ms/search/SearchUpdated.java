@@ -194,6 +194,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private PartitioningTracker partitioningTracker;
     private EpochHistoryTracker epochHistoryTracker;
     private LandingEntryTracker landingEntryTracker;
+    private ControlPullTracker controlPullTracker;
 
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
@@ -294,6 +295,12 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningRequest, networkPort);
 
+
+        // Generic Control Pull Exchange With Epochs.
+        subscribe(controlPullTracker.exchangeRoundHandler, timerPort);
+        subscribe(controlPullTracker.controlPullRequest, timerPort);
+
+
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
 
@@ -357,6 +364,7 @@ public final class SearchUpdated extends ComponentDefinition {
         epochHistoryTracker = new EpochHistoryTracker();
         landingEntryTracker = new LandingEntryTracker();
         lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
+        controlPullTracker = new ControlPullTracker(epochHistoryTracker);
     }
 
 
@@ -2845,12 +2853,182 @@ public final class SearchUpdated extends ComponentDefinition {
     private boolean isLeaderInGradient(DecoratedAddress leaderAddress) {
 
         for (SearchDescriptor desc : gradientEntrySet) {
-            return desc.getVodAddress().getBase().equals(leaderAddress.getBase());
+            if(desc.getVodAddress().getBase().equals(leaderAddress.getBase())){
+                return true;
+            }
         }
 
         return false;
     }
 
+
+
+    /**
+     * Identify the nodes above in the gradient and then return with the higher nodes in the system.
+     *
+     * @param exchangeNumber exchange number
+     * @return Higher Nodes.
+     */
+    private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
+
+        Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
+        NavigableSet<SearchDescriptor> navigableSet = (NavigableSet<SearchDescriptor>)gradientEntrySet.tailSet(self.getSelfDescriptor());
+
+        Iterator<SearchDescriptor> descendingItr = navigableSet.descendingIterator();
+
+        int counter = 0;
+        while(descendingItr.hasNext() && counter < exchangeNumber){
+            exchangeNodes.add(descendingItr.next().getVodAddress());
+            counter ++;
+        }
+
+        return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
+    }
+
+
+
+
+
+
+
+    /**
+     * Tracker for the main control pull mechanism.
+     *
+     */
+    private class ControlPullTracker {
+
+
+        private EpochHistoryTracker historyTracker;
+        private UUID currentPullRound;
+        private Map<DecoratedAddress, ControlPull.Response> pullResponseMap;
+        private EpochUpdate currentUpdate;
+
+        public ControlPullTracker (EpochHistoryTracker historyTracker){
+            this.historyTracker = historyTracker;
+            pullResponseMap  = new HashMap<DecoratedAddress, ControlPull.Response>();
+        }
+
+
+        /**
+         * Initiate the main control pull mechanism. The mechanism simply asks for any updates that the nodes might have
+         * seen as compared to the update that was sent by the requesting node.
+         *
+         * The contract for the control pull mechanism is that the mechanism keeps track of the current
+         * update that it has information as provided by the history tracker. The request for the next updates are made with respect to the
+         * current update. The contract simply states that the replying node should reply with the updated value of the epoch that the node
+         * has requested
+         *
+         */
+        Handler<TimeoutCollection.ControlMessageExchangeRound> exchangeRoundHandler =
+                new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
+
+            @Override
+            public void handle(TimeoutCollection.ControlMessageExchangeRound controlMessageExchangeRound) {
+
+                logger.debug("{}: Initiating the control message exchange round");
+
+                Collection<DecoratedAddress> addresses = getNodesForExchange(config.getIndexExchangeRequestNumber());
+                if(addresses == null || addresses.size() < config.getIndexExchangeRequestNumber()){
+                    logger.debug("{}: Unable to start the control pull mechanism as higher nodes are less than required number");
+                    return;
+                }
+
+                currentPullRound = UUID.randomUUID();
+                currentUpdate = historyTracker.getLastUpdate();
+                OverlayId overlayId = new OverlayId(self.getOverlayId());
+
+                ControlPull.Request request = new ControlPull.Request(currentPullRound, overlayId, currentUpdate);
+                pullResponseMap.clear();
+
+                for(DecoratedAddress destination : addresses){
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                }
+            }
+        };
+
+
+        /**
+         * Main Handler for the control pull request from the nodes lying low in the gradient. The nodes
+         * simply request the higher nodes that if they have seen any information more than the provided information in the
+         * request packet and in case information is found, it is encoded generically in a byte array and sent to the
+         * requesting nodes in the system.
+         *
+         */
+        ClassMatchedHandler<ControlPull.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request>> controlPullRequest =
+                new ClassMatchedHandler<ControlPull.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request>>() {
+
+            @Override
+            public void handle(ControlPull.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request> event) {
+
+                logger.debug("{}: Received Control Pull Request from the node :{} ", prefix, event.getSource());
+
+                // TO DO: Process the control pull request and then calculate the updates that needs to be sent back to the user.
+
+                DecoratedAddress addr = leaderAddress;
+                EpochUpdate selfUpdated = epochHistoryTracker.getSelfUpdate(request.getEpochUpdate());
+
+                List<EpochUpdate> nextUpdates = new ArrayList<EpochUpdate>();
+                nextUpdates.add(selfUpdated);
+                nextUpdates.addAll(historyTracker.getNextUpdates(selfUpdated, 10));
+
+                ControlPull.Response response = new ControlPull.Response(request.getPullRound(), leaderAddress, selfUpdated, nextUpdates); // Handler for the DecoratedAddress
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+            }
+        };
+
+
+        /**
+         * Handler of the control pull response from the nodes that the peer requested control information. The requesting node has
+         * the responsibility to actually detect the in order epoch updates and only add those in the system.
+         * For now there is no hash mechanism in the control pull mechanism, so we directly get the responses from the
+         * nodes, assuming all of them are functioning fine.
+         */
+        ClassMatchedHandler<ControlPull.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response>> controlPullResponse =
+                new ClassMatchedHandler<ControlPull.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response>>() {
+
+            @Override
+            public void handle(ControlPull.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response> event) {
+
+                logger.debug("{}: Received Control Pull Response from the Node: {}", prefix, event.getSource());
+
+                if(currentPullRound == null ||  !currentPullRound.equals(response.getPullRound())){
+                    logger.warn("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
+                    return;
+                }
+
+                List<EpochUpdate> updates = response.getNextUpdates();
+                if(updates.isEmpty() || checkOriginalExtension(updates.get(0))){
+                    logger.warn("{}: Control exchange protocol violated, Received Base Update : {} , not extension of sent: {} returning", new Object[]{prefix, updates.get(0), currentUpdate});
+                    return;
+                }
+
+                pullResponseMap.put(event.getSource(), response);
+                if(pullResponseMap.size() >= config.getIndexExchangeRequestNumber()){
+
+                    logger.debug("{}: Processing the control responses to find common matches", prefix);
+                    performResponseMatch();
+                }
+            }
+        };
+
+
+        /**
+         * Simply check if the received update is an extension of the original update.
+         * There might be a case in which the current tracking update might have been modified.
+         *
+         * @param receivedUpdate Update Received.
+         * @return True is extension of CurrentUpdate.
+         */
+        private boolean checkOriginalExtension(EpochUpdate receivedUpdate){
+            return (receivedUpdate.getEpochId() == currentUpdate.getEpochId() && receivedUpdate.getLeaderId() == currentUpdate.getLeaderId());
+        }
+
+
+        private void performResponseMatch(){
+            throw new UnsupportedOperationException("Operation Not supported yet");
+        }
+
+    }
 
     /**
      * Inner class used to keep track of the lowest missing index entry and also
@@ -2954,27 +3132,7 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
 
-        /**
-         * Identify the nodes above in the gradient and then return with the higher nodes in the system.
-         *
-         * @param exchangeNumber exchange number
-         * @return Higher Nodes.
-         */
-        private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
 
-            Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
-            NavigableSet<SearchDescriptor> navigableSet = (NavigableSet<SearchDescriptor>)gradientEntrySet.tailSet(self.getSelfDescriptor());
-            
-            Iterator<SearchDescriptor> descendingItr = navigableSet.descendingIterator();
-            
-            int counter = 0;
-            while(descendingItr.hasNext() && counter < exchangeNumber){
-                exchangeNodes.add(descendingItr.next().getVodAddress());
-                counter ++;
-            }
-            
-            return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
-        }
 
 
         /**

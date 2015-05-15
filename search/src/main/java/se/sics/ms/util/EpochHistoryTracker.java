@@ -67,7 +67,7 @@ public class EpochHistoryTracker {
         
         return !this.epochUpdateHistory.isEmpty()
                 ? this.epochUpdateHistory.getLast() 
-                : null;
+                : EpochUpdate.NONE;
     }
 
     /**
@@ -102,7 +102,11 @@ public class EpochHistoryTracker {
      * @return Updated Value.
      */
     public EpochUpdate getSelfUpdate(EpochUpdate update){
-        
+
+        if(update.equals(EpochUpdate.NONE)){
+            return update;
+        }
+
         for(EpochUpdate epochUpdate : epochUpdateHistory){
             if(epochUpdate.getEpochId() == update.getEpochId() 
                     && epochUpdate.getLeaderId() == update.getLeaderId()){
@@ -129,6 +133,44 @@ public class EpochHistoryTracker {
         }
         
         return null;
+    }
+
+
+    /**
+     * Based on the current epoch update,
+     * get the next updates from the epoch history collection.
+     *
+     * @param current current update
+     * @param limit Max updates to provide.
+     * @return Successive Updates.
+     */
+    public List<EpochUpdate> getNextUpdates(EpochUpdate current, int limit) {
+
+        List<EpochUpdate> nextUpdates = new ArrayList<EpochUpdate>();
+
+        if (current.equals(EpochUpdate.NONE)) {
+            current = getInitialEpochUpdate();
+        }
+
+        if(current!= null){
+
+            int index = epochUpdateHistory.indexOf(current);
+            if(index != -1){
+
+                ListIterator<EpochUpdate> listIterator = epochUpdateHistory.listIterator(index);
+                int count = 0;
+                while(listIterator.hasNext() && count < limit){
+                    nextUpdates.add(listIterator.next());
+                    count ++;
+                }
+            }
+
+            else{
+                logger.debug("Unable to locate epoch requested:{}", current);
+            }
+        }
+
+        return nextUpdates;
     }
 
 }
