@@ -25,7 +25,6 @@ import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
-import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.data.*;
 import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
@@ -1452,7 +1451,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                             }
 
-                            addEntryLocalUpdated(entryToCommit);   // Commit to local first.
+                            addEntryLocally(entryToCommit);   // Commit to local first.
 
                             ByteBuffer idBuffer = ByteBuffer.allocate((8 * 2) + 4);
                             idBuffer.putLong(entryToCommit.getEpochId());
@@ -1553,7 +1552,7 @@ public final class SearchUpdated extends ComponentDefinition {
                             epochHistoryTracker.addEpochUpdate(update);
 
                         }
-                        addEntryLocalUpdated(toCommit); // FIX ADD ENTRY MECHANISM.
+                        addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
 
                         pendingForCommit.remove(toCommit);
 
@@ -2021,7 +2020,7 @@ public final class SearchUpdated extends ComponentDefinition {
      * @param entry the {@link se.sics.ms.types.ApplicationEntry} to be added
      * @throws java.io.IOException if the Lucene index fails to store the entry
      */
-    private void addEntryLocalUpdated(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+    private void addEntryLocally(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
         
         // As the lowest missing tracker keeps track of the missing entries, the onus of whether the entry is ready to
         // be added to the system depends upon the current state of it.
@@ -2436,7 +2435,11 @@ public final class SearchUpdated extends ComponentDefinition {
      * @return the entry if found or null if non-existing
      */
     private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
-        List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor, entryId, entryId, collector);
+        List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(
+                writeEntryLuceneAdaptor, 
+                entryId, entryId,
+                collector);
+        
         if (entries.isEmpty()) {
             return null;
         }
@@ -3108,7 +3111,7 @@ public final class SearchUpdated extends ComponentDefinition {
                             }
 
                             for (ApplicationEntry entry : response.getApplicationEntries()) {
-                                addEntryLocalUpdated(entry);
+                                addEntryLocally(entry);
                             }
 
                         } catch (Exception e) {
@@ -3168,6 +3171,9 @@ public final class SearchUpdated extends ComponentDefinition {
          * the method needs to be invoked, which according to the entry that needs to be added,
          * updates the local existing entries map information.
          * 
+         * The methods returns the boolean which informs the application if the entry can be added in the system
+         * or not. (It can be added if it is the currently being tracked else goes to the existing entries map).
+         *
          * @param entry entry to add.
          * @throws IOException
          * @throws LuceneAdaptorException
@@ -3179,6 +3185,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 ApplicationEntry.ApplicationEntryId idBeingTracked =
                         getEntryBeingTracked();
+                
                 if (nextEntryToAdd(entry.getApplicationEntryId())) {
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
@@ -3191,8 +3198,6 @@ public final class SearchUpdated extends ComponentDefinition {
                 else{
                     existingEntries.put(entry.getApplicationEntryId(), entry); // Not a turn to add the entries in the system.
                 }
-
-                return false;
             }
             
             return false;
@@ -3217,7 +3222,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     // Reached point at which we can safely add entries to the Lucene.
 
                     logger.info("{}: Entry: {} is Already present in the existing entries. Adding in Lucene.", prefix, entryId);
-                    addEntryLocalUpdated(existingEntries.get(entryId));
+                    addEntryLocally(existingEntries.get(entryId));
                     existingEntries.remove(entryId);
 
                     entryId.setEntryId(currentTrackingId++);

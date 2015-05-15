@@ -10,10 +10,16 @@ import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
+import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
+import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
+import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
+import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
@@ -22,6 +28,7 @@ import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -39,9 +46,18 @@ public class SweepOperations {
     static{
         
         try {
-            // SWITCH TO SERIALIZERS REGISTRATION.
+            
             VodConfig.init(new String[0]);
-//            SimulatorEncodeDecode.init();
+
+            int currentId = 128;                                        // Serializers Registration.
+            BasicSerializerSetup.registerBasicSerializers(currentId);
+            currentId += BasicSerializerSetup.serializerIds;
+            currentId = CroupierSerializerSetup.registerSerializers(currentId);
+            currentId = GradientSerializerSetup.registerSerializers(currentId);
+            currentId = ElectionSerializerSetup.registerSerializers(currentId);
+            currentId = AggregatorSerializerSetup.registerSerializers(currentId);
+            currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
+            SerializerSetup.registerSerializers(currentId);
         } 
         catch (UnknownHostException e) {
             e.printStackTrace();
