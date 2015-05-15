@@ -2960,7 +2960,7 @@ public final class SearchUpdated extends ComponentDefinition {
         private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
 
             Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
-            NavigableSet<SearchDescriptor> navigableSet = gradientEntrySet;
+            NavigableSet<SearchDescriptor> navigableSet = (NavigableSet<SearchDescriptor>)gradientEntrySet.tailSet(self.getSelfDescriptor());
             
             Iterator<SearchDescriptor> descendingItr = navigableSet.descendingIterator();
             
