@@ -2022,21 +2022,17 @@ public final class SearchUpdated extends ComponentDefinition {
      * @throws java.io.IOException if the Lucene index fails to store the entry
      */
     private void addEntryLocalUpdated(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
-
-
-        // TO DO: ONUS needs to be placed at the tracker end to keep the track of the extra entries that can be added out of order and prevent
-        // them from getting added by storing them locally and then moving forward.
-
-        // In case next entry to add, quickly update the lucene.
-        if (lowestMissingEntryTracker.nextEntryToAdd(entry.getApplicationEntryId())) {
-            // Add to Lucene and Inform Tracker About the Update.
+        
+        // As the lowest missing tracker keeps track of the missing entries, the onus of whether the entry is ready to
+        // be added to the system depends upon the current state of it.
+        
+        if(lowestMissingEntryTracker.updateMissingEntryTracker(entry)){
+            
+            logger.info("{}: Going to add entry :{} in the system.", prefix, entry.getApplicationEntryId());
             addEntryToLucene(writeEntryLuceneAdaptor, entry);
+            self.incrementEntries();
+            informListeningComponentsAboutUpdates(self);
         }
-
-        lowestMissingEntryTracker.updateMissingEntryTracker(entry);
-        maxStoredId++;
-        self.incrementEntries();
-        informListeningComponentsAboutUpdates(self);
     }
 
     /**
@@ -2941,7 +2937,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 Collection<DecoratedAddress> higherNodesForFetch =
                         getNodesForExchange(entryExchangeTracker.getHigherNodesCount());
 
-                if (higherNodesForFetch.isEmpty()) {
+                if (higherNodesForFetch == null || higherNodesForFetch.isEmpty()) {
                     logger.warn("{}: Unable to start index hash exchange due to insufficient nodes in the system.", prefix);
                     return;
                 }
@@ -2963,8 +2959,18 @@ public final class SearchUpdated extends ComponentDefinition {
          */
         private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
 
-            throw new UnsupportedOperationException("Operation not supported");
-//            return new ArrayList<DecoratedAddress>();
+            Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
+            NavigableSet<SearchDescriptor> navigableSet = gradientEntrySet;
+            
+            Iterator<SearchDescriptor> descendingItr = navigableSet.descendingIterator();
+            
+            int counter = 0;
+            while(descendingItr.hasNext() && counter < exchangeNumber){
+                exchangeNodes.add(descendingItr.next().getVodAddress());
+                counter ++;
+            }
+            
+            return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
         }
 
 
@@ -2977,8 +2983,22 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     @Override
                     public void handle(EntryHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Request> event) {
-                        logger.debug("{}: Received the entry hash exchange request from the node in the application.");
-                        // TO DO : How to handle the Entry Hash Exchange Request in the System.
+                        
+                        logger.debug("{}: Received the entry hash exchange request from the node in the application.", prefix);
+                        Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
+                        
+                        TopScoreDocCollector collector = TopScoreDocCollector.create( config.getMaxExchangeCount(), true );
+                        List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.findEntryIdRange(
+                                writeEntryLuceneAdaptor,
+                                request.getLowestMissingIndexEntry(),
+                                collector);
+                        
+                        for(ApplicationEntry entry: applicationEntries) {
+                            entryHashs.add(new EntryHash(entry));
+                        }
+                        
+                        EntryHashExchange.Response response = new EntryHashExchange.Response(request.getExchangeRoundId(), entryHashs);     // Verify the validity.
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
 
@@ -3142,25 +3162,40 @@ public final class SearchUpdated extends ComponentDefinition {
             return getEntryBeingTracked().equals(entryId);
         }
 
-        public void updateMissingEntryTracker(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+
+        /**
+         * Once the node receives an entry to be added in the application, 
+         * the method needs to be invoked, which according to the entry that needs to be added,
+         * updates the local existing entries map information.
+         * 
+         * @param entry entry to add.
+         * @throws IOException
+         * @throws LuceneAdaptorException
+         */
+        
+        public boolean updateMissingEntryTracker(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
             if (currentTrackingUpdate != null) {
 
                 ApplicationEntry.ApplicationEntryId idBeingTracked =
                         getEntryBeingTracked();
-
-
                 if (nextEntryToAdd(entry.getApplicationEntryId())) {
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
-                    return;
-                } else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
+                    return true;
+                }
+                
+                else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
                     logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
-                    throw new IllegalStateException(" Trying to add entry that is smaller than the entry tracked");
+                }
+                else{
+                    existingEntries.put(entry.getApplicationEntryId(), entry); // Not a turn to add the entries in the system.
                 }
 
-                existingEntries.put(entry.getApplicationEntryId(), entry); // Not a turn to add the entries in the system.
+                return false;
             }
+            
+            return false;
         }
 
         /**

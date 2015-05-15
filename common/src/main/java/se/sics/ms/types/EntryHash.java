@@ -14,13 +14,20 @@ public class EntryHash {
     private final PublicKey leaderKey;
     private final String hash;
 
-
     public EntryHash(ApplicationEntry.ApplicationEntryId entryId, PublicKey leaderKey, String hash){
+        
         this.entryId = entryId;
         this.leaderKey = leaderKey;
         this.hash = hash;
     }
 
+    public EntryHash(ApplicationEntry entry){
+        
+        this.entryId = entry.getApplicationEntryId();
+        this.leaderKey = entry.getEntry().getLeaderId();
+        this.hash = entry.getEntry().getHash();
+    }
+    
 
     @Override
     public boolean equals(Object o) {
