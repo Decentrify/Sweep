@@ -19,11 +19,29 @@ public class EpochHistoryTracker {
     private LinkedList<EpochUpdate> epochUpdateHistory;
     private static Logger logger = LoggerFactory.getLogger(EpochHistoryTracker.class);
     private static final int START_EPOCH_ID = 0;
+    private LinkedList<EpochUpdate> bufferedEpochHistory;
     
     public EpochHistoryTracker(){
         logger.trace("Tracker Initialized .. ");
         epochUpdateHistory = new LinkedList<EpochUpdate>();
     }
+
+
+    /**
+     * Based on the last missing entry,
+     * decide the epochId the application needs to close right now.
+     *
+     * @return
+     */
+    private long epochIdToFetch(){
+
+        EpochUpdate lastUpdate = getLastUpdate();
+        if(lastUpdate.equals(EpochUpdate.NONE))
+            return START_EPOCH_ID;
+
+        return lastUpdate.getEpochUpdateStatus() == EpochUpdate.Status.COMPLETED ? lastUpdate.getEpochId()+1 : lastUpdate.getEpochId();
+    }
+
 
     /**
      * General Interface to add an epoch to the history.
@@ -39,6 +57,7 @@ public class EpochHistoryTracker {
             return;
         }
 
+        long epochIdToFetch = epochIdToFetch();
         int index = -1;
         for(int i =0; i < epochUpdateHistory.size() ; i ++){
             if(epochUpdateHistory.get(i).getEpochId() == epochUpdate.getEpochId() &&  
@@ -51,8 +70,15 @@ public class EpochHistoryTracker {
         if (index != -1) {
             epochUpdateHistory.set(index, epochUpdate);
         }
-        else{
-            epochUpdateHistory.addLast(epochUpdate);
+
+        else if(epochUpdate.getEpochId() == epochIdToFetch){
+            epochUpdateHistory.addLast(epochUpdate); // Only append the entries in order.
+        }
+
+        // Special Case of the Network Partitioning Merge, in which we have to collapse the history.
+        else if(epochUpdate.getEpochId() > epochIdToFetch){
+            logger.warn(" HANDLE Case of the Network Partitioning Merge In the System.");
+
         }
         Collections.sort(epochUpdateHistory);   // SORT the collection before returning. ( SORTING based on Natural Ordering ).
     }
@@ -173,4 +199,17 @@ public class EpochHistoryTracker {
         return nextUpdates;
     }
 
+    /**
+     * The method should always add the epoch updates to the tracker in order.
+     *
+     * @param intersection
+     */
+    public void addEpochUpdates(List<EpochUpdate> intersection) {
+
+        Collections.sort(intersection);
+
+        for (EpochUpdate nextUpdate : intersection) {
+            addEpochUpdate(nextUpdate);
+        }
+    }
 }

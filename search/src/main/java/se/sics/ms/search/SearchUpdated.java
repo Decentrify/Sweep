@@ -2737,7 +2737,7 @@ public final class SearchUpdated extends ComponentDefinition {
         EpochUpdate lastClosedUpdate = null;
         EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
 
-        if (lastEpochUpdate != null) {
+        if (!lastEpochUpdate.equals(EpochUpdate.NONE)) {
 
             Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
                     ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
@@ -3007,6 +3007,9 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     logger.debug("{}: Processing the control responses to find common matches", prefix);
                     performResponseMatch();
+
+                    currentPullRound = null;
+                    pullResponseMap.clear();
                 }
             }
         };
@@ -3025,7 +3028,22 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         private void performResponseMatch(){
-            throw new UnsupportedOperationException("Operation Not supported yet");
+
+            List<EpochUpdate> intersection;
+
+            if(pullResponseMap.size() > 0){
+
+                intersection = pullResponseMap
+                                .values().iterator().next()
+                                .getNextUpdates();
+
+                for (ControlPull.Response response : pullResponseMap.values()) {
+                    intersection.retainAll(response.getNextUpdates());
+                }
+
+                epochHistoryTracker.addEpochUpdates(intersection);
+            }
+
         }
 
     }
