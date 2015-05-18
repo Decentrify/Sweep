@@ -38,6 +38,13 @@ public class SimpleBootupScenario {
                         raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
+
+                StochasticProcess specialAddEntryCommand = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(3000));
+                        raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
                 
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
@@ -51,7 +58,8 @@ public class SimpleBootupScenario {
 
                 addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
                 specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
-
+                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
+                
 //                searchIndexEntry.startAfterTerminationOf(50000, addIndexEntryCommand);
                 // === Add a termination event.
             }
