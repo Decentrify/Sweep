@@ -1,5 +1,6 @@
 package se.sics.ms.search;
 
+import com.sun.org.apache.xpath.internal.SourceTree;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
@@ -363,7 +364,7 @@ public final class SearchUpdated extends ComponentDefinition {
         partitioningTracker = new PartitioningTracker();
         entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
-        epochHistoryTracker = new EpochHistoryTracker();
+        epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
         landingEntryTracker = new LandingEntryTracker();
         lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
         controlPullTracker = new ControlPullTracker(epochHistoryTracker);
@@ -1249,7 +1250,7 @@ public final class SearchUpdated extends ComponentDefinition {
             logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
 
             for (DecoratedAddress destination : leaderGroupInformation) {
-                logger.warn("Sending prepare commit request to : {}", destination.getId());
+                logger.debug("Sending prepare commit request to : {}", destination.getId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, addPrepareRequest), networkPort);
             }
 
@@ -1297,7 +1298,7 @@ public final class SearchUpdated extends ComponentDefinition {
         if (nextInsertionId == Long.MAX_VALUE - 1)
             nextInsertionId = Long.MIN_VALUE;
 
-        return nextInsertionId++;
+        return ++nextInsertionId;
     }
 
     /**
@@ -1331,13 +1332,13 @@ public final class SearchUpdated extends ComponentDefinition {
      * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry
      * and make necessary modifications in the structure used to hold the associated data.
      */
-    ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>> handleEntryAddPrepareRequest =
-            new ClassMatchedHandler<EntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request>>() {
+    ClassMatchedHandler<ApplicationEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request>> handleEntryAddPrepareRequest =
+            new ClassMatchedHandler<ApplicationEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request>>() {
 
                 @Override
-                public void handle(EntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddPrepare.Request> event) {
+                public void handle(ApplicationEntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request> event) {
 
-                    logger.warn("{}: Received Application Entry addition prepare request from the node: {}", self.getId(), event.getSource());
+                    logger.debug("{}: Received Application Entry addition prepare request from the node: {}", self.getId(), event.getSource());
                     handleEntryAddPrepare(request, event.getSource());
                 }
             };
@@ -1361,10 +1362,10 @@ public final class SearchUpdated extends ComponentDefinition {
 
     /**
      * Handle the entry addition prepare message from the leader in the partition.
-     * Promise needs to be made in case the leader verfification is complete.
+     * Promise needs to be made in case the leader verification is complete.
      *
-     * @param request
-     * @param source
+     * @param request EntryPrepare Request
+     * @param source Message Source.
      */
     private void handleEntryAddPrepare(EntryAddPrepare.Request request, DecoratedAddress source) {
 
@@ -1388,7 +1389,7 @@ public final class SearchUpdated extends ComponentDefinition {
             previousEpochUpdate = landingEntryRequest.getPreviousEpochUpdate();
 
         } else {
-            logger.debug("{}: Promising for entry with details : {} ", prefix, applicationEntry.getApplicationEntryId());
+
             previousEpochUpdate = EpochUpdate.NONE;
         }
 
@@ -1429,7 +1430,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 @Override
                 public void handle(ApplicationEntryAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Response> event) {
 
-                    logger.warn("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
+                    logger.debug("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
 
                     UUID entryAdditionRoundId = response.getEntryAdditionRound();
                     EntryAdditionRoundInfo info = entryAdditionTracker.getEntryAdditionRoundInfo(entryAdditionRoundId);
@@ -1444,7 +1445,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                         try {
 
-                            logger.warn("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
+                            logger.debug("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
 
                             CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                             trigger(ct, timerPort);
@@ -1454,11 +1455,15 @@ public final class SearchUpdated extends ComponentDefinition {
 
                             if (entryToCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
-                                logger.warn("{}: Request to add a new landing entry in system", prefix);
+                                logger.debug("{}: Request to add a new landing entry in system", prefix);
                                 epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
                                 EpochUpdate update = new EpochUpdate(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 epochHistoryTracker.addEpochUpdate(update);
 
+                                lowestMissingEntryTracker.updateCurrentTracking();  // Inform tracker about the epoch update.
+                            }
+                            else{
+                                logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
                             }
 
                             addEntryLocally(entryToCommit);   // Commit to local first.
@@ -1544,7 +1549,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     }
 
                     if (toCommit == null) {
-                        logger.warn("{}: Unable to find index entry to commit.", self.getId());
+                        logger.warn("{}: Unable to find application entry to commit.", self.getId());
                         return;
                     }
 
@@ -1561,9 +1566,14 @@ public final class SearchUpdated extends ComponentDefinition {
                             EpochUpdate update = new EpochUpdate(toCommit.getEpochId(), toCommit.getLeaderId());
                             epochHistoryTracker.addEpochUpdate(update);
 
-                        }
-                        addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
+                            // As you are directly updating the epoch history,
+                            // missing tracker needs to be informed about it.
 
+                            lowestMissingEntryTracker.updateCurrentTracking();
+
+                        }
+
+                        addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
                         pendingForCommit.remove(toCommit);
 
                     } catch (IOException e) {
@@ -2034,14 +2044,32 @@ public final class SearchUpdated extends ComponentDefinition {
         
         // As the lowest missing tracker keeps track of the missing entries, the onus of whether the entry is ready to
         // be added to the system depends upon the current state of it.
-        
+
         if(lowestMissingEntryTracker.updateMissingEntryTracker(entry)){
-            
-            logger.info("{}: Going to add entry :{} in the system.", prefix, entry.getApplicationEntryId());
-            addEntryToLucene(writeEntryLuceneAdaptor, entry);
-            self.incrementEntries();
-            informListeningComponentsAboutUpdates(self);
+
+            commitAndUpdateUtility(entry);
+            lowestMissingEntryTracker.checkAndRemoveEntryGaps();    // Check if any gaps can be removed with this entry addition.
+            lowestMissingEntryTracker.printCurrentTrackingInfo();
         }
+        else{
+
+            logger.warn("{}: Not supposed to add entry in Lucene ... Returning ... ");
+            throw new UnsupportedOperationException(" The semantics of tasks to perform in case entry cannot be added in system is not defined yet ");
+        }
+    }
+
+
+    /**
+     * Once the entry passes all the checks for authenticity and being a correctly tracked entry,
+     * the method is invoked, which commits it to Lucene and updates the utility.
+     *
+     * @param entry
+     */
+    private void commitAndUpdateUtility(ApplicationEntry entry) throws LuceneAdaptorException {
+
+        addEntryToLucene(writeEntryLuceneAdaptor, entry);
+        self.incrementEntries();
+        informListeningComponentsAboutUpdates(self);
     }
 
     /**
@@ -2446,7 +2474,7 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
         List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(
-                writeEntryLuceneAdaptor, 
+                writeEntryLuceneAdaptor,
                 entryId, entryId,
                 collector);
         
@@ -2651,10 +2679,28 @@ public final class SearchUpdated extends ComponentDefinition {
                     gradientEntrySet.add((SearchDescriptor) container.getContent());
                 }
             }
+
+            publishSample(gradientEntrySet);
         }
 
 
     };
+
+
+
+
+
+    private void publishSample (Set<SearchDescriptor> samples) {
+
+        Set<SearchDescriptor> nodes = samples;
+        StringBuilder sb = new StringBuilder("Neighbours: { ");
+        for (SearchDescriptor d : nodes) {
+            sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getPartitioningDepth() + ":" + d.isLeaderGroupMember()).append(" , ");
+
+        }
+        sb.append("}");
+        logger.warn(prefix + " " + sb);
+    }
 
 
     // ======= LEADER ELECTION PROTOCOL HANDLERS.
@@ -2708,7 +2754,7 @@ public final class SearchUpdated extends ComponentDefinition {
         EpochUpdate lastEpochUpdate = getPreviousClosedEpoch();
         long currentEpoch;
 
-        if (lastEpochUpdate == null) {
+        if ( lastEpochUpdate == null || lastEpochUpdate.equals(EpochUpdate.NONE) ) {
             logger.warn(" I think I am the first leader in the system. ");
             currentEpoch = STARTING_EPOCH;
 
@@ -2736,7 +2782,6 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private EpochUpdate getPreviousClosedEpoch() throws LuceneAdaptorException {
 
-        EpochUpdate lastClosedUpdate = null;
         EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
 
         if (!lastEpochUpdate.equals(EpochUpdate.NONE)) {
@@ -2750,12 +2795,12 @@ public final class SearchUpdated extends ComponentDefinition {
 
             int numEntries = hitCollector.getTotalHits();
             if (numEntries == 0) {
-                throw new IllegalStateException("Unable to find any entries for the previous epoch update");
+                throw new IllegalStateException("Unable to find any entry(s) for the previous epoch update");
             }
-            lastClosedUpdate = new EpochUpdate(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
+            lastEpochUpdate = new EpochUpdate(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
         }
 
-        return lastClosedUpdate;
+        return lastEpochUpdate;
     }
 
     /**
@@ -2937,6 +2982,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 currentPullRound = UUID.randomUUID();
                 currentUpdate = historyTracker.getLastUpdate();
+
+                logger.debug("{}: Current Pull Round: {}, EpochUpdate: {}", new Object[]{prefix, currentPullRound, currentUpdate});
                 OverlayId overlayId = new OverlayId(self.getOverlayId());
 
                 ControlPull.Request request = new ControlPull.Request(currentPullRound, overlayId, currentUpdate);
@@ -3046,7 +3093,29 @@ public final class SearchUpdated extends ComponentDefinition {
                     intersection.retainAll(response.getNextUpdates());
                 }
 
+
                 epochHistoryTracker.addEpochUpdates(intersection);
+                epochHistoryTracker.printEpochHistory();
+
+                // Leader Matching.
+                DecoratedAddress baseLeader = pullResponseMap.values()
+                        .iterator().next()
+                        .getLeaderAddress();
+
+                if(baseLeader == null) {
+                    logger.debug("{}: No Common Leader Updates ", prefix);
+                    return;
+                }
+
+                for (ControlPull.Response response : pullResponseMap.values()) {
+                    if(response.getLeaderAddress() == null || !response.getLeaderAddress().equals(baseLeader)){
+                        logger.debug("{}: Mismatch Found Returning ... ");
+                        return;
+                    }
+                }
+
+                logger.debug("{}: Found the leader update:{}", prefix, baseLeader);
+                leaderAddress = baseLeader;
             }
 
         }
@@ -3072,6 +3141,12 @@ public final class SearchUpdated extends ComponentDefinition {
             this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
             this.existingEntries = new HashMap<ApplicationEntry.ApplicationEntryId, ApplicationEntry>();
             this.currentTrackingId = 0;
+        }
+
+
+
+        public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
+            logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -3110,7 +3185,7 @@ public final class SearchUpdated extends ComponentDefinition {
             if (currentTrackingUpdate != null) {
 
                 UUID entryExchangeRound = UUID.randomUUID();
-                logger.warn(" {}: Starting with the index pull mechanism with exchange round: {}", prefix, entryExchangeRound);
+                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {}", prefix, entryExchangeRound);
 
                 triggerHashExchange(entryExchangeRound);
             } else {
@@ -3133,7 +3208,9 @@ public final class SearchUpdated extends ComponentDefinition {
                     logger.debug("Start the special direct leader pull protocol.");
                     // PULL DIRECTLY FROM THE LEADER.
                 }
-            } else {
+            }
+
+            {
 
                 EntryHashExchange.Request request =
                         new EntryHashExchange.Request(entryExchangeRound, getEntryBeingTracked());
@@ -3142,7 +3219,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         getNodesForExchange(entryExchangeTracker.getHigherNodesCount());
 
                 if (higherNodesForFetch == null || higherNodesForFetch.isEmpty()) {
-                    logger.warn("{}: Unable to start index hash exchange due to insufficient nodes in the system.", prefix);
+                    logger.info("{}: Unable to start index hash exchange due to insufficient nodes in the system.", prefix);
                     return;
                 }
 
@@ -3168,7 +3245,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     @Override
                     public void handle(EntryHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Request> event) {
                         
-                        logger.debug("{}: Received the entry hash exchange request from the node in the application.", prefix);
+                        logger.debug("{}: Received the entry hash exchange request from the node:{} in the system.", prefix, event.getSource());
                         Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
                         
                         TopScoreDocCollector collector = TopScoreDocCollector.create( config.getMaxExchangeCount(), true );
@@ -3202,7 +3279,7 @@ public final class SearchUpdated extends ComponentDefinition {
                             logger.debug("{}: Received hash exchange response for the round: {}", prefix, response.getExchangeRoundId());
 
                             if (entryExchangeTracker.getExchangeRoundId() == null || !entryExchangeTracker.getExchangeRoundId().equals(response.getExchangeRoundId())) {
-                                logger.debug("{}: Received index exchange response for an unknown round :{} , returning ....",
+                                logger.warn("{}: Received index exchange response for an unknown round :{} , returning ....",
                                         prefix,
                                         response.getExchangeRoundId());
                                 return;
@@ -3211,7 +3288,10 @@ public final class SearchUpdated extends ComponentDefinition {
                             entryExchangeTracker.addEntryHashResponse(event.getSource(), response);
                             if (entryExchangeTracker.allHashResponsesComplete()) {
 
-                                Collection<EntryHash> entryHashCollection = entryExchangeTracker.getInOrderEntryHashes(getEntryBeingTracked());
+                                Collection<EntryHash> entryHashCollection = entryExchangeTracker.getCommonEntryHashes(entryExchangeTracker
+                                                .getExchangeRoundEntryHashCollection()
+                                        .values());
+
                                 Collection<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList<ApplicationEntry.ApplicationEntryId>();
 
                                 if (entryHashCollection.isEmpty()) {
@@ -3282,8 +3362,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     @Override
                     public void handle(EntryExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response> event) {
-                        logger.debug("{}: Received Entry Exchange Response from :{}", prefix, event.getSource());
 
+                        logger.debug("{}: Received Entry Exchange Response from :{}", prefix, event.getSource());
                         try {
 
                             if (entryExchangeTracker.getExchangeRoundId() == null || !entryExchangeTracker.getExchangeRoundId().equals(response.getEntryExchangeRound())) {
@@ -3306,7 +3386,7 @@ public final class SearchUpdated extends ComponentDefinition {
          * Analyze the current tracking information based on the information provided by the
          * History Tracker.
          */
-        private void updateCurrentTracking() {
+        public void updateCurrentTracking() {
 
             if (currentTrackingUpdate == null) {
 
@@ -3368,6 +3448,8 @@ public final class SearchUpdated extends ComponentDefinition {
                         getEntryBeingTracked();
                 
                 if (nextEntryToAdd(entry.getApplicationEntryId())) {
+
+
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
                     return true;
@@ -3376,17 +3458,17 @@ public final class SearchUpdated extends ComponentDefinition {
                 else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
                     logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
                 }
-                else{
-                    existingEntries.put(entry.getApplicationEntryId(), entry); // Not a turn to add the entries in the system.
-                }
             }
-            
+
+            // In case we reached this point we add it to the existing entries as we cannot add to Lucene Yet.
+            existingEntries.put(entry.getApplicationEntryId(), entry);
             return false;
         }
 
         /**
          * Get the application entry that is being currently tracked by the application.
-         *
+         * Here Tracking means that application is looking for the entry in the system or in other words waiting for
+         * someone or the leader to privide with the entry.
          * @return current entry to pull.
          */
         public ApplicationEntry.ApplicationEntryId getEntryBeingTracked() throws IOException, LuceneAdaptorException {
@@ -3398,21 +3480,27 @@ public final class SearchUpdated extends ComponentDefinition {
                 entryId = new ApplicationEntry.ApplicationEntryId(currentTrackingUpdate.getEpochId(),
                         currentTrackingUpdate.getLeaderId(),
                         currentTrackingId);
-
-                while (existingEntries.keySet().contains(entryId)) {
-                    // Reached point at which we can safely add entries to the Lucene.
-
-                    logger.info("{}: Entry: {} is Already present in the existing entries. Adding in Lucene.", prefix, entryId);
-                    addEntryLocally(existingEntries.get(entryId));
-                    existingEntries.remove(entryId);
-
-                    entryId.setEntryId(currentTrackingId++);
-                }
             }
 
             return entryId;
         }
 
+
+        /**
+         * Once you add an entry in the system, check for any gaps that might be occurred and can be removed.
+         * @throws IOException
+         * @throws LuceneAdaptorException
+         */
+        public void checkAndRemoveEntryGaps() throws IOException, LuceneAdaptorException {
+
+            ApplicationEntry.ApplicationEntryId existingEntryId = getEntryBeingTracked();
+            while(existingEntries.keySet().contains(existingEntryId)){
+
+                commitAndUpdateUtility(existingEntries.get(existingEntryId));
+                existingEntries.remove(existingEntryId);
+                currentTrackingId ++;
+            }
+        }
 
     }
 

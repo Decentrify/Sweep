@@ -3,6 +3,7 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.EpochUpdate;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.util.*;
 
@@ -20,12 +21,22 @@ public class EpochHistoryTracker {
     private static Logger logger = LoggerFactory.getLogger(EpochHistoryTracker.class);
     private static final int START_EPOCH_ID = 0;
     private LinkedList<EpochUpdate> bufferedEpochHistory;
-    
-    public EpochHistoryTracker(){
+    private BasicAddress selfAddress;
+    private String prefix;
+
+    public EpochHistoryTracker(BasicAddress address){
+
         logger.trace("Tracker Initialized .. ");
         epochUpdateHistory = new LinkedList<EpochUpdate>();
+        this.selfAddress = address;
+        this.prefix = String.valueOf(address.getId());
     }
 
+
+
+    public void printEpochHistory(){
+        logger.debug("EpochHistory: {}", epochUpdateHistory);
+    }
 
     /**
      * Based on the last missing entry,
@@ -47,6 +58,7 @@ public class EpochHistoryTracker {
      * General Interface to add an epoch to the history.
      * In case it is epoch update is already present in the history, update the entry with the new one.
      * FIX : Identify the methodology in case the epoch update is ahead and is a partition merge update.
+     * FIX : Identify the methodology in case the epoch update is a part of shard update.
      *
      * @param epochUpdate Epoch Update.
      */
@@ -56,8 +68,6 @@ public class EpochHistoryTracker {
             logger.debug("Request to add default epoch update received, returning ... ");
             return;
         }
-
-        System.exit(-1);
 
         long epochIdToFetch = epochIdToFetch();
         int index = -1;
@@ -74,14 +84,25 @@ public class EpochHistoryTracker {
         }
 
         else if(epochUpdate.getEpochId() == epochIdToFetch){
+
+            logger.warn("{}: Going to add new epoch update :{} ", prefix, epochUpdate);
             epochUpdateHistory.addLast(epochUpdate); // Only append the entries in order.
         }
 
         // Special Case of the Network Partitioning Merge, in which we have to collapse the history.
         else if(epochUpdate.getEpochId() > epochIdToFetch){
-            logger.warn(" HANDLE Case of the Network Partitioning Merge In the System.");
 
+            // Special Case Handling for the Network Merge is required.
+            logger.error(" HANDLE Case of the Network Partitioning Merge In the System.");
+            bufferedEpochHistory.add(epochUpdate);
+            throw new UnsupportedOperationException(" Operation Not Supported Yet ");
         }
+
+        else{
+            logger.warn("{}: Whats the case that occurred : ?", prefix);
+            throw new IllegalStateException("Unknown State ..1");
+        }
+
         Collections.sort(epochUpdateHistory);   // SORT the collection before returning. ( SORTING based on Natural Ordering ).
     }
 
@@ -115,7 +136,7 @@ public class EpochHistoryTracker {
                 
                 if(iterator.hasNext()){
                     nextUpdate = iterator.next();
-                    break;
+                    break;                              // Check Here About the Buffered Epoch Updates in The System and Remove them from the
                 }
             }
         }
