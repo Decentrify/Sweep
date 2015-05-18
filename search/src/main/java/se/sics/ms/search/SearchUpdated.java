@@ -1446,7 +1446,6 @@ public final class SearchUpdated extends ComponentDefinition {
                         try {
 
                             logger.debug("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
-
                             CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                             trigger(ct, timerPort);
 
@@ -2718,7 +2717,6 @@ public final class SearchUpdated extends ComponentDefinition {
                 logger.warn("{}: Self node is elected as leader.", self.getId());
                 leader = true;
                 leaderGroupInformation = event.leaderGroup;
-
                 BasicAddress selfPeerAddress = self.getAddress().getBase();
                 Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
                 while (itr.hasNext()) {
@@ -2881,7 +2879,7 @@ public final class SearchUpdated extends ComponentDefinition {
         @Override
         public void handle(ElectionState.DisableLGMembership event) {
 
-            logger.warn("{}: Remove the node from the leader group membership.", self.getId());
+            logger.debug("{}: Remove the node from the leader group membership.", self.getId());
             self.setIsLGMember(false);
             electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);
@@ -3391,26 +3389,32 @@ public final class SearchUpdated extends ComponentDefinition {
             if (currentTrackingUpdate == null) {
 
                 // ASK FOR THE INITIAL TRACKING UPDATE.
-                currentTrackingUpdate = historyTracker.getInitialEpochUpdate();
+                currentTrackingUpdate = historyTracker
+                        .getInitialEpochUpdate();
+
             } else {
 
                 if (currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.ONGOING) {
 
                     // CHECK IF WE RECEIVED THE UPDATE TO CLOSE THE CURRENT UPDATE.
-                    currentTrackingUpdate = historyTracker.getSelfUpdate(currentTrackingUpdate);
+                    currentTrackingUpdate = historyTracker
+                            .getSelfUpdate(currentTrackingUpdate);
                 }
 
                 if ((currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.COMPLETED)
                         && (currentTrackingId >= currentTrackingUpdate.getNumEntries())) {
 
                     // CHECK IF TIME TO TRACK OR PULL FROM NEW EPOCH UPDATE.
-                    EpochUpdate nextUpdate = epochHistoryTracker.getNextUpdateToTrack(currentTrackingUpdate);
+                    EpochUpdate nextUpdate = epochHistoryTracker
+                            .getNextUpdateToTrack(currentTrackingUpdate);
+
                     if (nextUpdate != null) {
 
                         currentTrackingUpdate = nextUpdate;
                         currentTrackingId = 0;
                     }
                 }
+
             }
         }
 
