@@ -74,6 +74,10 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_SHUFFLE_PERIOD = 3000;
     public static final double GRADIENT_CONVERGENCE_TEST = 0.8d;
     
+    
+    // Epoch Mechanism.
+    public static final int MAX_EPOCH_UPDATES = 10;
+    
     protected MsConfig(String[] args) throws IOException {
         super(args);
     }

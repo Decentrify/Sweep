@@ -57,6 +57,8 @@ public class EpochHistoryTracker {
             return;
         }
 
+        System.exit(-1);
+
         long epochIdToFetch = epochIdToFetch();
         int index = -1;
         for(int i =0; i < epochUpdateHistory.size() ; i ++){
@@ -178,7 +180,7 @@ public class EpochHistoryTracker {
             current = getInitialEpochUpdate();
         }
 
-        if(current!= null){
+        if(current != null && !current.equals(EpochUpdate.NONE)){
 
             int index = epochUpdateHistory.indexOf(current);
             if(index != -1){

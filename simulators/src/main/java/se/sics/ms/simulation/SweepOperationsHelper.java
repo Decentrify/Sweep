@@ -7,19 +7,28 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.config.VodConfig;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
+import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
+import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
+import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -52,6 +61,22 @@ public class SweepOperationsHelper {
     private static int port;
     static{
 
+        try {
+            VodConfig.init(new String[0]);
+            int currentId = 128;                                        // Serializers Registration.
+            BasicSerializerSetup.registerBasicSerializers(currentId);
+            currentId += BasicSerializerSetup.serializerIds;
+            currentId = CroupierSerializerSetup.registerSerializers(currentId);
+            currentId = GradientSerializerSetup.registerSerializers(currentId);
+            currentId = ElectionSerializerSetup.registerSerializers(currentId);
+            currentId = AggregatorSerializerSetup.registerSerializers(currentId);
+            currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
+            SerializerSetup.registerSerializers(currentId);
+
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         Config config = ConfigFactory.load("application.conf");
 
         identifierSpaceSize = new Long(3000);

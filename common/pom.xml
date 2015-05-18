@@ -127,6 +127,11 @@
             <version>${election.version}</version>
         </dependency>
         <dependency>
+            <groupId>se.sics.p2ptoolbox.gradient</groupId>
+            <artifactId>gradient-core</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+        <dependency>
             <groupId>se.sics.p2ptoolbox</groupId>
             <artifactId>serialization-util</artifactId>
             <version>${serialization.util.version}</version>

@@ -25,6 +25,7 @@ import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.control.*;
 import se.sics.ms.data.*;
 import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
@@ -289,17 +290,16 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(handlerPartitionCommitTimeoutMessage, timerPort);
 
         // Generic Control message exchange mechanism
-        subscribe(handlerControlMessageExchangeRound, timerPort);
+//        subscribe(handlerControlMessageExchangeRound, timerPort);
         subscribe(handlerControlMessageRequest, networkPort);
         subscribe(handlerControlMessageInternalResponse, gradientRoutingPort);
         subscribe(handlerControlMessageResponse, networkPort);
         subscribe(handlerDelayedPartitioningRequest, networkPort);
 
-
         // Generic Control Pull Exchange With Epochs.
         subscribe(controlPullTracker.exchangeRoundHandler, timerPort);
-        subscribe(controlPullTracker.controlPullRequest, timerPort);
-
+        subscribe(controlPullTracker.controlPullRequest, networkPort);
+        subscribe(controlPullTracker.controlPullResponse, networkPort);
 
         subscribe(delayedPartitioningTimeoutHandler, timerPort);
         subscribe(delayedPartitioningResponseHandler, networkPort);
@@ -310,14 +310,16 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(leaderUpdateHandler, electionPort);
         subscribe(enableLGMembershipHandler, electionPort);
         subscribe(disableLGMembershipHandler, electionPort);
-
+        
         // Updated Missing tracker information.
         subscribe(lowestMissingEntryTracker.entryExchangeRoundHandler, timerPort);
         subscribe(lowestMissingEntryTracker.entryHashExchangeRequestHandler, networkPort);
         subscribe(lowestMissingEntryTracker.entryHashExchangeResponseHandler, networkPort);
         subscribe(lowestMissingEntryTracker.entryExchangeRequestHandler, networkPort);
         subscribe(lowestMissingEntryTracker.entryExchangeResponseHandler, networkPort);
-
+        
+        
+        subscribe(gradientSampleHandler, gradientPort);
     }
 
     /**
@@ -422,9 +424,9 @@ public final class SearchUpdated extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
-//            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
-//            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
-//            trigger(rst, timerPort);
+            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+            rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
+            trigger(rst, timerPort);
         }
     };
 
@@ -512,21 +514,21 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
 
-    /**
-     * Initiate the control message exchange in the system.
-     */
-    Handler<TimeoutCollection.ControlMessageExchangeRound> handlerControlMessageExchangeRound = new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
-        @Override
-        public void handle(TimeoutCollection.ControlMessageExchangeRound event) {
-
-            logger.debug("Initiated the Periodic Exchange Timeout.");
-
-            //Clear the previous rounds data to avoid clash in the responses.
-            cleanControlMessageResponseData();
-            controlMessageExchangeRoundId = UUID.randomUUID();
-            trigger(new GradientRoutingPort.InitiateControlMessageExchangeRound(controlMessageExchangeRoundId, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
-        }
-    };
+//    /**
+//     * Initiate the control message exchange in the system.
+//     */
+//    Handler<TimeoutCollection.ControlMessageExchangeRound> handlerControlMessageExchangeRound = new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
+//        @Override
+//        public void handle(TimeoutCollection.ControlMessageExchangeRound event) {
+//
+//            logger.debug("Initiated the Periodic Exchange Timeout.");
+//
+//            //Clear the previous rounds data to avoid clash in the responses.
+//            cleanControlMessageResponseData();
+//            controlMessageExchangeRoundId = UUID.randomUUID();
+//            trigger(new GradientRoutingPort.InitiateControlMessageExchangeRound(controlMessageExchangeRoundId, config.getIndexExchangeRequestNumber()), gradientRoutingPort);
+//        }
+//    };
 
 
     /**
@@ -2925,11 +2927,11 @@ public final class SearchUpdated extends ComponentDefinition {
             @Override
             public void handle(TimeoutCollection.ControlMessageExchangeRound controlMessageExchangeRound) {
 
-                logger.debug("{}: Initiating the control message exchange round");
+                logger.debug("{}: Initiating the control message exchange round", prefix);
 
                 Collection<DecoratedAddress> addresses = getNodesForExchange(config.getIndexExchangeRequestNumber());
                 if(addresses == null || addresses.size() < config.getIndexExchangeRequestNumber()){
-                    logger.debug("{}: Unable to start the control pull mechanism as higher nodes are less than required number");
+                    logger.debug("{}: Unable to start the control pull mechanism as higher nodes are less than required number", prefix);
                     return;
                 }
 
@@ -2969,9 +2971,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 List<EpochUpdate> nextUpdates = new ArrayList<EpochUpdate>();
                 nextUpdates.add(selfUpdated);
-                nextUpdates.addAll(historyTracker.getNextUpdates(selfUpdated, 10));
-
-                ControlPull.Response response = new ControlPull.Response(request.getPullRound(), leaderAddress, selfUpdated, nextUpdates); // Handler for the DecoratedAddress
+                nextUpdates.addAll(historyTracker.getNextUpdates(selfUpdated, config.getMaximumEpochUpdatesPullSize()));
+                
+                logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
+                
+                ControlPull.Response response = new ControlPull.Response(request.getPullRound(), addr, selfUpdated, nextUpdates); // Handler for the DecoratedAddress
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
             }
         };
@@ -2992,12 +2996,12 @@ public final class SearchUpdated extends ComponentDefinition {
                 logger.debug("{}: Received Control Pull Response from the Node: {}", prefix, event.getSource());
 
                 if(currentPullRound == null ||  !currentPullRound.equals(response.getPullRound())){
-                    logger.warn("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
+                    logger.debug("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
                     return;
                 }
 
                 List<EpochUpdate> updates = response.getNextUpdates();
-                if(updates.isEmpty() || checkOriginalExtension(updates.get(0))){
+                if(updates.isEmpty() || !checkOriginalExtension(updates.get(0))){
                     logger.warn("{}: Control exchange protocol violated, Received Base Update : {} , not extension of sent: {} returning", new Object[]{prefix, updates.get(0), currentUpdate});
                     return;
                 }
@@ -3006,8 +3010,9 @@ public final class SearchUpdated extends ComponentDefinition {
                 if(pullResponseMap.size() >= config.getIndexExchangeRequestNumber()){
 
                     logger.debug("{}: Processing the control responses to find common matches", prefix);
-                    performResponseMatch();
+                    logger.debug("{}: Pull Response Map: {}", pullResponseMap);
 
+                    performResponseMatch();
                     currentPullRound = null;
                     pullResponseMap.clear();
                 }
