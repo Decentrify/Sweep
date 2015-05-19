@@ -1460,8 +1460,9 @@ public final class SearchUpdated extends ComponentDefinition {
                                 epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
                                 EpochUpdate update = new EpochUpdate(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 epochHistoryTracker.addEpochUpdate(update);
-
-                                lowestMissingEntryTracker.updateCurrentTracking();  // Inform tracker about the epoch update.
+                                
+                                lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
+                                
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
                             }
@@ -1568,18 +1569,16 @@ public final class SearchUpdated extends ComponentDefinition {
 
                             // As you are directly updating the epoch history,
                             // missing tracker needs to be informed about it.
-
-                            lowestMissingEntryTracker.updateCurrentTracking();
+                            lowestMissingEntryTracker.updateInternalState();
 
                         }
 
                         addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
                         pendingForCommit.remove(toCommit);
 
-                    } catch (IOException e) {
-                        logger.error(self.getId() + " " + e.getMessage());
-                    } catch (LuceneAdaptorException e) {
-                        e.printStackTrace();
+                    } 
+                    catch(Exception e){
+                        throw new RuntimeException("Unable to preocess Entry Commit Request, exiting ... ");
                     }
 
                 }
@@ -3150,11 +3149,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     logger.info("Entry Exchange Round initiated ... ");
                     entryExchangeTracker.resetTracker();
-
-                    updateCurrentTracking();
+                    updateInternalState();
+                    
                     logger.info("{}: Current Tracking Information: {}", prefix, currentTrackingUpdate);
-
                     startEntryPullMechanism();
+                    
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException(" Unable to initiate entry exchange round ", e);
@@ -3232,8 +3231,6 @@ public final class SearchUpdated extends ComponentDefinition {
         ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>> leaderPullRequest = new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>>() {
             @Override
             public void handle(LeaderPullEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request> event) {
-                
-                logger.debug(" {}: Received leader pull request from the node: {} in system ", prefix, event.getSource());
                 
                 if(leader){
                     
@@ -3440,7 +3437,7 @@ public final class SearchUpdated extends ComponentDefinition {
          * Analyze the current tracking information based on the information provided by the
          * History Tracker.
          */
-        public void updateCurrentTracking() {
+        public void updateCurrentTracking() throws IOException, LuceneAdaptorException {
 
             if (currentTrackingUpdate == null) {
 
@@ -3470,6 +3467,8 @@ public final class SearchUpdated extends ComponentDefinition {
                         currentTrackingId = 0;
                     }
                 }
+                
+                
 
             }
         }
@@ -3509,12 +3508,14 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 if (nextEntryToAdd(entry.getApplicationEntryId())) {
 
-
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
                     return true;
+                    
                 } else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
+                    
                     logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
+                    throw new RuntimeException(" Some Condition that cannot be tracked ... ");
                 }
             }
 
@@ -3543,6 +3544,23 @@ public final class SearchUpdated extends ComponentDefinition {
 
             return entryId;
         }
+
+
+        /**
+         * The operation itself does nothing but calls
+         * the internal state operations in order.
+         *
+         */
+        public void updateInternalState() throws IOException, LuceneAdaptorException {
+            
+            updateCurrentTracking();
+            checkAndRemoveEntryGaps();
+        } 
+        
+        
+        
+        
+        
 
 
         /**
