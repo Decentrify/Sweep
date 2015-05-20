@@ -57,8 +57,8 @@ public class SimpleBootupScenario {
                 peerJoin.start();
 
                 addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
-                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
-                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
+//                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
+//                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
                 
 //                searchIndexEntry.startAfterTerminationOf(50000, addIndexEntryCommand);
                 // === Add a termination event.

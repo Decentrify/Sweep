@@ -52,6 +52,9 @@ public class ApplicationSelf {
         return this.address;
     }
 
+    public long getNumberOfEntries(){
+        return this.numberOfEntries;
+    }
 
     public int getId(){
         return this.address.getId();

@@ -94,7 +94,7 @@ public class EpochHistoryTracker {
 
             // Special Case Handling for the Network Merge is required.
             logger.error(" HANDLE Case of the Network Partitioning Merge In the System.");
-            bufferedEpochHistory.add(epochUpdate);
+            bufferedEpochHistory.add(epochUpdate);              // TO DO: Condition needs to be properly handled.
             throw new UnsupportedOperationException(" Operation Not Supported Yet ");
         }
 

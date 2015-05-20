@@ -197,7 +197,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private EpochHistoryTracker epochHistoryTracker;
     private LandingEntryTracker landingEntryTracker;
     private ControlPullTracker controlPullTracker;
-
+    private ShardTracker shardTracker;
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -370,6 +370,7 @@ public final class SearchUpdated extends ComponentDefinition {
         landingEntryTracker = new LandingEntryTracker();
         lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
         controlPullTracker = new ControlPullTracker(epochHistoryTracker);
+        shardTracker = new ShardTracker();
     }
 
 
@@ -2153,6 +2154,42 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
     /**
+     * Start with the main sharding procedure.
+     * Initiate the sharding process.
+     *  
+     */
+    private void checkAndInitiateSharding() throws LuceneAdaptorException {
+        
+        if(isTimeToShard()){
+
+            ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
+            
+            if(entryId == null){
+                logger.error("{}: Unable to calculate the median entry id for the sharding. ", prefix);
+                return;
+            }
+            
+            shardTracker.initiateSharding(entryId);
+        }
+        else{
+            logger.trace("{}: Not the time to shard, return .. ", prefix);
+        }
+        
+    }
+
+
+    /**
+     * Based on the internal state of the node, check if 
+     * it's time to shard.
+     * 
+     * @return Shard True/False
+     */
+    private boolean isTimeToShard(){
+        return ( self.getNumberOfEntries() >= config.getMaxEntriesOnPeer() );
+    }
+    
+
+    /**
      * Starting point of the two phase commit protocol for partitioning commit in the
      * system.
      *
@@ -2888,8 +2925,8 @@ public final class SearchUpdated extends ComponentDefinition {
      * leader information in the gradient. If leader information found, start a special pull protocol of
      * directly pulling the information from the leader.
      *
-     * @param leaderAddress
-     * @return
+     * @param leaderAddress leader address
+     * @return true ( if leader present ).
      */
     private boolean isLeaderInGradient(DecoratedAddress leaderAddress) {
 
@@ -2927,6 +2964,89 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
     /**
+     * *******************
+     * SHARDING PROTOCOL TRACKER
+     * *******************
+     * 
+     * Main tracker for the sharding protocol,
+     * in which the leader informs the leader group nodes about the
+     * shard being overgrown in size which needs to be partitioned.
+     */
+    
+    public class ShardTracker {
+        
+        private UUID shardRoundId;
+        private UUID shardPreparePhaseID;
+        private UUID shardCommitPhaseID;
+
+        private ShardInfo currentShardInfo;
+        private Collection<DecoratedAddress> cohorts;
+        
+        public ShardTracker(){
+            logger.warn("{}: Shard Tracker Initialized ", prefix);
+
+        }
+
+        /**
+         * Start the sharding protocol. The protocol simply performs a 2 phase 
+         * commit indicating the nearby nodes of event of sharding in which the nodes based on the
+         * based on the state choose a side and remove the entries to balance out the load.
+         *
+         * @param medianEntry
+         */
+        public void initiateSharding(ApplicationEntry.ApplicationEntryId medianEntry) {
+            
+            if(shardRoundId != null || !leader || leaderGroupInformation == null || leaderGroupInformation.isEmpty()){
+                logger.warn("{}: Conditions to initiate sharding not satisfied, returning ... ", prefix);
+                return;
+            }
+            
+            shardRoundId = UUID.randomUUID();
+            currentShardInfo = new ShardInfo(shardRoundId, medianEntry, publicKey);
+            
+            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
+            ShardingPrepare.Timeout shardPrepareTimeout = new ShardingPrepare.Timeout(st);
+            st.setTimeoutEvent(shardPrepareTimeout);
+
+            shardPreparePhaseID = st.getTimeoutEvent().getTimeoutId();
+            cohorts = leaderGroupInformation;
+            ShardingPrepare.Request request = new ShardingPrepare.Request(shardPreparePhaseID, currentShardInfo, new OverlayId(self.getOverlayId()));
+            
+            for(DecoratedAddress destination : cohorts){
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+            }
+            
+            
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+        
+        
+        
+        
+        
+        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest = new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
+            @Override
+            public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
+                logger.debug("{}: Sharding Prepare request received from : {} ", prefix , event.getSource());
+            }
+        };
+        
+        
+        
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    /**
+     * *********************************
+     * CONTROL PULL TRACKER
+     * *********************************
+     *  
      * Tracker for the main control pull mechanism.
      */
     private class ControlPullTracker {
@@ -3108,6 +3228,10 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
     /**
+     * ****************************************************
+     *  LOWEST MISSING ENTRY TRACKER
+     * ****************************************************
+     *
      * Inner class used to keep track of the lowest missing index entry and also
      * communicate with the Epoch History Tracker, which for now keeps history of the
      * epoch updates.

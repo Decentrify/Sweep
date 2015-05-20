@@ -46,5 +46,16 @@ public abstract class ApplicationLuceneAdaptor extends LuceneAdaptorBasic {
     public abstract List<ApplicationEntry> searchApplicationEntriesInLucene(Query searchQuery, Sort sort , int maxEntries) throws LuceneAdaptorException;
 
 
+    /**
+     * The Application in event of sharding needs to calculate the medianId at which the split occurs.
+     * The method is used to calculate the splitting point. Based on the query,
+     *
+     * @param searchQuery Query to fetch entries
+     * @paramm
+     * @return Middle Entry
+     * @throws LuceneAdaptorException
+     */
+    public abstract ApplicationEntry getMedianEntry(Query searchQuery, Sort sort, int maxEntries) throws LuceneAdaptorException;
+    
 
 }

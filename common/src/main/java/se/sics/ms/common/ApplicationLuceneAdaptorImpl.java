@@ -92,4 +92,34 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
         }
     }
 
+    @Override
+    public ApplicationEntry getMedianEntry(Query searchQuery, Sort sort, int maxEntries) throws LuceneAdaptorException {
+        
+        try{
+            
+            IndexReader reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            TopDocs docs = searcher.search(searchQuery, maxEntries, sort);
+            ScoreDoc[] hits = docs.scoreDocs;
+            
+            if(hits.length == 0){
+                
+                logger.warn("No Entries Found for the specified query.");
+                return null;
+            }
+            
+            int median = ( hits.length/2 );
+            Document d = searcher.doc( hits[median].doc );
+            
+            return ApplicationEntry.ApplicationEntryHelper
+                    .createApplicationEntryFromDocument(d);
+        } 
+        
+        catch (IOException e) {
+            logger.warn(" Unable to calculate the median entry. ");
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+    }
+    
 }

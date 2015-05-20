@@ -17,9 +17,9 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Container for the stateless queries used when interacting 
- * with lucene.s 
- *  
+ * Container for the stateless queries used when interacting
+ * with lucene.s
+ * <p/>
  * Created by babbarshaer on 2015-04-23.
  */
 public class ApplicationLuceneQueries {
@@ -51,59 +51,55 @@ public class ApplicationLuceneQueries {
         return indexEntries;
     }
 
-    
+
     /**
      * Retrieve all indexes with ids in the given range from the local index
      * store.
      *
-     * @param minId   the inclusive minimum of the range
-     * @param maxId   the inclusive maximum of the range
+     * @param minId     the inclusive minimum of the range
+     * @param maxId     the inclusive maximum of the range
      * @param collector Collector for limiting entries.
      * @return a list of the entries found
      * @throws java.io.IOException if Lucene errors occur
      */
-    public static List<ApplicationEntry> findEntryIdRange (ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId minId, ApplicationEntry.ApplicationEntryId maxId, TopDocsCollector collector) {
+    public static List<ApplicationEntry> findEntryIdRange(ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId minId, ApplicationEntry.ApplicationEntryId maxId, TopDocsCollector collector) {
 
         List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
-        
+
         try {
 
             BooleanQuery booleanQuery = new BooleanQuery();
-            
-            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, minId.getEpochId() , maxId.getEpochId() ,true ,true);
+
+            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, minId.getEpochId(), maxId.getEpochId(), true, true);
             booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
 
             Query leaderQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, minId.getLeaderId(), maxId.getLeaderId(), true, true);
             booleanQuery.add(leaderQuery, BooleanClause.Occur.MUST);
-            
+
             Query entryQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, minId.getEntryId(), maxId.getEntryId(), true, true);
             booleanQuery.add(entryQuery, BooleanClause.Occur.MUST);
 
             entries = adaptor.searchApplicationEntriesInLucene(booleanQuery, collector);
-                    
-        } 
-        
-        catch (LuceneAdaptorException e) {
+
+        } catch (LuceneAdaptorException e) {
             e.printStackTrace();
             logger.error("Exception while trying to fetch the index entries between specified range.");
         }
-        
+
         return entries;
     }
-
 
 
     /**
      * Retrieve all indexes with ids in the given range from the local index
      * store.
      *
-     * @param minId   the inclusive minimum of the range
-     * @param maxId   the inclusive maximum of the range
+     * @param minId     the inclusive minimum of the range
      * @param collector Collector for limiting entries.
      * @return a list of the entries found
      * @throws java.io.IOException if Lucene errors occur
      */
-    public static List<ApplicationEntry> findEntryIdRange (ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId minId, TopDocsCollector collector) {
+    public static List<ApplicationEntry> findEntryIdRange(ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId minId, TopDocsCollector collector) {
 
         List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
 
@@ -111,7 +107,7 @@ public class ApplicationLuceneQueries {
 
             BooleanQuery booleanQuery = new BooleanQuery();
 
-            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, minId.getEpochId() , Long.MAX_VALUE ,true ,true);
+            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, minId.getEpochId(), Long.MAX_VALUE, true, true);
             booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
 
             Query leaderQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, minId.getLeaderId(), Integer.MAX_VALUE, true, true);
@@ -122,18 +118,42 @@ public class ApplicationLuceneQueries {
 
             entries = adaptor.searchApplicationEntriesInLucene(booleanQuery, collector);
 
-        }
-
-        catch (LuceneAdaptorException e) {
+        } catch (LuceneAdaptorException e) {
             e.printStackTrace();
             logger.error("Exception while trying to fetch the index entries between specified range.");
         }
 
         return entries;
     }
-    
-    
-    
+
+
+    /**
+     * In case the node decides to initiate shard procedure, the splitting point needs to be calculated.
+     * This splitting point happens to be midpoint of the sorted entries in the system.
+     *
+     * @param luceneAdaptor
+     * @return
+     */
+    public static ApplicationEntry.ApplicationEntryId getMedianId(ApplicationLuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
+
+        BooleanQuery booleanQuery = new BooleanQuery();
+
+        Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, 0l, (long) Integer.MAX_VALUE, true, true);
+        booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
+
+
+        Query landingEntryQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, 0l, 0l, true, true);
+        booleanQuery.add(landingEntryQuery, BooleanClause.Occur.MUST_NOT);
+
+
+        Sort sort = new Sort(SortField.FIELD_SCORE,
+                new SortField(ApplicationEntry.EPOCH_ID, SortField.Type.LONG),
+                new SortField(ApplicationEntry.LEADER_ID, SortField.Type.INT),
+                new SortField(ApplicationEntry.ENTRY_ID, SortField.Type.LONG));
+
+        ApplicationEntry entry = luceneAdaptor.getMedianEntry(booleanQuery, sort, Integer.MAX_VALUE);
+        return entry != null ? entry.getApplicationEntryId() : null;
+    }
 
 
     /**
@@ -279,11 +299,12 @@ public class ApplicationLuceneQueries {
 
     /**
      * Generate Query to help locate entries for a particular leader packet in lucene.
+     *
      * @param epochId
      * @param leaderId
      * @return
      */
-    public static Query entriesInLeaderPacketQuery(String epochString, long epochId, String leaderString, int leaderId){
+    public static Query entriesInLeaderPacketQuery(String epochString, long epochId, String leaderString, int leaderId) {
 
         BooleanQuery query = new BooleanQuery();
 
