@@ -198,6 +198,11 @@ public final class SearchUpdated extends ComponentDefinition {
     private LandingEntryTracker landingEntryTracker;
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
+    private EpochHistoryTrackerUpdated eHTUpdated;
+    
+    private EpochAddTracker epochAddTracker;
+    
+    
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -322,6 +327,14 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(lowestMissingEntryTracker.leaderPullResponse, networkPort);
 
 
+        subscribe(epochAdditionTimeoutHandler, timerPort);
+        subscribe(epochAddTracker.epochAddPrepareRequest, networkPort);
+        subscribe(epochAddTracker.epochAddPrepareResponse, networkPort);
+        subscribe(epochAddTracker.epochCommitRequestHandler, networkPort);
+        subscribe(epochAddTracker.epochCommitResponseHandler, networkPort);
+        subscribe(epochAddTracker.awaitingEpochCommitHandler, timerPort);
+        
+        
         subscribe(gradientSampleHandler, gradientPort);
     }
 
@@ -371,6 +384,9 @@ public final class SearchUpdated extends ComponentDefinition {
         lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
         controlPullTracker = new ControlPullTracker(epochHistoryTracker);
         shardTracker = new ShardTracker();
+        
+        eHTUpdated = new EpochHistoryTrackerUpdated(self.getAddress().getBase());
+        epochAddTracker = new EpochAddTracker();
     }
 
 
@@ -2731,7 +2747,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.warn(prefix + " " + sb);
+        logger.debug(prefix + " " + sb);
     }
 
 
@@ -2804,6 +2820,365 @@ public final class SearchUpdated extends ComponentDefinition {
         trigger(st, timerPort);
     }
 
+    
+    
+    /**
+     * Once a node gets elected as leader, the parameters regarding the starting entry addition id and the
+     * latest epoch id as seen by the node needs to be recalculated and the local parameters need to be updated.
+     * Then the leader needs to add landing index entry before anything else.
+     */
+
+    private void addLandingEntryUpdated() throws LuceneAdaptorException {
+        
+        
+        // Create metadata for the updated epoch update.
+        EpochContainer lastEpochUpdate = closePreviousEpoch();
+        EpochContainer currentEpochUpdate = getNextEpochToAdd(lastEpochUpdate);
+        
+        ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+        st.setTimeoutEvent(new TimeoutCollection.EpochAdditionTimeout(st, lastEpochUpdate, currentEpochUpdate));
+        UUID epochAddRoundId = st.getTimeoutEvent().getTimeoutId();
+        
+        if(epochAddTracker.getEpochAdditionRound() == null) {
+            
+            logger.warn("{}: Going to kick off epoch entry addition ... ", prefix);
+            epochAddTracker.kickOffEpochAdd(
+                    epochAddRoundId,
+                    lastEpochUpdate,
+                    currentEpochUpdate,
+                    leaderGroupInformation);
+        }
+        else
+            throw new RuntimeException("Situation of Multiple Epoch Adders Not Handled Yet.... ");
+        
+        trigger(st, timerPort);
+    }
+
+
+
+    
+    Handler<TimeoutCollection.EpochAdditionTimeout> epochAdditionTimeoutHandler = new Handler<TimeoutCollection.EpochAdditionTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.EpochAdditionTimeout event) {
+
+            logger.debug("{}: Epoch Addition Round Timed out.");
+            
+            if(eHTUpdated.getSelfUpdate(event.epochUpdate) != null){
+                
+                if(epochAddTracker.getEpochAdditionRound() != null
+                        && epochAddTracker.getEpochAdditionRound().equals(event.getTimeoutId() )){
+                    epochAddTracker.resetTracker();
+                } 
+            }
+            
+            else {
+                
+                try{
+
+                    if(leader && event.previousUpdate.equals(closePreviousEpoch())){
+                        
+                        // Do we need to check what the current closing update is ? ( Not Sure )
+                        //  If they do not match then stop extending forward as you might have again became the leader
+                        // and that act would have triggered its own epoch addition round.
+
+                        ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+                        st.setTimeoutEvent(new TimeoutCollection.EpochAdditionTimeout(st, event.previousUpdate, event.epochUpdate));
+
+                        epochAddTracker.kickOffEpochAdd(
+                                st.getTimeoutEvent().getTimeoutId(),
+                                event.previousUpdate,
+                                event.epochUpdate,
+                                leaderGroupInformation);
+
+                        trigger(st, timerPort);
+                    }
+                } 
+                catch (LuceneAdaptorException e) {
+                    e.printStackTrace();
+                }
+            }
+            
+            
+        }
+    };
+
+
+    /**
+     * Simple convenience constructor for calculating the next epoch to add.
+     *
+     * @param lastEpochUpdate
+     * @return
+     */
+    private EpochContainer getNextEpochToAdd(EpochContainer lastEpochUpdate){
+
+        long currentEpoch;
+
+        if ( lastEpochUpdate == null ) {
+            logger.warn(" I think I am the first leader in the system. ");
+            currentEpoch = STARTING_EPOCH;
+
+        } else {
+            logger.info("Found the highest known epoch");
+            currentEpoch = lastEpochUpdate.getEpochId() + 1;
+        }
+
+        return new BaseEpochContainer(currentEpoch, self.getId());
+    }
+    
+    
+    
+    private EpochContainer closePreviousEpoch() throws LuceneAdaptorException {
+        
+        EpochContainer lastEpochUpdate = eHTUpdated.getLastUpdate();
+
+        if ( lastEpochUpdate != null) {
+
+            Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
+                    ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
+                    ApplicationEntry.LEADER_ID, lastEpochUpdate.getLeaderId());
+
+            TotalHitCountCollector hitCollector = new TotalHitCountCollector();
+            writeEntryLuceneAdaptor.searchDocumentsInLucene(epochUpdateEntriesQuery, hitCollector);
+
+            int numEntries = hitCollector.getTotalHits();
+            lastEpochUpdate = new BaseEpochContainer(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
+            
+        }
+        
+        return lastEpochUpdate;
+    };
+
+
+
+    /**
+     * ************************** <br/>
+     *  EPOCH ADDITION TRACKER <br/>
+     * ************************** <br/>
+     * 
+     * Main tracker class for adding various types 
+     * of {@link EpochContainer} in the system.
+     * 
+     * <br/>
+     * 
+     * Various types of epoch updates are added to the nodes
+     * in the system as part of normal functioning of the system 
+     * and the purpose of this tracker is to keep track of the addition
+     * of mainly {@link se.sics.ms.types.BaseEpochContainer} which 
+     * might be added in the system based on following conditions: <br/> 
+     * 
+     * <ul>
+     *     <li> A node becomes the leader. </li>
+     *     <li> The maximum size of the epoch has reached and therefore the same leader has to switch the epoch.</li>
+     * </ul>
+     *  
+     */
+    public class EpochAddTracker {
+
+        
+        private UUID epochAdditionRound;
+        private Collection<DecoratedAddress> cohorts;
+        
+        private EpochContainer previousEpochUpdate;
+        private EpochContainer currentEpochUpdate;
+        
+        private UUID awaitEpochCommit;
+        
+        private org.javatuples.Pair<UUID, EpochUpdatePacket> epochUpdatePacketPair;
+        
+        private int promises;
+        
+        public EpochAddTracker(){
+            this.cohorts = new ArrayList<DecoratedAddress>();
+        }
+        
+        public void kickOffEpochAdd(UUID epochAdditionRound, EpochContainer previousEpochUpdate, EpochContainer currentEpochUpdate , Collection<DecoratedAddress> cohorts){
+            
+            this.epochAdditionRound = epochAdditionRound;
+            this.cohorts = cohorts;
+            this.previousEpochUpdate = previousEpochUpdate;
+            this.currentEpochUpdate = currentEpochUpdate;
+            this.promises = 0;
+            
+            EpochAddPrepare.Request prepareRequest = new EpochAddPrepare.Request(
+                    epochAdditionRound,
+                    previousEpochUpdate,
+                    currentEpochUpdate);
+            
+            for( DecoratedAddress destination : cohorts ){
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, prepareRequest), networkPort);
+            }
+        }
+
+
+        public void resetTracker(){
+            
+            this.epochAdditionRound = null;
+            this.cohorts = null;
+            this.previousEpochUpdate = null;
+            this.currentEpochUpdate = null;
+            this.promises =0;
+            
+        }
+        
+        
+        public UUID getEpochAdditionRound(){
+            return this.epochAdditionRound;
+        }
+        
+        /**
+         * Epoch Add Prepare Request as part of the Epoch Addition Protocol.
+         * The node simply returns the promise and update the internal state of the 
+         * tracker in terms of storing the meta data for the commit.
+         *
+         */
+        ClassMatchedHandler<EpochAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request >> epochAddPrepareRequest =
+                new ClassMatchedHandler<EpochAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request>>() {
+                    
+            @Override
+            public void handle(EpochAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request> event) {
+                
+                logger.debug("{}: Received prepare request from the node : {}", prefix, event.getSource());
+                epochUpdatePacketPair = org.javatuples.Pair.with(request.getEpochRoundID(),
+                        new EpochUpdatePacket(request.getPreviousEpochUpdate(), request.getCurrentEpochUpdate()));
+                
+                
+                ScheduleTimeout st = new ScheduleTimeout(3000);
+                TimeoutCollection.AwaitingEpochCommit timeout = new TimeoutCollection.AwaitingEpochCommit(st, request.getEpochRoundID());
+                st.setTimeoutEvent(timeout);
+                
+                awaitEpochCommit = st.getTimeoutEvent().getTimeoutId();
+                
+                EpochAddPrepare.Response response = new EpochAddPrepare.Response(request.getEpochRoundID());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                
+                
+                trigger(st, timerPort);
+            }
+        };
+
+
+        /**
+         * Handler for the timeout which is invoked when a node
+         * after taking the promise to add an epoch doesn't reply in time
+         * then the commit for the promise is nullified.
+         */
+        Handler<TimeoutCollection.AwaitingEpochCommit> awaitingEpochCommitHandler = new Handler<TimeoutCollection.AwaitingEpochCommit>() {
+            @Override
+            public void handle(TimeoutCollection.AwaitingEpochCommit event) {
+                
+                logger.warn("{}: Triggered Epoch Commit Timeout ", prefix);
+                System.exit(-1);
+                
+                if(awaitEpochCommit != null && awaitEpochCommit.equals(event.getTimeoutId())){
+                    epochUpdatePacketPair = null;
+                }
+                
+            }
+        };
+        
+        
+        
+        /**
+         * Handler for the Epoch Prepare Response from the cohorts in the system.
+         * Process the response in case the response id matches the current tracking round.
+         */
+        ClassMatchedHandler<EpochAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response>> epochAddPrepareResponse = 
+                new ClassMatchedHandler<EpochAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response>>() {
+                    
+            @Override
+            public void handle(EpochAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response> event) {
+                
+                logger.debug("{}: Received epoch add prepare response from the node : {}", prefix, event.getSource());
+                
+                if(epochAdditionRound == null || !response.getEpochAddRoundId().equals(epochAdditionRound)){
+                    logger.warn("{}: Received response for an expired round. ", prefix);
+                    return;
+                }
+                
+                if(promises >= cohorts.size()){
+                    logger.warn("Promise Round already finished, moved to commit .. ");
+                    return;
+                }
+
+                promises++;
+
+                
+                if(promises >= cohorts.size()){
+
+                    logger.warn("Promise Round Finished , moving to commit ... ");
+                    
+                    EpochAddCommit.Request request = new EpochAddCommit.Request(epochAdditionRound);
+                    for(DecoratedAddress destination : cohorts){
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                    }
+                    
+                    eHTUpdated.addEpochUpdate(previousEpochUpdate);
+                    eHTUpdated.addEpochUpdate(currentEpochUpdate);
+                    
+                    // Inform the lowest missing and control pull information also.
+                    // Copy paste the code here.
+                    eHTUpdated.printEpochHistory();
+                    
+                }
+            }
+        };
+
+
+        /**
+         * Handler for the commit request that has been received by the node. 
+         * In case the round has already expired, do not add the epoch update.
+         *
+         */
+        ClassMatchedHandler<EpochAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request>> epochCommitRequestHandler =
+                new ClassMatchedHandler<EpochAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request>>() {
+                    
+            @Override
+            public void handle(EpochAddCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request> event) {
+                
+                logger.warn("{}: Received epoch commit request from the node :{} ", prefix ,event.getSource());
+                
+                if( epochUpdatePacketPair == null 
+                        || !epochUpdatePacketPair.getValue0().equals(request.epochAdditionRound) ){
+                    
+                    logger.warn("{}: Received Commit request after the round has expired ... ", prefix);
+                    System.exit(-1);
+                    return;
+                }
+
+
+                CancelTimeout ct = new CancelTimeout(awaitEpochCommit);
+                trigger(ct, timerPort);
+                
+                awaitEpochCommit = null;
+                
+                EpochUpdatePacket eup = epochUpdatePacketPair.getValue1();
+                eHTUpdated.addEpochUpdate(eup.getPreviousEpochUpdate());
+                eHTUpdated.addEpochUpdate(eup.getCurrentEpochUpdate());
+
+                eHTUpdated.printEpochHistory();
+                
+                EpochAddCommit.Response response = new EpochAddCommit.Response(epochUpdatePacketPair.getValue0());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                
+                epochUpdatePacketPair = null;
+            }
+        };
+
+
+        /**
+         * NOTE: Functionality Under Development.
+         */
+        ClassMatchedHandler<EpochAddCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response>> epochCommitResponseHandler = 
+                new ClassMatchedHandler<EpochAddCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response>>() {
+                    
+            @Override
+            public void handle(EpochAddCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response> event) {
+                
+                logger.debug("{}: Received epoch commit response from :{} ", prefix, event.getSource());
+            }
+        };
+    }
+    
     /**
      * Returning the last closed epoch update.
      * The application needs to fetch the last known epoch update and close it by calculating

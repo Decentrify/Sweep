@@ -53,6 +53,16 @@ public abstract class EpochContainer {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "EpochContainer{" +
+                "epochId=" + epochId +
+                ", leaderId=" + leaderId +
+                ", numEntries=" + numEntries +
+                ", epochUpdateStatus=" + epochUpdateStatus +
+                '}';
+    }
+
     public static enum Status {
         ONGOING,
         COMPLETED

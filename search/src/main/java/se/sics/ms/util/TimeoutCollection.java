@@ -3,6 +3,7 @@ package se.sics.ms.util;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
+import se.sics.ms.types.EpochContainer;
 
 import java.util.UUID;
 
@@ -87,6 +88,33 @@ public class TimeoutCollection {
         public LandingEntryAddTimeout(ScheduleTimeout request) {
             super(request);
         }
+    }
+    
+    
+    
+    public static class EpochAdditionTimeout extends Timeout{
+
+        public EpochContainer epochUpdate;
+        public EpochContainer previousUpdate;
+        
+        public EpochAdditionTimeout(ScheduleTimeout request, EpochContainer previousUpdate, EpochContainer epochUpdate) {
+            super(request);
+            this.epochUpdate = epochUpdate;
+            this.previousUpdate = previousUpdate;
+        }
+        
+    }
+    
+    
+    public static class AwaitingEpochCommit extends Timeout {
+
+        public UUID epochAddRoundID;
+        
+        public AwaitingEpochCommit(ScheduleTimeout request, UUID epochAddRoundID) {
+            super(request);
+            this.epochAddRoundID = epochAddRoundID;
+        }
+        
     }
     
                 

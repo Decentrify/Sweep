@@ -56,7 +56,7 @@ public class SimpleBootupScenario {
 
                 peerJoin.start();
 
-                addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
+//                addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
 //                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
 //                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
                 
