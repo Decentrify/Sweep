@@ -15,6 +15,7 @@ public class SearchConfiguration
         extends AbstractConfiguration<se.sics.gvod.config.SearchConfiguration> {
 
     int maximumEpochUpdatesPullSize;
+    int maxEpochContainerSize;
     int maxExchangeCount;
     int queryTimeout;
     int addTimeout;
@@ -63,7 +64,8 @@ public class SearchConfiguration
                 MsConfig.PARTITION_COMMIT_TIMEOUT,
                 MsConfig.CONTROL_MESSAGE_ENUM_SIZE,
                 MsConfig.INDEX_EXCHANGE_PERIOD,
-                MsConfig.MAX_EPOCH_UPDATES);
+                MsConfig.MAX_EPOCH_UPDATES,
+                MsConfig.MAX_EPOCH_CONTAINER_ENTRIES);
     }
 
     /**
@@ -94,7 +96,7 @@ public class SearchConfiguration
             int leaderGroupSize, int partitionPrepareTimeout,
             int partitionCommitRequestTimeout, int partitionCommitTimeout,
             int controlMessageEnumSize, int indexExchangePeriod,
-            int maximumEpochUpdatesPullSize) {
+            int maximumEpochUpdatesPullSize, int maxEpochContainerSize) {
         this.maxExchangeCount = maxExchangeCount;
         this.queryTimeout = queryTimeout;
         this.addTimeout = addTimeout;
@@ -117,6 +119,7 @@ public class SearchConfiguration
         this.controlMessageEnumSize = controlMessageEnumSize;
         this.indexExchangePeriod = indexExchangePeriod;
         this.maximumEpochUpdatesPullSize = maximumEpochUpdatesPullSize;
+        this.maxEpochContainerSize = maxEpochContainerSize;
     }
 
     public static SearchConfiguration build() {
@@ -195,6 +198,11 @@ public class SearchConfiguration
 
     public int getMaximumEpochUpdatesPullSize() {
         return maximumEpochUpdatesPullSize;
+    }
+
+
+    public int getMaxEpochContainerSize() {
+        return maxEpochContainerSize;
     }
 
     public void setMaximumEpochUpdatesPullSize(int maximumEpochUpdatesPullSize) {

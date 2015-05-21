@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import com.sun.org.apache.xpath.internal.SourceTree;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.commons.codec.binary.Base64;
@@ -197,7 +196,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private LandingEntryTracker landingEntryTracker;
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
-    private EpochHistoryTrackerUpdated eHTUpdated;
+    private EpochHistoryTracker epochHistoryTracker;
     
     private EpochAddTracker epochAddTracker;
     
@@ -379,10 +378,10 @@ public final class SearchUpdated extends ComponentDefinition {
         entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
         
-        eHTUpdated = new EpochHistoryTrackerUpdated(self.getAddress().getBase());
+        epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
         landingEntryTracker = new LandingEntryTracker();
-        lowestMissingEntryTracker = new LowestMissingEntryTracker(eHTUpdated);
-        controlPullTracker = new ControlPullTracker(eHTUpdated);
+        lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
+        controlPullTracker = new ControlPullTracker(epochHistoryTracker);
         shardTracker = new ShardTracker();
         epochAddTracker = new EpochAddTracker();
     }
@@ -1371,7 +1370,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 @Override
                 public void handle(LandingEntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request> event) {
 
-                    logger.warn("{}: Received Landing Entry prepare request from the node: {}", self.getId(), event.getSource());
+                    logger.debug("{}: Received Landing Entry prepare request from the node: {}", self.getId(), event.getSource());
                     handleEntryAddPrepare(request, event.getSource());
                 }
             };
@@ -1473,16 +1472,18 @@ public final class SearchUpdated extends ComponentDefinition {
                             if (entryToCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                                 logger.debug("{}: Request to add a new landing entry in system", prefix);
-                                eHTUpdated.addEpochUpdate(info.getAssociatedEpochUpdate());                 // TODO :EPOCH HISTORY TRACKER UPDATE
-                                EpochContainer update = new BaseEpochContainer(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
-                                eHTUpdated.addEpochUpdate(update);              // TODO :EPOCH HISTORY TRACKER UPDATE
                                 
-                                lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker. // FIXME: EPOCH UPDATE FIX.
+                                EpochContainer update = new BaseEpochContainer(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
+                                epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
+                                epochHistoryTracker.addEpochUpdate(update);
+                                
+                                lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
                                 
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
                             }
-
+                            
+                            
                             addEntryLocally(entryToCommit);   // Commit to local first.
 
                             ByteBuffer idBuffer = ByteBuffer.allocate((8 * 2) + 4);
@@ -1579,9 +1580,9 @@ public final class SearchUpdated extends ComponentDefinition {
                         if (toCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                             logger.warn("{}: Request to add a new landing entry in system", prefix);
-                            eHTUpdated.addEpochUpdate(associatedEpochUpdate);  // TODO: EPOCH HISTORY UPDATE.
+                            epochHistoryTracker.addEpochUpdate(associatedEpochUpdate);  // TODO: EPOCH HISTORY UPDATE.
                             EpochContainer update = new BaseEpochContainer(toCommit.getEpochId(), toCommit.getLeaderId());
-                            eHTUpdated.addEpochUpdate(update);                // TODO: EPOCH HISTORY UPDATE.
+                            epochHistoryTracker.addEpochUpdate(update);                // TODO: EPOCH HISTORY UPDATE.
 
                             // As you are directly updating the epoch history,
                             // missing tracker needs to be informed about it.
@@ -2065,6 +2066,17 @@ public final class SearchUpdated extends ComponentDefinition {
             commitAndUpdateUtility(entry);
             lowestMissingEntryTracker.checkAndRemoveEntryGaps();    // Check if any gaps can be removed with this entry addition.
             lowestMissingEntryTracker.printCurrentTrackingInfo();
+            
+            // After committing the utility, check for the container switch.
+            if(self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader){
+                
+                logger.warn("{}: Time to initiate the container switch.", prefix);
+                self.resetContainerEntries();       // RESET the container entries.
+                informListeningComponentsAboutUpdates(self);
+                addLandingEntry();
+                
+            }
+            
         } else {
 
             logger.warn("{}: Not supposed to add entry in Lucene ... Returning ... ");
@@ -2082,6 +2094,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private void commitAndUpdateUtility(ApplicationEntry entry) throws LuceneAdaptorException {
 
         addEntryToLucene(writeEntryLuceneAdaptor, entry);
+        self.incrementECEntries();
         self.incrementEntries();
         informListeningComponentsAboutUpdates(self);
     }
@@ -2773,7 +2786,8 @@ public final class SearchUpdated extends ComponentDefinition {
                         break;
                     }
                 }
-
+                
+                self.resetContainerEntries();       // RESET the container entries.
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
             } catch (LuceneAdaptorException e) {
@@ -2864,7 +2878,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             logger.debug("{}: Epoch Addition Round Timed out.");
             
-            if(eHTUpdated.getSelfUpdate(event.epochUpdate) != null){
+            if(epochHistoryTracker.getSelfUpdate(event.epochUpdate) != null){
                 
                 if(epochAddTracker.getEpochAdditionRound() != null
                         && epochAddTracker.getEpochAdditionRound().equals(event.getTimeoutId() )){
@@ -2930,7 +2944,7 @@ public final class SearchUpdated extends ComponentDefinition {
     
     private EpochContainer closePreviousEpoch() throws LuceneAdaptorException {
         
-        EpochContainer lastEpochUpdate = eHTUpdated.getLastUpdate();
+        EpochContainer lastEpochUpdate = epochHistoryTracker.getLastUpdate();
 
         if ( lastEpochUpdate != null) {
 
@@ -3113,12 +3127,12 @@ public final class SearchUpdated extends ComponentDefinition {
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                     }
                     
-                    eHTUpdated.addEpochUpdate(previousEpochUpdate);
-                    eHTUpdated.addEpochUpdate(currentEpochUpdate);
+                    epochHistoryTracker.addEpochUpdate(previousEpochUpdate);
+                    epochHistoryTracker.addEpochUpdate(currentEpochUpdate);
                     
                     // Inform the lowest missing and control pull information also.
                     // Copy paste the code here.
-                    eHTUpdated.printEpochHistory();
+                    epochHistoryTracker.printEpochHistory();
                     
                 }
             }
@@ -3153,10 +3167,10 @@ public final class SearchUpdated extends ComponentDefinition {
                 awaitEpochCommit = null;
                 
                 EpochUpdatePacket eup = epochUpdatePacketPair.getValue1();
-                eHTUpdated.addEpochUpdate(eup.getPreviousEpochUpdate());
-                eHTUpdated.addEpochUpdate(eup.getCurrentEpochUpdate());
+                epochHistoryTracker.addEpochUpdate(eup.getPreviousEpochUpdate());
+                epochHistoryTracker.addEpochUpdate(eup.getCurrentEpochUpdate());
 
-                eHTUpdated.printEpochHistory();
+                epochHistoryTracker.printEpochHistory();
                 
                 EpochAddCommit.Response response = new EpochAddCommit.Response(epochUpdatePacketPair.getValue0());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
@@ -3187,12 +3201,13 @@ public final class SearchUpdated extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.LandingEntryAddTimeout event) {
 
-            logger.warn("Landing Entry Timeout Handler invoked.");
+            logger.warn("{}:Landing Entry Timeout Handler invoked.", prefix);
             if (landingEntryTracker.getLandingEntryRoundId() != null && landingEntryTracker.getLandingEntryRoundId().equals(event.getTimeoutId())) {
 
                 if (leader) {
 
-                    logger.debug(" {}: Landing Entry Commit Failed, so trying again", prefix);
+                    logger.warn(" {}: Landing Entry Commit Failed, so trying again", prefix);
+                    System.exit(-1);
 
                     ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
                     st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
@@ -3398,12 +3413,12 @@ public final class SearchUpdated extends ComponentDefinition {
     private class ControlPullTracker {
 
 
-        private EpochHistoryTrackerUpdated historyTracker;
+        private EpochHistoryTracker historyTracker;
         private UUID currentPullRound;
         private Map<DecoratedAddress, ControlPull.Response> pullResponseMap;
         private EpochContainer currentUpdate;
 
-        public ControlPullTracker(EpochHistoryTrackerUpdated historyTracker) {
+        public ControlPullTracker(EpochHistoryTracker historyTracker) {
             this.historyTracker = historyTracker;
             pullResponseMap = new HashMap<DecoratedAddress, ControlPull.Response>();
         }
@@ -3600,12 +3615,12 @@ public final class SearchUpdated extends ComponentDefinition {
         private EpochContainer currentTrackingUpdate;
         private Map<ApplicationEntry.ApplicationEntryId, ApplicationEntry> existingEntries;
         private long currentTrackingId;
-        private EpochHistoryTrackerUpdated historyTracker;
+        private EpochHistoryTracker historyTracker;
         private EntryExchangeTracker entryExchangeTracker;
         
         private UUID leaderPullRound;   // SPECIAL ID FOR NODES PULLING FROM LEADER.
 
-        public LowestMissingEntryTracker(EpochHistoryTrackerUpdated historyTracker) {
+        public LowestMissingEntryTracker(EpochHistoryTracker historyTracker) {
 
             this.historyTracker = historyTracker;
             this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());

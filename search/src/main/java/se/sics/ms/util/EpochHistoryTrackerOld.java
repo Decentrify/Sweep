@@ -2,7 +2,6 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.ms.types.EpochContainer;
 import se.sics.ms.types.EpochUpdate;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
@@ -16,23 +15,19 @@ import java.util.*;
  *
  * @author babbarshaer
  */
-public class EpochHistoryTrackerUpdated {
-
-    private LinkedList<EpochContainer> epochUpdateHistory;
-    private static Logger logger = LoggerFactory.getLogger(EpochHistoryTrackerUpdated.class);
+public class EpochHistoryTrackerOld {
+    
+    private LinkedList<EpochUpdate> epochUpdateHistory;
+    private static Logger logger = LoggerFactory.getLogger(EpochHistoryTrackerOld.class);
     private static final int START_EPOCH_ID = 0;
-    private LinkedList<EpochContainer> bufferedEpochHistory;
+    private LinkedList<EpochUpdate> bufferedEpochHistory;
     private BasicAddress selfAddress;
     private String prefix;
-    private GenericECComparator comparator;
-    
-    public EpochHistoryTrackerUpdated(BasicAddress address){
+
+    public EpochHistoryTrackerOld(BasicAddress address){
 
         logger.trace("Tracker Initialized .. ");
-        epochUpdateHistory = new LinkedList<EpochContainer>();
-        bufferedEpochHistory = new LinkedList<EpochContainer>();
-        comparator = new GenericECComparator();
-        
+        epochUpdateHistory = new LinkedList<EpochUpdate>();
         this.selfAddress = address;
         this.prefix = String.valueOf(address.getId());
     }
@@ -40,24 +35,22 @@ public class EpochHistoryTrackerUpdated {
 
 
     public void printEpochHistory(){
-        logger.warn("EpochHistory: {}", epochUpdateHistory);
+        logger.debug("EpochHistory: {}", epochUpdateHistory);
     }
 
     /**
      * Based on the last missing entry,
      * decide the epochId the application needs to close right now.
      *
-     * @return next epoch id to ask.
+     * @return
      */
     private long epochIdToFetch(){
 
-        EpochContainer lastUpdate = getLastUpdate();
-        
-        return lastUpdate == null 
-                ? START_EPOCH_ID 
-                :((lastUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED)
-                        ? lastUpdate.getEpochId()+1 
-                        : lastUpdate.getEpochId());
+        EpochUpdate lastUpdate = getLastUpdate();
+        if(lastUpdate.equals(EpochUpdate.NONE))
+            return START_EPOCH_ID;
+
+        return lastUpdate.getEpochUpdateStatus() == EpochUpdate.Status.COMPLETED ? lastUpdate.getEpochId()+1 : lastUpdate.getEpochId();
     }
 
 
@@ -69,9 +62,9 @@ public class EpochHistoryTrackerUpdated {
      *
      * @param epochUpdate Epoch Update.
      */
-    public void addEpochUpdate(EpochContainer epochUpdate) {
+    public void addEpochUpdate(EpochUpdate epochUpdate) {
 
-        if( epochUpdate == null ){
+        if(epochUpdate == null || epochUpdate.equals(EpochUpdate.NONE)){
             logger.debug("Request to add default epoch update received, returning ... ");
             return;
         }
@@ -110,6 +103,7 @@ public class EpochHistoryTrackerUpdated {
             throw new IllegalStateException("Unknown State ..1");
         }
 
+        Collections.sort(epochUpdateHistory);   // SORT the collection before returning. ( SORTING based on Natural Ordering ).
     }
 
     /**
@@ -118,11 +112,11 @@ public class EpochHistoryTrackerUpdated {
      * 
      * @return Epoch Update.
      */
-    public EpochContainer getLastUpdate(){
+    public EpochUpdate getLastUpdate(){
         
         return !this.epochUpdateHistory.isEmpty()
                 ? this.epochUpdateHistory.getLast() 
-                : null;
+                : EpochUpdate.NONE;
     }
 
     /**
@@ -132,10 +126,10 @@ public class EpochHistoryTrackerUpdated {
      * @param update
      * @return
      */
-    public EpochContainer getNextUpdateToTrack(EpochContainer update){
+    public EpochUpdate getNextUpdateToTrack(EpochUpdate update){
         
-        EpochContainer nextUpdate = null;
-        Iterator<EpochContainer> iterator = epochUpdateHistory.iterator();
+        EpochUpdate nextUpdate = null;
+        Iterator<EpochUpdate> iterator = epochUpdateHistory.iterator();
         
         while(iterator.hasNext()){
             if(iterator.next().equals(update)){
@@ -156,13 +150,13 @@ public class EpochHistoryTrackerUpdated {
      * @param update Update to match against.
      * @return Updated Value.
      */
-    public EpochContainer getSelfUpdate(EpochContainer update){
+    public EpochUpdate getSelfUpdate(EpochUpdate update){
 
-        if( update == null ){
-            return null;
+        if(update.equals(EpochUpdate.NONE)){
+            return update;
         }
 
-        for(EpochContainer epochUpdate : epochUpdateHistory){
+        for(EpochUpdate epochUpdate : epochUpdateHistory){
             if(epochUpdate.getEpochId() == update.getEpochId() 
                     && epochUpdate.getLeaderId() == update.getLeaderId()){
                 
@@ -179,9 +173,9 @@ public class EpochHistoryTrackerUpdated {
      * 
      * @return Initial Epoch Update.
      */
-    public EpochContainer getInitialEpochUpdate() {
+    public EpochUpdate getInitialEpochUpdate() {
         
-        for(EpochContainer update : epochUpdateHistory){
+        for(EpochUpdate update : epochUpdateHistory){
             if(update.getEpochId() == START_EPOCH_ID){
                 return update;
             }
@@ -199,27 +193,20 @@ public class EpochHistoryTrackerUpdated {
      * @param limit Max updates to provide.
      * @return Successive Updates.
      */
-    public List<EpochContainer> getNextUpdates(EpochContainer current, int limit) {
+    public List<EpochUpdate> getNextUpdates(EpochUpdate current, int limit) {
 
-        List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
+        List<EpochUpdate> nextUpdates = new ArrayList<EpochUpdate>();
 
-        if (current == null) {
-            
+        if (current.equals(EpochUpdate.NONE)) {
             current = getInitialEpochUpdate();
-            if(current != null){
-                nextUpdates.add(current);
-            }
         }
 
-        if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+        if(current != null && !current.equals(EpochUpdate.NONE)){
 
-            // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
-            // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
-
-            int index = epochUpdateHistory.indexOf(current);        
+            int index = epochUpdateHistory.indexOf(current);
             if(index != -1){
 
-                ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);
+                ListIterator<EpochUpdate> listIterator = epochUpdateHistory.listIterator(index);
                 int count = 0;
                 while(listIterator.hasNext() && count < limit){
                     nextUpdates.add(listIterator.next());
@@ -240,11 +227,11 @@ public class EpochHistoryTrackerUpdated {
      *
      * @param intersection
      */
-    public void addEpochUpdates(List<EpochContainer> intersection) {
+    public void addEpochUpdates(List<EpochUpdate> intersection) {
 
-        Collections.sort(intersection, comparator );
+        Collections.sort(intersection);
 
-        for (EpochContainer nextUpdate : intersection) {
+        for (EpochUpdate nextUpdate : intersection) {
             addEpochUpdate(nextUpdate);
         }
     }

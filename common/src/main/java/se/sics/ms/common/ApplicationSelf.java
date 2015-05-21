@@ -19,21 +19,38 @@ public class ApplicationSelf {
     private int overlayId;
     private boolean isLGMember;
     private long numberOfEntries;
+    private long epochContainerEntries;
 
-    public ApplicationSelf(DecoratedAddress address){
+    public ApplicationSelf (DecoratedAddress address){
 
         this.address = address;
         this.overlayId = 0;
         this.isLGMember = false;
         this.numberOfEntries = 0;
+        this.epochContainerEntries = 0;
+        
     }
 
-    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries){
+    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries){
 
         this.address = address;
         this.overlayId = overlayId;
         this.isLGMember = isLGMember;
         this.numberOfEntries = numberOfEntries;
+        this.epochContainerEntries = epochContainerEntries;
+    }
+    
+    
+    public void incrementECEntries(){
+        this.epochContainerEntries ++;
+    }
+
+    public void resetContainerEntries(){
+        this.epochContainerEntries = 0;
+    }
+
+    public long getEpochContainerEntries() {
+        return epochContainerEntries;
     }
 
     public void setIsLGMember(boolean isLGMember){
@@ -92,7 +109,7 @@ public class ApplicationSelf {
      * @return Copy of Self.
      */
     public ApplicationSelf shallowCopy(){
-        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries);
+        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries);
     }
 
     public void setNumberOfEntries(long entries){
