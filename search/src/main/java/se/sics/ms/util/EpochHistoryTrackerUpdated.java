@@ -52,10 +52,12 @@ public class EpochHistoryTrackerUpdated {
     private long epochIdToFetch(){
 
         EpochContainer lastUpdate = getLastUpdate();
-        if(lastUpdate == null)
-            return START_EPOCH_ID;
-
-        return lastUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED ? lastUpdate.getEpochId()+1 : lastUpdate.getEpochId();
+        
+        return lastUpdate == null 
+                ? START_EPOCH_ID 
+                :((lastUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED)
+                        ? lastUpdate.getEpochId()+1 
+                        : lastUpdate.getEpochId());
     }
 
 

@@ -6,6 +6,7 @@ import se.sics.ms.data.EntryAddPrepare;
 import se.sics.ms.data.ReplicationPrepareCommit;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.types.EpochContainer;
 import se.sics.ms.types.EpochUpdate;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -26,7 +27,7 @@ public class EntryAdditionRoundInfo {
     private DecoratedAddress entryAddSourceNode;
     private UUID entryAdditionRoundId;
     private ApplicationEntry applicationEntry;
-    private EpochUpdate previousEpochUpdate;
+    private EpochContainer previousEpochUpdate;
     
     public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress> leaderGroupAddress, IndexEntry entry, DecoratedAddress entryAddSourceNode){
 
@@ -37,7 +38,8 @@ public class EntryAdditionRoundInfo {
         this.entryAddSourceNode = entryAddSourceNode;
     }
 
-    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress>leaderGroupAddress, ApplicationEntry applicationEntry, DecoratedAddress entryAddSourceNode, EpochUpdate previousEpochUpdate){
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress>leaderGroupAddress, ApplicationEntry applicationEntry, DecoratedAddress entryAddSourceNode, EpochContainer previousEpochUpdate){
+        
         this.entryAdditionRoundId = entryAdditionRoundId;
         this.leaderGroupAddress = leaderGroupAddress;
         this.promiseResponses = 0;
@@ -78,7 +80,7 @@ public class EntryAdditionRoundInfo {
         return this.entryAdditionRoundId;
     }
 
-    public EpochUpdate getAssociatedEpochUpdate() {
+    public EpochContainer getAssociatedEpochUpdate() {
         return this.previousEpochUpdate;
     }
 

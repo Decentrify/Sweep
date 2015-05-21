@@ -8,7 +8,7 @@ package se.sics.ms.types;
  * Created by babbarshaer on 2015-05-20.
  */
 public class BaseEpochContainer extends EpochContainer {
-    
+
     public BaseEpochContainer(long epochId, int leaderId) {
         super(epochId, leaderId);
     }

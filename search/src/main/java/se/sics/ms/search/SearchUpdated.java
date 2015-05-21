@@ -149,7 +149,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private PrivateKey privateKey;
     private PublicKey publicKey;
     private ArrayList<PublicKey> leaderIds = new ArrayList<PublicKey>();
-    private HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochUpdate>> pendingForCommit = new HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochUpdate>>();
+    private HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochContainer>> pendingForCommit = new HashMap<ApplicationEntry, org.javatuples.Pair<UUID, EpochContainer>>();
     private HashMap<UUID, UUID> replicationTimeoutToAdd = new HashMap<UUID, UUID>();
     private HashMap<UUID, Integer> searchPartitionsNumber = new HashMap<UUID, Integer>();
 
@@ -194,7 +194,6 @@ public final class SearchUpdated extends ComponentDefinition {
     private MultipleEntryAdditionTracker entryAdditionTracker;
     private Map<UUID, UUID> entryPrepareTimeoutMap; // (roundId, prepareTimeoutId).
     private PartitioningTracker partitioningTracker;
-    private EpochHistoryTracker epochHistoryTracker;
     private LandingEntryTracker landingEntryTracker;
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
@@ -379,13 +378,12 @@ public final class SearchUpdated extends ComponentDefinition {
         partitioningTracker = new PartitioningTracker();
         entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
-        epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
-        landingEntryTracker = new LandingEntryTracker();
-        lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
-        controlPullTracker = new ControlPullTracker(epochHistoryTracker);
-        shardTracker = new ShardTracker();
         
         eHTUpdated = new EpochHistoryTrackerUpdated(self.getAddress().getBase());
+        landingEntryTracker = new LandingEntryTracker();
+        lowestMissingEntryTracker = new LowestMissingEntryTracker(eHTUpdated);
+        controlPullTracker = new ControlPullTracker(eHTUpdated);
+        shardTracker = new ShardTracker();
         epochAddTracker = new EpochAddTracker();
     }
 
@@ -1236,12 +1234,12 @@ public final class SearchUpdated extends ComponentDefinition {
 
             EntryAddPrepare.Request addPrepareRequest;
             ApplicationEntry applicationEntry;
-            EpochUpdate lastEpochUpdate = EpochUpdate.NONE;
+            EpochContainer lastEpochUpdate = null;
 
             if (newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
                 logger.warn(" {}: Became a leader and going to add a new landing entry, Information of Landing Entry need not to be changed.", prefix);
-                lastEpochUpdate = landingEntryTracker.getPreviousEpochUpdate() != null ? landingEntryTracker.getPreviousEpochUpdate() : EpochUpdate.NONE;
+                lastEpochUpdate = landingEntryTracker.getPreviousEpochContainer() != null ? landingEntryTracker.getPreviousEpochContainer() : null;
                 applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(landingEntryTracker.getEpochId(), self.getId(), LANDING_ENTRY_ID), newEntry);
                 addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
 
@@ -1398,8 +1396,12 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
         EntryAddPrepare.Response response;
-        EpochUpdate previousEpochUpdate;
-        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(applicationEntry.getEpochId(), applicationEntry.getLeaderId(), applicationEntry.getEntryId());
+        EpochContainer previousEpochUpdate = null;
+        
+        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(
+                applicationEntry.getEpochId(), 
+                applicationEntry.getLeaderId(), 
+                applicationEntry.getEntryId());
 
         if (entry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
@@ -1407,9 +1409,6 @@ public final class SearchUpdated extends ComponentDefinition {
             LandingEntryAddPrepare.Request landingEntryRequest = (LandingEntryAddPrepare.Request) request;
             previousEpochUpdate = landingEntryRequest.getPreviousEpochUpdate();
 
-        } else {
-
-            previousEpochUpdate = EpochUpdate.NONE;
         }
 
         response = new ApplicationEntryAddPrepare.Response(request.getEntryAdditionRound(), entryId);
@@ -1474,11 +1473,11 @@ public final class SearchUpdated extends ComponentDefinition {
                             if (entryToCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                                 logger.debug("{}: Request to add a new landing entry in system", prefix);
-                                epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
-                                EpochUpdate update = new EpochUpdate(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
-                                epochHistoryTracker.addEpochUpdate(update);
+                                eHTUpdated.addEpochUpdate(info.getAssociatedEpochUpdate());                 // TODO :EPOCH HISTORY TRACKER UPDATE
+                                EpochContainer update = new BaseEpochContainer(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
+                                eHTUpdated.addEpochUpdate(update);              // TODO :EPOCH HISTORY TRACKER UPDATE
                                 
-                                lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
+                                lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker. // FIXME: EPOCH UPDATE FIX.
                                 
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
@@ -1576,13 +1575,13 @@ public final class SearchUpdated extends ComponentDefinition {
 
                     try {
 
-                        EpochUpdate associatedEpochUpdate = pendingForCommit.get(toCommit).getValue1();
+                        EpochContainer associatedEpochUpdate = pendingForCommit.get(toCommit).getValue1();
                         if (toCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                             logger.warn("{}: Request to add a new landing entry in system", prefix);
-                            epochHistoryTracker.addEpochUpdate(associatedEpochUpdate);
-                            EpochUpdate update = new EpochUpdate(toCommit.getEpochId(), toCommit.getLeaderId());
-                            epochHistoryTracker.addEpochUpdate(update);
+                            eHTUpdated.addEpochUpdate(associatedEpochUpdate);  // TODO: EPOCH HISTORY UPDATE.
+                            EpochContainer update = new BaseEpochContainer(toCommit.getEpochId(), toCommit.getLeaderId());
+                            eHTUpdated.addEpochUpdate(update);                // TODO: EPOCH HISTORY UPDATE.
 
                             // As you are directly updating the epoch history,
                             // missing tracker needs to be informed about it.
@@ -2798,7 +2797,7 @@ public final class SearchUpdated extends ComponentDefinition {
         landingEntryAdded = false;
 
         // Create metadata for the updated epoch update.
-        EpochUpdate lastEpochUpdate = getPreviousClosedEpoch();
+        EpochContainer lastEpochUpdate = closePreviousEpoch();
         long currentEpoch;
 
         if (lastEpochUpdate == null || lastEpochUpdate.equals(EpochUpdate.NONE)) {
@@ -3178,36 +3177,6 @@ public final class SearchUpdated extends ComponentDefinition {
             }
         };
     }
-    
-    /**
-     * Returning the last closed epoch update.
-     * The application needs to fetch the last known epoch update and close it by calculating
-     * the entries added in that update.
-     *
-     * @return Previous Update.
-     */
-    private EpochUpdate getPreviousClosedEpoch() throws LuceneAdaptorException {
-
-        EpochUpdate lastEpochUpdate = epochHistoryTracker.getLastUpdate();
-
-        if (!lastEpochUpdate.equals(EpochUpdate.NONE)) {
-
-            Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
-                    ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
-                    ApplicationEntry.LEADER_ID, lastEpochUpdate.getLeaderId());
-
-            TotalHitCountCollector hitCollector = new TotalHitCountCollector();
-            writeEntryLuceneAdaptor.searchDocumentsInLucene(epochUpdateEntriesQuery, hitCollector);
-
-            int numEntries = hitCollector.getTotalHits();
-            if (numEntries == 0) {
-                throw new IllegalStateException("Unable to find any entry(s) for the previous epoch update");
-            }
-            lastEpochUpdate = new EpochUpdate(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
-        }
-
-        return lastEpochUpdate;
-    }
 
     /**
      * In case the landing entry was not added in the system.
@@ -3427,12 +3396,12 @@ public final class SearchUpdated extends ComponentDefinition {
     private class ControlPullTracker {
 
 
-        private EpochHistoryTracker historyTracker;
+        private EpochHistoryTrackerUpdated historyTracker;
         private UUID currentPullRound;
         private Map<DecoratedAddress, ControlPull.Response> pullResponseMap;
-        private EpochUpdate currentUpdate;
+        private EpochContainer currentUpdate;
 
-        public ControlPullTracker(EpochHistoryTracker historyTracker) {
+        public ControlPullTracker(EpochHistoryTrackerUpdated historyTracker) {
             this.historyTracker = historyTracker;
             pullResponseMap = new HashMap<DecoratedAddress, ControlPull.Response>();
         }
@@ -3494,12 +3463,26 @@ public final class SearchUpdated extends ComponentDefinition {
                         // TO DO: Process the control pull request and then calculate the updates that needs to be sent back to the user.
 
                         DecoratedAddress addr = leaderAddress;
-                        EpochUpdate selfUpdated = epochHistoryTracker.getSelfUpdate(request.getEpochUpdate());
-
-                        List<EpochUpdate> nextUpdates = new ArrayList<EpochUpdate>();
-                        nextUpdates.add(selfUpdated);
-                        nextUpdates.addAll(historyTracker.getNextUpdates(selfUpdated, config.getMaximumEpochUpdatesPullSize()));
-
+                        List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
+                        
+                        EpochContainer selfUpdated = historyTracker.getSelfUpdate(request.getEpochUpdate());
+                        Collection<EpochContainer> updates = null;
+                        
+                        if( selfUpdated != null){
+                            
+                            nextUpdates.add(selfUpdated);
+                            
+                            if(selfUpdated.getEpochUpdateStatus().equals(EpochContainer.Status.COMPLETED)){
+                                
+                                updates = historyTracker.getNextUpdates(selfUpdated,
+                                        config.getMaximumEpochUpdatesPullSize());
+                                
+                                if(updates != null){
+                                    nextUpdates.addAll(updates);
+                                }
+                            }
+                        }
+                        
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
                         ControlPull.Response response = new ControlPull.Response(request.getPullRound(), addr, selfUpdated, nextUpdates); // Handler for the DecoratedAddress
@@ -3527,12 +3510,17 @@ public final class SearchUpdated extends ComponentDefinition {
                             return;
                         }
 
-                        List<EpochUpdate> updates = response.getNextUpdates();
-                        if (updates.isEmpty() || !checkOriginalExtension(updates.get(0))) {
-                            logger.warn("{}: Control exchange protocol violated, Received Base Update : {} , not extension of sent: {} returning", new Object[]{prefix, updates.get(0), currentUpdate});
-                            return;
+                        List<EpochContainer> updates = response.getNextUpdates();
+                        
+                        if(currentUpdate != null){
+                            
+                            if(updates.isEmpty() || !checkOriginalExtension(updates.get(0))){
+                                logger.warn("{}: Control exchange protocol violated, Received Base Update : {} , not extension of sent: {} returning", new Object[]{prefix, updates.get(0), currentUpdate});
+                                return;
+                            }
                         }
-
+                        
+                        
                         pullResponseMap.put(event.getSource(), response);
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
@@ -3554,14 +3542,14 @@ public final class SearchUpdated extends ComponentDefinition {
          * @param receivedUpdate Update Received.
          * @return True is extension of CurrentUpdate.
          */
-        private boolean checkOriginalExtension(EpochUpdate receivedUpdate) {
+        private boolean checkOriginalExtension(EpochContainer receivedUpdate) {
             return (receivedUpdate.getEpochId() == currentUpdate.getEpochId() && receivedUpdate.getLeaderId() == currentUpdate.getLeaderId());
         }
 
 
         private void performResponseMatch() {
 
-            List<EpochUpdate> intersection;
+            List<EpochContainer> intersection;
 
             if (pullResponseMap.size() > 0) {
 
@@ -3574,8 +3562,8 @@ public final class SearchUpdated extends ComponentDefinition {
                 }
 
 
-                epochHistoryTracker.addEpochUpdates(intersection);
-                epochHistoryTracker.printEpochHistory();
+                historyTracker.addEpochUpdates(intersection);
+                historyTracker.printEpochHistory();
 
                 // Leader Matching.
                 DecoratedAddress baseLeader = pullResponseMap.values()
@@ -3613,15 +3601,15 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private class LowestMissingEntryTracker {
 
-        private EpochUpdate currentTrackingUpdate;
+        private EpochContainer currentTrackingUpdate;
         private Map<ApplicationEntry.ApplicationEntryId, ApplicationEntry> existingEntries;
         private long currentTrackingId;
-        private EpochHistoryTracker historyTracker;
+        private EpochHistoryTrackerUpdated historyTracker;
         private EntryExchangeTracker entryExchangeTracker;
         
         private UUID leaderPullRound;   // SPECIAL ID FOR NODES PULLING FROM LEADER.
 
-        public LowestMissingEntryTracker(EpochHistoryTracker historyTracker) {
+        public LowestMissingEntryTracker(EpochHistoryTrackerUpdated historyTracker) {
 
             this.historyTracker = historyTracker;
             this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
@@ -3946,18 +3934,18 @@ public final class SearchUpdated extends ComponentDefinition {
 
             } else {
 
-                if (currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.ONGOING) {
+                if (currentTrackingUpdate.getEpochUpdateStatus() == EpochContainer.Status.ONGOING) {
 
                     // CHECK IF WE RECEIVED THE UPDATE TO CLOSE THE CURRENT UPDATE.
                     currentTrackingUpdate = historyTracker
                             .getSelfUpdate(currentTrackingUpdate);
                 }
 
-                if ((currentTrackingUpdate.getEpochUpdateStatus() == EpochUpdate.Status.COMPLETED)
+                if ((currentTrackingUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED)
                         && (currentTrackingId >= currentTrackingUpdate.getNumEntries())) {
 
                     // CHECK IF TIME TO TRACK OR PULL FROM NEW EPOCH UPDATE.
-                    EpochUpdate nextUpdate = epochHistoryTracker
+                    EpochContainer nextUpdate = historyTracker
                             .getNextUpdateToTrack(currentTrackingUpdate);
 
                     if (nextUpdate != null) {
