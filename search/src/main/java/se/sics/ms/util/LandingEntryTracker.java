@@ -18,20 +18,11 @@ public class LandingEntryTracker {
     private long epochId;
     private UUID landingEntryRoundId;
     private long landingEntryId;
-    private EpochUpdate previousEpochUpdate;
     private EpochContainer previousEpochContainer;
 
     public LandingEntryTracker(){
     }
     
-    public void startTracking(long epochId, UUID landingEntryRoundId, long landingEntryId, EpochUpdate previousEpochUpdate) {
-        
-        this.epochId = epochId;
-        this.landingEntryRoundId = landingEntryRoundId;
-        this.landingEntryId = landingEntryId;
-        this.previousEpochUpdate = previousEpochUpdate;
-    }
-
     public void startTracking(long epochId, UUID landingEntryRoundId, long landingEntryId, EpochContainer previousEpochUpdate) {
 
         this.epochId = epochId;
@@ -62,9 +53,6 @@ public class LandingEntryTracker {
         return this.landingEntryId;
     }
 
-    public EpochUpdate getPreviousEpochUpdate(){
-        return this.previousEpochUpdate;
-    }
     public EpochContainer getPreviousEpochContainer(){
         return this.previousEpochContainer;
     }

@@ -211,9 +211,12 @@ public class EpochHistoryTrackerUpdated {
             }
         }
 
-        if( current != null ){
+        if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
 
-            int index = epochUpdateHistory.indexOf(current);
+            // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
+            // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
+
+            int index = epochUpdateHistory.indexOf(current);        
             if(index != -1){
 
                 ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);

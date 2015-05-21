@@ -2825,6 +2825,8 @@ public final class SearchUpdated extends ComponentDefinition {
      * Once a node gets elected as leader, the parameters regarding the starting entry addition id and the
      * latest epoch id as seen by the node needs to be recalculated and the local parameters need to be updated.
      * Then the leader needs to add landing index entry before anything else.
+     * 
+     * - > STAY ON THIS ONE. < -
      */
 
     private void addLandingEntryUpdated() throws LuceneAdaptorException {
@@ -3197,7 +3199,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
 
                     // Reset the tracker information for the round.
-                    landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID, landingEntryTracker.getPreviousEpochUpdate());
+                    landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID, landingEntryTracker.getPreviousEpochContainer());
                     initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
                     trigger(st, timerPort);
@@ -3469,18 +3471,14 @@ public final class SearchUpdated extends ComponentDefinition {
                         Collection<EpochContainer> updates = null;
                         
                         if( selfUpdated != null){
-                            
                             nextUpdates.add(selfUpdated);
-                            
-                            if(selfUpdated.getEpochUpdateStatus().equals(EpochContainer.Status.COMPLETED)){
-                                
-                                updates = historyTracker.getNextUpdates(selfUpdated,
-                                        config.getMaximumEpochUpdatesPullSize());
-                                
-                                if(updates != null){
-                                    nextUpdates.addAll(updates);
-                                }
-                            }
+                        }
+
+                        updates = historyTracker.getNextUpdates(selfUpdated,
+                                    config.getMaximumEpochUpdatesPullSize());
+                        
+                        if(updates != null){
+                            nextUpdates.addAll(updates);
                         }
                         
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
@@ -3563,8 +3561,6 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
                 historyTracker.addEpochUpdates(intersection);
-                historyTracker.printEpochHistory();
-
                 // Leader Matching.
                 DecoratedAddress baseLeader = pullResponseMap.values()
                         .iterator().next()
@@ -4042,7 +4038,7 @@ public final class SearchUpdated extends ComponentDefinition {
             
             updateCurrentTracking();
             checkAndRemoveEntryGaps();
-        } 
+        }
         
         
         
