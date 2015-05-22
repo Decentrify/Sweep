@@ -1,9 +1,8 @@
 package se.sics.ms.data;
 
 import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
+import se.sics.ms.types.EpochUpdatePacket;
 import se.sics.ms.types.OverlayId;
-import se.sics.ms.util.ShardInfo;
 
 import java.util.UUID;
 
@@ -16,14 +15,14 @@ public class ShardingPrepare {
     
     public static class Request {
         
-        private UUID prepareRoundId;
-        private ShardInfo shardInfo;
+        private UUID shardRoundId;
+        private EpochUpdatePacket epochUpdatePacket;
         private OverlayId overlayId;
         
-        public Request( UUID prepareRoundId, ShardInfo shardInfo, OverlayId overlayId ){
+        public Request( UUID shardRoundId, EpochUpdatePacket epochUpdatePacket, OverlayId overlayId ){
             
-            this.prepareRoundId = prepareRoundId;
-            this.shardInfo = shardInfo;
+            this.shardRoundId = shardRoundId;
+            this.epochUpdatePacket = epochUpdatePacket;
             this.overlayId = overlayId;
             
         }
@@ -31,8 +30,8 @@ public class ShardingPrepare {
         @Override
         public String toString() {
             return "Request{" +
-                    "prepareRoundId=" + prepareRoundId +
-                    ", shardInfo=" + shardInfo +
+                    "shardRoundId=" + shardRoundId +
+                    ", shardInfo=" + epochUpdatePacket +
                     ", overlayId=" + overlayId +
                     '}';
         }
@@ -45,27 +44,27 @@ public class ShardingPrepare {
             Request request = (Request) o;
 
             if (overlayId != null ? !overlayId.equals(request.overlayId) : request.overlayId != null) return false;
-            if (prepareRoundId != null ? !prepareRoundId.equals(request.prepareRoundId) : request.prepareRoundId != null)
+            if (shardRoundId != null ? !shardRoundId.equals(request.shardRoundId) : request.shardRoundId != null)
                 return false;
-            if (shardInfo != null ? !shardInfo.equals(request.shardInfo) : request.shardInfo != null) return false;
+            if (epochUpdatePacket != null ? !epochUpdatePacket.equals(request.epochUpdatePacket) : request.epochUpdatePacket != null) return false;
 
             return true;
         }
 
         @Override
         public int hashCode() {
-            int result = prepareRoundId != null ? prepareRoundId.hashCode() : 0;
-            result = 31 * result + (shardInfo != null ? shardInfo.hashCode() : 0);
+            int result = shardRoundId != null ? shardRoundId.hashCode() : 0;
+            result = 31 * result + (epochUpdatePacket != null ? epochUpdatePacket.hashCode() : 0);
             result = 31 * result + (overlayId != null ? overlayId.hashCode() : 0);
             return result;
         }
 
-        public UUID getPrepareRoundId() {
-            return prepareRoundId;
+        public UUID getShardRoundId() {
+            return shardRoundId;
         }
 
-        public ShardInfo getShardInfo() {
-            return shardInfo;
+        public EpochUpdatePacket getEpochUpdatePacket() {
+            return epochUpdatePacket;
         }
 
         public OverlayId getOverlayId() {
@@ -74,8 +73,35 @@ public class ShardingPrepare {
     }
     
     
-    
     public static class Response {
+        
+        private UUID shardRoundId;
+        
+        public Response(UUID shardRoundId){
+            this.shardRoundId = shardRoundId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Response response = (Response) o;
+
+            if (shardRoundId != null ? !shardRoundId.equals(response.shardRoundId) : response.shardRoundId != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            return shardRoundId != null ? shardRoundId.hashCode() : 0;
+        }
+
+        public UUID getShardRoundId() {
+            return shardRoundId;
+        }
         
         
     }

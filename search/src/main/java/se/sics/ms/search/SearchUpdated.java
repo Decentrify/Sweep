@@ -2188,22 +2188,98 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private void checkAndInitiateSharding() throws LuceneAdaptorException {
         
-        if(isTimeToShard()){
+        if(isTimeToShard()) {
 
             ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
             
-            if(entryId == null){
-                logger.error("{}: Unable to calculate the median entry id for the sharding. ", prefix);
+            if(entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader){
+                logger.error("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
                 return;
             }
             
-            shardTracker.initiateSharding(entryId);
+            EpochContainer previousUpdate = closePreviousEpoch();
+            ShardEpochContainer sec = new ShardEpochContainer(previousUpdate.getEpochId()+1 , self.getId(), 1, entryId, publicKey);
+            
+            // Create Hash of the Shard Update.
+            String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
+            sec.setHash(hash);
+            
+            ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+            st.setTimeoutEvent(new TimeoutCollection.ShardRoundTimeout(st, previousUpdate, sec));
+            UUID shardRoundId = st.getTimeoutEvent().getTimeoutId();
+            
+            shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
+            trigger(st, timerPort);
         }
+
         else{
             logger.trace("{}: Not the time to shard, return .. ", prefix);
         }
         
     }
+
+
+    /**
+     * Event from the shard tracker that the sharding round has been completed and therefore 
+     * @param shardRoundID
+     * @param previousEpoch
+     * @param shardContainer
+     */
+    private void handleSharding( UUID shardRoundID, EpochContainer previousEpoch, EpochContainer shardContainer){
+        
+        if(!shardTracker.getShardRoundId().equals(shardRoundID)){
+            throw new RuntimeException("Sharding Tracker seems to be corrupted ... ");
+        }
+
+        CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
+        trigger(cancelTimeout, timerPort);
+        shardTracker.resetShardingParameters();
+        
+        epochHistoryTracker.addEpochUpdate (previousEpoch);
+        handleSharding((ShardEpochContainer)shardContainer);
+    }
+    
+    
+    /**
+     * In case the sharding event is handled by the shard commit or the control pull, the application needs to be informed
+     * immediately, so the application can carry out the necessary sharding steps.
+     *
+     * @param container Shard Epoch Container.
+     */
+    private void handleSharding (ShardEpochContainer container) {
+        
+        logger.debug("{}: Handle the main sharding update ... ");
+        throw new UnsupportedOperationException("Operation not supported yet ... ");
+    }
+    
+    
+    /**
+     * Handler for the shard round timeout. Check if the sharding completed and if the sharding expired.
+     *  
+     */
+    Handler<TimeoutCollection.ShardRoundTimeout> shardRoundTimeoutHandler = new Handler<TimeoutCollection.ShardRoundTimeout>() {
+        
+        @Override
+        public void handle(TimeoutCollection.ShardRoundTimeout event) {
+            
+            logger.debug("{}: Timeout for shard round invoked.");
+            UUID shardTrackerRoundID = shardTracker.getShardRoundId();
+            
+            if(shardTrackerRoundID != null && event.getTimeoutId().equals(shardTrackerRoundID)){
+
+                logger.warn("{}: Need to restart the shard round id");
+                throw new UnsupportedOperationException("Operation not supported ... ");
+            }
+            
+            else {
+                logger.debug("{}: Sharding timeout occured after the event is canceled ... ");
+            }
+            
+            
+        }
+    };
+    
+    
 
 
     /**
@@ -2289,7 +2365,9 @@ public final class SearchUpdated extends ComponentDefinition {
      * Handler for the partition prepare request. The node receives the partition prepare request from the leader
      * in the system and therefore it acts as a promise request.
      */
-    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest = new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
+    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest = 
+        new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
+        
         @Override
         public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
 
@@ -3337,15 +3415,14 @@ public final class SearchUpdated extends ComponentDefinition {
     public class ShardTracker {
         
         private UUID shardRoundId;
-        private UUID shardPreparePhaseID;
-        private UUID shardCommitPhaseID;
-
-        private ShardInfo currentShardInfo;
+        private EpochUpdatePacket epochUpdatePacket;
         private Collection<DecoratedAddress> cohorts;
+        private int promises = 0;
+        private org.javatuples.Pair<UUID, EpochUpdatePacket> shardPacketPair;
+        private UUID awaitShardCommit;
         
         public ShardTracker(){
             logger.warn("{}: Shard Tracker Initialized ", prefix);
-
         }
 
         /**
@@ -3355,43 +3432,178 @@ public final class SearchUpdated extends ComponentDefinition {
          *
          * @param medianEntry
          */
-        public void initiateSharding(ApplicationEntry.ApplicationEntryId medianEntry) {
-            
-            if(shardRoundId != null || !leader || leaderGroupInformation == null || leaderGroupInformation.isEmpty()){
+        public void initiateSharding (UUID roundId, Collection<DecoratedAddress> leaderGroupInformation,  EpochContainer previousContainer, EpochContainer shardContainer) {
+
+            if(this.shardRoundId != null || leaderGroupInformation == null || leaderGroupInformation.isEmpty()){
                 logger.warn("{}: Conditions to initiate sharding not satisfied, returning ... ", prefix);
                 return;
             }
             
-            shardRoundId = UUID.randomUUID();
-            currentShardInfo = new ShardInfo(shardRoundId, medianEntry, publicKey);
-            
-            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionPrepareTimeout());
-            ShardingPrepare.Timeout shardPrepareTimeout = new ShardingPrepare.Timeout(st);
-            st.setTimeoutEvent(shardPrepareTimeout);
-
-            shardPreparePhaseID = st.getTimeoutEvent().getTimeoutId();
+            shardRoundId = roundId;
             cohorts = leaderGroupInformation;
-            ShardingPrepare.Request request = new ShardingPrepare.Request(shardPreparePhaseID, currentShardInfo, new OverlayId(self.getOverlayId()));
+            epochUpdatePacket = new EpochUpdatePacket(previousContainer, shardContainer);
+            
+            ShardingPrepare.Request request = new ShardingPrepare.Request(shardRoundId, 
+                    epochUpdatePacket, 
+                    new OverlayId(self.getOverlayId()));
             
             for(DecoratedAddress destination : cohorts){
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                trigger(CommonHelper.getDecoratedContentMessage( self.getAddress(), destination, Transport.UDP, request ), networkPort );
             }
-            
-            
-            throw new UnsupportedOperationException("Operation not supported yet.");
         }
         
         
+        public void resetShardingParameters(){
+            
+            this.shardRoundId = null;
+            this.cohorts = null;
+            this.promises = 0;
+            this.shardPacketPair = null;
+        }
+        
+        public UUID getShardRoundId(){
+            return this.shardRoundId;
+        }
         
         
-        
-        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest = new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
+        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest = 
+                new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
+                    
             @Override
             public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
+                
                 logger.debug("{}: Sharding Prepare request received from : {} ", prefix , event.getSource());
+                
+                EpochUpdatePacket eup = request.getEpochUpdatePacket();
+                ShardEpochContainer sec = null;
+                
+                if( !(eup.getCurrentEpochUpdate() instanceof ShardEpochContainer) ) {
+                    throw new RuntimeException("Unable to proceed with sharding as no shard update found.");
+                }
+                
+                sec = (ShardEpochContainer)eup.getCurrentEpochUpdate();
+                // Verify the hash update, if verified, then move to commit.
+
+                if(! ApplicationSecurity.isShardUpdateValid(sec)) {
+                    logger.warn("{}: Unable to verify the hash of the update received, returning ... ");
+                    return;
+                }
+                
+                shardPacketPair = org.javatuples.Pair.with(request.getShardRoundId(), request.getEpochUpdatePacket());
+                ShardingPrepare.Response response = new ShardingPrepare.Response(request.getShardRoundId());
+                
+                ScheduleTimeout st  = new ScheduleTimeout(3000);
+                st.setTimeoutEvent(new TimeoutCollection.AwaitingShardCommit(st));
+                awaitShardCommit = st.getTimeoutEvent().getTimeoutId();
+
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                trigger(st, timerPort);
+                
+            }
+        };
+
+
+        
+        Handler<TimeoutCollection.AwaitingShardCommit> awaitingShardCommitHandler = new Handler<TimeoutCollection.AwaitingShardCommit>() {
+            @Override
+            public void handle(TimeoutCollection.AwaitingShardCommit event) {
+                
+                logger.debug("{}: Awaiting for the Shard Commit. ", prefix);
+                
+                if(awaitShardCommit != null && awaitShardCommit.equals(event.getTimeoutId())){
+                    shardPacketPair = null;
+                }
+                
+                else{
+                    logger.debug("{}: Timeout triggered after being canceled.");
+                }
             }
         };
         
+        
+        /**
+         * Handle the shard responses from the node in the system.
+         *  
+         */
+        ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>> shardingPrepareResponse = 
+                new ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>>() {
+                    
+            @Override
+            public void handle(ShardingPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response> event) {
+                
+                logger.debug("{}: Received Sharding Prepare Response from node : {} ", prefix, event.getSource());
+                
+                if( shardRoundId == null || !shardRoundId.equals(response.getShardRoundId()) ) {
+                    logger.warn("{}: Received a sharding response for an expired round, returning ... ", prefix);
+                    return;
+                }
+                
+                
+                if(promises >= cohorts.size()){
+                    logger.warn("{}: All the necessary promises have already been received, returning .. ", prefix);
+                    return;
+                }
+
+                promises++;
+                
+                if(promises >= cohorts.size()) {
+                    
+                    logger.debug("{}: Promise round over, moving to commit phase ", prefix);
+                    ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
+                    
+                    for(DecoratedAddress destination : cohorts){
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                    }
+                    
+                    // For now let's apply the partitioning update on the majority of responses.
+                    handleSharding( shardRoundId, epochUpdatePacket.getPreviousEpochUpdate(), epochUpdatePacket.getCurrentEpochUpdate());
+                    
+                }
+                
+                
+            }
+        };
+
+
+        /**
+         * Handler for the sharding commit request from the leader in the system.
+         */
+        ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>> shardingCommitRequest = 
+                new ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>>() {
+                    
+            @Override
+            public void handle(ShardingCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request> event) {
+                
+                logger.debug("{}: Sharding commit request handler invoked ... ", prefix);
+                UUID receivedShardRoundID = request.getShardRoundId();
+                UUID storedShardRoundID = shardPacketPair != null ? shardPacketPair.getValue0() : null;
+                
+                if( storedShardRoundID ==  null || !storedShardRoundID.equals(receivedShardRoundID) ){
+                    logger.warn("{}: Received a request for an expired shard round id, returning ... ");
+                    return;
+                }
+                
+                // Apply Sharding Update.
+                // Inform application about the sharding update.
+                
+                ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+            }
+        };
+        
+        
+        
+        ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>> shardingCommitResponse = 
+                new ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>>() {
+            
+            @Override
+            public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
+                
+                logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
+                
+                
+            }
+        };
         
         
     }

@@ -104,6 +104,20 @@ public class TimeoutCollection {
         }
         
     }
+
+
+    public static class ShardRoundTimeout extends Timeout{
+
+        public EpochContainer previousUpdate;
+        public EpochContainer shardUpdate;
+
+        public ShardRoundTimeout(ScheduleTimeout request, EpochContainer previousUpdate, EpochContainer shardUpdate) {
+            super(request);
+            this.shardUpdate = shardUpdate;
+            this.previousUpdate = previousUpdate;
+        }
+        
+    }
     
     
     public static class AwaitingEpochCommit extends Timeout {
@@ -117,5 +131,14 @@ public class TimeoutCollection {
         
     }
     
-                
+
+    public static class AwaitingShardCommit extends Timeout {
+
+        public AwaitingShardCommit(ScheduleTimeout request) {
+            super(request);
+        }
+    }
+    
+    
+    
 }
