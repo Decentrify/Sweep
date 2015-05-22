@@ -221,6 +221,88 @@ public class ApplicationLuceneQueries {
 
     }
 
+
+    /**
+     * Delete the documents with the median identifier which is 
+     * less than the specified medianId.
+     *
+     * @param luceneAdaptor Adaptor.
+     * @param medianId MedianId.
+     */
+    public static void deleteDocumentsWithIdMoreThen(ApplicationLuceneAdaptor luceneAdaptor, ApplicationEntry.ApplicationEntryId medianId) throws LuceneAdaptorException {
+        
+        BooleanQuery query = new BooleanQuery();
+        
+        Long epochId = medianId.getEpochId();
+        Integer leaderId = medianId.getLeaderId();
+        
+        
+        // Delete the epoch completely first from that point ...
+        
+        Query epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, epochId, epochId, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+        
+        Query leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, leaderId, Integer.MAX_VALUE, true, true);
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+        
+        Query entryIdQuery = NumericRangeQuery.newLongRange( ApplicationEntry.ENTRY_ID, 0l, 0l , true, true);
+        query.add(entryIdQuery, BooleanClause.Occur.MUST_NOT);
+        
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+        
+        
+        // Delete the higher entries now from the next epoch ...
+        
+        query = new BooleanQuery();
+        epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, epochId +1 , Long.MAX_VALUE, true, true);
+        
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+        query.add(entryIdQuery, BooleanClause.Occur.MUST_NOT);
+        
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+    }
+
+
+    /**
+     * Delete the documents with median Identifier that is  
+     * more than the specified medianId. 
+     * 
+     * @param luceneAdaptor Lucene Adaptor.
+     * @param medianId MedianId.
+     */
+    public static void deleteDocumentsWithIdLessThen(ApplicationLuceneAdaptor luceneAdaptor, ApplicationEntry.ApplicationEntryId medianId) throws LuceneAdaptorException {
+
+        BooleanQuery query = new BooleanQuery();
+        
+        Long lowestEpochId = medianId.getEpochId();
+        Integer leaderId = medianId.getLeaderId();
+        
+        Query epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, Long.MIN_VALUE, lowestEpochId - 1 , true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+        
+        Query entryIdQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, 0l, 0l, true, true);
+        query.add(entryIdQuery, BooleanClause.Occur.MUST_NOT);
+        
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+        
+        
+        // ===== Delete till all the leader id in the lowest epoch.
+        
+        query = new BooleanQuery();
+
+        epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, lowestEpochId, lowestEpochId, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+        
+        Query leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, Integer.MIN_VALUE, leaderId, true, false );
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+        
+        query.add(entryIdQuery, BooleanClause.Occur.MUST_NOT);
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+        
+    }
+    
+    
+
     /**
      * Deletes all documents from the index with ids bigger then id (not including)
      *

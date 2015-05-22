@@ -1983,6 +1983,38 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
     /**
+     *
+     * Based on the median entry and the boolean check, determine 
+     * the entry base that needs to be removed and ultimately update the 
+     * entry base information.
+     *
+     * @param middleId
+     * @param isPartition
+     */
+    private void removeEntriesNotFromYourShard(ApplicationEntry.ApplicationEntryId middleId, boolean isPartition) {
+
+        try {
+            // Remove Entries from the lowest missing tracker also.
+            if (isPartition) {
+                
+                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(writeEntryLuceneAdaptor, middleId);
+                lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
+            }
+            else {
+                
+                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(writeEntryLuceneAdaptor, middleId);
+                lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
+            }
+
+            self.setNumberOfEntries(writeEntryLuceneAdaptor.getSizeOfLuceneInstance());
+            logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
+        } 
+        catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+        }
+    }
+
+        /**
      * Add the given {@link se.sics.ms.types.IndexEntry}s to the given Lucene directory
      *
      * @param searchRequestLuceneAdaptor adaptor
@@ -2197,6 +2229,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 return;
             }
             
+            partitionInProgress = true;
             EpochContainer previousUpdate = closePreviousEpoch();
             ShardEpochContainer sec = new ShardEpochContainer(previousUpdate.getEpochId()+1 , self.getId(), 1, entryId, publicKey);
             
@@ -2225,8 +2258,8 @@ public final class SearchUpdated extends ComponentDefinition {
      * @param previousEpoch
      * @param shardContainer
      */
-    private void handleSharding( UUID shardRoundID, EpochContainer previousEpoch, EpochContainer shardContainer){
-        
+    private void handleSharding( UUID shardRoundID, EpochContainer previousEpoch, EpochContainer shardContainer ) {
+
         if(!shardTracker.getShardRoundId().equals(shardRoundID)){
             throw new RuntimeException("Sharding Tracker seems to be corrupted ... ");
         }
@@ -2235,8 +2268,11 @@ public final class SearchUpdated extends ComponentDefinition {
         trigger(cancelTimeout, timerPort);
         shardTracker.resetShardingParameters();
         
-        epochHistoryTracker.addEpochUpdate (previousEpoch);
-        handleSharding((ShardEpochContainer)shardContainer);
+        epochHistoryTracker.addEpochUpdate (previousEpoch);      // Close the previous epoch update.
+        handleSharding((ShardEpochContainer)shardContainer);    // Handle the sharding phase.
+        epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process.
+        
+        partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
     
     
@@ -2246,10 +2282,79 @@ public final class SearchUpdated extends ComponentDefinition {
      *
      * @param container Shard Epoch Container.
      */
-    private void handleSharding (ShardEpochContainer container) {
+    private void handleSharding (ShardEpochContainer shardContainer){
         
-        logger.debug("{}: Handle the main sharding update ... ");
-        throw new UnsupportedOperationException("Operation not supported yet ... ");
+        try{
+
+            logger.debug("{}: Handle the main sharding update ... ");
+            
+            ApplicationEntry.ApplicationEntryId medianId = shardContainer.getMedianId();
+            lowestMissingEntryTracker.pauseTracking();
+
+            int nodeId = self.getId();
+            PartitionId selfPartitionId = new PartitionId(
+                    self.getPartitioningType(),
+                    self.getPartitioningDepth(),
+                    self.getPartitionId());
+
+            boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
+            applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
+            
+            List<ApplicationEntry.ApplicationEntryId> skipList = generateSkipList(shardContainer.getEpochId(), medianId, partitionSubId);
+            lowestMissingEntryTracker.resumeTracking();
+        } 
+        catch (Exception e){
+            throw new RuntimeException("Unable to shard", e);
+        }
+    }
+
+    /**
+     * Based on the median Id and the current tracking update, 
+     * generate the skipList.
+     * 
+     * @return Skip List
+     */
+    private List<ApplicationEntry.ApplicationEntryId> generateSkipList ( long shardId, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId ) throws IOException, LuceneAdaptorException {
+
+        // Entry being tracked is the entry that the system is looking for.
+        List<ApplicationEntry.ApplicationEntryId> skipList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+        ApplicationEntry.ApplicationEntryId entryBeingTracked = lowestMissingEntryTracker.getEntryBeingTracked();
+        
+        // Sharding update should always be the latest.
+        if(entryBeingTracked.getEntryId() > shardId) {
+            throw new IllegalStateException("Sharding State corrupted");
+        }
+        
+        if(entryBeingTracked.getEntryId() == 0) {
+            
+            ApplicationEntry entry = new ApplicationEntry(entryBeingTracked);
+            addEntryToLucene(writeEntryLuceneAdaptor, entry);
+            skipList.add(entryBeingTracked);
+
+        }
+
+        if(partitionSubId) {
+        }
+        else {
+        }
+        
+        return skipList;
+    }
+
+
+    /**
+     * Apply the main sharding update to the application  
+     * in terms of removing the entries that are not needed  
+     * and are lying around in the lucene store in the system.
+     *
+     * @param medianId
+     */
+    public void applyShardingUpdate(boolean partitionSubId, PartitionId selfPartitionId, ApplicationEntry.ApplicationEntryId medianId) {
+
+        shardToNextLevel(partitionSubId, selfPartitionId);
+        removeEntriesNotFromYourShard( medianId, partitionSubId );
+        
+        informListeningComponentsAboutUpdates(self);
     }
     
     
@@ -2740,6 +2845,48 @@ public final class SearchUpdated extends ComponentDefinition {
         return partitionSubId;
     }
 
+
+    /**
+     * Based on the current shard information, determine the updated shard information 
+     * value and then split to the current shard to the next level.
+     *
+     * @return Boolean.
+     */
+    private boolean shardToNextLevel(boolean partitionSubId, PartitionId selfPartitionId) {
+
+        int nodeId = self.getId();
+        int newOverlayId;
+        if (selfPartitionId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+            
+            int partitionId = (partitionSubId ? 1 : 0);
+
+            int selfCategory = self.getCategoryId();
+            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+                    1, partitionId, selfCategory);
+
+        } else {
+            
+            int newDepth = self.getPartitioningDepth() +1;
+            int partition =0;
+            for(int i=0; i< newDepth; i++){
+                partition = partition | (nodeId & (1 << i));
+            }
+
+            int selfCategory = self.getCategoryId();
+
+            // Incrementing partitioning depth in the overlayId.
+            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+                    newDepth, partition, selfCategory);
+        }
+        
+        
+        self.setOverlayId(newOverlayId);
+        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        
+        return partitionSubId;
+    }
+    
+    
     /**
      * Based on the unique ids return the partition updates back.
      *
@@ -3831,6 +3978,11 @@ public final class SearchUpdated extends ComponentDefinition {
         private EntryExchangeTracker entryExchangeTracker;
         
         private UUID leaderPullRound;   // SPECIAL ID FOR NODES PULLING FROM LEADER.
+        private boolean isPaused = false;
+
+        public EpochContainer getCurrentTrackingUpdate() {
+            return currentTrackingUpdate;
+        }
 
         public LowestMissingEntryTracker(EpochHistoryTracker historyTracker) {
 
@@ -3857,6 +4009,12 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 try {
 
+                    if(isPaused){
+                        
+                        logger.debug("{}: Entry exchange round is paused, returning ... ");
+                        return;
+                    }
+                    
                     logger.info("Entry Exchange Round initiated ... ");
                     entryExchangeTracker.resetTracker();
                     updateInternalState();
@@ -4268,11 +4426,6 @@ public final class SearchUpdated extends ComponentDefinition {
         }
         
         
-        
-        
-        
-
-
         /**
          * Once you add an entry in the system, check for any gaps that might be occurred and can be removed.
          *
@@ -4289,6 +4442,70 @@ public final class SearchUpdated extends ComponentDefinition {
                 currentTrackingId++;
             }
         }
+        
+        
+        // ++++ ====== +++++ MAIN SHARDING APPLICATION +++++ ===== ++++++
+
+        /**
+         * As the sharding update is going on which will remove the entries from the timeline,
+         * 
+         */
+        private void pauseTracking(){
+            
+            logger.debug("{}: Going to pause the entry exchange round .. ", prefix);
+
+            isPaused = true;
+            leaderPullRound = null;
+            entryExchangeTracker.resetTracker(); // Do not handle any responses at this point.
+        }
+        
+        
+        
+        private void resumeTracking(){
+
+            logger.debug("{}: Switching the entry exchange round again .." , prefix);
+            isPaused = false;
+        }
+        
+
+        /**
+         * Check for the buffered entries and then remove the entry with
+         * id's more than the specified id.
+         *
+         * @param medianId
+         */
+        private void deleteDocumentsWithIdMoreThen (ApplicationEntry.ApplicationEntryId medianId) {
+            
+            Iterator<ApplicationEntry.ApplicationEntryId> idIterator = existingEntries.keySet().iterator();
+            while(idIterator.hasNext()){
+                
+                if(idIterator.next().compareTo(medianId) > 0){
+                    idIterator.remove();
+                }
+            }
+        }
+        
+        
+        /**
+         * Check for the buffered entries and then remove the entry with 
+         * ids less than the specified id.
+         *
+         * @param medianId 
+         */
+        private void deleteDocumentsWithIdLessThen (ApplicationEntry.ApplicationEntryId medianId) {
+
+            Iterator<ApplicationEntry.ApplicationEntryId> idIterator = existingEntries.keySet().iterator();
+            while(idIterator.hasNext()){
+
+                if(idIterator.next().compareTo(medianId) < 0){
+                    idIterator.remove();
+                }
+            }
+        }
+        
+        
+        
+        
 
     }
 
