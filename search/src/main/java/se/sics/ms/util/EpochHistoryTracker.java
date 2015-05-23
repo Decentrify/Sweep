@@ -24,12 +24,14 @@ public class EpochHistoryTracker {
     private BasicAddress selfAddress;
     private String prefix;
     private GenericECComparator comparator;
+    private ArrayList<EpochContainer> skipEpochHistory;
     
     public EpochHistoryTracker(BasicAddress address){
 
         logger.trace("Tracker Initialized .. ");
         epochUpdateHistory = new LinkedList<EpochContainer>();
         bufferedEpochHistory = new LinkedList<EpochContainer>();
+        skipEpochHistory = new ArrayList<EpochContainer>();
         comparator = new GenericECComparator();
         
         this.selfAddress = address;
@@ -137,14 +139,24 @@ public class EpochHistoryTracker {
         Iterator<EpochContainer> iterator = epochUpdateHistory.iterator();
         
         while(iterator.hasNext()){
-            if(iterator.next().equals(update)){
-                
-                if(iterator.hasNext()){
+            
+            if(iterator.next().equals(update))
+            {
+                if(iterator.hasNext())
+                {
                     nextUpdate = iterator.next();
                     break;                              // Check Here About the Buffered Epoch Updates in The System and Remove them from the
                 }
             }
         }
+
+        // Check in skipList.
+        if(nextUpdate != null && skipEpochHistory.contains(nextUpdate)){
+            
+            skipEpochHistory.remove(nextUpdate);
+            nextUpdate = getNextUpdateToTrack(nextUpdate);
+        }
+
         return nextUpdate;
     }
 
@@ -209,6 +221,9 @@ public class EpochHistoryTracker {
                 nextUpdates.add(current);
             }
         }
+        else{
+            current = getSelfUpdate(current);
+        }
 
         if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
 
@@ -236,8 +251,10 @@ public class EpochHistoryTracker {
 
     /**
      * The method should always add the epoch updates to the tracker in order.
+     * This method delegates the responsibility to the common method inside the
+     * class to add the updates but also to check if they are in order or not.
      *
-     * @param intersection
+     * @param intersection Collection.
      */
     public void addEpochUpdates(List<EpochContainer> intersection) {
 
@@ -247,4 +264,18 @@ public class EpochHistoryTracker {
             addEpochUpdate(nextUpdate);
         }
     }
+
+
+    /**
+     * Collection of updates that the entry pull mechanism needs to skip.
+     * So these are buffered in epoch history to be removed when pull mechanism reaches that point.
+     *
+     * @param skipUpdateCollection collection.
+     */
+    public void addSkipList(Collection<EpochContainer> skipUpdateCollection){
+        skipEpochHistory.addAll(skipUpdateCollection);
+    }
+    
+    
+    
 }

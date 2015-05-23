@@ -79,14 +79,14 @@ public class ControlPull {
 
         private UUID pullRound;
         private DecoratedAddress leaderAddress;
-        private EpochContainer modifiedUpdate;
+//        private EpochContainer modifiedUpdate;
         private List<EpochContainer> nextUpdates;
 
 
-        public Response(UUID pullRound, DecoratedAddress leaderAddress, EpochContainer modifiedUpdate, List<EpochContainer> nextUpdates) {
+        public Response(UUID pullRound, DecoratedAddress leaderAddress, List<EpochContainer> nextUpdates) {
             this.pullRound = pullRound;
             this.leaderAddress = leaderAddress;
-            this.modifiedUpdate = modifiedUpdate;
+//            this.modifiedUpdate = modifiedUpdate;
             this.nextUpdates = nextUpdates;
         }
 
@@ -102,8 +102,6 @@ public class ControlPull {
                 return false;
             if (nextUpdates != null ? !nextUpdates.equals(response.nextUpdates) : response.nextUpdates != null)
                 return false;
-            if (modifiedUpdate != null ? !modifiedUpdate.equals(response.modifiedUpdate) : response.modifiedUpdate != null)
-                return false;
             if (pullRound != null ? !pullRound.equals(response.pullRound) : response.pullRound != null) return false;
 
             return true;
@@ -113,7 +111,6 @@ public class ControlPull {
         public int hashCode() {
             int result = pullRound != null ? pullRound.hashCode() : 0;
             result = 31 * result + (leaderAddress != null ? leaderAddress.hashCode() : 0);
-            result = 31 * result + (modifiedUpdate != null ? modifiedUpdate.hashCode() : 0);
             result = 31 * result + (nextUpdates != null ? nextUpdates.hashCode() : 0);
             return result;
         }
@@ -123,7 +120,6 @@ public class ControlPull {
             return "Response{" +
                     "pullRound=" + pullRound +
                     ", leaderAddress=" + leaderAddress +
-                    ", modifiedUpdate=" + modifiedUpdate +
                     ", nextUpdates=" + nextUpdates +
                     '}';
         }
@@ -134,10 +130,6 @@ public class ControlPull {
 
         public DecoratedAddress getLeaderAddress() {
             return leaderAddress;
-        }
-
-        public EpochContainer getModifiedUpdate() {
-            return modifiedUpdate;
         }
 
         public List<EpochContainer> getNextUpdates() {

@@ -2300,7 +2300,9 @@ public final class SearchUpdated extends ComponentDefinition {
             boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
             applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
             
-            List<ApplicationEntry.ApplicationEntryId> skipList = generateSkipList(shardContainer.getEpochId(), medianId, partitionSubId);
+            List<EpochContainer> skipList = generateSkipList(shardContainer, medianId, partitionSubId);
+            epochHistoryTracker.addSkipList(skipList);
+            
             lowestMissingEntryTracker.resumeTracking();
         } 
         catch (Exception e){
@@ -2314,31 +2316,90 @@ public final class SearchUpdated extends ComponentDefinition {
      * 
      * @return Skip List
      */
-    private List<ApplicationEntry.ApplicationEntryId> generateSkipList ( long shardId, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId ) throws IOException, LuceneAdaptorException {
+    private List<EpochContainer> generateSkipList ( EpochContainer shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId ) 
+            throws IOException, LuceneAdaptorException {
 
-        // Entry being tracked is the entry that the system is looking for.
-        List<ApplicationEntry.ApplicationEntryId> skipList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
-        ApplicationEntry.ApplicationEntryId entryBeingTracked = lowestMissingEntryTracker.getEntryBeingTracked();
+        EpochContainer lastAddedUpdate = epochHistoryTracker.getLastUpdate();
         
-        // Sharding update should always be the latest.
-        if(entryBeingTracked.getEntryId() > shardId) {
-            throw new IllegalStateException("Sharding State corrupted");
-        }
-        
-        if(entryBeingTracked.getEntryId() == 0) {
+        if(lastAddedUpdate == null || ( lastAddedUpdate.getEpochId() >= shardContainer.getEpochId()
+                && lastAddedUpdate.getLeaderId() >= shardContainer.getLeaderId()) ) {
             
-            ApplicationEntry entry = new ApplicationEntry(entryBeingTracked);
-            addEntryToLucene(writeEntryLuceneAdaptor, entry);
-            skipList.add(entryBeingTracked);
-
-        }
-
-        if(partitionSubId) {
-        }
-        else {
+            throw new IllegalStateException("Sharding State Corrupted ..  " + prefix );
         }
         
-        return skipList;
+        EpochContainer container = lowestMissingEntryTracker.getCurrentTrackingUpdate();
+        long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
+        
+        List<EpochContainer> pendingUpdates = epochHistoryTracker.getNextUpdates(
+                container, 
+                Integer.MAX_VALUE);
+        
+        Iterator<EpochContainer> iterator = pendingUpdates.iterator();
+        
+        // Based on which section of the entries that the nodes will clear
+        // Update the pending list.
+        
+        if( partitionSubId ) {
+            // If right to the median id is removed, skip list should contain
+            // entries to right of the median.
+            while(iterator.hasNext()){
+
+                EpochContainer nextContainer = iterator.next();
+                
+                if(!(nextContainer.getEpochId() >= medianId.getEpochId() &&
+                        nextContainer.getLeaderId() > medianId.getLeaderId()))
+                {
+                    iterator.remove();
+                }
+            }
+        }
+        
+        else {
+            
+            // If left to the median is removed, skip list should contain 
+            // entries to the left of the median.
+            while(iterator.hasNext()){
+                
+                EpochContainer nextContainer = iterator.next();
+                
+                if( !(medianId.getEpochId() > nextContainer.getEpochId() &&
+                        medianId.getLeaderId() >= nextContainer.getLeaderId()) )
+                {
+                    iterator.remove();
+                }
+            }
+        }
+
+        // Now based on the entries found, compare with the actual 
+        // state of the entry pull mechanism and remove the entries already fetched .
+        Iterator<EpochContainer> remainingItr = pendingUpdates.iterator();
+        while(remainingItr.hasNext()){
+            
+            EpochContainer next = remainingItr.next();
+            if(next.equals(container) && currentId >0) {
+                
+                remainingItr.remove(); // Don't need to skip self as landing entry already added.
+                continue;
+            }
+            
+            if(next.getEpochId() >= container.getEpochId() 
+                    && next.getLeaderId() >= container.getLeaderId())
+            {
+                ApplicationEntry entry = new ApplicationEntry(
+                        new ApplicationEntry.ApplicationEntryId(
+                                next.getEpochId(),
+                                next.getLeaderId(),
+                                0));
+                
+                addEntryToLucene(writeEntryLuceneAdaptor, entry);
+            }
+            else{
+                // Even though the data is removed, the landing entry has already been added.
+                remainingItr.remove(); 
+            }
+        }
+        
+        return pendingUpdates;
     }
 
 
@@ -3841,23 +3902,22 @@ public final class SearchUpdated extends ComponentDefinition {
                         DecoratedAddress addr = leaderAddress;
                         List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
                         
-                        EpochContainer selfUpdated = historyTracker.getSelfUpdate(request.getEpochUpdate());
+//                        EpochContainer selfUpdated = historyTracker.getSelfUpdate(request.getEpochUpdate());
                         Collection<EpochContainer> updates = null;
-                        
-                        if( selfUpdated != null){
-                            nextUpdates.add(selfUpdated);
-                        }
+//                        if( selfUpdated != null){
+//                            nextUpdates.add(selfUpdated);
+//                        }
 
-                        updates = historyTracker.getNextUpdates(selfUpdated,
+                        updates = historyTracker.getNextUpdates(request.getEpochUpdate(),
                                     config.getMaximumEpochUpdatesPullSize());
                         
-                        if(updates != null){
+                        if(updates != null || !updates.isEmpty()){
                             nextUpdates.addAll(updates);
                         }
                         
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
-                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), addr, selfUpdated, nextUpdates); // Handler for the DecoratedAddress
+                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), addr, nextUpdates); // Handler for the DecoratedAddress
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
@@ -4466,7 +4526,7 @@ public final class SearchUpdated extends ComponentDefinition {
             logger.debug("{}: Switching the entry exchange round again .." , prefix);
             isPaused = false;
         }
-        
+
 
         /**
          * Check for the buffered entries and then remove the entry with
