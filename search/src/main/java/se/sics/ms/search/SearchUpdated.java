@@ -2123,7 +2123,11 @@ public final class SearchUpdated extends ComponentDefinition {
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
                 
+                return;
             }
+            
+            // If container switch is not going on, check for the sharding update.
+            checkAndInitiateSharding();
             
         } else {
 
@@ -2142,6 +2146,7 @@ public final class SearchUpdated extends ComponentDefinition {
     private void commitAndUpdateUtility(ApplicationEntry entry) throws LuceneAdaptorException {
 
         addEntryToLucene(writeEntryLuceneAdaptor, entry);
+        
         self.incrementECEntries();
         self.incrementEntries();
         
@@ -2337,8 +2342,11 @@ public final class SearchUpdated extends ComponentDefinition {
 
     /**
      * Based on the median Id and the current tracking update, 
-     * generate the skipList.
-     * 
+     * generate the skipList which is a list containing the epoch updates 
+     * that the node has to jump over because the higher nodes might not have the 
+     * information as they would have removed it as part of there partitioning
+     * update.
+     *
      * @return Skip List
      */
     private List<EpochContainer> generateSkipList ( EpochContainer shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId ) 
@@ -2429,10 +2437,24 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
     /**
-     * Apply the main sharding update to the application  
-     * in terms of removing the entries that are not needed  
-     * and are lying around in the lucene store in the system.
+     * Apply the main sharding update to the application in terms of 
+     * removing the entries that are not needed and are lying around in the 
+     * lucene store in the system.
      *
+     * <br/>
+     *  
+     * The order in which the shard updates that needs to be applied is as follows:<br/>  
+     * <ul>
+     *     <li>The updates the level and the partitioning information by sharding to
+     *     to the next level.</li>
+     *
+     *     <li>The system then removes the entries from the entries that should not lie 
+     *     in the system as part of current partititon information.</li>
+     *     
+     *     <li>The updated self is then pushed to the listening components.
+     *     </li>
+     * </ul>
+     * 
      * @param medianId
      */
     public void applyShardingUpdate(boolean partitionSubId, PartitionId selfPartitionId, ApplicationEntry.ApplicationEntryId medianId) {
