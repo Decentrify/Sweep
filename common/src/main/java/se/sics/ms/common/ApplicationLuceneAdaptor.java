@@ -51,11 +51,19 @@ public abstract class ApplicationLuceneAdaptor extends LuceneAdaptorBasic {
      * The method is used to calculate the splitting point. Based on the query,
      *
      * @param searchQuery Query to fetch entries
-     * @paramm
+     * @param sort Fields to sort on.
      * @return Middle Entry
      * @throws LuceneAdaptorException
      */
     public abstract ApplicationEntry getMedianEntry(Query searchQuery, Sort sort, int maxEntries) throws LuceneAdaptorException;
-    
 
+    /**
+     * In order to calculate the time to shard, we have to estimate the entries in the system.
+     * As in addition to the actual index entries, we also have landing entries
+     * therefore the size of Instance is inflated. This method allows to capture the 
+     * actual size of instance in terms of entries added by users and not by system.
+     *
+     * @return
+     */
+    public abstract int getActualSizeOfInstance() throws LuceneAdaptorException;
 }

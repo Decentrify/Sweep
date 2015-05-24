@@ -139,7 +139,7 @@ public class EpochHistoryTracker {
         Iterator<EpochContainer> iterator = epochUpdateHistory.iterator();
         
         while(iterator.hasNext()){
-            
+
             if(iterator.next().equals(update))
             {
                 if(iterator.hasNext())
@@ -217,7 +217,7 @@ public class EpochHistoryTracker {
         if (current == null) {
             
             current = getInitialEpochUpdate();
-            if(current != null){
+            if(current != null) {
                 nextUpdates.add(current);
             }
         }

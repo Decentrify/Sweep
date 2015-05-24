@@ -121,5 +121,25 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
             throw new LuceneAdaptorException(e.getMessage());
         }
     }
-    
+
+    @Override
+    public int getActualSizeOfInstance() throws LuceneAdaptorException {
+
+        int size;
+        BooleanQuery searchQuery = new BooleanQuery();
+
+        Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, Long.MIN_VALUE, Long.MAX_VALUE, true, true);
+        searchQuery.add(epochQuery, BooleanClause.Occur.MUST);
+        
+        Query entryIdQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, 0l, 0l, true, true);
+        searchQuery.add(entryIdQuery, BooleanClause.Occur.MUST_NOT);
+
+        
+        TotalHitCountCollector countCollector = new TotalHitCountCollector();
+        searchDocumentsInLucene(searchQuery, countCollector);
+        
+        size = countCollector.getTotalHits();
+        return size;
+    }
+
 }

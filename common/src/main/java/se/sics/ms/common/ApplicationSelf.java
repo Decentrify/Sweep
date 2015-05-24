@@ -20,7 +20,8 @@ public class ApplicationSelf {
     private boolean isLGMember;
     private long numberOfEntries;
     private long epochContainerEntries;
-
+    private long actualEntries;     // Entries excluding landing entries.
+    
     public ApplicationSelf (DecoratedAddress address){
 
         this.address = address;
@@ -28,16 +29,17 @@ public class ApplicationSelf {
         this.isLGMember = false;
         this.numberOfEntries = 0;
         this.epochContainerEntries = 0;
-        
+        this.actualEntries = 0;
     }
 
-    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries){
+    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries){
 
         this.address = address;
         this.overlayId = overlayId;
         this.isLGMember = isLGMember;
         this.numberOfEntries = numberOfEntries;
         this.epochContainerEntries = epochContainerEntries;
+        this.actualEntries = actualEntries;
     }
     
     
@@ -109,11 +111,23 @@ public class ApplicationSelf {
      * @return Copy of Self.
      */
     public ApplicationSelf shallowCopy(){
-        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries);
+        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries, this.actualEntries);
     }
 
     public void setNumberOfEntries(long entries){
         this.numberOfEntries = entries;
     }
 
+    
+    public void incrementActualEntries(){
+        this.actualEntries ++;
+    }
+    
+    public long getActualEntries() {
+        return actualEntries;
+    }
+
+    public void setActualEntries(long actualEntries) {
+        this.actualEntries = actualEntries;
+    }
 }

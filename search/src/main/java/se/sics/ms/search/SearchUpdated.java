@@ -324,14 +324,21 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(lowestMissingEntryTracker.leaderPullRequest, networkPort);
         subscribe(lowestMissingEntryTracker.leaderPullResponse, networkPort);
 
-
+        // Epoch Add Protocol. (Not used right now.)
         subscribe(epochAdditionTimeoutHandler, timerPort);
         subscribe(epochAddTracker.epochAddPrepareRequest, networkPort);
         subscribe(epochAddTracker.epochAddPrepareResponse, networkPort);
         subscribe(epochAddTracker.epochCommitRequestHandler, networkPort);
         subscribe(epochAddTracker.epochCommitResponseHandler, networkPort);
         subscribe(epochAddTracker.awaitingEpochCommitHandler, timerPort);
-        
+
+        // Shard Protocol Handlers
+        subscribe(shardRoundTimeoutHandler, timerPort);
+        subscribe(shardTracker.shardingPrepareRequest, networkPort);
+        subscribe(shardTracker.shardingPrepareResponse, networkPort);
+        subscribe(shardTracker.shardingCommitRequest, networkPort);
+        subscribe(shardTracker.shardingCommitResponse, networkPort);
+        subscribe(shardTracker.awaitingShardCommitHandler, networkPort);
         
         subscribe(gradientSampleHandler, gradientPort);
     }
@@ -1997,16 +2004,25 @@ public final class SearchUpdated extends ComponentDefinition {
             // Remove Entries from the lowest missing tracker also.
             if (isPartition) {
                 
-                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(writeEntryLuceneAdaptor, middleId);
+                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(
+                        writeEntryLuceneAdaptor, 
+                        middleId);
+                
                 lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
             }
             else {
                 
-                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(writeEntryLuceneAdaptor, middleId);
+                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(
+                        writeEntryLuceneAdaptor, 
+                        middleId);
+                
                 lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
             }
 
+            // Recalculte the size of total and the actual entries in the system.
             self.setNumberOfEntries(writeEntryLuceneAdaptor.getSizeOfLuceneInstance());
+            self.setActualEntries(writeEntryLuceneAdaptor.getActualSizeOfInstance());  
+            
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
         } 
         catch (LuceneAdaptorException e) {
@@ -2128,6 +2144,15 @@ public final class SearchUpdated extends ComponentDefinition {
         addEntryToLucene(writeEntryLuceneAdaptor, entry);
         self.incrementECEntries();
         self.incrementEntries();
+        
+        if( !entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY) ) {
+            
+            // We do not include landing entries 
+            // as part of actual entries for calculating the splitting point.
+            
+            self.incrementActualEntries();      
+        }
+        
         informListeningComponentsAboutUpdates(self);
     }
 
@@ -2267,10 +2292,9 @@ public final class SearchUpdated extends ComponentDefinition {
         CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
         trigger(cancelTimeout, timerPort);
         shardTracker.resetShardingParameters();
-        
+
         epochHistoryTracker.addEpochUpdate (previousEpoch);      // Close the previous epoch update.
         handleSharding((ShardEpochContainer)shardContainer);    // Handle the sharding phase.
-        epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process.
         
         partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
@@ -2302,7 +2326,8 @@ public final class SearchUpdated extends ComponentDefinition {
             
             List<EpochContainer> skipList = generateSkipList(shardContainer, medianId, partitionSubId);
             epochHistoryTracker.addSkipList(skipList);
-            
+
+            epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process, once the skip list is added.
             lowestMissingEntryTracker.resumeTracking();
         } 
         catch (Exception e){
@@ -2412,8 +2437,13 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     public void applyShardingUpdate(boolean partitionSubId, PartitionId selfPartitionId, ApplicationEntry.ApplicationEntryId medianId) {
 
-        shardToNextLevel(partitionSubId, selfPartitionId);
-        removeEntriesNotFromYourShard( medianId, partitionSubId );
+        shardToNextLevel(
+                partitionSubId, 
+                selfPartitionId);
+        
+        removeEntriesNotFromYourShard( 
+                medianId, 
+                partitionSubId );
         
         informListeningComponentsAboutUpdates(self);
     }
@@ -2455,7 +2485,7 @@ public final class SearchUpdated extends ComponentDefinition {
      * @return Shard True/False
      */
     private boolean isTimeToShard(){
-        return ( self.getNumberOfEntries() >= config.getMaxEntriesOnPeer() );
+        return ( self.getActualEntries() >= config.getMaxEntriesOnPeer() );
     }
     
 
@@ -3225,9 +3255,14 @@ public final class SearchUpdated extends ComponentDefinition {
 
         return new BaseEpochContainer(currentEpoch, self.getId());
     }
-    
-    
-    
+
+
+    /**
+     * Check the Lucene Instance for the entries that were added in the
+     * precious epoch id instance. The issue with the
+     * @return
+     * @throws LuceneAdaptorException
+     */
     private EpochContainer closePreviousEpoch() throws LuceneAdaptorException {
         
         EpochContainer lastEpochUpdate = epochHistoryTracker.getLastUpdate();
@@ -3235,14 +3270,21 @@ public final class SearchUpdated extends ComponentDefinition {
         if ( lastEpochUpdate != null) {
 
             Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
-                    ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
-                    ApplicationEntry.LEADER_ID, lastEpochUpdate.getLeaderId());
+                            ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
+                            ApplicationEntry.LEADER_ID, 
+                            lastEpochUpdate.getLeaderId());
 
             TotalHitCountCollector hitCollector = new TotalHitCountCollector();
-            writeEntryLuceneAdaptor.searchDocumentsInLucene(epochUpdateEntriesQuery, hitCollector);
+            writeEntryLuceneAdaptor.searchDocumentsInLucene(
+                    epochUpdateEntriesQuery, 
+                    hitCollector);
 
             int numEntries = hitCollector.getTotalHits();
-            lastEpochUpdate = new BaseEpochContainer(lastEpochUpdate.getEpochId(), lastEpochUpdate.getLeaderId(), numEntries);
+            
+            lastEpochUpdate = new BaseEpochContainer(
+                    lastEpochUpdate.getEpochId(), 
+                    lastEpochUpdate.getLeaderId(), 
+                    numEntries);
             
         }
         
@@ -4524,7 +4566,14 @@ public final class SearchUpdated extends ComponentDefinition {
         private void resumeTracking(){
 
             logger.debug("{}: Switching the entry exchange round again .." , prefix);
+            
             isPaused = false;
+            currentTrackingUpdate = epochHistoryTracker
+                    .getNextUpdateToTrack( currentTrackingUpdate );
+            
+            if(currentTrackingUpdate == null){
+                throw new IllegalStateException(" Shard Protocol corrupted ... ");
+            }
         }
 
 
@@ -4563,11 +4612,292 @@ public final class SearchUpdated extends ComponentDefinition {
             }
         }
         
-        
-        
-        
+    }
+
+
+
+
+    /**
+     * Stores and keep tracks of the epoch history.
+     *
+     * No specific ordering is imposed here. It is the responsibility of the application to
+     * fetch the epoch updates in order by looking at the last added the epoch history.
+     *
+     * @author babbarshaer
+     */
+    public class EpochHistoryTracker {
+
+        private LinkedList<EpochContainer> epochUpdateHistory;
+        private static final int START_EPOCH_ID = 0;
+        private LinkedList<EpochContainer> bufferedEpochHistory;
+        private BasicAddress selfAddress;
+        private String prefix;
+        private GenericECComparator comparator;
+        private ArrayList<EpochContainer> skipEpochHistory;
+
+        public EpochHistoryTracker(BasicAddress address){
+
+            logger.trace("Tracker Initialized .. ");
+            epochUpdateHistory = new LinkedList<EpochContainer>();
+            bufferedEpochHistory = new LinkedList<EpochContainer>();
+            skipEpochHistory = new ArrayList<EpochContainer>();
+            comparator = new GenericECComparator();
+
+            this.selfAddress = address;
+            this.prefix = String.valueOf(address.getId());
+        }
+
+
+
+        public void printEpochHistory(){
+            logger.warn("EpochHistory: {}", epochUpdateHistory);
+        }
+
+        /**
+         * Based on the last missing entry,
+         * decide the epochId the application needs to close right now.
+         *
+         * @return next epoch id to ask.
+         */
+        private long epochIdToFetch(){
+
+            EpochContainer lastUpdate = getLastUpdate();
+
+            return lastUpdate == null
+                    ? START_EPOCH_ID
+                    :((lastUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED)
+                    ? lastUpdate.getEpochId()+1
+                    : lastUpdate.getEpochId());
+        }
+
+
+        /**
+         * General Interface to add an epoch to the history.
+         * In case it is epoch update is already present in the history, update the entry with the new one.
+         * FIX : Identify the methodology in case the epoch update is ahead and is a partition merge update.
+         * FIX : Identify the methodology in case the epoch update is a part of shard update.
+         *
+         * @param epochUpdate Epoch Update.
+         */
+        public void addEpochUpdate(EpochContainer epochUpdate) {
+
+            if( epochUpdate == null ){
+                logger.debug("Request to add default epoch update received, returning ... ");
+                return;
+            }
+
+            long epochIdToFetch = epochIdToFetch();
+            int index = -1;
+            for(int i =0; i < epochUpdateHistory.size() ; i ++){
+                if(epochUpdateHistory.get(i).getEpochId() == epochUpdate.getEpochId() &&
+                        epochUpdateHistory.get(i).getLeaderId() == epochUpdate.getLeaderId()) {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index != -1) {
+                epochUpdateHistory.set(index, epochUpdate);
+            }
+
+            else if(epochUpdate.getEpochId() == epochIdToFetch){
+
+                logger.debug("{}: Going to add new epoch update :{} ", prefix, epochUpdate);
+                
+                if(epochUpdate instanceof ShardEpochContainer){
+                    
+                    // Simply inform the application about the sharding update and return.
+                    handleSharding((ShardEpochContainer) epochUpdate); 
+                    return;
+                }
+                
+                epochUpdateHistory.addLast(epochUpdate); // Only append the entries in order.
+            }
+
+            // Special Case of the Network Partitioning Merge, in which we have to collapse the history.
+            else if(epochUpdate.getEpochId() > epochIdToFetch){
+
+                // Special Case Handling for the Network Merge is required.
+                logger.error(" HANDLE Case of the Network Partitioning Merge In the System.");
+                bufferedEpochHistory.add(epochUpdate);              // TO DO: Condition needs to be properly handled.
+                throw new UnsupportedOperationException(" Operation Not Supported Yet ");
+            }
+
+            else{
+                logger.warn("{}: Whats the case that occurred : ?", prefix);
+                throw new IllegalStateException("Unknown State ..1");
+            }
+
+        }
+
+        /**
+         * Get the last update that has been added to the history tracker.
+         * The application needs this information to know where to pull from.
+         *
+         * @return Epoch Update.
+         */
+        public EpochContainer getLastUpdate(){
+
+            return !this.epochUpdateHistory.isEmpty()
+                    ? this.epochUpdateHistory.getLast()
+                    : null;
+        }
+
+        /**
+         * Based on epoch update provided calculate the next epoch update that needs to be tracked by
+         * the index pull mechanism.
+         *
+         * @param update
+         * @return
+         */
+        public EpochContainer getNextUpdateToTrack(EpochContainer update){
+
+            EpochContainer nextUpdate = null;
+            Iterator<EpochContainer> iterator = epochUpdateHistory.iterator();
+
+            while(iterator.hasNext()){
+
+                if(iterator.next().equals(update))
+                {
+                    if(iterator.hasNext())
+                    {
+                        nextUpdate = iterator.next();
+                        break;                              // Check Here About the Buffered Epoch Updates in The System and Remove them from the
+                    }
+                }
+            }
+
+            // Check in skipList.
+            if(nextUpdate != null && skipEpochHistory.contains(nextUpdate)){
+
+                skipEpochHistory.remove(nextUpdate);
+                nextUpdate = getNextUpdateToTrack(nextUpdate);
+            }
+
+            return nextUpdate;
+        }
+
+        /**
+         * Check for any updates to the entry matching the value provided by the
+         * application.
+         *
+         * @param update Update to match against.
+         * @return Updated Value.
+         */
+        public EpochContainer getSelfUpdate(EpochContainer update){
+
+            if( update == null ){
+                return null;
+            }
+
+            for(EpochContainer epochUpdate : epochUpdateHistory){
+                if(epochUpdate.getEpochId() == update.getEpochId()
+                        && epochUpdate.getLeaderId() == update.getLeaderId()){
+
+                    return epochUpdate;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Search for the update with the starting epochId.
+         * Return the first known reference.
+         *
+         * @return Initial Epoch Update.
+         */
+        public EpochContainer getInitialEpochUpdate() {
+
+            for(EpochContainer update : epochUpdateHistory){
+                if(update.getEpochId() == START_EPOCH_ID){
+                    return update;
+                }
+            }
+
+            return null;
+        }
+
+
+        /**
+         * Based on the current epoch update,
+         * get the next updates from the epoch history collection.
+         *
+         * @param current current update
+         * @param limit Max updates to provide.
+         * @return Successive Updates.
+         */
+        public List<EpochContainer> getNextUpdates(EpochContainer current, int limit) {
+
+            List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
+
+            if (current == null) {
+
+                current = getInitialEpochUpdate();
+                if(current != null) {
+                    nextUpdates.add(current);
+                }
+            }
+            else{
+                current = getSelfUpdate(current);
+            }
+
+            if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+
+                // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
+                // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
+
+                int index = epochUpdateHistory.indexOf(current);
+                if(index != -1){
+
+                    ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);
+                    int count = 0;
+                    while(listIterator.hasNext() && count < limit){
+                        nextUpdates.add(listIterator.next());
+                        count ++;
+                    }
+                }
+
+                else{
+                    logger.debug("Unable to locate epoch requested:{}", current);
+                }
+            }
+
+            return nextUpdates;
+        }
+
+        /**
+         * The method should always add the epoch updates to the tracker in order.
+         * This method delegates the responsibility to the common method inside the
+         * class to add the updates but also to check if they are in order or not.
+         *
+         * @param intersection Collection.
+         */
+        public void addEpochUpdates(List<EpochContainer> intersection) {
+
+            Collections.sort(intersection, comparator );
+
+            for (EpochContainer nextUpdate : intersection) {
+                addEpochUpdate(nextUpdate);
+            }
+        }
+
+
+        /**
+         * Collection of updates that the entry pull mechanism needs to skip.
+         * So these are buffered in epoch history to be removed when pull mechanism reaches that point.
+         *
+         * @param skipUpdateCollection collection.
+         */
+        public void addSkipList(Collection<EpochContainer> skipUpdateCollection){
+            skipEpochHistory.addAll(skipUpdateCollection);
+        }
+
+
 
     }
+    
+    
 
 }
 
