@@ -5,6 +5,7 @@ import se.sics.ms.types.EpochUpdate;
 import se.sics.ms.types.OverlayId;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
+import java.security.PublicKey;
 import java.util.List;
 import java.util.UUID;
 
@@ -79,14 +80,14 @@ public class ControlPull {
 
         private UUID pullRound;
         private DecoratedAddress leaderAddress;
-//        private EpochContainer modifiedUpdate;
+        private PublicKey leaderKey;
         private List<EpochContainer> nextUpdates;
 
 
-        public Response(UUID pullRound, DecoratedAddress leaderAddress, List<EpochContainer> nextUpdates) {
+        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<EpochContainer> nextUpdates) {
             this.pullRound = pullRound;
             this.leaderAddress = leaderAddress;
-//            this.modifiedUpdate = modifiedUpdate;
+            this.leaderKey = leaderKey;
             this.nextUpdates = nextUpdates;
         }
 
@@ -94,12 +95,13 @@ public class ControlPull {
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof Response)) return false;
+            if (o == null || getClass() != o.getClass()) return false;
 
             Response response = (Response) o;
 
             if (leaderAddress != null ? !leaderAddress.equals(response.leaderAddress) : response.leaderAddress != null)
                 return false;
+            if (leaderKey != null ? !leaderKey.equals(response.leaderKey) : response.leaderKey != null) return false;
             if (nextUpdates != null ? !nextUpdates.equals(response.nextUpdates) : response.nextUpdates != null)
                 return false;
             if (pullRound != null ? !pullRound.equals(response.pullRound) : response.pullRound != null) return false;
@@ -111,6 +113,7 @@ public class ControlPull {
         public int hashCode() {
             int result = pullRound != null ? pullRound.hashCode() : 0;
             result = 31 * result + (leaderAddress != null ? leaderAddress.hashCode() : 0);
+            result = 31 * result + (leaderKey != null ? leaderKey.hashCode() : 0);
             result = 31 * result + (nextUpdates != null ? nextUpdates.hashCode() : 0);
             return result;
         }
@@ -120,8 +123,13 @@ public class ControlPull {
             return "Response{" +
                     "pullRound=" + pullRound +
                     ", leaderAddress=" + leaderAddress +
+                    ", leaderKey=" + leaderKey +
                     ", nextUpdates=" + nextUpdates +
                     '}';
+        }
+
+        public PublicKey getLeaderKey() {
+            return leaderKey;
         }
 
         public UUID getPullRound() {

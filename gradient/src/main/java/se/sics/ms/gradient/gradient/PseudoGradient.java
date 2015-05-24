@@ -241,7 +241,9 @@ public final class PseudoGradient extends ComponentDefinition {
                 // If we have direct pointer to the leader.
                 else if (leaderAddress != null) {
                     
-                    logger.debug ("Triggering the entry request to leader: {}", leaderAddress);
+                    logger.warn ("Triggering the entry request to leader: {}", leaderAddress);
+                    System.exit(-1);
+                    
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), leaderAddress, Transport.UDP);
                     AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry());
 
@@ -250,6 +252,9 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 // Ask nodes above me for the leader pointer. ( Fix this. )
                 else {
+
+                    logger.warn ("Triggering the entry request to nodes above for finding the leader ... ", leaderAddress);
+                    System.exit(-1);
                     
                     NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
                     startNodes.addAll(getGradientSample());

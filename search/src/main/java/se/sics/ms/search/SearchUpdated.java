@@ -123,7 +123,8 @@ public final class SearchUpdated extends ComponentDefinition {
     private boolean landingEntryAdded = false;
     TreeSet<SearchDescriptor> gradientEntrySet;
     private DecoratedAddress leaderAddress;
-
+    private PublicKey leaderKey;
+    
     private Map<UUID, ReplicationCount> replicationRequests;
     private Map<UUID, ReplicationCount> commitRequests;
     private Map<Long, UUID> gapTimeouts;
@@ -338,7 +339,7 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(shardTracker.shardingPrepareResponse, networkPort);
         subscribe(shardTracker.shardingCommitRequest, networkPort);
         subscribe(shardTracker.shardingCommitResponse, networkPort);
-        subscribe(shardTracker.awaitingShardCommitHandler, networkPort);
+        subscribe(shardTracker.awaitingShardCommitHandler, timerPort);
         
         subscribe(gradientSampleHandler, gradientPort);
     }
@@ -2782,34 +2783,6 @@ public final class SearchUpdated extends ComponentDefinition {
     }
 
     /**
-     * Create an {@link se.sics.ms.types.IndexEntry} from the given document.
-     *
-     * @param d the document to create an {@link se.sics.ms.types.IndexEntry} from
-     * @return an {@link se.sics.ms.types.IndexEntry} representing the given document
-     */
-    private IndexEntry createIndexEntry(Document d) {
-        String leaderId = d.get(IndexEntry.LEADER_ID);
-
-        if (leaderId == null)
-            return createIndexEntryInternal(d, null);
-
-        KeyFactory keyFactory;
-        PublicKey pub = null;
-        try {
-            keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
-            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
-            pub = keyFactory.generatePublic(publicKeySpec);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(self.getId() + " " + e.getMessage());
-        } catch (InvalidKeySpecException e) {
-            logger.error(self.getId() + " " + e.getMessage());
-        }
-
-        return createIndexEntryInternal(d, pub);
-    }
-
-    /**
      * Find an entry for the given id in the local index store.
      *
      * @param id the id of the entry
@@ -3594,9 +3567,11 @@ public final class SearchUpdated extends ComponentDefinition {
     Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
         @Override
         public void handle(LeaderUpdate event) {
+            
             logger.debug("{}: Update regarding the leader in the system is received", self.getId());
             updateLeaderIds(event.leaderPublicKey);
             leaderAddress = event.leaderAddress;
+            leaderKey = event.leaderPublicKey;
         }
     };
 
@@ -3963,15 +3938,12 @@ public final class SearchUpdated extends ComponentDefinition {
 
                         // TO DO: Process the control pull request and then calculate the updates that needs to be sent back to the user.
 
-                        DecoratedAddress addr = leaderAddress;
                         List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
                         
-//                        EpochContainer selfUpdated = historyTracker.getSelfUpdate(request.getEpochUpdate());
+                        DecoratedAddress address = leaderAddress;
+                        PublicKey key = leaderKey;
+                        
                         Collection<EpochContainer> updates = null;
-//                        if( selfUpdated != null){
-//                            nextUpdates.add(selfUpdated);
-//                        }
-
                         updates = historyTracker.getNextUpdates(request.getEpochUpdate(),
                                     config.getMaximumEpochUpdatesPullSize());
                         
@@ -3979,9 +3951,9 @@ public final class SearchUpdated extends ComponentDefinition {
                             nextUpdates.addAll(updates);
                         }
                         
-                        logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
+                        logger.warn("{}: Epoch Update List: {}", prefix, nextUpdates);
 
-                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), addr, nextUpdates); // Handler for the DecoratedAddress
+                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
@@ -4011,7 +3983,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         if(currentUpdate != null){
                             
                             if(updates.isEmpty() || !checkOriginalExtension(updates.get(0))){
-                                logger.warn("{}: Control exchange protocol violated, Received Base Update : {} , not extension of sent: {} returning", new Object[]{prefix, updates.get(0), currentUpdate});
+//                                logger.warn("{}: Control exchange protocol violated, returning ... ", new Object[]{prefix});
                                 return;
                             }
                         }
@@ -4020,10 +3992,9 @@ public final class SearchUpdated extends ComponentDefinition {
                         pullResponseMap.put(event.getSource(), response);
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
-                            logger.debug("{}: Processing the control responses to find common matches", prefix);
                             logger.debug("{}: Pull Response Map: {}", pullResponseMap);
-
                             performResponseMatch();
+                            
                             currentPullRound = null;
                             pullResponseMap.clear();
                         }
@@ -4043,11 +4014,17 @@ public final class SearchUpdated extends ComponentDefinition {
         }
 
 
+        /**
+         * Go through all the responses that the node fetched through the pull mechanism 
+         * and then find the commonly matched responses and inform the listening components 
+         * about the updates received.
+         * 
+         */
         private void performResponseMatch() {
 
             List<EpochContainer> intersection;
 
-            if (pullResponseMap.size() > 0) {
+            if ( pullResponseMap.size() > 0 ) {
 
                 intersection = pullResponseMap
                         .values().iterator().next()
@@ -4056,32 +4033,39 @@ public final class SearchUpdated extends ComponentDefinition {
                 for (ControlPull.Response response : pullResponseMap.values()) {
                     intersection.retainAll(response.getNextUpdates());
                 }
-
-
                 historyTracker.addEpochUpdates(intersection);
-                // Leader Matching.
-                DecoratedAddress baseLeader = pullResponseMap.values()
-                        .iterator().next()
-                        .getLeaderAddress();
 
-                if (baseLeader == null) {
+                // Leader Matching.
+                ControlPull.Response baseResponse = pullResponseMap.values()
+                        .iterator()
+                        .next();
+                
+                DecoratedAddress baseLeader = baseResponse.getLeaderAddress();
+                PublicKey baseLeaderKey = baseResponse.getLeaderKey();
+                
+                if (baseLeader == null || baseLeaderKey == null) {
                     logger.debug("{}: No Common Leader Updates ", prefix);
                     return;
                 }
 
                 for (ControlPull.Response response : pullResponseMap.values()) {
-                    if (response.getLeaderAddress() == null || !response.getLeaderAddress().equals(baseLeader)) {
+                    if (response.getLeaderAddress() == null 
+                            || !response.getLeaderAddress().equals(baseLeader)
+                            || response.getLeaderKey() == null
+                            || !response.getLeaderKey().equals(baseLeaderKey)) {
+                        
                         logger.debug("{}: Mismatch Found Returning ... ");
                         return;
                     }
                 }
 
                 logger.debug("{}: Found the leader update:{}", prefix, baseLeader);
+                
                 leaderAddress = baseLeader;
+                leaderKey = baseLeaderKey;
+                trigger(new LeaderInfoUpdate(baseLeader, baseLeaderKey), leaderStatusPort);     // Inform the gradient about the matched leader update.
             }
-
         }
-
     }
 
     /**
@@ -4854,35 +4838,38 @@ public final class SearchUpdated extends ComponentDefinition {
             List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
 
             if (current == null) {
-
                 current = getInitialEpochUpdate();
-                if(current != null) {
-                    nextUpdates.add(current);
-                }
             }
             else{
                 current = getSelfUpdate(current);
             }
 
-            if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+            if( current != null ){
+                
+                nextUpdates.add(current);
+                
+                if(!current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+                    
+                    // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
+                    // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
 
-                // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
-                // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
+                    int index = epochUpdateHistory.indexOf(current);
+                    if(index != -1){
 
-                int index = epochUpdateHistory.indexOf(current);
-                if(index != -1){
-
-                    ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);
-                    int count = 0;
-                    while(listIterator.hasNext() && count < limit){
-                        nextUpdates.add(listIterator.next());
-                        count ++;
+                        ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);
+                        int count = 0;
+                        while(listIterator.hasNext() && count < limit){
+                            nextUpdates.add(listIterator.next());
+                            count ++;
+                        }
+                    }
+                    
+                    else{
+                        logger.error("Unable to locate epoch requested:{}", current);
+                        throw new IllegalStateException("Unable to locate the resource ...");
                     }
                 }
 
-                else{
-                    logger.debug("Unable to locate epoch requested:{}", current);
-                }
             }
 
             return nextUpdates;
