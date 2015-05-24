@@ -1481,11 +1481,15 @@ public final class SearchUpdated extends ComponentDefinition {
 
                                 logger.debug("{}: Request to add a new landing entry in system", prefix);
                                 
+                                // Encapsulate the below structure in a separate method. 
+                                
                                 EpochContainer update = new BaseEpochContainer(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
                                 epochHistoryTracker.addEpochUpdate(update);
                                 
                                 lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
+                                self.resetContainerEntries(); // Update the epoch container entries to be 0, in case epoch gets added.
+                                nextInsertionId = LANDING_ENTRY_ID;
                                 
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
@@ -2120,7 +2124,6 @@ public final class SearchUpdated extends ComponentDefinition {
             if(self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader){
                 
                 logger.warn("{}: Time to initiate the container switch.", prefix);
-                self.resetContainerEntries();       // RESET the container entries.
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
                 
@@ -2131,9 +2134,8 @@ public final class SearchUpdated extends ComponentDefinition {
             checkAndInitiateSharding();
             
         } else {
-
-            logger.warn("{}: Not supposed to add entry in Lucene ... Returning ... ");
-            throw new UnsupportedOperationException(" The semantics of tasks to perform in case entry cannot be added in system is not defined yet ");
+            logger.warn("{}: Not supposed to add entry :{} in Lucene ...Buffering It And Returning ... ", prefix, entry);
+            lowestMissingEntryTracker.printCurrentTrackingInfo();
         }
     }
 
@@ -3098,7 +3100,6 @@ public final class SearchUpdated extends ComponentDefinition {
                     }
                 }
                 
-                self.resetContainerEntries();       // RESET the container entries.
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
             } catch (LuceneAdaptorException e) {
@@ -3405,8 +3406,6 @@ public final class SearchUpdated extends ComponentDefinition {
             public void handle(TimeoutCollection.AwaitingEpochCommit event) {
                 
                 logger.warn("{}: Triggered Epoch Commit Timeout ", prefix);
-                System.exit(-1);
-                
                 if(awaitEpochCommit != null && awaitEpochCommit.equals(event.getTimeoutId())){
                     epochUpdatePacketPair = null;
                 }
@@ -3479,7 +3478,6 @@ public final class SearchUpdated extends ComponentDefinition {
                         || !epochUpdatePacketPair.getValue0().equals(request.epochAdditionRound) ){
                     
                     logger.warn("{}: Received Commit request after the round has expired ... ", prefix);
-                    System.exit(-1);
                     return;
                 }
 
@@ -3530,8 +3528,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 if (leader) {
 
                     logger.warn(" {}: Landing Entry Commit Failed, so trying again", prefix);
-                    System.exit(-1);
-
+                    
                     ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
                     st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
                     UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
@@ -3539,8 +3536,9 @@ public final class SearchUpdated extends ComponentDefinition {
                     // Reset the tracker information for the round.
                     landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID, landingEntryTracker.getPreviousEpochContainer());
                     initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
-
+                    
                     trigger(st, timerPort);
+                    throw new UnsupportedOperationException(" Operation regarding the restart of the landing entry addition ... ");
                 }
             } else {
                 logger.warn(" Timeout triggered after landing entry tracker was updated.");
@@ -3951,7 +3949,7 @@ public final class SearchUpdated extends ComponentDefinition {
                             nextUpdates.addAll(updates);
                         }
                         
-                        logger.warn("{}: Epoch Update List: {}", prefix, nextUpdates);
+                        logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
                         ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
@@ -4102,7 +4100,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            if(self.getId() == 1879934641 || self.getId() == 1464181753) // only for last node right now.
+                logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -4251,6 +4250,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 } 
                 catch(Exception ex){
+                    logger.warn("{}: Entries Pulled : {}" , prefix, response.getMissingEntries());
                     throw new RuntimeException("Unable to add entries in System", ex);
                 }
             }
@@ -4496,7 +4496,9 @@ public final class SearchUpdated extends ComponentDefinition {
             }
 
             // In case we reached this point we add it to the existing entries as we cannot add to Lucene Yet.
-            existingEntries.put(entry.getApplicationEntryId(), entry);
+            if(!existingEntries.keySet().contains(entry.getApplicationEntryId()))
+                existingEntries.put(entry.getApplicationEntryId(), entry);
+            
             return false;
         }
 
