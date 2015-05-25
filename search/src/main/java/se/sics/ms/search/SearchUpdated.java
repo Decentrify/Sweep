@@ -1235,7 +1235,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
         if (leaderGroupInformation != null && !leaderGroupInformation.isEmpty()) {
 
-            logger.warn("{} :Reached at the stage of starting with the entry commit ... ", prefix);
+            logger.debug("{} :Reached at the stage of starting with the entry commit ... ", prefix);
             recentRequests.put(request.getEntryAdditionRound(), System.currentTimeMillis());
             IndexEntry newEntry = request.getEntry();
 
@@ -1245,7 +1245,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             if (newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
-                logger.warn(" {}: Became a leader and going to add a new landing entry, Information of Landing Entry need not to be changed.", prefix);
+                logger.warn(" {}: Going to add a new landing entry in the system. ", prefix);
                 lastEpochUpdate = landingEntryTracker.getPreviousEpochContainer() != null ? landingEntryTracker.getPreviousEpochContainer() : null;
                 applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(landingEntryTracker.getEpochId(), self.getId(), LANDING_ENTRY_ID), newEntry);
                 addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry, lastEpochUpdate);
@@ -1271,7 +1271,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
             EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(), leaderGroupInformation, applicationEntry, source, lastEpochUpdate);
             entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
-            logger.warn("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
+            logger.debug("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
 
             for (DecoratedAddress destination : leaderGroupInformation) {
                 logger.debug("Sending prepare commit request to : {}", destination.getId());
@@ -1998,7 +1998,7 @@ public final class SearchUpdated extends ComponentDefinition {
      *
      * Based on the median entry and the boolean check, determine 
      * the entry base that needs to be removed and ultimately update the 
-     * entry base information.
+     * self with the remaining entries.
      *
      * @param middleId
      * @param isPartition
@@ -2023,10 +2023,16 @@ public final class SearchUpdated extends ComponentDefinition {
                 
                 lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
             }
+            
+            int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
+            int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
+            
+            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{ prefix, size, actualSize});
+            lowestMissingEntryTracker.printExistingEntries();
 
             // Recalculte the size of total and the actual entries in the system.
-            self.setNumberOfEntries(writeEntryLuceneAdaptor.getSizeOfLuceneInstance());
-            self.setActualEntries(writeEntryLuceneAdaptor.getActualSizeOfInstance());  
+            self.setNumberOfEntries(size);
+            self.setActualEntries(actualSize);
             
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
         } 
@@ -2149,7 +2155,8 @@ public final class SearchUpdated extends ComponentDefinition {
     private void commitAndUpdateUtility(ApplicationEntry entry) throws LuceneAdaptorException {
 
         addEntryToLucene(writeEntryLuceneAdaptor, entry);
-        
+
+        // Increment self utility in terms of entries addition to self.
         self.incrementECEntries();
         self.incrementEntries();
         
@@ -2255,12 +2262,15 @@ public final class SearchUpdated extends ComponentDefinition {
         
         if(isTimeToShard()) {
 
+            logger.warn("{}: Let's finish this sharding fear now ..." , prefix);
             ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
             
             if(entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader){
                 logger.error("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
                 return;
             }
+            
+            logger.warn("{}: Sharding Median ID: {} ", prefix, entryId);
             
             partitionInProgress = true;
             EpochContainer previousUpdate = closePreviousEpoch();
@@ -2293,14 +2303,16 @@ public final class SearchUpdated extends ComponentDefinition {
      */
     private void handleSharding( UUID shardRoundID, EpochContainer previousEpoch, EpochContainer shardContainer ) {
 
-        if(!shardTracker.getShardRoundId().equals(shardRoundID)){
+        if(shardRoundID != null && !shardTracker.getShardRoundId().equals(shardRoundID)){
             throw new RuntimeException("Sharding Tracker seems to be corrupted ... ");
         }
 
-        CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
-        trigger(cancelTimeout, timerPort);
-        shardTracker.resetShardingParameters();
-
+        if( shardRoundID!= null ){
+            CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
+            trigger(cancelTimeout, timerPort);
+            shardTracker.resetShardingParameters();    
+        }
+        
         epochHistoryTracker.addEpochUpdate (previousEpoch);      // Close the previous epoch update.
         handleSharding((ShardEpochContainer)shardContainer);    // Handle the sharding phase.
         
@@ -2318,7 +2330,7 @@ public final class SearchUpdated extends ComponentDefinition {
         
         try{
 
-            logger.debug("{}: Handle the main sharding update ... ");
+            logger.warn("{}: Handle the main sharding update ... ", prefix);
             
             ApplicationEntry.ApplicationEntryId medianId = shardContainer.getMedianId();
             lowestMissingEntryTracker.pauseTracking();
@@ -2332,7 +2344,12 @@ public final class SearchUpdated extends ComponentDefinition {
             boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
             applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
             
+            lowestMissingEntryTracker.printCurrentTrackingInfo();
             List<EpochContainer> skipList = generateSkipList(shardContainer, medianId, partitionSubId);
+            
+            logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
+            System.exit(-1);
+
             epochHistoryTracker.addSkipList(skipList);
 
             epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process, once the skip list is added.
@@ -2381,12 +2398,11 @@ public final class SearchUpdated extends ComponentDefinition {
             while(iterator.hasNext()){
 
                 EpochContainer nextContainer = iterator.next();
-                
-                if(!(nextContainer.getEpochId() >= medianId.getEpochId() &&
-                        nextContainer.getLeaderId() > medianId.getLeaderId()))
-                {
+
+                if(nextContainer.getEpochId() < medianId.getEpochId()){
                     iterator.remove();
                 }
+                
             }
         }
         
@@ -2398,9 +2414,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 
                 EpochContainer nextContainer = iterator.next();
                 
-                if( !(medianId.getEpochId() > nextContainer.getEpochId() &&
-                        medianId.getLeaderId() >= nextContainer.getLeaderId()) )
-                {
+                if(nextContainer.getEpochId() >= medianId.getEpochId()){
                     iterator.remove();
                 }
             }
@@ -2465,9 +2479,9 @@ public final class SearchUpdated extends ComponentDefinition {
         shardToNextLevel(
                 partitionSubId, 
                 selfPartitionId);
-        
-        removeEntriesNotFromYourShard( 
-                medianId, 
+
+        removeEntriesNotFromYourShard(
+                medianId,
                 partitionSubId );
         
         informListeningComponentsAboutUpdates(self);
@@ -2487,7 +2501,7 @@ public final class SearchUpdated extends ComponentDefinition {
             UUID shardTrackerRoundID = shardTracker.getShardRoundId();
             
             if(shardTrackerRoundID != null && event.getTimeoutId().equals(shardTrackerRoundID)){
-
+                partitionInProgress = false;
                 logger.warn("{}: Need to restart the shard round id");
                 throw new UnsupportedOperationException("Operation not supported ... ");
             }
@@ -3793,7 +3807,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 
                 if(promises >= cohorts.size()) {
                     
-                    logger.debug("{}: Promise round over, moving to commit phase ", prefix);
+                    logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
                     ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
                     
                     for(DecoratedAddress destination : cohorts){
@@ -3828,8 +3842,15 @@ public final class SearchUpdated extends ComponentDefinition {
                     return;
                 }
                 
-                // Apply Sharding Update.
-                // Inform application about the sharding update.
+                // Cancel the awaiting timeout.
+                UUID timeoutId = shardPacketPair.getValue0();
+                CancelTimeout ct = new CancelTimeout(timeoutId);
+                trigger(ct, timerPort);
+                awaitShardCommit = null;
+                
+                // Shard the node.
+                EpochUpdatePacket updatePacket = shardPacketPair.getValue1();
+//                handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
                 
                 ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
@@ -4100,8 +4121,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            if(self.getId() == 1879934641 || self.getId() == 1464181753) // only for last node right now.
-                logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            if(self.getId() == 262536227) // only for last node right now.
+                logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -4620,6 +4641,11 @@ public final class SearchUpdated extends ComponentDefinition {
             }
         }
         
+        
+        private void printExistingEntries(){
+            logger.warn("Existing Entries {}:", this.existingEntries.toString());
+        }
+        
     }
 
 
@@ -4839,18 +4865,17 @@ public final class SearchUpdated extends ComponentDefinition {
 
             List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
 
-            if (current == null) {
+            if (current == null){
                 current = getInitialEpochUpdate();
             }
-            else{
+            else {
                 current = getSelfUpdate(current);
             }
 
             if( current != null ){
-                
-                nextUpdates.add(current);
-                
-                if(!current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+
+                if(!current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING))
+                {
                     
                     // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
                     // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
@@ -4870,6 +4895,11 @@ public final class SearchUpdated extends ComponentDefinition {
                         logger.error("Unable to locate epoch requested:{}", current);
                         throw new IllegalStateException("Unable to locate the resource ...");
                     }
+                }
+                
+                else
+                {
+                    nextUpdates.add(current);
                 }
 
             }

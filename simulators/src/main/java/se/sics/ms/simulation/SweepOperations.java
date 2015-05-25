@@ -137,7 +137,7 @@ public class SweepOperations {
                 @Override
                 public Msg getNetworkMsg(Address address) {
 
-                    logger.debug("Add Index Entry id invoked for id -> " + destination.getId());
+                    logger.trace("Add Index Entry id invoked for id -> " + destination.getId());
 
                     AddIndexEntryP2pSimulated request = new AddIndexEntryP2pSimulated(junkEntry);
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress)address, destination, Transport.UDP);

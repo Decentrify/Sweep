@@ -28,14 +28,14 @@ public class SimpleBootupScenario {
                 StochasticProcess specialPeerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startNodeCmdOperation, constant(Integer.MIN_VALUE));
+                        raise(5 , SweepOperations.startNodeCmdOperation, constant(Integer.MIN_VALUE));
                     }
                 };
                 
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
-                        eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                        eventInterArrivalTime(constant(5000));
+                        raise(30, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 

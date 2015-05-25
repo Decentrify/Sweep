@@ -46,6 +46,17 @@ public class ShardEpochContainer extends EpochContainer{
         return result;
     }
 
+
+    @Override
+    public String toString() {
+        return super.toString() + "{ " +"ShardEpochContainer{" +
+                "medianId=" + medianId +
+                ", leaderKey=" + leaderKey +
+                ", hash='" + hash + '\'' +
+                '}'+
+                " }";
+    }
+
     public void setHash(String hash) {
         this.hash = hash;
     }

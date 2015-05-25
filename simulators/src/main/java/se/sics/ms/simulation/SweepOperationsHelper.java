@@ -122,7 +122,7 @@ public class SweepOperationsHelper {
      */
     public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
-        logger.info(" Generating address for peer with id: {} ", id);
+        logger.trace(" Generating address for peer with id: {} ", id);
 
         BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
@@ -150,7 +150,7 @@ public class SweepOperationsHelper {
      */
     public static DecoratedAddress getNodeAddressToCommunicate(Long id){
         
-        logger.info(" Fetching random node address from the map. ");
+        logger.trace(" Fetching random node address from the map. ");
         Long successor = ringNodes.getNode(id);
         
         DecoratedAddress address = peersAddressMap.get(successor);
