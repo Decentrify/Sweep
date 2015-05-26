@@ -3,7 +3,7 @@ package se.sics.ms.util;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
-import se.sics.ms.types.EpochContainer;
+import se.sics.ms.types.LeaderUnit;
 
 import java.util.UUID;
 
@@ -94,10 +94,10 @@ public class TimeoutCollection {
     
     public static class EpochAdditionTimeout extends Timeout{
 
-        public EpochContainer epochUpdate;
-        public EpochContainer previousUpdate;
+        public LeaderUnit epochUpdate;
+        public LeaderUnit previousUpdate;
         
-        public EpochAdditionTimeout(ScheduleTimeout request, EpochContainer previousUpdate, EpochContainer epochUpdate) {
+        public EpochAdditionTimeout(ScheduleTimeout request, LeaderUnit previousUpdate, LeaderUnit epochUpdate) {
             super(request);
             this.epochUpdate = epochUpdate;
             this.previousUpdate = previousUpdate;
@@ -108,10 +108,10 @@ public class TimeoutCollection {
 
     public static class ShardRoundTimeout extends Timeout{
 
-        public EpochContainer previousUpdate;
-        public EpochContainer shardUpdate;
+        public LeaderUnit previousUpdate;
+        public LeaderUnit shardUpdate;
 
-        public ShardRoundTimeout(ScheduleTimeout request, EpochContainer previousUpdate, EpochContainer shardUpdate) {
+        public ShardRoundTimeout(ScheduleTimeout request, LeaderUnit previousUpdate, LeaderUnit shardUpdate) {
             super(request);
             this.shardUpdate = shardUpdate;
             this.previousUpdate = previousUpdate;

@@ -52,7 +52,6 @@ import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.timeout.PartitionCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
-import se.sics.ms.util.Pair;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
@@ -84,7 +83,7 @@ import java.util.logging.Level;
  * {@link se.sics.ms.types.IndexEntry}s are spread via gossiping using the Cyclon samples stored
  * in the routing tables for the partition of the local node.
  */
-public final class SearchUpdated extends ComponentDefinition {
+public final class ShardAwareSearch extends ComponentDefinition {
     /**
      * Set to true to store the Lucene index on disk
      */
@@ -106,7 +105,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
     // ======== LOCAL VARIABLES.
 
-    private static final Logger logger = LoggerFactory.getLogger(SearchUpdated.class);
+    private static final Logger logger = LoggerFactory.getLogger(ShardAwareSearch.class);
     private String prefix;
     private ApplicationSelf self;
     private SearchConfiguration config;
@@ -121,7 +120,7 @@ public final class SearchUpdated extends ComponentDefinition {
     TreeSet<SearchDescriptor> gradientEntrySet;
     private DecoratedAddress leaderAddress;
     private PublicKey leaderKey;
-    
+
     private Map<UUID, ReplicationCount> replicationRequests;
     private Map<UUID, ReplicationCount> commitRequests;
     private Map<Long, UUID> gapTimeouts;
@@ -195,10 +194,10 @@ public final class SearchUpdated extends ComponentDefinition {
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
     private EpochHistoryTracker epochHistoryTracker;
-    
+
     private EpochAddTracker epochAddTracker;
-    
-    
+
+
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -242,7 +241,7 @@ public final class SearchUpdated extends ComponentDefinition {
         }
     }
 
-    public SearchUpdated(SearchInit init) {
+    public ShardAwareSearch(SearchInit init) {
 
         doInit(init);
         subscribe(handleStart, control);
@@ -337,7 +336,7 @@ public final class SearchUpdated extends ComponentDefinition {
         subscribe(shardTracker.shardingCommitRequest, networkPort);
         subscribe(shardTracker.shardingCommitResponse, networkPort);
         subscribe(shardTracker.awaitingShardCommitHandler, timerPort);
-        
+
         subscribe(gradientSampleHandler, gradientPort);
     }
 
@@ -382,7 +381,7 @@ public final class SearchUpdated extends ComponentDefinition {
         partitioningTracker = new PartitioningTracker();
         entryAdditionTracker = new MultipleEntryAdditionTracker(100); // Can hold upto 100 simultaneous requests.
         entryPrepareTimeoutMap = new HashMap<UUID, UUID>();
-        
+
         epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
         landingEntryTracker = new LandingEntryTracker();
         lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
@@ -1313,7 +1312,7 @@ public final class SearchUpdated extends ComponentDefinition {
      * Get the current insertion id and
      * increment it to keep track of the next one.
      *
-     * @return a new id for a new {@link IndexEntry}
+     * @return a new id for a new {@link se.sics.ms.types.IndexEntry}
      */
     private long getNextInsertionId() {
         if (nextInsertionId == Long.MAX_VALUE - 1)
@@ -1401,10 +1400,10 @@ public final class SearchUpdated extends ComponentDefinition {
 
         EntryAddPrepare.Response response;
         LeaderUnit previousEpochUpdate = null;
-        
+
         ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(
-                applicationEntry.getEpochId(), 
-                applicationEntry.getLeaderId(), 
+                applicationEntry.getEpochId(),
+                applicationEntry.getLeaderId(),
                 applicationEntry.getEntryId());
 
         if (entry.equals(IndexEntry.DEFAULT_ENTRY)) {
@@ -1477,22 +1476,22 @@ public final class SearchUpdated extends ComponentDefinition {
                             if (entryToCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                                 logger.debug("{}: Request to add a new landing entry in system", prefix);
-                                
-                                // Encapsulate the below structure in a separate method. 
-                                
+
+                                // Encapsulate the below structure in a separate method.
+
                                 LeaderUnit update = new BaseLeaderUnit(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 epochHistoryTracker.addEpochUpdate(info.getAssociatedEpochUpdate());
                                 epochHistoryTracker.addEpochUpdate(update);
-                                
+
                                 lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
                                 self.resetContainerEntries(); // Update the epoch container entries to be 0, in case epoch gets added.
                                 nextInsertionId = LANDING_ENTRY_ID;
-                                
+
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
                             }
-                            
-                            
+
+
                             addEntryLocally(entryToCommit);   // Commit to local first.
 
                             ByteBuffer idBuffer = ByteBuffer.allocate((8 * 2) + 4);
@@ -1602,7 +1601,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
                         pendingForCommit.remove(toCommit);
 
-                    } 
+                    }
                     catch(Exception e){
                         throw new RuntimeException("Unable to preocess Entry Commit Request, exiting ... ");
                     }
@@ -1892,7 +1891,7 @@ public final class SearchUpdated extends ComponentDefinition {
         try {
             addIndexEntries(searchRequestLuceneAdaptor, entries);
         } catch (IOException e) {
-            java.util.logging.Logger.getLogger(SearchUpdated.class.getName()).log(Level.SEVERE, null, e);
+            java.util.logging.Logger.getLogger(ShardAwareSearch.class.getName()).log(Level.SEVERE, null, e);
         }
 
         searchRequest.addRespondedPartition(partition);
@@ -1993,8 +1992,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
     /**
      *
-     * Based on the median entry and the boolean check, determine 
-     * the entry base that needs to be removed and ultimately update the 
+     * Based on the median entry and the boolean check, determine
+     * the entry base that needs to be removed and ultimately update the
      * self with the remaining entries.
      *
      * @param middleId
@@ -2005,34 +2004,34 @@ public final class SearchUpdated extends ComponentDefinition {
         try {
             // Remove Entries from the lowest missing tracker also.
             if (isPartition) {
-                
+
                 ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(
-                        writeEntryLuceneAdaptor, 
+                        writeEntryLuceneAdaptor,
                         middleId);
-                
+
                 lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
             }
             else {
-                
+
                 ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(
-                        writeEntryLuceneAdaptor, 
+                        writeEntryLuceneAdaptor,
                         middleId);
-                
+
                 lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
             }
-            
+
             int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
             int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
-            
+
             logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{ prefix, size, actualSize});
             lowestMissingEntryTracker.printExistingEntries();
 
             // Recalculte the size of total and the actual entries in the system.
             self.setNumberOfEntries(size);
             self.setActualEntries(actualSize);
-            
+
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
-        } 
+        }
         catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
@@ -2122,20 +2121,20 @@ public final class SearchUpdated extends ComponentDefinition {
             commitAndUpdateUtility(entry);
             lowestMissingEntryTracker.checkAndRemoveEntryGaps();    // Check if any gaps can be removed with this entry addition.
             lowestMissingEntryTracker.printCurrentTrackingInfo();
-            
+
             // After committing the utility, check for the container switch.
             if(self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader){
-                
+
                 logger.warn("{}: Time to initiate the container switch.", prefix);
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
-                
+
                 return;
             }
-            
+
             // If container switch is not going on, check for the sharding update.
             checkAndInitiateSharding();
-            
+
         } else {
             logger.warn("{}: Not supposed to add entry :{} in Lucene ...Buffering It And Returning ... ", prefix, entry);
             lowestMissingEntryTracker.printCurrentTrackingInfo();
@@ -2156,15 +2155,15 @@ public final class SearchUpdated extends ComponentDefinition {
         // Increment self utility in terms of entries addition to self.
         self.incrementECEntries();
         self.incrementEntries();
-        
+
         if( !entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY) ) {
-            
-            // We do not include landing entries 
+
+            // We do not include landing entries
             // as part of actual entries for calculating the splitting point.
-            
-            self.incrementActualEntries();      
+
+            self.incrementActualEntries();
         }
-        
+
         informListeningComponentsAboutUpdates(self);
     }
 
@@ -2253,34 +2252,34 @@ public final class SearchUpdated extends ComponentDefinition {
     /**
      * Start with the main sharding procedure.
      * Initiate the sharding process.
-     *  
+     *
      */
     private void checkAndInitiateSharding() throws LuceneAdaptorException {
-        
+
         if(isTimeToShard()) {
 
             logger.warn("{}: Let's finish this sharding fear now ..." , prefix);
             ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
-            
+
             if(entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader){
                 logger.error("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
                 return;
             }
-            
+
             logger.warn("{}: Sharding Median ID: {} ", prefix, entryId);
-            
+
             partitionInProgress = true;
             LeaderUnit previousUpdate = closePreviousEpoch();
             ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId()+1 , self.getId(), 1, entryId, publicKey);
-            
+
             // Create Hash of the Shard Update.
             String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
             sec.setHash(hash);
-            
+
             ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
             st.setTimeoutEvent(new TimeoutCollection.ShardRoundTimeout(st, previousUpdate, sec));
             UUID shardRoundId = st.getTimeoutEvent().getTimeoutId();
-            
+
             shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
             trigger(st, timerPort);
         }
@@ -2288,12 +2287,12 @@ public final class SearchUpdated extends ComponentDefinition {
         else{
             logger.trace("{}: Not the time to shard, return .. ", prefix);
         }
-        
+
     }
 
 
     /**
-     * Event from the shard tracker that the sharding round has been completed and therefore 
+     * Event from the shard tracker that the sharding round has been completed and therefore
      * @param shardRoundID
      * @param previousEpoch
      * @param shardContainer
@@ -2307,16 +2306,16 @@ public final class SearchUpdated extends ComponentDefinition {
         if( shardRoundID!= null ){
             CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
             trigger(cancelTimeout, timerPort);
-            shardTracker.resetShardingParameters();    
+            shardTracker.resetShardingParameters();
         }
-        
+
         epochHistoryTracker.addEpochUpdate (previousEpoch);      // Close the previous epoch update.
         handleSharding((ShardLeaderUnit)shardContainer);    // Handle the sharding phase.
-        
+
         partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
-    
-    
+
+
     /**
      * In case the sharding event is handled by the shard commit or the control pull, the application needs to be informed
      * immediately, so the application can carry out the necessary sharding steps.
@@ -2324,11 +2323,11 @@ public final class SearchUpdated extends ComponentDefinition {
      * @param container Shard Epoch Container.
      */
     private void handleSharding (ShardLeaderUnit shardContainer){
-        
+
         try{
 
             logger.warn("{}: Handle the main sharding update ... ", prefix);
-            
+
             ApplicationEntry.ApplicationEntryId medianId = shardContainer.getMedianId();
             lowestMissingEntryTracker.pauseTracking();
 
@@ -2340,10 +2339,10 @@ public final class SearchUpdated extends ComponentDefinition {
 
             boolean partitionSubId = PartitionHelper.determineYourNewPartitionSubId(nodeId, selfPartitionId);
             applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
-            
+
             lowestMissingEntryTracker.printCurrentTrackingInfo();
             List<LeaderUnit> skipList = generateSkipList(shardContainer, medianId, partitionSubId);
-            
+
             logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
             System.exit(-1);
 
@@ -2351,16 +2350,16 @@ public final class SearchUpdated extends ComponentDefinition {
 
             epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process, once the skip list is added.
             lowestMissingEntryTracker.resumeTracking();
-        } 
+        }
         catch (Exception e){
             throw new RuntimeException("Unable to shard", e);
         }
     }
 
     /**
-     * Based on the median Id and the current tracking update, 
-     * generate the skipList which is a list containing the epoch updates 
-     * that the node has to jump over because the higher nodes might not have the 
+     * Based on the median Id and the current tracking update,
+     * generate the skipList which is a list containing the epoch updates
+     * that the node has to jump over because the higher nodes might not have the
      * information as they would have removed it as part of there partitioning
      * update.
      *
@@ -2370,25 +2369,25 @@ public final class SearchUpdated extends ComponentDefinition {
             throws IOException, LuceneAdaptorException {
 
         LeaderUnit lastAddedUpdate = epochHistoryTracker.getLastUpdate();
-        
+
         if(lastAddedUpdate == null || ( lastAddedUpdate.getEpochId() >= shardContainer.getEpochId()
                 && lastAddedUpdate.getLeaderId() >= shardContainer.getLeaderId()) ) {
-            
+
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix );
         }
-        
+
         LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUpdate();
         long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
-        
+
         List<LeaderUnit> pendingUpdates = epochHistoryTracker.getNextUpdates(
-                container, 
+                container,
                 Integer.MAX_VALUE);
-        
+
         Iterator<LeaderUnit> iterator = pendingUpdates.iterator();
-        
+
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
-        
+
         if( partitionSubId ) {
             // If right to the median id is removed, skip list should contain
             // entries to right of the median.
@@ -2399,37 +2398,37 @@ public final class SearchUpdated extends ComponentDefinition {
                 if(nextContainer.getEpochId() < medianId.getEpochId()){
                     iterator.remove();
                 }
-                
+
             }
         }
-        
+
         else {
-            
-            // If left to the median is removed, skip list should contain 
+
+            // If left to the median is removed, skip list should contain
             // entries to the left of the median.
             while(iterator.hasNext()){
-                
+
                 LeaderUnit nextContainer = iterator.next();
-                
+
                 if(nextContainer.getEpochId() >= medianId.getEpochId()){
                     iterator.remove();
                 }
             }
         }
 
-        // Now based on the entries found, compare with the actual 
+        // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
         Iterator<LeaderUnit> remainingItr = pendingUpdates.iterator();
         while(remainingItr.hasNext()){
-            
+
             LeaderUnit next = remainingItr.next();
             if(next.equals(container) && currentId >0) {
-                
+
                 remainingItr.remove(); // Don't need to skip self as landing entry already added.
                 continue;
             }
-            
-            if(next.getEpochId() >= container.getEpochId() 
+
+            if(next.getEpochId() >= container.getEpochId()
                     && next.getLeaderId() >= container.getLeaderId())
             {
                 ApplicationEntry entry = new ApplicationEntry(
@@ -2437,93 +2436,93 @@ public final class SearchUpdated extends ComponentDefinition {
                                 next.getEpochId(),
                                 next.getLeaderId(),
                                 0));
-                
+
                 addEntryToLucene(writeEntryLuceneAdaptor, entry);
             }
             else{
                 // Even though the data is removed, the landing entry has already been added.
-                remainingItr.remove(); 
+                remainingItr.remove();
             }
         }
-        
+
         return pendingUpdates;
     }
 
 
     /**
-     * Apply the main sharding update to the application in terms of 
-     * removing the entries that are not needed and are lying around in the 
+     * Apply the main sharding update to the application in terms of
+     * removing the entries that are not needed and are lying around in the
      * lucene store in the system.
      *
      * <br/>
-     *  
-     * The order in which the shard updates that needs to be applied is as follows:<br/>  
+     *
+     * The order in which the shard updates that needs to be applied is as follows:<br/>
      * <ul>
      *     <li>The updates the level and the partitioning information by sharding to
      *     to the next level.</li>
      *
-     *     <li>The system then removes the entries from the entries that should not lie 
+     *     <li>The system then removes the entries from the entries that should not lie
      *     in the system as part of current partititon information.</li>
-     *     
+     *
      *     <li>The updated self is then pushed to the listening components.
      *     </li>
      * </ul>
-     * 
+     *
      * @param medianId
      */
     public void applyShardingUpdate(boolean partitionSubId, PartitionId selfPartitionId, ApplicationEntry.ApplicationEntryId medianId) {
 
         shardToNextLevel(
-                partitionSubId, 
+                partitionSubId,
                 selfPartitionId);
 
         removeEntriesNotFromYourShard(
                 medianId,
                 partitionSubId );
-        
+
         informListeningComponentsAboutUpdates(self);
     }
-    
-    
+
+
     /**
      * Handler for the shard round timeout. Check if the sharding completed and if the sharding expired.
-     *  
+     *
      */
     Handler<TimeoutCollection.ShardRoundTimeout> shardRoundTimeoutHandler = new Handler<TimeoutCollection.ShardRoundTimeout>() {
-        
+
         @Override
         public void handle(TimeoutCollection.ShardRoundTimeout event) {
-            
+
             logger.debug("{}: Timeout for shard round invoked.");
             UUID shardTrackerRoundID = shardTracker.getShardRoundId();
-            
+
             if(shardTrackerRoundID != null && event.getTimeoutId().equals(shardTrackerRoundID)){
                 partitionInProgress = false;
                 logger.warn("{}: Need to restart the shard round id");
                 throw new UnsupportedOperationException("Operation not supported ... ");
             }
-            
+
             else {
                 logger.debug("{}: Sharding timeout occured after the event is canceled ... ");
             }
-            
-            
+
+
         }
     };
-    
-    
+
+
 
 
     /**
-     * Based on the internal state of the node, check if 
+     * Based on the internal state of the node, check if
      * it's time to shard.
-     * 
+     *
      * @return Shard True/False
      */
     private boolean isTimeToShard(){
         return ( self.getActualEntries() >= config.getMaxEntriesOnPeer() );
     }
-    
+
 
     /**
      * Starting point of the two phase commit protocol for partitioning commit in the
@@ -2597,9 +2596,9 @@ public final class SearchUpdated extends ComponentDefinition {
      * Handler for the partition prepare request. The node receives the partition prepare request from the leader
      * in the system and therefore it acts as a promise request.
      */
-    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest = 
+    ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest =
         new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
-        
+
         @Override
         public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
 
@@ -2946,7 +2945,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
     /**
-     * Based on the current shard information, determine the updated shard information 
+     * Based on the current shard information, determine the updated shard information
      * value and then split to the current shard to the next level.
      *
      * @return Boolean.
@@ -2956,7 +2955,7 @@ public final class SearchUpdated extends ComponentDefinition {
         int nodeId = self.getId();
         int newOverlayId;
         if (selfPartitionId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
-            
+
             int partitionId = (partitionSubId ? 1 : 0);
 
             int selfCategory = self.getCategoryId();
@@ -2964,7 +2963,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     1, partitionId, selfCategory);
 
         } else {
-            
+
             int newDepth = self.getPartitioningDepth() +1;
             int partition =0;
             for(int i=0; i< newDepth; i++){
@@ -2977,15 +2976,15 @@ public final class SearchUpdated extends ComponentDefinition {
             newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
                     newDepth, partition, selfCategory);
         }
-        
-        
+
+
         self.setOverlayId(newOverlayId);
         logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
-        
+
         return partitionSubId;
     }
-    
-    
+
+
     /**
      * Based on the unique ids return the partition updates back.
      *
@@ -3110,7 +3109,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         break;
                     }
                 }
-                
+
                 informListeningComponentsAboutUpdates(self);
                 addLandingEntry();
             } catch (LuceneAdaptorException e) {
@@ -3156,29 +3155,29 @@ public final class SearchUpdated extends ComponentDefinition {
         trigger(st, timerPort);
     }
 
-    
-    
+
+
     /**
      * Once a node gets elected as leader, the parameters regarding the starting entry addition id and the
      * latest epoch id as seen by the node needs to be recalculated and the local parameters need to be updated.
      * Then the leader needs to add landing index entry before anything else.
-     * 
+     *
      * - > STAY ON THIS ONE. < -
      */
 
     private void addLandingEntryUpdated() throws LuceneAdaptorException {
-        
-        
+
+
         // Create metadata for the updated epoch update.
         LeaderUnit lastEpochUpdate = closePreviousEpoch();
         LeaderUnit currentEpochUpdate = getNextEpochToAdd(lastEpochUpdate);
-        
+
         ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
         st.setTimeoutEvent(new TimeoutCollection.EpochAdditionTimeout(st, lastEpochUpdate, currentEpochUpdate));
         UUID epochAddRoundId = st.getTimeoutEvent().getTimeoutId();
-        
+
         if(epochAddTracker.getEpochAdditionRound() == null) {
-            
+
             logger.warn("{}: Going to kick off epoch entry addition ... ", prefix);
             epochAddTracker.kickOffEpochAdd(
                     epochAddRoundId,
@@ -3188,33 +3187,33 @@ public final class SearchUpdated extends ComponentDefinition {
         }
         else
             throw new RuntimeException("Situation of Multiple Epoch Adders Not Handled Yet.... ");
-        
+
         trigger(st, timerPort);
     }
 
 
 
-    
+
     Handler<TimeoutCollection.EpochAdditionTimeout> epochAdditionTimeoutHandler = new Handler<TimeoutCollection.EpochAdditionTimeout>() {
         @Override
         public void handle(TimeoutCollection.EpochAdditionTimeout event) {
 
             logger.debug("{}: Epoch Addition Round Timed out.");
-            
+
             if(epochHistoryTracker.getSelfUpdate(event.epochUpdate) != null){
-                
+
                 if(epochAddTracker.getEpochAdditionRound() != null
                         && epochAddTracker.getEpochAdditionRound().equals(event.getTimeoutId() )){
                     epochAddTracker.resetTracker();
-                } 
+                }
             }
-            
+
             else {
-                
+
                 try{
 
                     if(leader && event.previousUpdate.equals(closePreviousEpoch())){
-                        
+
                         // Do we need to check what the current closing update is ? ( Not Sure )
                         //  If they do not match then stop extending forward as you might have again became the leader
                         // and that act would have triggered its own epoch addition round.
@@ -3230,13 +3229,13 @@ public final class SearchUpdated extends ComponentDefinition {
 
                         trigger(st, timerPort);
                     }
-                } 
+                }
                 catch (LuceneAdaptorException e) {
                     e.printStackTrace();
                 }
             }
-            
-            
+
+
         }
     };
 
@@ -3268,33 +3267,33 @@ public final class SearchUpdated extends ComponentDefinition {
      * Check the Lucene Instance for the entries that were added in the
      * precious epoch id instance. The issue with the
      * @return
-     * @throws LuceneAdaptorException
+     * @throws se.sics.ms.common.LuceneAdaptorException
      */
     private LeaderUnit closePreviousEpoch() throws LuceneAdaptorException {
-        
+
         LeaderUnit lastEpochUpdate = epochHistoryTracker.getLastUpdate();
 
         if ( lastEpochUpdate != null) {
 
             Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
                             ApplicationEntry.EPOCH_ID, lastEpochUpdate.getEpochId(),
-                            ApplicationEntry.LEADER_ID, 
+                            ApplicationEntry.LEADER_ID,
                             lastEpochUpdate.getLeaderId());
 
             TotalHitCountCollector hitCollector = new TotalHitCountCollector();
             writeEntryLuceneAdaptor.searchDocumentsInLucene(
-                    epochUpdateEntriesQuery, 
+                    epochUpdateEntriesQuery,
                     hitCollector);
 
             int numEntries = hitCollector.getTotalHits();
-            
+
             lastEpochUpdate = new BaseLeaderUnit(
-                    lastEpochUpdate.getEpochId(), 
-                    lastEpochUpdate.getLeaderId(), 
+                    lastEpochUpdate.getEpochId(),
+                    lastEpochUpdate.getLeaderId(),
                     numEntries);
-            
+
         }
-        
+
         return lastEpochUpdate;
     };
 
@@ -3304,56 +3303,56 @@ public final class SearchUpdated extends ComponentDefinition {
      * ************************** <br/>
      *  EPOCH ADDITION TRACKER <br/>
      * ************************** <br/>
-     * 
-     * Main tracker class for adding various types 
+     *
+     * Main tracker class for adding various types
      * of {@link se.sics.ms.types.LeaderUnit} in the system.
-     * 
+     *
      * <br/>
-     * 
+     *
      * Various types of epoch updates are added to the nodes
-     * in the system as part of normal functioning of the system 
+     * in the system as part of normal functioning of the system
      * and the purpose of this tracker is to keep track of the addition
      * of mainly {@link se.sics.ms.types.BaseLeaderUnit} which
-     * might be added in the system based on following conditions: <br/> 
-     * 
+     * might be added in the system based on following conditions: <br/>
+     *
      * <ul>
      *     <li> A node becomes the leader. </li>
      *     <li> The maximum size of the epoch has reached and therefore the same leader has to switch the epoch.</li>
      * </ul>
-     *  
+     *
      */
     public class EpochAddTracker {
 
-        
+
         private UUID epochAdditionRound;
         private Collection<DecoratedAddress> cohorts;
-        
+
         private LeaderUnit previousEpochUpdate;
         private LeaderUnit currentEpochUpdate;
-        
+
         private UUID awaitEpochCommit;
-        
+
         private org.javatuples.Pair<UUID, LeaderUnitUpdate> epochUpdatePacketPair;
-        
+
         private int promises;
-        
+
         public EpochAddTracker(){
             this.cohorts = new ArrayList<DecoratedAddress>();
         }
-        
+
         public void kickOffEpochAdd(UUID epochAdditionRound, LeaderUnit previousEpochUpdate, LeaderUnit currentEpochUpdate , Collection<DecoratedAddress> cohorts){
-            
+
             this.epochAdditionRound = epochAdditionRound;
             this.cohorts = cohorts;
             this.previousEpochUpdate = previousEpochUpdate;
             this.currentEpochUpdate = currentEpochUpdate;
             this.promises = 0;
-            
+
             EpochAddPrepare.Request prepareRequest = new EpochAddPrepare.Request(
                     epochAdditionRound,
                     previousEpochUpdate,
                     currentEpochUpdate);
-            
+
             for( DecoratedAddress destination : cohorts ){
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, prepareRequest), networkPort);
             }
@@ -3361,47 +3360,47 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         public void resetTracker(){
-            
+
             this.epochAdditionRound = null;
             this.cohorts = null;
             this.previousEpochUpdate = null;
             this.currentEpochUpdate = null;
             this.promises =0;
-            
+
         }
-        
-        
+
+
         public UUID getEpochAdditionRound(){
             return this.epochAdditionRound;
         }
-        
+
         /**
          * Epoch Add Prepare Request as part of the Epoch Addition Protocol.
-         * The node simply returns the promise and update the internal state of the 
+         * The node simply returns the promise and update the internal state of the
          * tracker in terms of storing the meta data for the commit.
          *
          */
         ClassMatchedHandler<EpochAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request >> epochAddPrepareRequest =
                 new ClassMatchedHandler<EpochAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request>>() {
-                    
+
             @Override
             public void handle(EpochAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Request> event) {
-                
+
                 logger.debug("{}: Received prepare request from the node : {}", prefix, event.getSource());
                 epochUpdatePacketPair = org.javatuples.Pair.with(request.getEpochRoundID(),
                         new LeaderUnitUpdate(request.getPreviousEpochUpdate(), request.getCurrentEpochUpdate()));
-                
-                
+
+
                 ScheduleTimeout st = new ScheduleTimeout(3000);
                 TimeoutCollection.AwaitingEpochCommit timeout = new TimeoutCollection.AwaitingEpochCommit(st, request.getEpochRoundID());
                 st.setTimeoutEvent(timeout);
-                
+
                 awaitEpochCommit = st.getTimeoutEvent().getTimeoutId();
-                
+
                 EpochAddPrepare.Response response = new EpochAddPrepare.Response(request.getEpochRoundID());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-                
-                
+
+
                 trigger(st, timerPort);
             }
         };
@@ -3415,34 +3414,34 @@ public final class SearchUpdated extends ComponentDefinition {
         Handler<TimeoutCollection.AwaitingEpochCommit> awaitingEpochCommitHandler = new Handler<TimeoutCollection.AwaitingEpochCommit>() {
             @Override
             public void handle(TimeoutCollection.AwaitingEpochCommit event) {
-                
+
                 logger.warn("{}: Triggered Epoch Commit Timeout ", prefix);
                 if(awaitEpochCommit != null && awaitEpochCommit.equals(event.getTimeoutId())){
                     epochUpdatePacketPair = null;
                 }
-                
+
             }
         };
-        
-        
-        
+
+
+
         /**
          * Handler for the Epoch Prepare Response from the cohorts in the system.
          * Process the response in case the response id matches the current tracking round.
          */
-        ClassMatchedHandler<EpochAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response>> epochAddPrepareResponse = 
+        ClassMatchedHandler<EpochAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response>> epochAddPrepareResponse =
                 new ClassMatchedHandler<EpochAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response>>() {
-                    
+
             @Override
             public void handle(EpochAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddPrepare.Response> event) {
-                
+
                 logger.debug("{}: Received epoch add prepare response from the node : {}", prefix, event.getSource());
-                
+
                 if(epochAdditionRound == null || !response.getEpochAddRoundId().equals(epochAdditionRound)){
                     logger.warn("{}: Received response for an expired round. ", prefix);
                     return;
                 }
-                
+
                 if(promises >= cohorts.size()){
                     logger.warn("Promise Round already finished, moved to commit .. ");
                     return;
@@ -3450,44 +3449,44 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 promises++;
 
-                
+
                 if(promises >= cohorts.size()){
 
                     logger.warn("Promise Round Finished , moving to commit ... ");
-                    
+
                     EpochAddCommit.Request request = new EpochAddCommit.Request(epochAdditionRound);
                     for(DecoratedAddress destination : cohorts){
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                     }
-                    
+
                     epochHistoryTracker.addEpochUpdate(previousEpochUpdate);
                     epochHistoryTracker.addEpochUpdate(currentEpochUpdate);
-                    
+
                     // Inform the lowest missing and control pull information also.
                     // Copy paste the code here.
                     epochHistoryTracker.printEpochHistory();
-                    
+
                 }
             }
         };
 
 
         /**
-         * Handler for the commit request that has been received by the node. 
+         * Handler for the commit request that has been received by the node.
          * In case the round has already expired, do not add the epoch update.
          *
          */
         ClassMatchedHandler<EpochAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request>> epochCommitRequestHandler =
                 new ClassMatchedHandler<EpochAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request>>() {
-                    
+
             @Override
             public void handle(EpochAddCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Request> event) {
-                
+
                 logger.warn("{}: Received epoch commit request from the node :{} ", prefix ,event.getSource());
-                
-                if( epochUpdatePacketPair == null 
+
+                if( epochUpdatePacketPair == null
                         || !epochUpdatePacketPair.getValue0().equals(request.epochAdditionRound) ){
-                    
+
                     logger.warn("{}: Received Commit request after the round has expired ... ", prefix);
                     return;
                 }
@@ -3495,18 +3494,18 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 CancelTimeout ct = new CancelTimeout(awaitEpochCommit);
                 trigger(ct, timerPort);
-                
+
                 awaitEpochCommit = null;
-                
+
                 LeaderUnitUpdate eup = epochUpdatePacketPair.getValue1();
                 epochHistoryTracker.addEpochUpdate(eup.getPreviousEpochUpdate());
                 epochHistoryTracker.addEpochUpdate(eup.getCurrentEpochUpdate());
 
                 epochHistoryTracker.printEpochHistory();
-                
+
                 EpochAddCommit.Response response = new EpochAddCommit.Response(epochUpdatePacketPair.getValue0());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-                
+
                 epochUpdatePacketPair = null;
             }
         };
@@ -3515,12 +3514,12 @@ public final class SearchUpdated extends ComponentDefinition {
         /**
          * NOTE: Functionality Under Development.
          */
-        ClassMatchedHandler<EpochAddCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response>> epochCommitResponseHandler = 
+        ClassMatchedHandler<EpochAddCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response>> epochCommitResponseHandler =
                 new ClassMatchedHandler<EpochAddCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response>>() {
-                    
+
             @Override
             public void handle(EpochAddCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EpochAddCommit.Response> event) {
-                
+
                 logger.debug("{}: Received epoch commit response from :{} ", prefix, event.getSource());
             }
         };
@@ -3539,7 +3538,7 @@ public final class SearchUpdated extends ComponentDefinition {
                 if (leader) {
 
                     logger.warn(" {}: Landing Entry Commit Failed, so trying again", prefix);
-                    
+
                     ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
                     st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
                     UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
@@ -3547,7 +3546,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     // Reset the tracker information for the round.
                     landingEntryTracker.startTracking(landingEntryTracker.getEpochId(), landingEntryRoundId, LANDING_ENTRY_ID, landingEntryTracker.getPreviousEpochContainer());
                     initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
-                    
+
                     trigger(st, timerPort);
                     throw new UnsupportedOperationException(" Operation regarding the restart of the landing entry addition ... ");
                 }
@@ -3576,7 +3575,7 @@ public final class SearchUpdated extends ComponentDefinition {
     Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
         @Override
         public void handle(LeaderUpdate event) {
-            
+
             logger.debug("{}: Update regarding the leader in the system is received", self.getId());
             updateLeaderIds(event.leaderPublicKey);
             leaderAddress = event.leaderAddress;
@@ -3662,27 +3661,27 @@ public final class SearchUpdated extends ComponentDefinition {
      * *******************
      * SHARDING PROTOCOL TRACKER
      * *******************
-     * 
+     *
      * Main tracker for the sharding protocol,
      * in which the leader informs the leader group nodes about the
      * shard being overgrown in size which needs to be partitioned.
      */
-    
+
     public class ShardTracker {
-        
+
         private UUID shardRoundId;
         private LeaderUnitUpdate epochUpdatePacket;
         private Collection<DecoratedAddress> cohorts;
         private int promises = 0;
         private org.javatuples.Pair<UUID, LeaderUnitUpdate> shardPacketPair;
         private UUID awaitShardCommit;
-        
+
         public ShardTracker(){
             logger.warn("{}: Shard Tracker Initialized ", prefix);
         }
 
         /**
-         * Start the sharding protocol. The protocol simply performs a 2 phase 
+         * Start the sharding protocol. The protocol simply performs a 2 phase
          * commit indicating the nearby nodes of event of sharding in which the nodes based on the
          * based on the state choose a side and remove the entries to balance out the load.
          *
@@ -3694,49 +3693,49 @@ public final class SearchUpdated extends ComponentDefinition {
                 logger.warn("{}: Conditions to initiate sharding not satisfied, returning ... ", prefix);
                 return;
             }
-            
+
             shardRoundId = roundId;
             cohorts = leaderGroupInformation;
             epochUpdatePacket = new LeaderUnitUpdate(previousContainer, shardContainer);
-            
-            ShardingPrepare.Request request = new ShardingPrepare.Request(shardRoundId, 
-                    epochUpdatePacket, 
+
+            ShardingPrepare.Request request = new ShardingPrepare.Request(shardRoundId,
+                    epochUpdatePacket,
                     new OverlayId(self.getOverlayId()));
-            
+
             for(DecoratedAddress destination : cohorts){
                 trigger(CommonHelper.getDecoratedContentMessage( self.getAddress(), destination, Transport.UDP, request ), networkPort );
             }
         }
-        
-        
+
+
         public void resetShardingParameters(){
-            
+
             this.shardRoundId = null;
             this.cohorts = null;
             this.promises = 0;
             this.shardPacketPair = null;
         }
-        
+
         public UUID getShardRoundId(){
             return this.shardRoundId;
         }
-        
-        
-        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest = 
+
+
+        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest =
                 new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
-                    
+
             @Override
             public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
-                
+
                 logger.debug("{}: Sharding Prepare request received from : {} ", prefix , event.getSource());
-                
+
                 LeaderUnitUpdate eup = request.getEpochUpdatePacket();
                 ShardLeaderUnit sec = null;
-                
+
                 if( !(eup.getCurrentEpochUpdate() instanceof ShardLeaderUnit) ) {
                     throw new RuntimeException("Unable to proceed with sharding as no shard update found.");
                 }
-                
+
                 sec = (ShardLeaderUnit)eup.getCurrentEpochUpdate();
                 // Verify the hash update, if verified, then move to commit.
 
@@ -3744,79 +3743,79 @@ public final class SearchUpdated extends ComponentDefinition {
                     logger.warn("{}: Unable to verify the hash of the update received, returning ... ");
                     return;
                 }
-                
+
                 shardPacketPair = org.javatuples.Pair.with(request.getShardRoundId(), request.getEpochUpdatePacket());
                 ShardingPrepare.Response response = new ShardingPrepare.Response(request.getShardRoundId());
-                
+
                 ScheduleTimeout st  = new ScheduleTimeout(3000);
                 st.setTimeoutEvent(new TimeoutCollection.AwaitingShardCommit(st));
                 awaitShardCommit = st.getTimeoutEvent().getTimeoutId();
 
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                 trigger(st, timerPort);
-                
+
             }
         };
 
 
-        
+
         Handler<TimeoutCollection.AwaitingShardCommit> awaitingShardCommitHandler = new Handler<TimeoutCollection.AwaitingShardCommit>() {
             @Override
             public void handle(TimeoutCollection.AwaitingShardCommit event) {
-                
+
                 logger.debug("{}: Awaiting for the Shard Commit. ", prefix);
-                
+
                 if(awaitShardCommit != null && awaitShardCommit.equals(event.getTimeoutId())){
                     shardPacketPair = null;
                 }
-                
+
                 else{
                     logger.debug("{}: Timeout triggered after being canceled.");
                 }
             }
         };
-        
-        
+
+
         /**
          * Handle the shard responses from the node in the system.
-         *  
+         *
          */
-        ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>> shardingPrepareResponse = 
+        ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>> shardingPrepareResponse =
                 new ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>>() {
-                    
+
             @Override
             public void handle(ShardingPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response> event) {
-                
+
                 logger.debug("{}: Received Sharding Prepare Response from node : {} ", prefix, event.getSource());
-                
+
                 if( shardRoundId == null || !shardRoundId.equals(response.getShardRoundId()) ) {
                     logger.warn("{}: Received a sharding response for an expired round, returning ... ", prefix);
                     return;
                 }
-                
-                
+
+
                 if(promises >= cohorts.size()){
                     logger.warn("{}: All the necessary promises have already been received, returning .. ", prefix);
                     return;
                 }
 
                 promises++;
-                
+
                 if(promises >= cohorts.size()) {
-                    
+
                     logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
                     ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
-                    
+
                     for(DecoratedAddress destination : cohorts){
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                     }
-                    
+
                     // For now let's apply the partitioning update on the majority of responses.
                     handleSharding( shardRoundId, epochUpdatePacket.getPreviousEpochUpdate(), epochUpdatePacket.getCurrentEpochUpdate());
-                    
+
                 }
-                
-                
+
+
             }
         };
 
@@ -3824,65 +3823,65 @@ public final class SearchUpdated extends ComponentDefinition {
         /**
          * Handler for the sharding commit request from the leader in the system.
          */
-        ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>> shardingCommitRequest = 
+        ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>> shardingCommitRequest =
                 new ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>>() {
-                    
+
             @Override
             public void handle(ShardingCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request> event) {
-                
+
                 logger.debug("{}: Sharding commit request handler invoked ... ", prefix);
                 UUID receivedShardRoundID = request.getShardRoundId();
                 UUID storedShardRoundID = shardPacketPair != null ? shardPacketPair.getValue0() : null;
-                
+
                 if( storedShardRoundID ==  null || !storedShardRoundID.equals(receivedShardRoundID) ){
                     logger.warn("{}: Received a request for an expired shard round id, returning ... ");
                     return;
                 }
-                
+
                 // Cancel the awaiting timeout.
                 UUID timeoutId = shardPacketPair.getValue0();
                 CancelTimeout ct = new CancelTimeout(timeoutId);
                 trigger(ct, timerPort);
                 awaitShardCommit = null;
-                
+
                 // Shard the node.
                 LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
 //                handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
-                
+
                 ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
             }
         };
-        
-        
-        
-        ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>> shardingCommitResponse = 
+
+
+
+        ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>> shardingCommitResponse =
                 new ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>>() {
-            
+
             @Override
             public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
-                
+
                 logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
-                
-                
+
+
             }
         };
-        
-        
+
+
     }
 
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
     /**
      * *********************************
      * CONTROL PULL TRACKER
      * *********************************
-     *  
+     *
      * Tracker for the main control pull mechanism.
      */
     private class ControlPullTracker {
@@ -3955,18 +3954,18 @@ public final class SearchUpdated extends ComponentDefinition {
                         // TO DO: Process the control pull request and then calculate the updates that needs to be sent back to the user.
 
                         List<LeaderUnit> nextUpdates = new ArrayList<LeaderUnit>();
-                        
+
                         DecoratedAddress address = leaderAddress;
                         PublicKey key = leaderKey;
-                        
+
                         Collection<LeaderUnit> updates = null;
                         updates = historyTracker.getNextUpdates(request.getEpochUpdate(),
                                     config.getMaximumEpochUpdatesPullSize());
-                        
+
                         if(updates != null || !updates.isEmpty()){
                             nextUpdates.addAll(updates);
                         }
-                        
+
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
                         ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
@@ -3995,22 +3994,22 @@ public final class SearchUpdated extends ComponentDefinition {
                         }
 
                         List<LeaderUnit> updates = response.getNextUpdates();
-                        
+
                         if(currentUpdate != null){
-                            
+
                             if(updates.isEmpty() || !checkOriginalExtension(updates.get(0))){
 //                                logger.warn("{}: Control exchange protocol violated, returning ... ", new Object[]{prefix});
                                 return;
                             }
                         }
-                        
-                        
+
+
                         pullResponseMap.put(event.getSource(), response);
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
                             logger.debug("{}: Pull Response Map: {}", pullResponseMap);
                             performResponseMatch();
-                            
+
                             currentPullRound = null;
                             pullResponseMap.clear();
                         }
@@ -4031,10 +4030,10 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         /**
-         * Go through all the responses that the node fetched through the pull mechanism 
-         * and then find the commonly matched responses and inform the listening components 
+         * Go through all the responses that the node fetched through the pull mechanism
+         * and then find the commonly matched responses and inform the listening components
          * about the updates received.
-         * 
+         *
          */
         private void performResponseMatch() {
 
@@ -4055,28 +4054,28 @@ public final class SearchUpdated extends ComponentDefinition {
                 ControlPull.Response baseResponse = pullResponseMap.values()
                         .iterator()
                         .next();
-                
+
                 DecoratedAddress baseLeader = baseResponse.getLeaderAddress();
                 PublicKey baseLeaderKey = baseResponse.getLeaderKey();
-                
+
                 if (baseLeader == null || baseLeaderKey == null) {
                     logger.debug("{}: No Common Leader Updates ", prefix);
                     return;
                 }
 
                 for (ControlPull.Response response : pullResponseMap.values()) {
-                    if (response.getLeaderAddress() == null 
+                    if (response.getLeaderAddress() == null
                             || !response.getLeaderAddress().equals(baseLeader)
                             || response.getLeaderKey() == null
                             || !response.getLeaderKey().equals(baseLeaderKey)) {
-                        
+
                         logger.debug("{}: Mismatch Found Returning ... ");
                         return;
                     }
                 }
 
                 logger.debug("{}: Found the leader update:{}", prefix, baseLeader);
-                
+
                 leaderAddress = baseLeader;
                 leaderKey = baseLeaderKey;
                 trigger(new LeaderInfoUpdate(baseLeader, baseLeaderKey), leaderStatusPort);     // Inform the gradient about the matched leader update.
@@ -4100,7 +4099,7 @@ public final class SearchUpdated extends ComponentDefinition {
         private long currentTrackingId;
         private EpochHistoryTracker historyTracker;
         private EntryExchangeTracker entryExchangeTracker;
-        
+
         private UUID leaderPullRound;   // SPECIAL ID FOR NODES PULLING FROM LEADER.
         private boolean isPaused = false;
 
@@ -4133,21 +4132,21 @@ public final class SearchUpdated extends ComponentDefinition {
             public void handle(TimeoutCollection.EntryExchangeRound entryExchangeRound) {
 
                 try {
-                    
+
                     logger.info("Entry Exchange Round initiated ... ");
-                    
+
                     if(isPaused){
-                        
+
                         logger.debug("{}: Entry exchange round is paused, returning ... ");
                         return;
                     }
-                    
+
                     entryExchangeTracker.resetTracker();
                     updateInternalState();
-                    
+
                     logger.info("{}: Current Tracking Information: {}", prefix, currentTrackingUpdate);
                     startEntryPullMechanism();
-                    
+
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException(" Unable to initiate entry exchange round ", e);
@@ -4173,7 +4172,7 @@ public final class SearchUpdated extends ComponentDefinition {
             }
         }
 
-        
+
 
         /**
          * Construct the index exchange request and request the higher node
@@ -4183,15 +4182,15 @@ public final class SearchUpdated extends ComponentDefinition {
         private void triggerHashExchange(UUID entryExchangeRound) throws IOException, LuceneAdaptorException {
 
             if (leaderAddress != null && isLeaderInGradient(leaderAddress)) {
-                
+
                 logger.debug("Start the special direct leader pull protocol.");
                 ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
-                
+
                 leaderPullRound = UUID.randomUUID();
                 LeaderPullEntry.Request pullRequest = new LeaderPullEntry.Request(leaderPullRound, entryBeingTracked);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), leaderAddress, Transport.UDP, pullRequest), networkPort);
-                
-                
+
+
             } else {
 
                 EntryHashExchange.Request request =
@@ -4215,8 +4214,8 @@ public final class SearchUpdated extends ComponentDefinition {
 
 
         /**
-         * Handler for request to pull the entries directly from the leader. The node simply checks 
-         * the leader information and if the node is currently the leader, then it replies back with the information 
+         * Handler for request to pull the entries directly from the leader. The node simply checks
+         * the leader information and if the node is currently the leader, then it replies back with the information
          * requested.
          * FIX : This handler is a potential hole for the lower nodes to fetch the entries from the partitioned nodes.
          * So in any handler that deals with returning data to other nodes, the check for the overlay id needs to be there.
@@ -4225,17 +4224,17 @@ public final class SearchUpdated extends ComponentDefinition {
         ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>> leaderPullRequest = new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>>() {
             @Override
             public void handle(LeaderPullEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request> event) {
-                
+
                 if(leader){
-                    
+
                     // Return reply if I am leader else chuck it.
                     TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
                     List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
                             request.getLowestMissingEntryId(), collector);
-                    
+
                     LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries);
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-                    
+
                 }
 
             }
@@ -4248,14 +4247,14 @@ public final class SearchUpdated extends ComponentDefinition {
          * system originally asked for.
          *
          */
-        ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>> leaderPullResponse = 
+        ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>> leaderPullResponse =
                 new ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>>() {
-                    
+
             @Override
             public void handle(LeaderPullEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response> event) {
-                
+
                 logger.debug("{}: Received leader pull response from the node: {} in the system", prefix, event.getSource());
-                
+
                 try{
                     if(leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())){
 
@@ -4267,20 +4266,20 @@ public final class SearchUpdated extends ComponentDefinition {
                         }
                     }
 
-                } 
+                }
                 catch(Exception ex){
                     logger.warn("{}: Entries Pulled : {}" , prefix, response.getMissingEntries());
                     throw new RuntimeException("Unable to add entries in System", ex);
                 }
             }
-                    
+
         };
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
         /**
          * Handler for the Entry Hash Exchange Request in which the nodes request for the hashes of the next missing index entries
          * as part of the lowest missing entry information.
@@ -4462,8 +4461,8 @@ public final class SearchUpdated extends ComponentDefinition {
                         currentTrackingId = 0;
                     }
                 }
-                
-                
+
+
 
             }
         }
@@ -4490,8 +4489,8 @@ public final class SearchUpdated extends ComponentDefinition {
          * or not. (It can be added if it is the currently being tracked else goes to the existing entries map).
          *
          * @param entry entry to add.
-         * @throws IOException
-         * @throws LuceneAdaptorException
+         * @throws java.io.IOException
+         * @throws se.sics.ms.common.LuceneAdaptorException
          */
 
         public boolean updateMissingEntryTracker(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
@@ -4506,9 +4505,9 @@ public final class SearchUpdated extends ComponentDefinition {
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
                     return true;
-                    
+
                 } else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
-                    
+
                     logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
                     throw new RuntimeException(" Some Condition that cannot be tracked ... ");
                 }
@@ -4517,7 +4516,7 @@ public final class SearchUpdated extends ComponentDefinition {
             // In case we reached this point we add it to the existing entries as we cannot add to Lucene Yet.
             if(!existingEntries.keySet().contains(entry.getApplicationEntryId()))
                 existingEntries.put(entry.getApplicationEntryId(), entry);
-            
+
             return false;
         }
 
@@ -4549,20 +4548,20 @@ public final class SearchUpdated extends ComponentDefinition {
          *
          */
         public void updateInternalState() throws IOException, LuceneAdaptorException {
-            
+
             // Update the current tracking information.
             updateCurrentTracking();
 
             // Check for some entry gaps and remove them.
             checkAndRemoveEntryGaps();
         }
-        
-        
+
+
         /**
          * Once you add an entry in the system, check for any gaps that might be occurred and can be removed.
          *
-         * @throws IOException
-         * @throws LuceneAdaptorException
+         * @throws java.io.IOException
+         * @throws se.sics.ms.common.LuceneAdaptorException
          */
         public void checkAndRemoveEntryGaps() throws IOException, LuceneAdaptorException {
 

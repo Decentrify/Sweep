@@ -61,7 +61,7 @@ public class EpochUpdate implements Comparable<EpochUpdate>{
                 "epochId=" + epochId +
                 ", leaderId=" + leaderId +
                 ", numEntries=" + numEntries +
-                ", epochUpdateStatus=" + epochUpdateStatus +
+                ", leaderUnitStatus=" + epochUpdateStatus +
                 '}';
     }
 

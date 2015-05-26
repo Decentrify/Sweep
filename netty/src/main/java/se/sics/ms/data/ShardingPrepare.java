@@ -1,7 +1,7 @@
 package se.sics.ms.data;
 
 import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.ms.types.EpochUpdatePacket;
+import se.sics.ms.types.LeaderUnitUpdate;
 import se.sics.ms.types.OverlayId;
 
 import java.util.UUID;
@@ -16,10 +16,10 @@ public class ShardingPrepare {
     public static class Request {
         
         private UUID shardRoundId;
-        private EpochUpdatePacket epochUpdatePacket;
+        private LeaderUnitUpdate epochUpdatePacket;
         private OverlayId overlayId;
         
-        public Request( UUID shardRoundId, EpochUpdatePacket epochUpdatePacket, OverlayId overlayId ){
+        public Request( UUID shardRoundId, LeaderUnitUpdate epochUpdatePacket, OverlayId overlayId ){
             
             this.shardRoundId = shardRoundId;
             this.epochUpdatePacket = epochUpdatePacket;
@@ -63,7 +63,7 @@ public class ShardingPrepare {
             return shardRoundId;
         }
 
-        public EpochUpdatePacket getEpochUpdatePacket() {
+        public LeaderUnitUpdate getEpochUpdatePacket() {
             return epochUpdatePacket;
         }
 

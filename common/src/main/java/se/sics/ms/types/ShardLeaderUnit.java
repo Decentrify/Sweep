@@ -9,14 +9,20 @@ import java.security.PublicKey;
  *  
  * Created by babbarshaer on 2015-05-20.
  */
-public class ShardEpochContainer extends EpochContainer{
+public class ShardLeaderUnit extends LeaderUnit {
     
     private ApplicationEntry.ApplicationEntryId medianId;
     private PublicKey leaderKey;
     private String hash;
 
-    public ShardEpochContainer(long epochId, int leaderId, long numEntries, ApplicationEntry.ApplicationEntryId medianId, PublicKey leaderKey) {
+    public ShardLeaderUnit(long epochId, int leaderId, long numEntries, ApplicationEntry.ApplicationEntryId medianId, PublicKey leaderKey) {
         super(epochId, leaderId, numEntries);
+        this.medianId = medianId;
+        this.leaderKey = leaderKey;
+    }
+
+    public ShardLeaderUnit(long epochId, int leaderId, long numEntries, LUStatus leaderUnitStatus, EntryPullStatus entryPullStatus, ApplicationEntry.ApplicationEntryId medianId, PublicKey leaderKey) {
+        super(epochId, leaderId, numEntries, leaderUnitStatus, entryPullStatus);
         this.medianId = medianId;
         this.leaderKey = leaderKey;
     }
@@ -28,7 +34,7 @@ public class ShardEpochContainer extends EpochContainer{
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
-        ShardEpochContainer that = (ShardEpochContainer) o;
+        ShardLeaderUnit that = (ShardLeaderUnit) o;
 
         if (hash != null ? !hash.equals(that.hash) : that.hash != null) return false;
         if (leaderKey != null ? !leaderKey.equals(that.leaderKey) : that.leaderKey != null) return false;
@@ -55,6 +61,11 @@ public class ShardEpochContainer extends EpochContainer{
                 ", hash='" + hash + '\'' +
                 '}'+
                 " }";
+    }
+
+    @Override
+    public LeaderUnit shallowCopy() {
+        return new ShardLeaderUnit(this.epochId, this.leaderId, this.numEntries, this.leaderUnitStatus, this.entryPullStatus, this.medianId, this.leaderKey);
     }
 
     public void setHash(String hash) {

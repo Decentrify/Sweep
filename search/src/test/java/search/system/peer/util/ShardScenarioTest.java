@@ -2,9 +2,8 @@ package search.system.peer.util;
 
 import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.ApplicationEntry;
-import se.sics.ms.types.BaseEpochContainer;
-import se.sics.ms.types.EpochContainer;
-import se.sics.ms.types.ShardEpochContainer;
+import se.sics.ms.types.BaseLeaderUnit;
+import se.sics.ms.types.LeaderUnit;
 
 import java.io.IOException;
 import java.util.*;
@@ -34,13 +33,13 @@ public class ShardScenarioTest {
 
         
         
-        lowestMissingEntryTracker.setCurrentTrackingUpdate(new BaseEpochContainer(3, leaderId), 10);
+        lowestMissingEntryTracker.setCurrentTrackingUpdate(new BaseLeaderUnit(3, leaderId), 10);
 
 
-        EpochContainer shardEpochContainer = new BaseEpochContainer(numEpochContainers, leaderId, 1);
+        LeaderUnit shardEpochContainer = new BaseLeaderUnit(numEpochContainers, leaderId, 1);
         ApplicationEntry.ApplicationEntryId medianId = new ApplicationEntry.ApplicationEntryId(6, leaderId + 100, 12);
         
-        List<EpochContainer>skipList = generateSkipList(shardEpochContainer, medianId, false);
+        List<LeaderUnit>skipList = generateSkipList(shardEpochContainer, medianId, false);
         System.out.println(" Skip List : " + skipList);
     }
 
@@ -55,9 +54,9 @@ public class ShardScenarioTest {
      * @throws IOException
      * @throws LuceneAdaptorException
      */
-    private static List<EpochContainer> generateSkipList(EpochContainer shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId) throws IOException, LuceneAdaptorException {
+    private static List<LeaderUnit> generateSkipList(LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId) throws IOException, LuceneAdaptorException {
 
-        EpochContainer lastAddedUpdate = epochHistoryTracker.getLastUpdate();
+        LeaderUnit lastAddedUpdate = epochHistoryTracker.getLastUpdate();
 
         if (lastAddedUpdate == null || (lastAddedUpdate.getEpochId() >= shardContainer.getEpochId()
                 && lastAddedUpdate.getLeaderId() >= shardContainer.getLeaderId())) {
@@ -65,14 +64,14 @@ public class ShardScenarioTest {
             throw new IllegalStateException("Sharding State Corrupted ..  ");
         }
 
-        EpochContainer container = lowestMissingEntryTracker.getCurrentTrackingUpdate();
+        LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUpdate();
         long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
 
-        List<EpochContainer> pendingUpdates = epochHistoryTracker.getNextUpdates(
+        List<LeaderUnit> pendingUpdates = epochHistoryTracker.getNextUpdates(
                 container,
                 Integer.MAX_VALUE);
 
-        Iterator<EpochContainer> iterator = pendingUpdates.iterator();
+        Iterator<LeaderUnit> iterator = pendingUpdates.iterator();
 
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
@@ -82,7 +81,7 @@ public class ShardScenarioTest {
             // entries to right of the median.
             while (iterator.hasNext()) {
 
-                EpochContainer nextContainer = iterator.next();
+                LeaderUnit nextContainer = iterator.next();
 //
 //                if (!(nextContainer.getEpochId() >= medianId.getEpochId() &&
 //                        nextContainer.getLeaderId() > medianId.getLeaderId())) {
@@ -110,7 +109,7 @@ public class ShardScenarioTest {
             // entries to the left of the median.
             while (iterator.hasNext()) {
 
-                EpochContainer nextContainer = iterator.next();
+                LeaderUnit nextContainer = iterator.next();
 
 //                if (!(medianId.getEpochId() > nextContainer.getEpochId() &&
 //                        medianId.getLeaderId() >= nextContainer.getLeaderId())) {
@@ -126,10 +125,10 @@ public class ShardScenarioTest {
 
         // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
-        Iterator<EpochContainer> remainingItr = pendingUpdates.iterator();
+        Iterator<LeaderUnit> remainingItr = pendingUpdates.iterator();
         while (remainingItr.hasNext()) {
 
-            EpochContainer next = remainingItr.next();
+            LeaderUnit next = remainingItr.next();
             if (next.equals(container) && currentId > 0) {
 
                 remainingItr.remove(); // Don't need to skip self as landing entry already added.
@@ -155,13 +154,13 @@ public class ShardScenarioTest {
     }
 
 
-    private static LinkedList<EpochContainer> createClosedEpochHistoryList(int leaderId, int starting_Epoch, int count) {
+    private static LinkedList<LeaderUnit> createClosedEpochHistoryList(int leaderId, int starting_Epoch, int count) {
 
-        LinkedList<EpochContainer> historyList = new LinkedList<EpochContainer>();
+        LinkedList<LeaderUnit> historyList = new LinkedList<LeaderUnit>();
         int maxValue = (starting_Epoch + count);
         
         for (int i = starting_Epoch; i < maxValue; i++) {
-            historyList.add(new BaseEpochContainer(i, leaderId, closedContainerSize));
+            historyList.add(new BaseLeaderUnit(i, leaderId, closedContainerSize));
         }
 
         return historyList;
@@ -170,15 +169,15 @@ public class ShardScenarioTest {
 
     private static class LowestMissingTracker {
 
-        private EpochContainer currentTrackingUpdate;
+        private LeaderUnit currentTrackingUpdate;
         private long currentTrackingId;
 
-        public void setCurrentTrackingUpdate(EpochContainer update, long currentTrackingId) {
+        public void setCurrentTrackingUpdate(LeaderUnit update, long currentTrackingId) {
             this.currentTrackingUpdate = update;
             this.currentTrackingId = currentTrackingId;
         }
 
-        public EpochContainer getCurrentTrackingUpdate() {
+        public LeaderUnit getCurrentTrackingUpdate() {
             return this.currentTrackingUpdate;
         }
 
@@ -200,9 +199,9 @@ public class ShardScenarioTest {
 
     private static class EpochHistoryTracker {
 
-        private LinkedList<EpochContainer> epochUpdateHistory = new LinkedList<EpochContainer>();
+        private LinkedList<LeaderUnit> epochUpdateHistory = new LinkedList<LeaderUnit>();
 
-        public void setEpochHistory(Collection<EpochContainer> container) {
+        public void setEpochHistory(Collection<LeaderUnit> container) {
             epochUpdateHistory.addAll(container);
         }
 
@@ -217,7 +216,7 @@ public class ShardScenarioTest {
          *
          * @return Epoch Update.
          */
-        public EpochContainer getLastUpdate(){
+        public LeaderUnit getLastUpdate(){
 
             return !this.epochUpdateHistory.isEmpty()
                     ? this.epochUpdateHistory.getLast()
@@ -231,9 +230,9 @@ public class ShardScenarioTest {
          *
          * @return Initial Epoch Update.
          */
-        public EpochContainer getInitialEpochUpdate() {
+        public LeaderUnit getInitialEpochUpdate() {
 
-            for (EpochContainer update : epochUpdateHistory) {
+            for (LeaderUnit update : epochUpdateHistory) {
                 if (update.getEpochId() == 0) {
                     return update;
                 }
@@ -250,13 +249,13 @@ public class ShardScenarioTest {
          * @param update Update to match against.
          * @return Updated Value.
          */
-        public EpochContainer getSelfUpdate(EpochContainer update) {
+        public LeaderUnit getSelfUpdate(LeaderUnit update) {
 
             if (update == null) {
                 return null;
             }
 
-            for (EpochContainer epochUpdate : epochUpdateHistory) {
+            for (LeaderUnit epochUpdate : epochUpdateHistory) {
                 if (epochUpdate.getEpochId() == update.getEpochId()
                         && epochUpdate.getLeaderId() == update.getLeaderId()) {
 
@@ -268,10 +267,10 @@ public class ShardScenarioTest {
         }
 
 
-        public List<EpochContainer> getNextUpdates(EpochContainer current, int limit) {
+        public List<LeaderUnit> getNextUpdates(LeaderUnit current, int limit) {
 
-            List<EpochContainer> nextUpdates =
-                    new ArrayList<EpochContainer>();
+            List<LeaderUnit> nextUpdates =
+                    new ArrayList<LeaderUnit>();
 
             if (current == null) {
                 current = getInitialEpochUpdate();
@@ -284,15 +283,15 @@ public class ShardScenarioTest {
 
                 
                 
-                if (!current.getEpochUpdateStatus()
-                        .equals(EpochContainer.Status.ONGOING)) 
+                if (!current.getLeaderUnitStatus()
+                        .equals(LeaderUnit.LUStatus.ONGOING))
                 {
 
                     int index = epochUpdateHistory.indexOf(current);
                     if (index != -1) 
                     {
 
-                        ListIterator<EpochContainer> listIterator =
+                        ListIterator<LeaderUnit> listIterator =
                                 epochUpdateHistory.listIterator(index);
 
                         int count = 0;

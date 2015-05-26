@@ -1,6 +1,6 @@
 package se.sics.ms.util;
 
-import se.sics.ms.types.EpochContainer;
+import se.sics.ms.types.LeaderUnit;
 
 import java.util.Comparator;
 
@@ -8,10 +8,10 @@ import java.util.Comparator;
  *  
  * Created by babbarshaer on 2015-05-20.
  */
-public class GenericECComparator implements Comparator<EpochContainer> {
+public class GenericECComparator implements Comparator<LeaderUnit> {
     
     @Override
-    public int compare(EpochContainer o1, EpochContainer o2) {
+    public int compare(LeaderUnit o1, LeaderUnit o2) {
         
         if(o1 == o2){
             return 0;

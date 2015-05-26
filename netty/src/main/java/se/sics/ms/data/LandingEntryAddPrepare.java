@@ -1,8 +1,7 @@
 package se.sics.ms.data;
 
 import se.sics.ms.types.ApplicationEntry;
-import se.sics.ms.types.EpochContainer;
-import se.sics.ms.types.EpochUpdate;
+import se.sics.ms.types.LeaderUnit;
 
 import java.util.UUID;
 
@@ -14,9 +13,9 @@ public class LandingEntryAddPrepare {
     
     public static class Request extends EntryAddPrepare.Request{
 
-        private EpochContainer previousEpochUpdate;
+        private LeaderUnit previousEpochUpdate;
         
-        public Request(UUID entryAdditionRound, ApplicationEntry entry, EpochContainer previousEpochUpdate) {
+        public Request(UUID entryAdditionRound, ApplicationEntry entry, LeaderUnit previousEpochUpdate) {
             super(entryAdditionRound, entry);
             this.previousEpochUpdate = previousEpochUpdate;
         }
@@ -44,7 +43,7 @@ public class LandingEntryAddPrepare {
             return result;
         }
 
-        public EpochContainer getPreviousEpochUpdate() {
+        public LeaderUnit getPreviousEpochUpdate() {
             return previousEpochUpdate;
         }
     }

@@ -6,12 +6,12 @@ package se.sics.ms.types;
  *  
  * Created by babbarshaer on 2015-05-20.
  */
-public class EpochUpdatePacket {
+public class LeaderUnitUpdate {
     
-    private EpochContainer previousEpochUpdate;
-    private EpochContainer currentEpochUpdate;
+    private LeaderUnit previousEpochUpdate;
+    private LeaderUnit currentEpochUpdate;
 
-    public EpochUpdatePacket(EpochContainer previousEpochUpdate, EpochContainer currentEpochUpdate) {
+    public LeaderUnitUpdate(LeaderUnit previousEpochUpdate, LeaderUnit currentEpochUpdate) {
         this.previousEpochUpdate = previousEpochUpdate;
         this.currentEpochUpdate = currentEpochUpdate;
     }
@@ -30,7 +30,7 @@ public class EpochUpdatePacket {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        EpochUpdatePacket that = (EpochUpdatePacket) o;
+        LeaderUnitUpdate that = (LeaderUnitUpdate) o;
 
         if (currentEpochUpdate != null ? !currentEpochUpdate.equals(that.currentEpochUpdate) : that.currentEpochUpdate != null)
             return false;
@@ -47,11 +47,11 @@ public class EpochUpdatePacket {
         return result;
     }
 
-    public EpochContainer getPreviousEpochUpdate() {
+    public LeaderUnit getPreviousEpochUpdate() {
         return previousEpochUpdate;
     }
 
-    public EpochContainer getCurrentEpochUpdate() {
+    public LeaderUnit getCurrentEpochUpdate() {
         return currentEpochUpdate;
     }
 }

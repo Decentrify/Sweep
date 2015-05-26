@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.ShardEpochContainer;
+import se.sics.ms.types.ShardLeaderUnit;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -87,7 +87,7 @@ public class ApplicationSecurity {
      * @param privateKey
      * @return signed hash
      */
-    public static String generateShardSignedHash (ShardEpochContainer sec, PrivateKey privateKey) {
+    public static String generateShardSignedHash (ShardLeaderUnit sec, PrivateKey privateKey) {
 
         if (sec.getLeaderKey() == null)
             return null;
@@ -112,7 +112,7 @@ public class ApplicationSecurity {
     }
 
     
-    public static ByteBuffer getByteDataFromShardUpdate(ShardEpochContainer sec) {
+    public static ByteBuffer getByteDataFromShardUpdate(ShardLeaderUnit sec) {
 
         ByteBuffer byteBuffer = ByteBuffer.allocate( (8 * 4) + ( 2 * 4));
         ApplicationEntry.ApplicationEntryId medianId = sec.getMedianId();
@@ -140,7 +140,7 @@ public class ApplicationSecurity {
      * @param container Shard Container
      * @return
      */
-    public static boolean isShardUpdateValid (ShardEpochContainer container) {
+    public static boolean isShardUpdateValid (ShardLeaderUnit container) {
 
         if (container.getLeaderKey() == null)
             return false;

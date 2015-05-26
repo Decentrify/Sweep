@@ -2,7 +2,7 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.ms.types.EpochContainer;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.util.*;
@@ -17,21 +17,21 @@ import java.util.*;
  */
 public class EpochHistoryTracker {
 
-    private LinkedList<EpochContainer> epochUpdateHistory;
+    private LinkedList<LeaderUnit> epochUpdateHistory;
     private static Logger logger = LoggerFactory.getLogger(EpochHistoryTracker.class);
     private static final int START_EPOCH_ID = 0;
-    private LinkedList<EpochContainer> bufferedEpochHistory;
+    private LinkedList<LeaderUnit> bufferedEpochHistory;
     private BasicAddress selfAddress;
     private String prefix;
     private GenericECComparator comparator;
-    private ArrayList<EpochContainer> skipEpochHistory;
+    private ArrayList<LeaderUnit> skipEpochHistory;
     
     public EpochHistoryTracker(BasicAddress address){
 
         logger.trace("Tracker Initialized .. ");
-        epochUpdateHistory = new LinkedList<EpochContainer>();
-        bufferedEpochHistory = new LinkedList<EpochContainer>();
-        skipEpochHistory = new ArrayList<EpochContainer>();
+        epochUpdateHistory = new LinkedList<LeaderUnit>();
+        bufferedEpochHistory = new LinkedList<LeaderUnit>();
+        skipEpochHistory = new ArrayList<LeaderUnit>();
         comparator = new GenericECComparator();
         
         this.selfAddress = address;
@@ -52,11 +52,11 @@ public class EpochHistoryTracker {
      */
     private long epochIdToFetch(){
 
-        EpochContainer lastUpdate = getLastUpdate();
+        LeaderUnit lastUpdate = getLastUpdate();
         
         return lastUpdate == null 
                 ? START_EPOCH_ID 
-                :((lastUpdate.getEpochUpdateStatus() == EpochContainer.Status.COMPLETED)
+                :((lastUpdate.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
                         ? lastUpdate.getEpochId()+1 
                         : lastUpdate.getEpochId());
     }
@@ -70,7 +70,7 @@ public class EpochHistoryTracker {
      *
      * @param epochUpdate Epoch Update.
      */
-    public void addEpochUpdate(EpochContainer epochUpdate) {
+    public void addEpochUpdate(LeaderUnit epochUpdate) {
 
         if( epochUpdate == null ){
             logger.debug("Request to add default epoch update received, returning ... ");
@@ -119,7 +119,7 @@ public class EpochHistoryTracker {
      * 
      * @return Epoch Update.
      */
-    public EpochContainer getLastUpdate(){
+    public LeaderUnit getLastUpdate(){
         
         return !this.epochUpdateHistory.isEmpty()
                 ? this.epochUpdateHistory.getLast() 
@@ -133,10 +133,10 @@ public class EpochHistoryTracker {
      * @param update
      * @return
      */
-    public EpochContainer getNextUpdateToTrack(EpochContainer update){
+    public LeaderUnit getNextUpdateToTrack(LeaderUnit update){
         
-        EpochContainer nextUpdate = null;
-        Iterator<EpochContainer> iterator = epochUpdateHistory.iterator();
+        LeaderUnit nextUpdate = null;
+        Iterator<LeaderUnit> iterator = epochUpdateHistory.iterator();
         
         while(iterator.hasNext()){
 
@@ -167,13 +167,13 @@ public class EpochHistoryTracker {
      * @param update Update to match against.
      * @return Updated Value.
      */
-    public EpochContainer getSelfUpdate(EpochContainer update){
+    public LeaderUnit getSelfUpdate(LeaderUnit update){
 
         if( update == null ){
             return null;
         }
 
-        for(EpochContainer epochUpdate : epochUpdateHistory){
+        for(LeaderUnit epochUpdate : epochUpdateHistory){
             if(epochUpdate.getEpochId() == update.getEpochId() 
                     && epochUpdate.getLeaderId() == update.getLeaderId()){
                 
@@ -190,9 +190,9 @@ public class EpochHistoryTracker {
      * 
      * @return Initial Epoch Update.
      */
-    public EpochContainer getInitialEpochUpdate() {
+    public LeaderUnit getInitialEpochUpdate() {
         
-        for(EpochContainer update : epochUpdateHistory){
+        for(LeaderUnit update : epochUpdateHistory){
             if(update.getEpochId() == START_EPOCH_ID){
                 return update;
             }
@@ -210,9 +210,9 @@ public class EpochHistoryTracker {
      * @param limit Max updates to provide.
      * @return Successive Updates.
      */
-    public List<EpochContainer> getNextUpdates(EpochContainer current, int limit) {
+    public List<LeaderUnit> getNextUpdates(LeaderUnit current, int limit) {
 
-        List<EpochContainer> nextUpdates = new ArrayList<EpochContainer>();
+        List<LeaderUnit> nextUpdates = new ArrayList<LeaderUnit>();
 
         if (current == null) {
             
@@ -225,7 +225,7 @@ public class EpochHistoryTracker {
             current = getSelfUpdate(current);
         }
 
-        if( current != null && !current.getEpochUpdateStatus().equals(EpochContainer.Status.ONGOING)){
+        if( current != null && !current.getLeaderUnitStatus().equals(LeaderUnit.LUStatus.ONGOING)){
 
             // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
             // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
@@ -233,7 +233,7 @@ public class EpochHistoryTracker {
             int index = epochUpdateHistory.indexOf(current);        
             if(index != -1){
 
-                ListIterator<EpochContainer> listIterator = epochUpdateHistory.listIterator(index);
+                ListIterator<LeaderUnit> listIterator = epochUpdateHistory.listIterator(index);
                 int count = 0;
                 while(listIterator.hasNext() && count < limit){
                     nextUpdates.add(listIterator.next());
@@ -256,11 +256,11 @@ public class EpochHistoryTracker {
      *
      * @param intersection Collection.
      */
-    public void addEpochUpdates(List<EpochContainer> intersection) {
+    public void addEpochUpdates(List<LeaderUnit> intersection) {
 
         Collections.sort(intersection, comparator );
 
-        for (EpochContainer nextUpdate : intersection) {
+        for (LeaderUnit nextUpdate : intersection) {
             addEpochUpdate(nextUpdate);
         }
     }
@@ -272,7 +272,7 @@ public class EpochHistoryTracker {
      *
      * @param skipUpdateCollection collection.
      */
-    public void addSkipList(Collection<EpochContainer> skipUpdateCollection){
+    public void addSkipList(Collection<LeaderUnit> skipUpdateCollection){
         skipEpochHistory.addAll(skipUpdateCollection);
     }
     

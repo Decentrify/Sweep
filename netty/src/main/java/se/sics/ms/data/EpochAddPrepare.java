@@ -1,8 +1,7 @@
 package se.sics.ms.data;
 
 import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
-import se.sics.ms.types.EpochContainer;
+import se.sics.ms.types.LeaderUnit;
 
 import java.util.UUID;
 
@@ -18,10 +17,10 @@ public class EpochAddPrepare {
     public static class Request {
         
         private UUID epochRoundID;
-        private EpochContainer previousEpochUpdate;
-        private EpochContainer currentEpochUpdate;
+        private LeaderUnit previousEpochUpdate;
+        private LeaderUnit currentEpochUpdate;
 
-        public Request(UUID epochRoundID, EpochContainer previousEpochUpdate, EpochContainer currentEpochUpdate) {
+        public Request(UUID epochRoundID, LeaderUnit previousEpochUpdate, LeaderUnit currentEpochUpdate) {
             this.epochRoundID = epochRoundID;
             this.previousEpochUpdate = previousEpochUpdate;
             this.currentEpochUpdate = currentEpochUpdate;
@@ -31,11 +30,11 @@ public class EpochAddPrepare {
             return epochRoundID;
         }
 
-        public EpochContainer getPreviousEpochUpdate() {
+        public LeaderUnit getPreviousEpochUpdate() {
             return previousEpochUpdate;
         }
 
-        public EpochContainer getCurrentEpochUpdate() {
+        public LeaderUnit getCurrentEpochUpdate() {
             return currentEpochUpdate;
         }
     }

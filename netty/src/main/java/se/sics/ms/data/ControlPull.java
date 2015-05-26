@@ -1,7 +1,6 @@
 package se.sics.ms.data;
 
-import se.sics.ms.types.EpochContainer;
-import se.sics.ms.types.EpochUpdate;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayId;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -22,10 +21,10 @@ public class ControlPull {
 
         private UUID pullRound;
         private OverlayId overlayId;
-        private EpochContainer epochUpdate;
+        private LeaderUnit epochUpdate;
 
 
-        public Request(UUID pullRound, OverlayId overlayId, EpochContainer epochUpdate) {
+        public Request(UUID pullRound, OverlayId overlayId, LeaderUnit epochUpdate) {
             this.pullRound = pullRound;
             this.overlayId = overlayId;
             this.epochUpdate = epochUpdate;
@@ -62,7 +61,7 @@ public class ControlPull {
             return overlayId;
         }
 
-        public EpochContainer getEpochUpdate() {
+        public LeaderUnit getEpochUpdate() {
             return epochUpdate;
         }
     }
@@ -81,10 +80,10 @@ public class ControlPull {
         private UUID pullRound;
         private DecoratedAddress leaderAddress;
         private PublicKey leaderKey;
-        private List<EpochContainer> nextUpdates;
+        private List<LeaderUnit> nextUpdates;
 
 
-        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<EpochContainer> nextUpdates) {
+        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<LeaderUnit> nextUpdates) {
             this.pullRound = pullRound;
             this.leaderAddress = leaderAddress;
             this.leaderKey = leaderKey;
@@ -140,7 +139,7 @@ public class ControlPull {
             return leaderAddress;
         }
 
-        public List<EpochContainer> getNextUpdates() {
+        public List<LeaderUnit> getNextUpdates() {
             return nextUpdates;
         }
     }

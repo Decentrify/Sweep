@@ -9,11 +9,16 @@ package se.sics.ms.types;
  *
  * Created by babbarshaer on 2015-05-20.
  */
-public class NPEpochContainer extends EpochContainer{
+public class NPLeaderUnit extends LeaderUnit {
     
-    public NPEpochContainer(long epochId, int leaderId, long numEntries) {
+    public NPLeaderUnit(long epochId, int leaderId, long numEntries) {
         super(epochId, leaderId, numEntries);
     }
-    
-    
+
+    @Override
+    public LeaderUnit shallowCopy() {
+        return null;
+    }
+
+
 }
