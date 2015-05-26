@@ -2296,11 +2296,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
     /**
      * Event from the shard tracker that the sharding round has been completed and therefore
-     * @param shardRoundID
-     * @param previousEpoch
-     * @param shardContainer
+     * the system state needs to be updated in accordance with the sharding.
+     *
+     * @param shardRoundID shard round
+     * @param previousUnit previous unit
+     * @param shardUnit current shard unit
      */
-    private void handleSharding( UUID shardRoundID, LeaderUnit previousEpoch, LeaderUnit shardContainer ) {
+    private void handleSharding( UUID shardRoundID, LeaderUnit previousUnit, LeaderUnit shardUnit ) {
 
         if(shardRoundID != null && !shardTracker.getShardRoundId().equals(shardRoundID)){
             throw new RuntimeException("Sharding Tracker seems to be corrupted ... ");
@@ -2312,8 +2314,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
             shardTracker.resetShardingParameters();
         }
 
-        epochHistoryTracker.addEpochUpdate (previousEpoch);      // Close the previous epoch update.
-        handleSharding((ShardLeaderUnit)shardContainer);    // Handle the sharding phase.
+        // BUFFERING OF UPDATES POSSIBLE.
+        if(timeLine.isSafeToAdd(previousUnit)){
+
+            timeLine.addLeaderUnit(previousUnit);      // Close the previous epoch update.
+            handleSharding((ShardLeaderUnit)shardUnit);    // Handle the sharding phase.
+        }
+        else {
+            throw new IllegalStateException(" Unable to handle the current state in which shard updates are buffered.");
+        }
 
         partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
@@ -2323,15 +2332,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * In case the sharding event is handled by the shard commit or the control pull, the application needs to be informed
      * immediately, so the application can carry out the necessary sharding steps.
      *
-     * @param container Shard Epoch Container.
+     * @param shardUnit Shard Epoch Unit.
      */
-    private void handleSharding (ShardLeaderUnit shardContainer){
+    private void handleSharding (ShardLeaderUnit shardUnit){
 
         try{
 
             logger.warn("{}: Handle the main sharding update ... ", prefix);
 
-            ApplicationEntry.ApplicationEntryId medianId = shardContainer.getMedianId();
+            ApplicationEntry.ApplicationEntryId medianId = shardUnit.getMedianId();
             lowestMissingEntryTracker.pauseTracking();
 
             int nodeId = self.getId();
@@ -2344,14 +2353,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
             applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
 
             lowestMissingEntryTracker.printCurrentTrackingInfo();
-            List<LeaderUnit> skipList = generateSkipList(shardContainer, medianId, partitionSubId);
+            List<LeaderUnit> skipList = generateSkipList(shardUnit, medianId, partitionSubId);
 
             logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
             System.exit(-1);
 
-            epochHistoryTracker.addSkipList(skipList);
-
-            epochHistoryTracker.addEpochUpdate(shardContainer);    // Close the sharding process, once the skip list is added.
+            timeLine.addSkipList(skipList);
+            timeLine.addLeaderUnit(shardUnit);    // Close the sharding process, once the skip list is added.
             lowestMissingEntryTracker.resumeTracking();
         }
         catch (Exception e){
@@ -2371,10 +2379,10 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private List<LeaderUnit> generateSkipList ( LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId )
             throws IOException, LuceneAdaptorException {
 
-        LeaderUnit lastAddedUpdate = epochHistoryTracker.getLastUpdate();
+        LeaderUnit lastLeaderUnit = timeLine.getLastUnit();
 
-        if(lastAddedUpdate == null || ( lastAddedUpdate.getEpochId() >= shardContainer.getEpochId()
-                && lastAddedUpdate.getLeaderId() >= shardContainer.getLeaderId()) ) {
+        if(lastLeaderUnit == null || ( lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
+                && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId()) ) {
 
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix );
         }
@@ -2382,14 +2390,16 @@ public final class ShardAwareSearch extends ComponentDefinition {
         LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
         long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
 
-        List<LeaderUnit> pendingUpdates = epochHistoryTracker.getNextUpdates(
+        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits(
                 container,
                 Integer.MAX_VALUE);
 
-        Iterator<LeaderUnit> iterator = pendingUpdates.iterator();
+        Iterator<LeaderUnit> iterator = pendingUnits.iterator();
 
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
+
+        // FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH.
 
         if( partitionSubId ) {
             // If right to the median id is removed, skip list should contain
@@ -2421,7 +2431,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
-        Iterator<LeaderUnit> remainingItr = pendingUpdates.iterator();
+        Iterator<LeaderUnit> remainingItr = pendingUnits.iterator();
         while(remainingItr.hasNext()){
 
             LeaderUnit next = remainingItr.next();
@@ -2448,7 +2458,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             }
         }
 
-        return pendingUpdates;
+        return pendingUnits;
     }
 
 
@@ -3688,7 +3698,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * commit indicating the nearby nodes of event of sharding in which the nodes based on the
          * based on the state choose a side and remove the entries to balance out the load.
          *
-         * @param medianEntry
+         * @param roundId roundId
          */
         public void initiateSharding (UUID roundId, Collection<DecoratedAddress> leaderGroupInformation,  LeaderUnit previousContainer, LeaderUnit shardContainer) {
 

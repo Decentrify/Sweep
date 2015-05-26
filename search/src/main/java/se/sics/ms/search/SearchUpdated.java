@@ -3686,7 +3686,7 @@ public final class SearchUpdated extends ComponentDefinition {
          * commit indicating the nearby nodes of event of sharding in which the nodes based on the
          * based on the state choose a side and remove the entries to balance out the load.
          *
-         * @param medianEntry
+         * @param roundId roundId
          */
         public void initiateSharding (UUID roundId, Collection<DecoratedAddress> leaderGroupInformation,  LeaderUnit previousContainer, LeaderUnit shardContainer) {
 
