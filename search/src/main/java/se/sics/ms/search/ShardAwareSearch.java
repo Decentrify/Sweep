@@ -196,7 +196,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private EpochHistoryTracker epochHistoryTracker;
 
     private EpochAddTracker epochAddTracker;
-
+    private TimeLine timeLine;
+    
 
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
@@ -384,10 +385,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
         landingEntryTracker = new LandingEntryTracker();
-        lowestMissingEntryTracker = new LowestMissingEntryTracker(epochHistoryTracker);
+        lowestMissingEntryTracker = new LowestMissingEntryTracker();
         controlPullTracker = new ControlPullTracker(epochHistoryTracker);
         shardTracker = new ShardTracker();
         epochAddTracker = new EpochAddTracker();
+        timeLine =new TimeLine();
+        
     }
 
 
@@ -2376,7 +2379,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix );
         }
 
-        LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUpdate();
+        LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
         long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
 
         List<LeaderUnit> pendingUpdates = epochHistoryTracker.getNextUpdates(
@@ -4094,22 +4097,20 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
     private class LowestMissingEntryTracker {
 
-        private LeaderUnit currentTrackingUpdate;
+        private LeaderUnit currentTrackingUnit;
         private Map<ApplicationEntry.ApplicationEntryId, ApplicationEntry> existingEntries;
         private long currentTrackingId;
-        private EpochHistoryTracker historyTracker;
         private EntryExchangeTracker entryExchangeTracker;
 
         private UUID leaderPullRound;   // SPECIAL ID FOR NODES PULLING FROM LEADER.
         private boolean isPaused = false;
 
-        public LeaderUnit getCurrentTrackingUpdate() {
-            return currentTrackingUpdate;
+        public LeaderUnit getCurrentTrackingUnit() {
+            return currentTrackingUnit;
         }
 
-        public LowestMissingEntryTracker(EpochHistoryTracker historyTracker) {
-
-            this.historyTracker = historyTracker;
+        public LowestMissingEntryTracker() {
+            
             this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
             this.existingEntries = new HashMap<ApplicationEntry.ApplicationEntryId, ApplicationEntry>();
             this.currentTrackingId = 0;
@@ -4117,8 +4118,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            if(self.getId() == 262536227) // only for last node right now.
-                logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -4135,17 +4135,17 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     logger.info("Entry Exchange Round initiated ... ");
 
-                    if(isPaused){
-
+                    if( ! isPaused){
+                        
+                        entryExchangeTracker.resetTracker();
+                        updateInternalState();
+                        startEntryPullMechanism();
+                        
+                    }
+                    else{
                         logger.debug("{}: Entry exchange round is paused, returning ... ");
                         return;
                     }
-
-                    entryExchangeTracker.resetTracker();
-                    updateInternalState();
-
-                    logger.info("{}: Current Tracking Information: {}", prefix, currentTrackingUpdate);
-                    startEntryPullMechanism();
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -4161,12 +4161,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
          */
         private void startEntryPullMechanism() throws IOException, LuceneAdaptorException {
 
-            if (currentTrackingUpdate != null) {
+            if (currentTrackingUnit != null) {
 
                 UUID entryExchangeRound = UUID.randomUUID();
+                
                 logger.debug(" {}: Starting with the index pull mechanism with exchange round: {}", prefix, entryExchangeRound);
-
                 triggerHashExchange(entryExchangeRound);
+                
             } else {
                 logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update", prefix);
             }
@@ -4428,41 +4429,50 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         /**
-         * Analyze the current tracking information based on the information provided by the
-         * History Tracker.
+         * Look into the timeline and check for an update to the current tracking information.
+         * 
          */
         public void updateCurrentTracking() throws IOException, LuceneAdaptorException {
 
-            if (currentTrackingUpdate == null) {
+            
+            currentTrackingUnit = timeLine.getSelfUnitUpdate(currentTrackingUnit);
+            
+            if (currentTrackingUnit != null) {
 
-                // ASK FOR THE INITIAL TRACKING UPDATE.
-                currentTrackingUpdate = historyTracker
-                        .getInitialEpochUpdate();
+                if(currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP) {
+                    
+                    // I don't need to pull the entry. Duplicate code in the system. ( REFACTOR )
+                    
+                    LeaderUnit nextUnit = timeLine
+                            .getNextInOrderPending(currentTrackingUnit);
 
-            } else {
+                    if(nextUnit != null){
 
-                if (currentTrackingUpdate.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING) {
-
-                    // CHECK IF WE RECEIVED THE UPDATE TO CLOSE THE CURRENT UPDATE.
-                    currentTrackingUpdate = historyTracker
-                            .getSelfUpdate(currentTrackingUpdate);
+                        currentTrackingUnit = nextUnit;
+                        currentTrackingId = 0;
+                    }
+                    
                 }
+                
+                else if ( (currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED )
+                        && (currentTrackingId >= currentTrackingUnit.getNumEntries()) ) {
 
-                if ((currentTrackingUpdate.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
-                        && (currentTrackingId >= currentTrackingUpdate.getNumEntries())) {
+                    // Close the current tracking update.
+                    currentTrackingUnit = timeLine
+                            .markUnitComplete(currentTrackingUnit);
 
-                    // CHECK IF TIME TO TRACK OR PULL FROM NEW EPOCH UPDATE.
-                    LeaderUnit nextUpdate = historyTracker
-                            .getNextUpdateToTrack(currentTrackingUpdate);
+                    // Fetch the next update from the time line.
+                    LeaderUnit nextUpdate = timeLine
+                            .getNextInOrderPending(currentTrackingUnit);
 
                     if (nextUpdate != null) {
-
-                        currentTrackingUpdate = nextUpdate;
+                        
+                        currentTrackingUnit = nextUpdate;
                         currentTrackingId = 0;
                     }
                 }
 
-
+                
 
             }
         }
@@ -4495,7 +4505,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         public boolean updateMissingEntryTracker(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
-            if (currentTrackingUpdate != null) {
+            if (currentTrackingUnit != null) {
 
                 ApplicationEntry.ApplicationEntryId idBeingTracked =
                         getEntryBeingTracked();
@@ -4531,10 +4541,10 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
             ApplicationEntry.ApplicationEntryId entryId = null;
 
-            if (currentTrackingUpdate != null) {
+            if (currentTrackingUnit != null) {
 
-                entryId = new ApplicationEntry.ApplicationEntryId(currentTrackingUpdate.getEpochId(),
-                        currentTrackingUpdate.getLeaderId(),
+                entryId = new ApplicationEntry.ApplicationEntryId(currentTrackingUnit.getEpochId(),
+                        currentTrackingUnit.getLeaderId(),
                         currentTrackingId);
             }
 
@@ -4602,17 +4612,22 @@ public final class ShardAwareSearch extends ComponentDefinition {
             logger.debug("{}: Switching the entry exchange round again .." , prefix);
             
             isPaused = false;
-            LeaderUnit oldTrackingUpdate = currentTrackingUpdate;
             
-            currentTrackingUpdate = historyTracker
-                    .getNextUpdateToTrack( currentTrackingUpdate );
+            // Check if the unit is trackable or not.
             
-            if(currentTrackingUpdate == null){
-                throw new IllegalStateException(" Shard Protocol corrupted ... ");
-            }
-            
-            if( oldTrackingUpdate.getEpochId() != currentTrackingUpdate.getEpochId() ){
-                currentTrackingId = 0;
+            if(!timeLine.isTrackable(currentTrackingUnit)) {
+                
+                currentTrackingUnit = timeLine
+                        .getSelfUnitUpdate(currentTrackingUnit);
+                
+                LeaderUnit nextUnit = timeLine
+                        .getNextInOrderPending(currentTrackingUnit);
+                
+                if(nextUnit != null){
+                    
+                    currentTrackingUnit = nextUnit;
+                    currentTrackingId = 0;
+                }
             }
             
         }

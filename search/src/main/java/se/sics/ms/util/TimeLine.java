@@ -60,9 +60,54 @@ public class TimeLine {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
-    
-    
-    
+
+    /**
+     * Check for the update of the self tracking unit.
+     * Update mainly involves the change in the leader unit status.
+     *
+     * @param leaderUnit base leader unit.
+     * @return updated unit.
+     */
+    public LeaderUnit getSelfUnitUpdate(LeaderUnit leaderUnit){
+        
+        LeaderUnit result = null;
+        
+        long epochId = leaderUnit == null ? INITIAL_EPOCH_ID
+                : leaderUnit.getEpochId();
+        
+        Epoch epoch = epochMap.get(epochId);
+        if(epoch != null){
+
+            List<LeaderUnit> units = epoch.getLeaderUnits();
+            
+            if(leaderUnit == null) {
+                
+                if(!units.isEmpty()){
+                    result = units.get(0);
+                }
+            }
+            
+            else{
+                
+                int index = -1;
+                for(int i =0; i < units.size(); i++){
+                    
+                    LeaderUnit lu = units.get(i);
+                    if(lu.getLeaderId() == leaderUnit.getLeaderId()){
+                        index = i;
+                        break;
+                    }
+                }
+                
+                if(index != -1){
+                    result = units.get(index);
+                }
+            }
+            
+                
+        }
+        return result;
+    }
     
 
     /**
@@ -150,8 +195,12 @@ public class TimeLine {
     public LeaderUnit getNextUnitToTrack(LeaderUnit leaderUnit){
 
         LeaderUnit result;
-        if( leaderUnit != null
-                && ( leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED )) {
+        
+        if(leaderUnit == null){
+            return null;
+        }
+        
+        if(( leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED )) {
             
             throw new IllegalStateException("Can't fetch next update as the leader unit is not properly closed.");
         }

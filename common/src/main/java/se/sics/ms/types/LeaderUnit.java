@@ -51,6 +51,7 @@ public abstract class LeaderUnit {
         if (epochId != that.epochId) return false;
         if (leaderId != that.leaderId) return false;
         if (numEntries != that.numEntries) return false;
+        if (entryPullStatus != that.entryPullStatus) return false;
         if (leaderUnitStatus != that.leaderUnitStatus) return false;
 
         return true;
@@ -62,16 +63,18 @@ public abstract class LeaderUnit {
         result = 31 * result + leaderId;
         result = 31 * result + (int) (numEntries ^ (numEntries >>> 32));
         result = 31 * result + (leaderUnitStatus != null ? leaderUnitStatus.hashCode() : 0);
+        result = 31 * result + (entryPullStatus != null ? entryPullStatus.hashCode() : 0);
         return result;
     }
 
     @Override
     public String toString() {
-        return "EpochContainer{" +
+        return "LeaderUnit{" +
                 "epochId=" + epochId +
                 ", leaderId=" + leaderId +
                 ", numEntries=" + numEntries +
                 ", leaderUnitStatus=" + leaderUnitStatus +
+                ", entryPullStatus=" + entryPullStatus +
                 '}';
     }
 
