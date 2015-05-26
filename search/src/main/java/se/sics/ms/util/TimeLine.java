@@ -413,9 +413,32 @@ public class TimeLine {
         
         return result;
     }
-    
-    
-    
+
+
+    /**
+     * Mainly used by the control pull mechanism in order
+     * to determine the
+     * @return
+     */
+    public LeaderUnit getLastUnit() {
+
+        LeaderUnit lastUnit = null;
+        Set<Long> keySet = epochMap.keySet();
+
+        if( ! keySet.isEmpty()) {
+
+            long highestEpoch;
+
+            List<Long> keyList = new ArrayList<Long>(keySet);
+            Collections.sort(keyList, longComparator);
+
+            highestEpoch = keyList.get(keyList.size()-1); // Last Entry in collection.
+            lastUnit = epochMap.get(highestEpoch).getLastUpdate();
+        }
+
+        return lastUnit;
+    }
+
     
     
     /**

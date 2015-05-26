@@ -21,13 +21,13 @@ public class ControlPull {
 
         private UUID pullRound;
         private OverlayId overlayId;
-        private LeaderUnit epochUpdate;
+        private LeaderUnit leaderUnit;
 
 
-        public Request(UUID pullRound, OverlayId overlayId, LeaderUnit epochUpdate) {
+        public Request(UUID pullRound, OverlayId overlayId, LeaderUnit leaderUnit) {
             this.pullRound = pullRound;
             this.overlayId = overlayId;
-            this.epochUpdate = epochUpdate;
+            this.leaderUnit = leaderUnit;
         }
 
         @Override
@@ -37,7 +37,7 @@ public class ControlPull {
 
             Request request = (Request) o;
 
-            if (epochUpdate != null ? !epochUpdate.equals(request.epochUpdate) : request.epochUpdate != null)
+            if (leaderUnit != null ? !leaderUnit.equals(request.leaderUnit) : request.leaderUnit != null)
                 return false;
             if (overlayId != null ? !overlayId.equals(request.overlayId) : request.overlayId != null) return false;
             if (pullRound != null ? !pullRound.equals(request.pullRound) : request.pullRound != null) return false;
@@ -49,7 +49,7 @@ public class ControlPull {
         public int hashCode() {
             int result = pullRound != null ? pullRound.hashCode() : 0;
             result = 31 * result + (overlayId != null ? overlayId.hashCode() : 0);
-            result = 31 * result + (epochUpdate != null ? epochUpdate.hashCode() : 0);
+            result = 31 * result + (leaderUnit != null ? leaderUnit.hashCode() : 0);
             return result;
         }
 
@@ -61,8 +61,8 @@ public class ControlPull {
             return overlayId;
         }
 
-        public LeaderUnit getEpochUpdate() {
-            return epochUpdate;
+        public LeaderUnit getLeaderUnit() {
+            return leaderUnit;
         }
     }
 

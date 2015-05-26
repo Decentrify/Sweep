@@ -3960,7 +3960,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         PublicKey key = leaderKey;
                         
                         Collection<LeaderUnit> updates = null;
-                        updates = historyTracker.getNextUpdates(request.getEpochUpdate(),
+                        updates = historyTracker.getNextUpdates(request.getLeaderUnit(),
                                     config.getMaximumEpochUpdatesPullSize());
                         
                         if(updates != null || !updates.isEmpty()){

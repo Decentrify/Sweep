@@ -61,4 +61,18 @@ public class Epoch {
     public List<LeaderUnit> getLeaderUnits() {
         return leaderUnits;
     }
+
+
+    /**
+     * Based on the leader unit list that is contained in the epoch
+     * calculate the last added leader unit entry.
+     *
+     * @return Leader Unit.
+     */
+    public LeaderUnit getLastUpdate() {
+
+        return ( !leaderUnits.isEmpty() )
+                ? leaderUnits.get(leaderUnits.size()-1)
+                : null;
+    }
 }

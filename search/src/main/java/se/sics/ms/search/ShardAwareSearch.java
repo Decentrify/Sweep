@@ -386,7 +386,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         epochHistoryTracker = new EpochHistoryTracker(self.getAddress().getBase());
         landingEntryTracker = new LandingEntryTracker();
         lowestMissingEntryTracker = new LowestMissingEntryTracker();
-        controlPullTracker = new ControlPullTracker(epochHistoryTracker);
+        controlPullTracker = new ControlPullTracker();
         shardTracker = new ShardTracker();
         epochAddTracker = new EpochAddTracker();
         timeLine =new TimeLine();
@@ -3890,16 +3890,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private class ControlPullTracker {
 
 
-        private EpochHistoryTracker historyTracker;
         private UUID currentPullRound;
         private Map<DecoratedAddress, ControlPull.Response> pullResponseMap;
         private LeaderUnit currentUpdate;
 
-        public ControlPullTracker(EpochHistoryTracker historyTracker) {
-            this.historyTracker = historyTracker;
+        public ControlPullTracker() {
             pullResponseMap = new HashMap<DecoratedAddress, ControlPull.Response>();
         }
 
+        private GenericECComparator comparator;
 
         /**
          * Initiate the main control pull mechanism. The mechanism simply asks for any updates that the nodes might have
@@ -3925,7 +3924,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         }
 
                         currentPullRound = UUID.randomUUID();
-                        currentUpdate = historyTracker.getLastUpdate();
+                        currentUpdate = timeLine.getLastUnit();
 
                         logger.debug("{}: Current Pull Round: {}, EpochUpdate: {}", new Object[]{prefix, currentPullRound, currentUpdate});
                         OverlayId overlayId = new OverlayId(self.getOverlayId());
@@ -3961,12 +3960,22 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         DecoratedAddress address = leaderAddress;
                         PublicKey key = leaderKey;
 
-                        Collection<LeaderUnit> updates = null;
-                        updates = historyTracker.getNextUpdates(request.getEpochUpdate(),
-                                    config.getMaximumEpochUpdatesPullSize());
+                        LeaderUnit receivedUnit = request.getLeaderUnit();
+                        LeaderUnit updateUnit = timeLine.getSelfUnitUpdate(receivedUnit);
 
-                        if(updates != null || !updates.isEmpty()){
-                            nextUpdates.addAll(updates);
+                        if(updateUnit == null || (updateUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING)){
+
+                            if(receivedUnit != null){
+                                nextUpdates.add(receivedUnit); // Might be case of network partitioning.
+                            }
+                        }
+
+                        else {
+
+                            receivedUnit = updateUnit.shallowCopy();
+                            nextUpdates.add(receivedUnit);
+                            nextUpdates.addAll(timeLine.getNextLeaderUnits(receivedUnit,
+                                    config.getMaximumEpochUpdatesPullSize()));
                         }
 
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
@@ -4011,8 +4020,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
                             logger.debug("{}: Pull Response Map: {}", pullResponseMap);
-                            performResponseMatch();
 
+                            performResponseMatch();
                             currentPullRound = null;
                             pullResponseMap.clear();
                         }
@@ -4051,7 +4060,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 for (ControlPull.Response response : pullResponseMap.values()) {
                     intersection.retainAll(response.getNextUpdates());
                 }
-                historyTracker.addEpochUpdates(intersection);
+                addLeaderUnits(intersection);
+
 
                 // Leader Matching.
                 ControlPull.Response baseResponse = pullResponseMap.values()
@@ -4084,6 +4094,45 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 trigger(new LeaderInfoUpdate(baseLeader, baseLeaderKey), leaderStatusPort);     // Inform the gradient about the matched leader update.
             }
         }
+
+
+        /**
+         * Check for the leader units and add them in the timeline.
+         * There is a special method used for adding it as the application method is responsible
+         * fpor detection on any important in order update.
+         *
+         * @param units
+         */
+        private void addLeaderUnits(List<LeaderUnit> units){
+
+            if(units == null || units.isEmpty()){
+                return;
+            }
+
+            Collections.sort(units, comparator);
+
+            for(LeaderUnit unit : units) {
+
+                if (timeLine.isSafeToAdd(unit)) {
+
+                    if(unit instanceof ShardLeaderUnit)
+                    {
+                        handleSharding((ShardLeaderUnit)unit);
+                        break;
+                    }
+
+                    if(unit instanceof NPLeaderUnit)
+                    {
+                        break;
+                    }
+                }
+
+
+            }
+        }
+
+
+
     }
 
     /**
@@ -4444,7 +4493,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     // I don't need to pull the entry. Duplicate code in the system. ( REFACTOR )
                     
                     LeaderUnit nextUnit = timeLine
-                            .getNextInOrderPending(currentTrackingUnit);
+                            .getNextUnitToTrack(currentTrackingUnit);
 
                     if(nextUnit != null){
 
@@ -4463,7 +4512,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     // Fetch the next update from the time line.
                     LeaderUnit nextUpdate = timeLine
-                            .getNextInOrderPending(currentTrackingUnit);
+                            .getNextUnitToTrack(currentTrackingUnit);
 
                     if (nextUpdate != null) {
                         
@@ -4621,7 +4670,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         .getSelfUnitUpdate(currentTrackingUnit);
                 
                 LeaderUnit nextUnit = timeLine
-                        .getNextInOrderPending(currentTrackingUnit);
+                        .getNextUnitToTrack(currentTrackingUnit);
                 
                 if(nextUnit != null){
                     
