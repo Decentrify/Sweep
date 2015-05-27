@@ -50,9 +50,15 @@ public class TimeLine {
         
         return (leaderUnit.getEpochId() == 0);
     }
-    
-    
-    
+
+
+    /**
+     * Look into the local unit history and add the leader unit
+     * As the method is generic in sense that it can be used to update
+     * the already existing entries also, so check to find the unit
+     * should be based on the epoch and
+     * @param leaderUnit
+     */
     public void addLeaderUnit (LeaderUnit leaderUnit) {
         
         Long epochId = leaderUnit.getEpochId();
@@ -64,7 +70,7 @@ public class TimeLine {
             epochMap.put(epochId, epoch);
         }
         
-        epoch.addLeaderUnit(leaderUnit);
+        epoch.addLeaderUnit(leaderUnit.shallowCopy());
         maxEpochId = leaderUnit.getEpochId();
     }
     
@@ -192,7 +198,6 @@ public class TimeLine {
         
         result = leaderUnits.get(index);
         result.setEntryPullStatus(LeaderUnit.EntryPullStatus.COMPLETED);
-        leaderUnits.set(index, result);
         
         return result.shallowCopy(); // Return shallow copy so that application not able to change status.
     }
@@ -200,7 +205,9 @@ public class TimeLine {
 
     /**
      * The application moves forward by fetching the next update to track.
-     * The application
+     * The unit should be next in line pending update. In case of a partition merge 
+     * there might be several completed updates in between because the class
+     * calls a rescan method to rescan whole of timeline.
      *
      * @param leaderUnit Base LE Unit.
      * @return Next Unit to Track.
@@ -299,85 +306,10 @@ public class TimeLine {
      * @param leaderUnit base unit.
      * @return next pending unit.
      */
-    public LeaderUnit getNextInOrderPending(LeaderUnit leaderUnit){
-        return this.getNextUnitInOrderUpdated(leaderUnit, true);
+    private LeaderUnit getNextInOrderPending(LeaderUnit leaderUnit){
+        return this.getNextUnitInOrder(leaderUnit, true);
     }
     
-    
-    
-    
-    /**
-     * Recursively go through the epochs and the associated leader units and 
-     * fetch the next one to track.
-     *  
-     * Ideally there should always be only one ongoing leader unit in the history. 
-     * It is the responsibility of the application to make sure that the value of the previous epoch is completed  
-     * before starting the new one.
-     *
-     * @param leaderUnit base leader unit.
-     *
-     * @return next unit.
-     */
-    public LeaderUnit getNextUnitInOrder(LeaderUnit leaderUnit, boolean pending){
-
-        Epoch epoch;
-        epoch = (leaderUnit == null) ? epochMap.get(INITIAL_EPOCH_ID)
-                : epochMap.get(leaderUnit.getEpochId());
-
-        LeaderUnit result = null;
-        
-        if(epoch == null){
-            return null;
-        }
-
-        List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
-        if(!leaderUnits.isEmpty()) {
-            
-            if(leaderUnit == null){
-                result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
-            }
-            
-            else {
-                
-                int index = leaderUnits.indexOf(leaderUnit);
-                if(index == -1){
-                    throw new IllegalStateException(" Unable to locate leader unit entry ");
-                }
-                
-                if( index == (leaderUnits.size() -1) ){     // The entry was the last one in the epoch.
-                    Epoch nextEpoch = epochMap.get(leaderUnit.getEpochId() +1);
-                    if(nextEpoch != null 
-                            && !nextEpoch.getLeaderUnits().isEmpty()){
-                        
-                        result = getNextUnitInOrder( nextEpoch.getLeaderUnits().get(0), pending );
-                    }
-                }
-                
-                else {
-                    
-                    result = leaderUnits.get(index + 1);
-                    
-                    if( pending ){  
-                        
-                        // If Next In Line for the pending updates needs to be calculated.
-                        if(result.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
-                            result = getNextUnitInOrder (result, true);
-                        }
-                    }
-                    
-                }
-                
-                
-                
-            }
-        }
-        
-        return result;
-    }
-
-
-
-
     /**
      * Recursively go through the epochs and the associated leader units and
      * fetch the next one to track.
@@ -390,7 +322,7 @@ public class TimeLine {
      *
      * @return next unit.
      */
-    public LeaderUnit getNextUnitInOrderUpdated (LeaderUnit leaderUnit, boolean pending) {
+    private LeaderUnit getNextUnitInOrder(LeaderUnit leaderUnit, boolean pending) {
 
         Epoch epoch;
         epoch = (leaderUnit == null) ? epochMap.get(INITIAL_EPOCH_ID)
@@ -435,7 +367,7 @@ public class TimeLine {
 
                     // If Next In Line for the pending updates needs to be calculated.
                     if(result.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
-                        result = getNextUnitInOrder (result, true);
+                        result = getNextInOrderPending(result);
                     }
                 }
                 

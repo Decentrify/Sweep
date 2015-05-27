@@ -48,4 +48,45 @@ public class TimeLineTest {
         Assert.assertEquals("Next Entry Track check", nextLeaderUnit, result);
     }
     
+    
+    @Test
+    public void testPending(){
+
+        LeaderUnit defaultLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(defaultLeaderUnit);
+
+        defaultLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER, 100);
+        timeLine.addLeaderUnit(defaultLeaderUnit);
+
+        defaultLeaderUnit = timeLine.markUnitComplete(defaultLeaderUnit);
+
+        LeaderUnit nextLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID + 1, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(nextLeaderUnit);
+        
+        nextLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID + 1, DEFAULT_LEADER, 100);
+        timeLine.addLeaderUnit(nextLeaderUnit);
+        timeLine.markUnitComplete(nextLeaderUnit);
+        
+        
+        LeaderUnit finalUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID +2, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(finalUnit);
+        
+        LeaderUnit result = timeLine.getNextUnitToTrack(defaultLeaderUnit);
+        Assert.assertEquals("Next Pending Check", finalUnit, result);
+    }
+    
+    
+    
+    @Test
+    public void canTrackTest(){
+        
+        LeaderUnit defaultLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(defaultLeaderUnit);
+        
+        LeaderUnit result = timeLine.currentTrackUnit(defaultLeaderUnit);
+        defaultLeaderUnit.setEntryPullStatus(LeaderUnit.EntryPullStatus.ONGOING);
+
+        Assert.assertEquals("ONGOING status check", defaultLeaderUnit, result);
+    }
+    
 }
