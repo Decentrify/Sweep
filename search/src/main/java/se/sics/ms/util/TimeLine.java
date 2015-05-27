@@ -340,9 +340,11 @@ public class TimeLine {
                 result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
             } else {
 
+                leaderUnit = epoch.getLooseLeaderUnit(leaderUnit);
                 int index = leaderUnits.indexOf(leaderUnit);
 
                 if (index == -1) {
+                    logger.warn("Leader Units for epoch:{} are :{}", leaderUnit.getEpochId(), leaderUnits);
                     throw new IllegalStateException(" Unable to locate leader unit entry ");
                 }
 
