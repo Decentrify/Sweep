@@ -1,5 +1,7 @@
 package se.sics.ms.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.ms.types.LeaderUnit;
 
 import java.util.*;
@@ -19,6 +21,7 @@ public class TimeLine {
     private long maxEpochId;
     private static final Long INITIAL_EPOCH_ID = 0l;
     private LeaderUnit ongoingLeaderUnit;
+    private Logger logger  = LoggerFactory.getLogger(TimeLine.class);
     
     public TimeLine(){
         
@@ -27,6 +30,14 @@ public class TimeLine {
         this.maxEpochId = -1;
     }
 
+
+    /**
+     * Wipe the internal state clean byt removing all the data 
+     * associated with different epochs.
+     */
+    public void cleanInternalState(){
+        this.epochMap.clear();
+    }
 
     public boolean isSafeToAdd(LeaderUnit leaderUnit) {
 
@@ -48,7 +59,9 @@ public class TimeLine {
         Epoch epoch = epochMap.get(epochId);
         
         if(epoch == null){
+            
             epoch = new Epoch(epochId);
+            epochMap.put(epochId, epoch);
         }
         
         epoch.addLeaderUnit(leaderUnit);
@@ -211,15 +224,47 @@ public class TimeLine {
             
             LeaderUnit originalUnit = result;
             result = originalUnit.shallowCopy();
-            
-            result.setEntryPullStatus(LeaderUnit.EntryPullStatus.ONGOING);
-            updateLeaderUnitLocally(originalUnit, result);
-            ongoingLeaderUnit = result;
         }
         
         return result;
     }
 
+
+    /**
+     * Once the application decides to track an entry a call to this method is necessary, as it
+     * will update the status of the entry being tracked in the main history tracker.
+     *  
+     * The method checks on the current status of the entry to determine 
+     * if it can be tracked or not.
+     * 
+     * @param leaderUnit
+     * @return
+     */
+    public LeaderUnit currentTrackUnit(LeaderUnit leaderUnit){
+        
+        Epoch epoch = epochMap.get(leaderUnit.getEpochId());
+        
+        if(epoch == null || !epoch.exactContainsCheck(leaderUnit)){
+            logger.warn("Unable to locate the entry in the store. ");
+            return null;
+        }
+        if(leaderUnit.getEntryPullStatus()!= LeaderUnit.EntryPullStatus.PENDING){
+            logger.warn("Only Pending entries can be tracked, returning ... ");
+            return null;
+        }
+        
+        LeaderUnit result = null;
+        LeaderUnit lu = epoch.getLeaderUnit(leaderUnit);
+        
+        if(lu != null){
+            lu.setEntryPullStatus(LeaderUnit.EntryPullStatus.ONGOING);
+            result = lu.shallowCopy();
+            ongoingLeaderUnit = result;
+        }
+        
+        return result;
+    }
+    
 
     /**
      * Update the value of the leader unit locally to the updated value.
@@ -255,7 +300,7 @@ public class TimeLine {
      * @return next pending unit.
      */
     public LeaderUnit getNextInOrderPending(LeaderUnit leaderUnit){
-        return this.getNextUnitInOrder(leaderUnit, true);
+        return this.getNextUnitInOrderUpdated(leaderUnit, true);
     }
     
     
@@ -331,6 +376,82 @@ public class TimeLine {
     }
 
 
+
+
+    /**
+     * Recursively go through the epochs and the associated leader units and
+     * fetch the next one to track.
+     *
+     * Ideally there should always be only one ongoing leader unit in the history.
+     * It is the responsibility of the application to make sure that the value of the previous epoch is completed
+     * before starting the new one.
+     *
+     * @param leaderUnit base leader unit.
+     *
+     * @return next unit.
+     */
+    public LeaderUnit getNextUnitInOrderUpdated (LeaderUnit leaderUnit, boolean pending) {
+
+        Epoch epoch;
+        epoch = (leaderUnit == null) ? epochMap.get(INITIAL_EPOCH_ID)
+                : epochMap.get(leaderUnit.getEpochId());
+
+        LeaderUnit result = null;
+
+        if(epoch == null){
+            return null;
+        }
+
+        List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
+        if(!leaderUnits.isEmpty()) {
+
+            if(leaderUnit == null){
+                result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
+            }
+
+            else {
+
+                int index = leaderUnits.indexOf(leaderUnit);
+                
+                if(index == -1){
+                    throw new IllegalStateException(" Unable to locate leader unit entry ");
+                }
+
+                if( index == (leaderUnits.size() -1) ){     // The entry was the last one in the epoch.
+                    Epoch nextEpoch = epochMap.get(leaderUnit.getEpochId() +1);
+                    if(nextEpoch != null
+                            && !nextEpoch.getLeaderUnits().isEmpty()){
+
+                        result = nextEpoch.getLeaderUnits().get(0);
+                    }
+                }
+
+                else {
+
+                    result = leaderUnits.get(index + 1);
+                }
+
+                if( pending && (result != null)){
+
+                    // If Next In Line for the pending updates needs to be calculated.
+                    if(result.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
+                        result = getNextUnitInOrder (result, true);
+                    }
+                }
+                
+                
+            }
+        }
+
+        return result;
+    }
+    
+    
+    
+    
+    
+    
+    
     /**
      * In case of sharding, we need to add the leader units to the skip list
      * as the application has already removed the information regarding the entries added as 

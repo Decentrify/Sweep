@@ -4181,7 +4181,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     if(nextUnit != null){
 
-                        currentTrackingUnit = nextUnit;
+                        currentTrackingUnit = timeLine.currentTrackUnit(nextUnit);
                         currentTrackingId = 0;
                     }
                     
@@ -4200,7 +4200,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     if (nextUpdate != null) {
                         
-                        currentTrackingUnit = nextUpdate;
+                        currentTrackingUnit = timeLine.currentTrackUnit(nextUpdate);
                         currentTrackingId = 0;
                     }
                 }
@@ -4358,7 +4358,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 
                 if(nextUnit != null){
                     
-                    currentTrackingUnit = nextUnit;
+                    currentTrackingUnit = timeLine.currentTrackUnit(nextUnit);
                     currentTrackingId = 0;
                 }
             }

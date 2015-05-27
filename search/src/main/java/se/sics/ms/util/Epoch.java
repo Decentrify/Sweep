@@ -26,6 +26,43 @@ public class Epoch {
 
 
     /**
+     * Check if the epoch contains the leader unit in it.
+     * The check that it performed here is exact equals check 
+     * using the equals property of the  
+     *  
+     * @param leaderUnit unit
+     * @return true / false
+     */
+    public boolean exactContainsCheck( LeaderUnit leaderUnit ){
+        
+        return this.leaderUnits.contains(leaderUnit);
+    }
+
+
+    /**
+     * Check if the epoch contains the leader unit in it.
+     * The matching criteria is loose in sense that it matches 
+     * the leader and epoch information with the contained entries  
+     * and avoids exact equals check.
+     *  
+     * @param leaderUnit unit
+     * @return true / false
+     */
+    public boolean looseContainsCheck(LeaderUnit leaderUnit){
+        
+        for(LeaderUnit unit : leaderUnits){
+            
+            if(unit.getLeaderId() == leaderUnit.getLeaderId() 
+                    && unit.getEpochId() == leaderUnit.getEpochId()){
+                
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Store a leader unit in the epoch. 
      * Check for any updates to the existing leader units  
      * and also sort the collection once the leader unit is added.
@@ -62,7 +99,6 @@ public class Epoch {
         return leaderUnits;
     }
 
-
     /**
      * Based on the leader unit list that is contained in the epoch
      * calculate the last added leader unit entry.
@@ -75,4 +111,21 @@ public class Epoch {
                 ? leaderUnits.get(leaderUnits.size()-1)
                 : null;
     }
+    
+    
+    
+    public LeaderUnit getLeaderUnit(LeaderUnit leaderUnit){
+        
+        int index;
+        LeaderUnit lu = null;
+        index = this.leaderUnits.indexOf(leaderUnit);
+        
+        if(index != -1){
+            lu = this.leaderUnits.get(index);
+        }
+        
+        return lu;
+    }
+    
+    
 }
