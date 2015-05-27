@@ -31,6 +31,10 @@ public class TimeLine {
     }
 
 
+    public Map<Long, Epoch> getEpochMap() {
+        return epochMap;
+    }
+
     /**
      * Wipe the internal state clean byt removing all the data
      * associated with different epochs.
@@ -340,11 +344,11 @@ public class TimeLine {
                 result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
             } else {
 
-                leaderUnit = epoch.getLooseLeaderUnit(leaderUnit);
+//                leaderUnit = epoch.getLooseLeaderUnit(leaderUnit);
                 int index = leaderUnits.indexOf(leaderUnit);
 
                 if (index == -1) {
-                    logger.warn("Leader Units for epoch:{} are :{}", leaderUnit.getEpochId(), leaderUnits);
+                    logger.debug("Leader Units for epoch:{} are :{} and I am trying to look for :{}", new Object[]{leaderUnit.getEpochId(), leaderUnits, leaderUnit});
                     throw new IllegalStateException(" Unable to locate leader unit entry ");
                 }
 
@@ -456,6 +460,26 @@ public class TimeLine {
         }
 
         return result;
+    }
+
+
+    /**
+     * Based on the loose interpretation of the LeaderUnit, check for a similar
+     * one in the local store and return the matching value.
+     *
+     * @param leaderUnit base
+     * @return matching unit.
+     */
+    public LeaderUnit getLooseUnit(LeaderUnit leaderUnit){
+
+        if(leaderUnit == null
+                || !this.epochMap.containsKey(leaderUnit.getEpochId())){
+
+            return null;
+        }
+
+        Epoch epoch = epochMap.get(leaderUnit.getEpochId());
+        return epoch.getLooseLeaderUnit(leaderUnit);
     }
 
 

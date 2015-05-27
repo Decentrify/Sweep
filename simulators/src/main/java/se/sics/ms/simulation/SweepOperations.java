@@ -43,29 +43,29 @@ public class SweepOperations {
 
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
 
-    static{
-        
-        try {
-            
-            VodConfig.init(new String[0]);
-
-            int currentId = 128;                                        // Serializers Registration.
-            BasicSerializerSetup.registerBasicSerializers(currentId);
-            currentId += BasicSerializerSetup.serializerIds;
-            currentId = CroupierSerializerSetup.registerSerializers(currentId);
-            currentId = GradientSerializerSetup.registerSerializers(currentId);
-            currentId = ElectionSerializerSetup.registerSerializers(currentId);
-            currentId = AggregatorSerializerSetup.registerSerializers(currentId);
-            currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
-            SerializerSetup.registerSerializers(currentId);
-        } 
-        catch (UnknownHostException e) {
-            e.printStackTrace();
-        } 
-        catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+//    static{
+//
+//        try {
+//
+//            VodConfig.init(new String[0]);
+//
+//            int currentId = 128;                                        // Serializers Registration.
+//            BasicSerializerSetup.registerBasicSerializers(currentId);
+//            currentId += BasicSerializerSetup.serializerIds;
+//            currentId = CroupierSerializerSetup.registerSerializers(currentId);
+//            currentId = GradientSerializerSetup.registerSerializers(currentId);
+//            currentId = ElectionSerializerSetup.registerSerializers(currentId);
+//            currentId = AggregatorSerializerSetup.registerSerializers(currentId);
+//            currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
+//            SerializerSetup.registerSerializers(currentId);
+//        }
+//        catch (UnknownHostException e) {
+//            e.printStackTrace();
+//        }
+//        catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
     
     
     public static Operation1<StartNodeCmd, Long> startNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
@@ -137,7 +137,7 @@ public class SweepOperations {
                 @Override
                 public Msg getNetworkMsg(Address address) {
 
-                    logger.trace("Add Index Entry id invoked for id -> " + destination.getId());
+                    logger.info("Add Index Entry id invoked for id -> " + destination.getId());
 
                     AddIndexEntryP2pSimulated request = new AddIndexEntryP2pSimulated(junkEntry);
                     DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress)address, destination, Transport.UDP);

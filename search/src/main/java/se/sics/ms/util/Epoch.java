@@ -157,4 +157,12 @@ public class Epoch {
                 ? this.leaderUnits.get(0)
                 : null;
     }
+
+    @Override
+    public String toString() {
+        return "Epoch{" +
+                "epochId=" + epochId +
+                ", leaderUnits=" + leaderUnits +
+                '}';
+    }
 }

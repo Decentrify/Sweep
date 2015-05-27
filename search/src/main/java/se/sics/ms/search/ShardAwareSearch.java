@@ -194,7 +194,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
     private TimeLine timeLine;
-
+    private Comparator<LeaderUnit> luComparator = new GenericECComparator();
 
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
@@ -2122,7 +2122,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         } else {
             logger.warn("{}: Not supposed to add entry :{} in Lucene ...Buffering It And Returning ... ", prefix, entry);
-            System.exit(-1);
             lowestMissingEntryTracker.printCurrentTrackingInfo();
         }
     }
@@ -2335,11 +2334,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
             List<LeaderUnit> skipList = generateSkipList(shardUnit, medianId, partitionSubId);
 
             logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
-            System.exit(-1);
 
             timeLine.addSkipList(skipList);
             timeLine.addLeaderUnit(shardUnit);    // Close the sharding process, once the skip list is added.
+
+            logger.warn("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
+            System.exit(-1);
+
             lowestMissingEntryTracker.resumeTracking();
+
         } catch (Exception e) {
             throw new RuntimeException("Unable to shard", e);
         }
@@ -2365,18 +2368,29 @@ public final class ShardAwareSearch extends ComponentDefinition {
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
         }
 
+        // Current Tracking might be lagging
+        // behind the original information in the store. Therefore Update it before proceeding forward.
+
         LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
+        container = timeLine.getLooseUnit(container);
+
+        if(container == null){
+            throw new IllegalStateException("Unable to get updated value for current tracking.. ");
+        }
+
         long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
 
         List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits(
                 container,
                 Integer.MAX_VALUE);
 
+        pendingUnits.add(container);        // TODO: Add the updates that are currently buffered by the Application ...
+        Collections.sort(pendingUnits, luComparator);
+
         Iterator<LeaderUnit> iterator = pendingUnits.iterator();
 
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
-
         // FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH.
 
         if (partitionSubId) {
@@ -2407,29 +2421,20 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
-        Iterator<LeaderUnit> remainingItr = pendingUnits.iterator();
-        while (remainingItr.hasNext()) {
 
-            LeaderUnit next = remainingItr.next();
+        for(LeaderUnit next: pendingUnits) {
+
             if (next.equals(container) && currentId > 0) {
-
-                remainingItr.remove(); // Don't need to skip self as landing entry already added.
                 continue;
             }
 
-            if (next.getEpochId() >= container.getEpochId()
-                    && next.getLeaderId() >= container.getLeaderId()) {
-                ApplicationEntry entry = new ApplicationEntry(
-                        new ApplicationEntry.ApplicationEntryId(
-                                next.getEpochId(),
-                                next.getLeaderId(),
-                                0));
+            ApplicationEntry entry = new ApplicationEntry(
+                    new ApplicationEntry.ApplicationEntryId(
+                            next.getEpochId(),
+                            next.getLeaderId(),
+                            0));
 
-                addEntryToLucene(writeEntryLuceneAdaptor, entry);
-            } else {
-                // Even though the data is removed, the landing entry has already been added.
-                remainingItr.remove();
-            }
+            addEntryToLucene(writeEntryLuceneAdaptor, entry);
         }
 
         return pendingUnits;
@@ -3555,8 +3560,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         public ControlPullTracker() {
             pullResponseMap = new HashMap<DecoratedAddress, ControlPull.Response>();
         }
-
-        private GenericECComparator comparator;
+        private GenericECComparator comparator = new GenericECComparator();
 
         /**
          * Initiate the main control pull mechanism. The mechanism simply asks for any updates that the nodes might have
@@ -3819,7 +3823,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            if(self.getId() == 1950184914)
+                logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
