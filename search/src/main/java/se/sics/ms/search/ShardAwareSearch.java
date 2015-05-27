@@ -194,7 +194,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private ControlPullTracker controlPullTracker;
     private ShardTracker shardTracker;
     private TimeLine timeLine;
-    
+
 
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
@@ -375,8 +375,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
         lowestMissingEntryTracker = new LowestMissingEntryTracker();
         controlPullTracker = new ControlPullTracker();
         shardTracker = new ShardTracker();
-        timeLine =new TimeLine();
-        
+        timeLine = new TimeLine();
+
     }
 
 
@@ -1590,8 +1590,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.
                         pendingForCommit.remove(toCommit);
 
-                    }
-                    catch(Exception e){
+                    } catch (Exception e) {
                         throw new RuntimeException("Unable to preocess Entry Commit Request, exiting ... ");
                     }
 
@@ -1980,7 +1979,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
     /**
-     *
      * Based on the median entry and the boolean check, determine
      * the entry base that needs to be removed and ultimately update the
      * self with the remaining entries.
@@ -1999,8 +1997,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         middleId);
 
                 lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
-            }
-            else {
+            } else {
 
                 ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(
                         writeEntryLuceneAdaptor,
@@ -2012,7 +2009,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
             int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
 
-            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{ prefix, size, actualSize});
+            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{prefix, size, actualSize});
             lowestMissingEntryTracker.printExistingEntries();
 
             // Recalculte the size of total and the actual entries in the system.
@@ -2020,13 +2017,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
             self.setActualEntries(actualSize);
 
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
-        }
-        catch (LuceneAdaptorException e) {
+        } catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
     }
 
-        /**
+    /**
      * Add the given {@link se.sics.ms.types.IndexEntry}s to the given Lucene directory
      *
      * @param searchRequestLuceneAdaptor adaptor
@@ -2112,7 +2108,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             lowestMissingEntryTracker.printCurrentTrackingInfo();
 
             // After committing the utility, check for the container switch.
-            if(self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader){
+            if (self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader) {
 
                 logger.warn("{}: Time to initiate the container switch.", prefix);
                 informListeningComponentsAboutUpdates(self);
@@ -2126,6 +2122,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         } else {
             logger.warn("{}: Not supposed to add entry :{} in Lucene ...Buffering It And Returning ... ", prefix, entry);
+            System.exit(-1);
             lowestMissingEntryTracker.printCurrentTrackingInfo();
         }
     }
@@ -2145,7 +2142,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         self.incrementECEntries();
         self.incrementEntries();
 
-        if( !entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY) ) {
+        if (!entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
             // We do not include landing entries
             // as part of actual entries for calculating the splitting point.
@@ -2241,16 +2238,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
     /**
      * Start with the main sharding procedure.
      * Initiate the sharding process.
-     *
      */
     private void checkAndInitiateSharding() throws LuceneAdaptorException {
 
-        if(isTimeToShard()) {
+        if (isTimeToShard()) {
 
-            logger.warn("{}: Let's finish this sharding fear now ..." , prefix);
+            logger.warn("{}: Let's finish this sharding fear now ...", prefix);
             ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
 
-            if(entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader){
+            if (entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader) {
                 logger.error("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
                 return;
             }
@@ -2259,7 +2255,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
             partitionInProgress = true;
             LeaderUnit previousUpdate = closePreviousEpoch();
-            ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId()+1 , self.getId(), 1, entryId, publicKey);
+            ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId() + 1, self.getId(), 1, entryId, publicKey);
 
             // Create Hash of the Shard Update.
             String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
@@ -2271,9 +2267,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
             shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
             trigger(st, timerPort);
-        }
-
-        else{
+        } else {
             logger.trace("{}: Not the time to shard, return .. ", prefix);
         }
 
@@ -2286,27 +2280,26 @@ public final class ShardAwareSearch extends ComponentDefinition {
      *
      * @param shardRoundID shard round
      * @param previousUnit previous unit
-     * @param shardUnit current shard unit
+     * @param shardUnit    current shard unit
      */
-    private void handleSharding( UUID shardRoundID, LeaderUnit previousUnit, LeaderUnit shardUnit ) {
+    private void handleSharding(UUID shardRoundID, LeaderUnit previousUnit, LeaderUnit shardUnit) {
 
-        if(shardRoundID != null && !shardTracker.getShardRoundId().equals(shardRoundID)){
+        if (shardRoundID != null && !shardTracker.getShardRoundId().equals(shardRoundID)) {
             throw new RuntimeException("Sharding Tracker seems to be corrupted ... ");
         }
 
-        if( shardRoundID!= null ){
+        if (shardRoundID != null) {
             CancelTimeout cancelTimeout = new CancelTimeout(shardRoundID);
             trigger(cancelTimeout, timerPort);
             shardTracker.resetShardingParameters();
         }
 
         // BUFFERING OF UPDATES POSSIBLE.
-        if(timeLine.isSafeToAdd(previousUnit)){
+        if (timeLine.isSafeToAdd(previousUnit)) {
 
             timeLine.addLeaderUnit(previousUnit);      // Close the previous epoch update.
-            handleSharding((ShardLeaderUnit)shardUnit);    // Handle the sharding phase.
-        }
-        else {
+            handleSharding((ShardLeaderUnit) shardUnit);    // Handle the sharding phase.
+        } else {
             throw new IllegalStateException(" Unable to handle the current state in which shard updates are buffered.");
         }
 
@@ -2320,9 +2313,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
      *
      * @param shardUnit Shard Epoch Unit.
      */
-    private void handleSharding (ShardLeaderUnit shardUnit){
+    private void handleSharding(ShardLeaderUnit shardUnit) {
 
-        try{
+        try {
 
             logger.warn("{}: Handle the main sharding update ... ", prefix);
 
@@ -2347,8 +2340,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             timeLine.addSkipList(skipList);
             timeLine.addLeaderUnit(shardUnit);    // Close the sharding process, once the skip list is added.
             lowestMissingEntryTracker.resumeTracking();
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             throw new RuntimeException("Unable to shard", e);
         }
     }
@@ -2362,15 +2354,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
      *
      * @return Skip List
      */
-    private List<LeaderUnit> generateSkipList ( LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId )
+    private List<LeaderUnit> generateSkipList(LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId)
             throws IOException, LuceneAdaptorException {
 
         LeaderUnit lastLeaderUnit = timeLine.getLastUnit();
 
-        if(lastLeaderUnit == null || ( lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
-                && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId()) ) {
+        if (lastLeaderUnit == null || (lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
+                && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId())) {
 
-            throw new IllegalStateException("Sharding State Corrupted ..  " + prefix );
+            throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
         }
 
         LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
@@ -2387,29 +2379,27 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         // FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH.
 
-        if( partitionSubId ) {
+        if (partitionSubId) {
             // If right to the median id is removed, skip list should contain
             // entries to right of the median.
-            while(iterator.hasNext()){
+            while (iterator.hasNext()) {
 
                 LeaderUnit nextContainer = iterator.next();
 
-                if(nextContainer.getEpochId() < medianId.getEpochId()){
+                if (nextContainer.getEpochId() < medianId.getEpochId()) {
                     iterator.remove();
                 }
 
             }
-        }
-
-        else {
+        } else {
 
             // If left to the median is removed, skip list should contain
             // entries to the left of the median.
-            while(iterator.hasNext()){
+            while (iterator.hasNext()) {
 
                 LeaderUnit nextContainer = iterator.next();
 
-                if(nextContainer.getEpochId() >= medianId.getEpochId()){
+                if (nextContainer.getEpochId() >= medianId.getEpochId()) {
                     iterator.remove();
                 }
             }
@@ -2418,18 +2408,17 @@ public final class ShardAwareSearch extends ComponentDefinition {
         // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
         Iterator<LeaderUnit> remainingItr = pendingUnits.iterator();
-        while(remainingItr.hasNext()){
+        while (remainingItr.hasNext()) {
 
             LeaderUnit next = remainingItr.next();
-            if(next.equals(container) && currentId >0) {
+            if (next.equals(container) && currentId > 0) {
 
                 remainingItr.remove(); // Don't need to skip self as landing entry already added.
                 continue;
             }
 
-            if(next.getEpochId() >= container.getEpochId()
-                    && next.getLeaderId() >= container.getLeaderId())
-            {
+            if (next.getEpochId() >= container.getEpochId()
+                    && next.getLeaderId() >= container.getLeaderId()) {
                 ApplicationEntry entry = new ApplicationEntry(
                         new ApplicationEntry.ApplicationEntryId(
                                 next.getEpochId(),
@@ -2437,8 +2426,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 0));
 
                 addEntryToLucene(writeEntryLuceneAdaptor, entry);
-            }
-            else{
+            } else {
                 // Even though the data is removed, the landing entry has already been added.
                 remainingItr.remove();
             }
@@ -2452,19 +2440,19 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * Apply the main sharding update to the application in terms of
      * removing the entries that are not needed and are lying around in the
      * lucene store in the system.
-     *
+     * <p/>
      * <br/>
-     *
+     * <p/>
      * The order in which the shard updates that needs to be applied is as follows:<br/>
      * <ul>
-     *     <li>The updates the level and the partitioning information by sharding to
-     *     to the next level.</li>
-     *
-     *     <li>The system then removes the entries from the entries that should not lie
-     *     in the system as part of current partititon information.</li>
-     *
-     *     <li>The updated self is then pushed to the listening components.
-     *     </li>
+     * <li>The updates the level and the partitioning information by sharding to
+     * to the next level.</li>
+     * <p/>
+     * <li>The system then removes the entries from the entries that should not lie
+     * in the system as part of current partititon information.</li>
+     * <p/>
+     * <li>The updated self is then pushed to the listening components.
+     * </li>
      * </ul>
      *
      * @param medianId
@@ -2477,7 +2465,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         removeEntriesNotFromYourShard(
                 medianId,
-                partitionSubId );
+                partitionSubId);
 
         informListeningComponentsAboutUpdates(self);
     }
@@ -2485,7 +2473,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
     /**
      * Handler for the shard round timeout. Check if the sharding completed and if the sharding expired.
-     *
      */
     Handler<TimeoutCollection.ShardRoundTimeout> shardRoundTimeoutHandler = new Handler<TimeoutCollection.ShardRoundTimeout>() {
 
@@ -2495,13 +2482,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
             logger.debug("{}: Timeout for shard round invoked.");
             UUID shardTrackerRoundID = shardTracker.getShardRoundId();
 
-            if(shardTrackerRoundID != null && event.getTimeoutId().equals(shardTrackerRoundID)){
+            if (shardTrackerRoundID != null && event.getTimeoutId().equals(shardTrackerRoundID)) {
                 partitionInProgress = false;
                 logger.warn("{}: Need to restart the shard round id");
                 throw new UnsupportedOperationException("Operation not supported ... ");
-            }
-
-            else {
+            } else {
                 logger.debug("{}: Sharding timeout occured after the event is canceled ... ");
             }
 
@@ -2510,16 +2495,14 @@ public final class ShardAwareSearch extends ComponentDefinition {
     };
 
 
-
-
     /**
      * Based on the internal state of the node, check if
      * it's time to shard.
      *
      * @return Shard True/False
      */
-    private boolean isTimeToShard(){
-        return ( self.getActualEntries() >= config.getMaxEntriesOnPeer() );
+    private boolean isTimeToShard() {
+        return (self.getActualEntries() >= config.getMaxEntriesOnPeer());
     }
 
 
@@ -2596,38 +2579,38 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * in the system and therefore it acts as a promise request.
      */
     ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>> handlerPartitionPrepareRequest =
-        new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
+            new ClassMatchedHandler<PartitionPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request>>() {
 
-        @Override
-        public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
+                @Override
+                public void handle(PartitionPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, PartitionPrepare.Request> event) {
 
-            logger.debug("{}: Received partition prepare request from : {}", self.getId(), event.getSource());
-            // Step1: Verify that the data is from the leader only.
-            if (!ApplicationSecurity.isPartitionUpdateValid(request.getPartitionInfo()) || !leaderIds.contains(request.getPartitionInfo().getKey())) {
-                logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
-                return;
-            }
+                    logger.debug("{}: Received partition prepare request from : {}", self.getId(), event.getSource());
+                    // Step1: Verify that the data is from the leader only.
+                    if (!ApplicationSecurity.isPartitionUpdateValid(request.getPartitionInfo()) || !leaderIds.contains(request.getPartitionInfo().getKey())) {
+                        logger.error(" Partition Prepare Message Authentication Failed at: " + self.getId());
+                        return;
+                    }
 
-            if (!partitionOrderValid(request.getOverlayId()))
-                return;
+                    if (!partitionOrderValid(request.getOverlayId()))
+                        return;
 
-            // Step2: Trigger the response for this request, which should be directly handled by the search component.
-            PartitionPrepare.Response response = new PartitionPrepare.Response(request.getPartitionPrepareRoundId(), request.getPartitionInfo().getRequestId());
-            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                    // Step2: Trigger the response for this request, which should be directly handled by the search component.
+                    PartitionPrepare.Response response = new PartitionPrepare.Response(request.getPartitionPrepareRoundId(), request.getPartitionInfo().getRequestId());
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
-            // Step3: Add timeout for this message.
-            ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
-            PartitionCommitTimeout pct = new PartitionCommitTimeout(st, request.getPartitionInfo());
-            st.setTimeoutEvent(pct);
+                    // Step3: Add timeout for this message.
+                    ScheduleTimeout st = new ScheduleTimeout(config.getPartitionCommitRequestTimeout());
+                    PartitionCommitTimeout pct = new PartitionCommitTimeout(st, request.getPartitionInfo());
+                    st.setTimeoutEvent(pct);
 
-            // Step4: Add this to the map of pending partition updates.
-            UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
-            PartitionHelper.PartitionInfo receivedPartitionInfo = request.getPartitionInfo();
-            partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
-            trigger(st, timerPort);
+                    // Step4: Add this to the map of pending partition updates.
+                    UUID timeoutId = st.getTimeoutEvent().getTimeoutId();
+                    PartitionHelper.PartitionInfo receivedPartitionInfo = request.getPartitionInfo();
+                    partitionUpdatePendingCommit.put(receivedPartitionInfo, timeoutId);
+                    trigger(st, timerPort);
 
-        }
-    };
+                }
+            };
 
     /**
      * This method basically prevents the nodes which rise quickly in the partition to avoid apply of updates, and apply the updates in order even though the update is being sent by the
@@ -2963,9 +2946,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         } else {
 
-            int newDepth = self.getPartitioningDepth() +1;
-            int partition =0;
-            for(int i=0; i< newDepth; i++){
+            int newDepth = self.getPartitioningDepth() + 1;
+            int partition = 0;
+            for (int i = 0; i < newDepth; i++) {
                 partition = partition | (nodeId & (1 << i));
             }
 
@@ -3135,7 +3118,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         LeaderUnit lastLeaderUnit = closePreviousEpoch();
         long currentEpoch;
 
-        if ( lastLeaderUnit == null ) {
+        if (lastLeaderUnit == null) {
             logger.warn(" I think I am the first leader in the system. ");
             currentEpoch = STARTING_EPOCH;
 
@@ -3151,6 +3134,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         landingEntryTracker.startTracking(currentEpoch, landingEntryRoundId, LANDING_ENTRY_ID, lastLeaderUnit);
         initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
+        logger.warn(landingEntryTracker.toString());
         trigger(st, timerPort);
     }
 
@@ -3161,11 +3145,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * @param lastUnit last leader unit.
      * @return Updated Leader Unit
      */
-    private LeaderUnit getNextEpochToAdd(LeaderUnit lastUnit){
+    private LeaderUnit getNextEpochToAdd(LeaderUnit lastUnit) {
 
         long currentEpoch;
 
-        if ( lastUnit == null ) {
+        if (lastUnit == null) {
             logger.warn(" I think I am the first leader in the system. ");
             currentEpoch = STARTING_EPOCH;
 
@@ -3181,6 +3165,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     /**
      * Check the Lucene Instance for the entries that were added in the
      * precious epoch id instance. The issue with the
+     *
      * @return
      * @throws se.sics.ms.common.LuceneAdaptorException
      */
@@ -3188,12 +3173,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         LeaderUnit lastUnit = timeLine.getLastUnit();
 
-        if ( lastUnit != null) {
+        if (lastUnit != null) {
 
             Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
-                            ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
-                            ApplicationEntry.LEADER_ID,
-                            lastUnit.getLeaderId());
+                    ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
+                    ApplicationEntry.LEADER_ID,
+                    lastUnit.getLeaderId());
 
             TotalHitCountCollector hitCollector = new TotalHitCountCollector();
             writeEntryLuceneAdaptor.searchDocumentsInLucene(
@@ -3210,7 +3195,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         }
 
         return lastUnit;
-    };
+    }
 
     /**
      * In case the landing entry was not added in the system.
@@ -3348,7 +3333,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * *******************
      * SHARDING PROTOCOL TRACKER
      * *******************
-     *
+     * <p/>
      * Main tracker for the sharding protocol,
      * in which the leader informs the leader group nodes about the
      * shard being overgrown in size which needs to be partitioned.
@@ -3363,7 +3348,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         private org.javatuples.Pair<UUID, LeaderUnitUpdate> shardPacketPair;
         private UUID awaitShardCommit;
 
-        public ShardTracker(){
+        public ShardTracker() {
             logger.warn("{}: Shard Tracker Initialized ", prefix);
         }
 
@@ -3374,9 +3359,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @param roundId roundId
          */
-        public void initiateSharding (UUID roundId, Collection<DecoratedAddress> leaderGroupInformation,  LeaderUnit previousContainer, LeaderUnit shardContainer) {
+        public void initiateSharding(UUID roundId, Collection<DecoratedAddress> leaderGroupInformation, LeaderUnit previousContainer, LeaderUnit shardContainer) {
 
-            if(this.shardRoundId != null || leaderGroupInformation == null || leaderGroupInformation.isEmpty()){
+            if (this.shardRoundId != null || leaderGroupInformation == null || leaderGroupInformation.isEmpty()) {
                 logger.warn("{}: Conditions to initiate sharding not satisfied, returning ... ", prefix);
                 return;
             }
@@ -3389,13 +3374,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     epochUpdatePacket,
                     new OverlayId(self.getOverlayId()));
 
-            for(DecoratedAddress destination : cohorts){
-                trigger(CommonHelper.getDecoratedContentMessage( self.getAddress(), destination, Transport.UDP, request ), networkPort );
+            for (DecoratedAddress destination : cohorts) {
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
             }
         }
 
 
-        public void resetShardingParameters(){
+        public void resetShardingParameters() {
 
             this.shardRoundId = null;
             this.cohorts = null;
@@ -3403,7 +3388,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             this.shardPacketPair = null;
         }
 
-        public UUID getShardRoundId(){
+        public UUID getShardRoundId() {
             return this.shardRoundId;
         }
 
@@ -3411,39 +3396,38 @@ public final class ShardAwareSearch extends ComponentDefinition {
         ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest =
                 new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
 
-            @Override
-            public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
+                    @Override
+                    public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
 
-                logger.debug("{}: Sharding Prepare request received from : {} ", prefix , event.getSource());
+                        logger.debug("{}: Sharding Prepare request received from : {} ", prefix, event.getSource());
 
-                LeaderUnitUpdate eup = request.getEpochUpdatePacket();
-                ShardLeaderUnit sec = null;
+                        LeaderUnitUpdate eup = request.getEpochUpdatePacket();
+                        ShardLeaderUnit sec = null;
 
-                if( !(eup.getCurrentEpochUpdate() instanceof ShardLeaderUnit) ) {
-                    throw new RuntimeException("Unable to proceed with sharding as no shard update found.");
-                }
+                        if (!(eup.getCurrentEpochUpdate() instanceof ShardLeaderUnit)) {
+                            throw new RuntimeException("Unable to proceed with sharding as no shard update found.");
+                        }
 
-                sec = (ShardLeaderUnit)eup.getCurrentEpochUpdate();
-                // Verify the hash update, if verified, then move to commit.
+                        sec = (ShardLeaderUnit) eup.getCurrentEpochUpdate();
+                        // Verify the hash update, if verified, then move to commit.
 
-                if(! ApplicationSecurity.isShardUpdateValid(sec)) {
-                    logger.warn("{}: Unable to verify the hash of the update received, returning ... ");
-                    return;
-                }
+                        if (!ApplicationSecurity.isShardUpdateValid(sec)) {
+                            logger.warn("{}: Unable to verify the hash of the update received, returning ... ");
+                            return;
+                        }
 
-                shardPacketPair = org.javatuples.Pair.with(request.getShardRoundId(), request.getEpochUpdatePacket());
-                ShardingPrepare.Response response = new ShardingPrepare.Response(request.getShardRoundId());
+                        shardPacketPair = org.javatuples.Pair.with(request.getShardRoundId(), request.getEpochUpdatePacket());
+                        ShardingPrepare.Response response = new ShardingPrepare.Response(request.getShardRoundId());
 
-                ScheduleTimeout st  = new ScheduleTimeout(3000);
-                st.setTimeoutEvent(new TimeoutCollection.AwaitingShardCommit(st));
-                awaitShardCommit = st.getTimeoutEvent().getTimeoutId();
+                        ScheduleTimeout st = new ScheduleTimeout(3000);
+                        st.setTimeoutEvent(new TimeoutCollection.AwaitingShardCommit(st));
+                        awaitShardCommit = st.getTimeoutEvent().getTimeoutId();
 
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-                trigger(st, timerPort);
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                        trigger(st, timerPort);
 
-            }
-        };
-
+                    }
+                };
 
 
         Handler<TimeoutCollection.AwaitingShardCommit> awaitingShardCommitHandler = new Handler<TimeoutCollection.AwaitingShardCommit>() {
@@ -3452,11 +3436,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                 logger.debug("{}: Awaiting for the Shard Commit. ", prefix);
 
-                if(awaitShardCommit != null && awaitShardCommit.equals(event.getTimeoutId())){
+                if (awaitShardCommit != null && awaitShardCommit.equals(event.getTimeoutId())) {
                     shardPacketPair = null;
-                }
-
-                else{
+                } else {
                     logger.debug("{}: Timeout triggered after being canceled.");
                 }
             }
@@ -3465,46 +3447,45 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         /**
          * Handle the shard responses from the node in the system.
-         *
          */
         ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>> shardingPrepareResponse =
                 new ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>>() {
 
-            @Override
-            public void handle(ShardingPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response> event) {
+                    @Override
+                    public void handle(ShardingPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response> event) {
 
-                logger.debug("{}: Received Sharding Prepare Response from node : {} ", prefix, event.getSource());
+                        logger.debug("{}: Received Sharding Prepare Response from node : {} ", prefix, event.getSource());
 
-                if( shardRoundId == null || !shardRoundId.equals(response.getShardRoundId()) ) {
-                    logger.warn("{}: Received a sharding response for an expired round, returning ... ", prefix);
-                    return;
-                }
+                        if (shardRoundId == null || !shardRoundId.equals(response.getShardRoundId())) {
+                            logger.warn("{}: Received a sharding response for an expired round, returning ... ", prefix);
+                            return;
+                        }
 
 
-                if(promises >= cohorts.size()){
-                    logger.warn("{}: All the necessary promises have already been received, returning .. ", prefix);
-                    return;
-                }
+                        if (promises >= cohorts.size()) {
+                            logger.warn("{}: All the necessary promises have already been received, returning .. ", prefix);
+                            return;
+                        }
 
-                promises++;
+                        promises++;
 
-                if(promises >= cohorts.size()) {
+                        if (promises >= cohorts.size()) {
 
-                    logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
-                    ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
+                            logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
+                            ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
 
-                    for(DecoratedAddress destination : cohorts){
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                            for (DecoratedAddress destination : cohorts) {
+                                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                            }
+
+                            // For now let's apply the partitioning update on the majority of responses.
+                            handleSharding(shardRoundId, epochUpdatePacket.getPreviousEpochUpdate(), epochUpdatePacket.getCurrentEpochUpdate());
+
+                        }
+
+
                     }
-
-                    // For now let's apply the partitioning update on the majority of responses.
-                    handleSharding( shardRoundId, epochUpdatePacket.getPreviousEpochUpdate(), epochUpdatePacket.getCurrentEpochUpdate());
-
-                }
-
-
-            }
-        };
+                };
 
 
         /**
@@ -3513,62 +3494,55 @@ public final class ShardAwareSearch extends ComponentDefinition {
         ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>> shardingCommitRequest =
                 new ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>>() {
 
-            @Override
-            public void handle(ShardingCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request> event) {
+                    @Override
+                    public void handle(ShardingCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request> event) {
 
-                logger.debug("{}: Sharding commit request handler invoked ... ", prefix);
-                UUID receivedShardRoundID = request.getShardRoundId();
-                UUID storedShardRoundID = shardPacketPair != null ? shardPacketPair.getValue0() : null;
+                        logger.debug("{}: Sharding commit request handler invoked ... ", prefix);
+                        UUID receivedShardRoundID = request.getShardRoundId();
+                        UUID storedShardRoundID = shardPacketPair != null ? shardPacketPair.getValue0() : null;
 
-                if( storedShardRoundID ==  null || !storedShardRoundID.equals(receivedShardRoundID) ){
-                    logger.warn("{}: Received a request for an expired shard round id, returning ... ");
-                    return;
-                }
+                        if (storedShardRoundID == null || !storedShardRoundID.equals(receivedShardRoundID)) {
+                            logger.warn("{}: Received a request for an expired shard round id, returning ... ");
+                            return;
+                        }
 
-                // Cancel the awaiting timeout.
-                UUID timeoutId = shardPacketPair.getValue0();
-                CancelTimeout ct = new CancelTimeout(timeoutId);
-                trigger(ct, timerPort);
-                awaitShardCommit = null;
+                        // Cancel the awaiting timeout.
+                        UUID timeoutId = shardPacketPair.getValue0();
+                        CancelTimeout ct = new CancelTimeout(timeoutId);
+                        trigger(ct, timerPort);
+                        awaitShardCommit = null;
 
-                // Shard the node.
-                LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
+                        // Shard the node.
+                        LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
 //                handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
 
-                ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-            }
-        };
-
+                        ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                    }
+                };
 
 
         ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>> shardingCommitResponse =
                 new ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>>() {
 
-            @Override
-            public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
+                    @Override
+                    public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
 
-                logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
+                        logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
 
 
-            }
-        };
+                    }
+                };
 
 
     }
-
-
-
-
-
-
 
 
     /**
      * *********************************
      * CONTROL PULL TRACKER
      * *********************************
-     *
+     * <p/>
      * Tracker for the main control pull mechanism.
      */
     private class ControlPullTracker {
@@ -3610,7 +3584,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         currentPullRound = UUID.randomUUID();
                         currentUpdate = timeLine.getLastUnit();
 
-                        logger.debug("{}: Current Pull Round: {}, EpochUpdate: {}", new Object[]{prefix, currentPullRound, currentUpdate});
+                        logger.debug("{}: Current Pull Round: {}, Leader Unit: {}", new Object[]{prefix, currentPullRound, currentUpdate});
                         OverlayId overlayId = new OverlayId(self.getOverlayId());
 
                         ControlPull.Request request = new ControlPull.Request(currentPullRound, overlayId, currentUpdate);
@@ -3645,23 +3619,18 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         PublicKey key = leaderKey;
 
                         LeaderUnit receivedUnit = request.getLeaderUnit();
-                        LeaderUnit updateUnit = timeLine.getSelfUnitUpdate(receivedUnit);
+                        LeaderUnit updateUnit = (receivedUnit == null) ? timeLine.getInitialTrackingUnit()
+                                :timeLine.getSelfUnitUpdate(receivedUnit);
 
-                        if(updateUnit == null || (updateUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING)){
-
-                            if(receivedUnit != null){
-                                nextUpdates.add(receivedUnit); // Might be case of network partitioning.
-                            }
-                        }
-
-                        else {
+                        if (updateUnit != null) {
 
                             receivedUnit = updateUnit.shallowCopy();
+                            receivedUnit.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);    // Reset the uniddt status to prevent the node being replied to with wrong status. ( FIXED with SERIALIZATION )
+
                             nextUpdates.add(receivedUnit);
                             nextUpdates.addAll(timeLine.getNextLeaderUnits(receivedUnit,
                                     config.getMaximumEpochUpdatesPullSize()));
                         }
-
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
                         ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
@@ -3691,11 +3660,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         List<LeaderUnit> updates = response.getNextUpdates();
 
-                        if(currentUpdate != null){
+                        if (currentUpdate != null) {
 
-                            if(updates.isEmpty() || !checkOriginalExtension(updates.get(0))){
-//                                logger.warn("{}: Control exchange protocol violated, returning ... ", new Object[]{prefix});
-                                return;
+                            if (updates.isEmpty() || !checkOriginalExtension(updates.get(0))) {
+
+                                logger.warn("{}: Control exchange protocol violated", new Object[]{prefix});
+                                throw new IllegalStateException(" Control Pull Protocol Violated ... ");
                             }
                         }
 
@@ -3729,13 +3699,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * Go through all the responses that the node fetched through the pull mechanism
          * and then find the commonly matched responses and inform the listening components
          * about the updates received.
-         *
          */
         private void performResponseMatch() {
 
             List<LeaderUnit> intersection;
 
-            if ( pullResponseMap.size() > 0 ) {
+            if (pullResponseMap.size() > 0) {
 
                 intersection = pullResponseMap
                         .values().iterator().next()
@@ -3787,28 +3756,28 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @param units
          */
-        private void addLeaderUnits(List<LeaderUnit> units){
+        private void addLeaderUnits(List<LeaderUnit> units) {
 
-            if(units == null || units.isEmpty()){
+            if (units == null || units.isEmpty()) {
                 return;
             }
 
             Collections.sort(units, comparator);
 
-            for(LeaderUnit unit : units) {
+            for (LeaderUnit unit : units) {
 
                 if (timeLine.isSafeToAdd(unit)) {
 
-                    if(unit instanceof ShardLeaderUnit)
-                    {
-                        handleSharding((ShardLeaderUnit)unit);
+                    if (unit instanceof ShardLeaderUnit) {
+                        handleSharding((ShardLeaderUnit) unit);
                         break;
                     }
 
-                    if(unit instanceof NPLeaderUnit)
-                    {
+                    if (unit instanceof NPLeaderUnit) {
                         break;
                     }
+
+                    timeLine.addLeaderUnit(unit);
                 }
 
 
@@ -3816,14 +3785,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
         }
 
 
-
     }
 
     /**
      * ****************************************************
-     *  LOWEST MISSING ENTRY TRACKER
+     * LOWEST MISSING ENTRY TRACKER
      * ****************************************************
-     *
+     * <p/>
      * Inner class used to keep track of the lowest missing index entry and also
      * communicate with the Epoch History Tracker, which for now keeps history of the
      * epoch updates.
@@ -3843,7 +3811,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         }
 
         public LowestMissingEntryTracker() {
-            
+
             this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
             this.existingEntries = new HashMap<ApplicationEntry.ApplicationEntryId, ApplicationEntry>();
             this.currentTrackingId = 0;
@@ -3851,7 +3819,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -3868,16 +3836,14 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     logger.info("Entry Exchange Round initiated ... ");
 
-                    if( ! isPaused){
-                        
+                    if (!isPaused) {
+
                         entryExchangeTracker.resetTracker();
                         updateInternalState();
                         startEntryPullMechanism();
-                        
-                    }
-                    else{
+
+                    } else {
                         logger.debug("{}: Entry exchange round is paused, returning ... ");
-                        return;
                     }
 
                 } catch (Exception e) {
@@ -3897,15 +3863,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
             if (currentTrackingUnit != null) {
 
                 UUID entryExchangeRound = UUID.randomUUID();
-                
-                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {}", prefix, entryExchangeRound);
+                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {} and tracking unit:{} ", new Object[]{prefix, entryExchangeRound, currentTrackingUnit});
                 triggerHashExchange(entryExchangeRound);
-                
+
             } else {
                 logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update", prefix);
             }
         }
-
 
 
         /**
@@ -3955,63 +3919,61 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * So in any handler that deals with returning data to other nodes, the check for the overlay id needs to be there.
          * <b>Every Node</b> only replies with data to the nodes at same level except for the partitioning information.
          */
-        ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>> leaderPullRequest = new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>>() {
-            @Override
-            public void handle(LeaderPullEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request> event) {
+        ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>> leaderPullRequest =
+                new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>>() {
 
-                if(leader){
+                    @Override
+                    public void handle(LeaderPullEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request> event) {
 
-                    // Return reply if I am leader else chuck it.
-                    TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
-                    List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
-                            request.getLowestMissingEntryId(), collector);
+                        if (leader) {
 
-                    LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries);
-                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                            logger.debug("{}: Direct Leader Pull Request from: {}", prefix, event.getSource());
 
-                }
+                            // Return reply if I am leader else chuck it.
+                            TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
+                            List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
+                                    request.getLowestMissingEntryId(), collector);
 
-            }
-        };
+                            LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries);
+                            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
+                        }
+
+                    }
+                };
 
 
         /**
          * Main Handler for the pull entry response from the node that the sending node thinks as the current leader.
          * The response if received contains the information of the next predefined entries from the missing entry the
          * system originally asked for.
-         *
          */
         ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>> leaderPullResponse =
                 new ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>>() {
 
-            @Override
-            public void handle(LeaderPullEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response> event) {
+                    @Override
+                    public void handle(LeaderPullEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response> event) {
 
-                logger.debug("{}: Received leader pull response from the node: {} in the system", prefix, event.getSource());
+                        logger.debug("{}: Received leader pull response from the node: {} in the system", prefix, event.getSource());
 
-                try{
-                    if(leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())){
+                        try {
+                            if (leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())) {
 
-                        leaderPullRound = null; // Quickly reset leader pull round to prevent misuse.
-                        Collection<ApplicationEntry> entries = response.getMissingEntries();
+                                leaderPullRound = null; // Quickly reset leader pull round to prevent misuse.
+                                Collection<ApplicationEntry> entries = response.getMissingEntries();
 
-                        for(ApplicationEntry entry: entries){
-                            addEntryLocally(entry);
+                                for (ApplicationEntry entry : entries) {
+                                    addEntryLocally(entry);
+                                }
+                            }
+
+                        } catch (Exception ex) {
+                            logger.warn("{}: Entries Pulled : {}", prefix, response.getMissingEntries());
+                            throw new RuntimeException("Unable to add entries in System", ex);
                         }
                     }
 
-                }
-                catch(Exception ex){
-                    logger.warn("{}: Entries Pulled : {}" , prefix, response.getMissingEntries());
-                    throw new RuntimeException("Unable to add entries in System", ex);
-                }
-            }
-
-        };
-
-
-
-
+                };
 
 
         /**
@@ -4026,6 +3988,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         logger.debug("{}: Received the entry hash exchange request from the node:{} in the system.", prefix, event.getSource());
                         Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
+
+                        logger.warn("{}: Lowest mising Entry Information :{} ", prefix, request.getLowestMissingIndexEntry());
 
                         TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
                         List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.findEntryIdRange(
@@ -4163,32 +4127,42 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         /**
          * Look into the timeline and check for an update to the current tracking information.
-         * 
          */
-        public void updateCurrentTracking() throws IOException, LuceneAdaptorException {
+        public void updateCurrentTrackingOld() throws IOException, LuceneAdaptorException {
 
-            
-            currentTrackingUnit = timeLine.getSelfUnitUpdate(currentTrackingUnit);
-            
+
+            if(currentTrackingUnit == null) {
+
+                currentTrackingUnit = timeLine.getInitialTrackingUnit();
+                if(currentTrackingUnit != null)
+                {
+                    currentTrackingUnit = timeLine
+                            .getNextUnitToTrack(currentTrackingUnit);
+                }
+            }
+
+            currentTrackingUnit = timeLine
+                    .getSelfUnitUpdate(currentTrackingUnit);
+
             if (currentTrackingUnit != null) {
 
-                if(currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP) {
-                    
+                if (currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP) {
+
                     // I don't need to pull the entry. Duplicate code in the system. ( REFACTOR )
-                    
+
                     LeaderUnit nextUnit = timeLine
                             .getNextUnitToTrack(currentTrackingUnit);
 
-                    if(nextUnit != null){
+                    if (nextUnit != null) {
 
                         currentTrackingUnit = timeLine.currentTrackUnit(nextUnit);
                         currentTrackingId = 0;
                     }
-                    
+
                 }
-                
-                else if ( (currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED )
-                        && (currentTrackingId >= currentTrackingUnit.getNumEntries()) ) {
+
+                else if ((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
+                        && (currentTrackingId >= currentTrackingUnit.getNumEntries())) {
 
                     // Close the current tracking update.
                     currentTrackingUnit = timeLine
@@ -4199,16 +4173,79 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             .getNextUnitToTrack(currentTrackingUnit);
 
                     if (nextUpdate != null) {
-                        
+
                         currentTrackingUnit = timeLine.currentTrackUnit(nextUpdate);
                         currentTrackingId = 0;
                     }
                 }
 
-                
 
             }
         }
+
+
+        /**
+         * Look into the timeline and check for an update to the current tracking information.
+         */
+        public void updateCurrentTracking() throws IOException, LuceneAdaptorException {
+
+
+            // Handle the initial case.
+            if(currentTrackingUnit == null) {
+
+                currentTrackingUnit = timeLine.getInitialTrackingUnit();
+                if(currentTrackingUnit != null)
+                {
+                    currentTrackingUnit = timeLine
+                            .currentTrackUnit(currentTrackingUnit);
+                }
+            }
+
+            currentTrackingUnit = timeLine
+                    .getSelfUnitUpdate(currentTrackingUnit);
+
+            if (currentTrackingUnit != null) {
+
+                if (currentTrackingUnit.getEntryPullStatus()
+                        == LeaderUnit.EntryPullStatus.SKIP) {
+
+                    checkAndUpdateTracking();
+                }
+
+                else if ((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
+                        && (currentTrackingId >= currentTrackingUnit.getNumEntries())){
+
+                    if(currentTrackingUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED) {
+                        currentTrackingUnit = timeLine
+                                .markUnitComplete(currentTrackingUnit);
+                    }
+                    checkAndUpdateTracking();
+                }
+            }
+
+        }
+
+
+        /**
+         * A simple helper method to check for the
+         * next tracking unit and reset the current tracking information
+         * if update is found.
+         *
+         */
+        private void checkAndUpdateTracking(){
+
+            LeaderUnit nextUpdate = timeLine
+                    .getNextUnitToTrack(currentTrackingUnit);
+
+            if (nextUpdate != null) {
+
+                currentTrackingUnit = timeLine.currentTrackUnit(nextUpdate);
+                currentTrackingId = 0;
+            }
+
+        }
+
+
 
 
         /**
@@ -4257,7 +4294,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             }
 
             // In case we reached this point we add it to the existing entries as we cannot add to Lucene Yet.
-            if(!existingEntries.keySet().contains(entry.getApplicationEntryId()))
+            if (!existingEntries.keySet().contains(entry.getApplicationEntryId()))
                 existingEntries.put(entry.getApplicationEntryId(), entry);
 
             return false;
@@ -4288,7 +4325,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
         /**
          * The operation itself does nothing but calls
          * the internal state operations in order.
-         *
          */
         public void updateInternalState() throws IOException, LuceneAdaptorException {
 
@@ -4316,16 +4352,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 currentTrackingId++;
             }
         }
-        
-        
+
+
         // ++++ ====== +++++ MAIN SHARDING APPLICATION +++++ ===== ++++++
 
         /**
          * As the sharding update is going on which will remove the entries from the timeline,
-         * 
          */
-        private void pauseTracking(){
-            
+        private void pauseTracking() {
+
             logger.debug("{}: Going to pause the entry exchange round .. ", prefix);
 
             isPaused = true;
@@ -4335,34 +4370,33 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         /**
-         * Once the sharding is over, reset the tracker to point to the 
+         * Once the sharding is over, reset the tracker to point to the
          * next tracking update. Depending upon the status of the current tracker position
          * and the updates to skip, the next tracking information is updated.
-         *
          */
-        private void resumeTracking(){
+        private void resumeTracking() {
 
-            logger.debug("{}: Switching the entry exchange round again .." , prefix);
-            
+            logger.debug("{}: Switching the entry exchange round again ..", prefix);
+
             isPaused = false;
-            
+
             // Check if the unit is trackable or not.
-            
-            if(!timeLine.isTrackable(currentTrackingUnit)) {
-                
+
+            if (!timeLine.isTrackable(currentTrackingUnit)) {
+
                 currentTrackingUnit = timeLine
                         .getSelfUnitUpdate(currentTrackingUnit);
-                
+
                 LeaderUnit nextUnit = timeLine
                         .getNextUnitToTrack(currentTrackingUnit);
-                
-                if(nextUnit != null){
-                    
+
+                if (nextUnit != null) {
+
                     currentTrackingUnit = timeLine.currentTrackUnit(nextUnit);
                     currentTrackingId = 0;
                 }
             }
-            
+
         }
 
 
@@ -4372,48 +4406,46 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @param medianId
          */
-        private void deleteDocumentsWithIdMoreThen (ApplicationEntry.ApplicationEntryId medianId) {
-            
+        private void deleteDocumentsWithIdMoreThen(ApplicationEntry.ApplicationEntryId medianId) {
+
             Iterator<ApplicationEntry.ApplicationEntryId> idIterator = existingEntries.keySet().iterator();
-            while(idIterator.hasNext()){
-                
-                if(idIterator.next().compareTo(medianId) > 0){
+            while (idIterator.hasNext()) {
+
+                if (idIterator.next().compareTo(medianId) > 0) {
                     idIterator.remove();
                 }
             }
         }
-        
-        
+
+
         /**
-         * Check for the buffered entries and then remove the entry with 
+         * Check for the buffered entries and then remove the entry with
          * ids less than the specified id.
          *
-         * @param medianId 
+         * @param medianId
          */
-        private void deleteDocumentsWithIdLessThen (ApplicationEntry.ApplicationEntryId medianId) {
+        private void deleteDocumentsWithIdLessThen(ApplicationEntry.ApplicationEntryId medianId) {
 
             Iterator<ApplicationEntry.ApplicationEntryId> idIterator = existingEntries.keySet().iterator();
-            while(idIterator.hasNext()){
+            while (idIterator.hasNext()) {
 
-                if(idIterator.next().compareTo(medianId) < 0){
+                if (idIterator.next().compareTo(medianId) < 0) {
                     idIterator.remove();
                 }
             }
         }
-        
-        
-        private void printExistingEntries(){
+
+
+        private void printExistingEntries() {
             logger.warn("Existing Entries {}:", this.existingEntries.toString());
         }
 
     }
 
 
-
-
     /**
      * Stores and keep tracks of the epoch history.
-     *
+     * <p/>
      * No specific ordering is imposed here. It is the responsibility of the application to
      * fetch the epoch updates in order by looking at the last added the epoch history.
      *
@@ -4429,7 +4461,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         private GenericECComparator comparator;
         private ArrayList<LeaderUnit> skipEpochHistory;
 
-        public EpochHistoryTracker(BasicAddress address){
+        public EpochHistoryTracker(BasicAddress address) {
 
             logger.trace("Tracker Initialized .. ");
             epochUpdateHistory = new LinkedList<LeaderUnit>();
@@ -4442,8 +4474,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         }
 
 
-
-        public void printEpochHistory(){
+        public void printEpochHistory() {
             logger.warn("EpochHistory: {}", epochUpdateHistory);
         }
 
@@ -4453,14 +4484,14 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @return next epoch id to ask.
          */
-        private long epochIdToFetch(){
+        private long epochIdToFetch() {
 
             LeaderUnit lastUpdate = getLastUpdate();
 
             return lastUpdate == null
                     ? START_EPOCH_ID
-                    :((lastUpdate.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
-                    ? lastUpdate.getEpochId()+1
+                    : ((lastUpdate.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
+                    ? lastUpdate.getEpochId() + 1
                     : lastUpdate.getEpochId());
         }
 
@@ -4475,15 +4506,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
          */
         public void addEpochUpdate(LeaderUnit epochUpdate) {
 
-            if( epochUpdate == null ){
+            if (epochUpdate == null) {
                 logger.debug("Request to add default epoch update received, returning ... ");
                 return;
             }
 
             long epochIdToFetch = epochIdToFetch();
             int index = -1;
-            for(int i =0; i < epochUpdateHistory.size() ; i ++){
-                if(epochUpdateHistory.get(i).getEpochId() == epochUpdate.getEpochId() &&
+            for (int i = 0; i < epochUpdateHistory.size(); i++) {
+                if (epochUpdateHistory.get(i).getEpochId() == epochUpdate.getEpochId() &&
                         epochUpdateHistory.get(i).getLeaderId() == epochUpdate.getLeaderId()) {
                     index = i;
                     break;
@@ -4492,32 +4523,28 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
             if (index != -1) {
                 epochUpdateHistory.set(index, epochUpdate);
-            }
-
-            else if(epochUpdate.getEpochId() == epochIdToFetch){
+            } else if (epochUpdate.getEpochId() == epochIdToFetch) {
 
                 logger.debug("{}: Going to add new epoch update :{} ", prefix, epochUpdate);
-                
-                if(epochUpdate instanceof ShardLeaderUnit){
-                    
+
+                if (epochUpdate instanceof ShardLeaderUnit) {
+
                     // Simply inform the application about the sharding update and return.
                     handleSharding((ShardLeaderUnit) epochUpdate);
                     return;
                 }
-                
+
                 epochUpdateHistory.addLast(epochUpdate); // Only append the entries in order.
             }
 
             // Special Case of the Network Partitioning Merge, in which we have to collapse the history.
-            else if(epochUpdate.getEpochId() > epochIdToFetch){
+            else if (epochUpdate.getEpochId() > epochIdToFetch) {
 
                 // Special Case Handling for the Network Merge is required.
                 logger.error(" HANDLE Case of the Network Partitioning Merge In the System.");
                 bufferedEpochHistory.add(epochUpdate);              // TO DO: Condition needs to be properly handled.
                 throw new UnsupportedOperationException(" Operation Not Supported Yet ");
-            }
-
-            else{
+            } else {
                 logger.warn("{}: Whats the case that occurred : ?", prefix);
                 throw new IllegalStateException("Unknown State ..1");
             }
@@ -4530,7 +4557,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @return Epoch Update.
          */
-        public LeaderUnit getLastUpdate(){
+        public LeaderUnit getLastUpdate() {
 
             return !this.epochUpdateHistory.isEmpty()
                     ? this.epochUpdateHistory.getLast()
@@ -4544,17 +4571,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * @param update
          * @return
          */
-        public LeaderUnit getNextUpdateToTrack(LeaderUnit update){
+        public LeaderUnit getNextUpdateToTrack(LeaderUnit update) {
 
             LeaderUnit nextUpdate = null;
             Iterator<LeaderUnit> iterator = epochUpdateHistory.iterator();
 
-            while(iterator.hasNext()){
+            while (iterator.hasNext()) {
 
-                if(iterator.next().equals(update))
-                {
-                    if(iterator.hasNext())
-                    {
+                if (iterator.next().equals(update)) {
+                    if (iterator.hasNext()) {
                         nextUpdate = iterator.next();
                         break;                              // Check Here About the Buffered Epoch Updates in The System and Remove them from the
                     }
@@ -4562,7 +4587,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             }
 
             // Check in skipList.
-            if(nextUpdate != null && skipEpochHistory.contains(nextUpdate)){
+            if (nextUpdate != null && skipEpochHistory.contains(nextUpdate)) {
 
                 skipEpochHistory.remove(nextUpdate);
                 nextUpdate = getNextUpdateToTrack(nextUpdate);
@@ -4578,15 +4603,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * @param update Update to match against.
          * @return Updated Value.
          */
-        public LeaderUnit getSelfUpdate(LeaderUnit update){
+        public LeaderUnit getSelfUpdate(LeaderUnit update) {
 
-            if( update == null ){
+            if (update == null) {
                 return null;
             }
 
-            for(LeaderUnit epochUpdate : epochUpdateHistory){
-                if(epochUpdate.getEpochId() == update.getEpochId()
-                        && epochUpdate.getLeaderId() == update.getLeaderId()){
+            for (LeaderUnit epochUpdate : epochUpdateHistory) {
+                if (epochUpdate.getEpochId() == update.getEpochId()
+                        && epochUpdate.getLeaderId() == update.getLeaderId()) {
 
                     return epochUpdate;
                 }
@@ -4603,8 +4628,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
          */
         public LeaderUnit getInitialEpochUpdate() {
 
-            for(LeaderUnit update : epochUpdateHistory){
-                if(update.getEpochId() == START_EPOCH_ID){
+            for (LeaderUnit update : epochUpdateHistory) {
+                if (update.getEpochId() == START_EPOCH_ID) {
                     return update;
                 }
             }
@@ -4618,47 +4643,40 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * get the next updates from the epoch history collection.
          *
          * @param current current update
-         * @param limit Max updates to provide.
+         * @param limit   Max updates to provide.
          * @return Successive Updates.
          */
         public List<LeaderUnit> getNextUpdates(LeaderUnit current, int limit) {
 
             List<LeaderUnit> nextUpdates = new ArrayList<LeaderUnit>();
 
-            if (current == null){
+            if (current == null) {
                 current = getInitialEpochUpdate();
-            }
-            else {
+            } else {
                 current = getSelfUpdate(current);
             }
 
-            if( current != null ){
+            if (current != null) {
 
-                if(!current.getLeaderUnitStatus().equals(LeaderUnit.LUStatus.ONGOING))
-                {
-                    
+                if (!current.getLeaderUnitStatus().equals(LeaderUnit.LUStatus.ONGOING)) {
+
                     // Needs to be updated in case of partition merge as the update might not be present due to sewing up of history.
                     // Also the direct equals method won't work in case of multiple types of epoch updates in the system.
 
                     int index = epochUpdateHistory.indexOf(current);
-                    if(index != -1){
+                    if (index != -1) {
 
                         ListIterator<LeaderUnit> listIterator = epochUpdateHistory.listIterator(index);
                         int count = 0;
-                        while(listIterator.hasNext() && count < limit){
+                        while (listIterator.hasNext() && count < limit) {
                             nextUpdates.add(listIterator.next());
-                            count ++;
+                            count++;
                         }
-                    }
-                    
-                    else{
+                    } else {
                         logger.error("Unable to locate epoch requested:{}", current);
                         throw new IllegalStateException("Unable to locate the resource ...");
                     }
-                }
-                
-                else
-                {
+                } else {
                     nextUpdates.add(current);
                 }
 
@@ -4676,7 +4694,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
          */
         public void addEpochUpdates(List<LeaderUnit> intersection) {
 
-            Collections.sort(intersection, comparator );
+            Collections.sort(intersection, comparator);
 
             for (LeaderUnit nextUpdate : intersection) {
                 addEpochUpdate(nextUpdate);
@@ -4690,23 +4708,19 @@ public final class ShardAwareSearch extends ComponentDefinition {
          *
          * @param skipUpdateCollection collection.
          */
-        public void addSkipList(Collection<LeaderUnit> skipUpdateCollection){
+        public void addSkipList(Collection<LeaderUnit> skipUpdateCollection) {
             skipEpochHistory.addAll(skipUpdateCollection);
         }
 
 
-        
-        
-        public void updateTracking(){
-            
-            
+        public void updateTracking() {
+
+
         }
-        
-        
+
 
     }
-    
-    
+
 
 }
 

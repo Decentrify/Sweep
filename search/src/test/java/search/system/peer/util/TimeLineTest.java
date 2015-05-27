@@ -88,5 +88,28 @@ public class TimeLineTest {
 
         Assert.assertEquals("ONGOING status check", defaultLeaderUnit, result);
     }
+
+
+    @Test
+    public void getLastUnitTest(){
+
+        LeaderUnit defaultLeaderUnit = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(defaultLeaderUnit);
+        LeaderUnit lastUnit=  timeLine.getLastUnit();
+
+        Assert.assertEquals("Last Unit Test", defaultLeaderUnit, lastUnit);
+
+    }
+
+    @Test
+    public void getSelfUpdateTest(){
+
+        LeaderUnit lu = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER);
+        timeLine.addLeaderUnit(lu);
+
+        LeaderUnit update = timeLine.getSelfUnitUpdate(null);
+        Assert.assertEquals("Self Update ", lu, update);
+
+    }
     
 }

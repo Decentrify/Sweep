@@ -55,4 +55,15 @@ public class LandingEntryTracker {
     public LeaderUnit getPreviousEpochContainer(){
         return this.previousEpochContainer;
     }
+
+    @Override
+    public String toString() {
+        return "LandingEntryTracker{" +
+                "isLandingEntryAdded=" + isLandingEntryAdded +
+                ", epochId=" + epochId +
+                ", landingEntryRoundId=" + landingEntryRoundId +
+                ", landingEntryId=" + landingEntryId +
+                ", previousEpochContainer=" + previousEpochContainer +
+                '}';
+    }
 }

@@ -8,23 +8,23 @@ import java.util.*;
 
 /**
  * Main Container for the leader unit histories contained in the node.
- * The application mainly communicates with the object in terms of 
- * storing the leader unit updates received by the application through the  
+ * The application mainly communicates with the object in terms of
+ * storing the leader unit updates received by the application through the
  * leader change or through the control pull mechanism.
- * 
+ * <p/>
  * Created by babbarshaer on 2015-05-25.
  */
 public class TimeLine {
-    
+
     private Map<Long, Epoch> epochMap;
     private LongComparator longComparator;
     private long maxEpochId;
     private static final Long INITIAL_EPOCH_ID = 0l;
     private LeaderUnit ongoingLeaderUnit;
-    private Logger logger  = LoggerFactory.getLogger(TimeLine.class);
-    
-    public TimeLine(){
-        
+    private Logger logger = LoggerFactory.getLogger(TimeLine.class);
+
+    public TimeLine() {
+
         this.epochMap = new HashMap<Long, Epoch>();
         this.longComparator = new LongComparator();
         this.maxEpochId = -1;
@@ -32,22 +32,22 @@ public class TimeLine {
 
 
     /**
-     * Wipe the internal state clean byt removing all the data 
+     * Wipe the internal state clean byt removing all the data
      * associated with different epochs.
      */
-    public void cleanInternalState(){
+    public void cleanInternalState() {
         this.epochMap.clear();
     }
 
     public boolean isSafeToAdd(LeaderUnit leaderUnit) {
 
-        if(maxEpochId != -1){
-            
+        if (maxEpochId != -1) {
+
             long expectedEpochId = maxEpochId + 1;
-            return ( leaderUnit.getEpochId() == maxEpochId 
+            return (leaderUnit.getEpochId() == maxEpochId
                     || leaderUnit.getEpochId() == expectedEpochId);
         }
-        
+
         return (leaderUnit.getEpochId() == 0);
     }
 
@@ -57,25 +57,32 @@ public class TimeLine {
      * As the method is generic in sense that it can be used to update
      * the already existing entries also, so check to find the unit
      * should be based on the epoch and
+     *
      * @param leaderUnit
      */
-    public void addLeaderUnit (LeaderUnit leaderUnit) {
-        
+    public void addLeaderUnit(LeaderUnit leaderUnit) {
+
+
+        if (leaderUnit == null) {
+            logger.debug("Tried to add null leader unit .. ");
+            return;
+        }
+
         Long epochId = leaderUnit.getEpochId();
         Epoch epoch = epochMap.get(epochId);
-        
-        if(epoch == null){
-            
+
+        if (epoch == null) {
+
             epoch = new Epoch(epochId);
             epochMap.put(epochId, epoch);
         }
-        
+
         epoch.addLeaderUnit(leaderUnit.shallowCopy());
         maxEpochId = leaderUnit.getEpochId();
     }
-    
-    
-    public void rescanTimeLine(){
+
+
+    public void rescanTimeLine() {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
@@ -87,74 +94,68 @@ public class TimeLine {
      * @param leaderUnit base leader unit.
      * @return updated unit.
      */
-    public LeaderUnit getSelfUnitUpdate(LeaderUnit leaderUnit){
-        
-        LeaderUnit result = null;
-        
-        long epochId = leaderUnit == null ? INITIAL_EPOCH_ID
-                : leaderUnit.getEpochId();
-        
-        Epoch epoch = epochMap.get(epochId);
-        if(epoch != null){
+    public LeaderUnit getSelfUnitUpdate(LeaderUnit leaderUnit) {
 
-            List<LeaderUnit> units = epoch.getLeaderUnits();
-            
-            if(leaderUnit == null) {
-                
-                if(!units.isEmpty()){
-                    result = units.get(0);
-                }
-            }
-            
-            else{
-                
-                int index = -1;
-                for(int i =0; i < units.size(); i++){
-                    
-                    LeaderUnit lu = units.get(i);
-                    if(lu.getLeaderId() == leaderUnit.getLeaderId()){
-                        index = i;
-                        break;
-                    }
-                }
-                
-                if(index != -1){
-                    result = units.get(index);
-                }
-            }
-            
-                
+        if (leaderUnit == null) {
+            return null;
         }
+
+        LeaderUnit result = leaderUnit;
+        long epochId = leaderUnit.getEpochId();
+
+        Epoch epoch = epochMap.get(epochId);
+        if (epoch != null) {
+
+            LeaderUnit lu = epoch.getLooseLeaderUnit(leaderUnit);
+            if(lu  != null) result = lu;
+        }
+
         return result;
     }
-    
+
+
+    /**
+     * Special scenario in which the application has just booted up and therefore
+     * looking for information to track.
+     *
+     * @return
+     */
+    public LeaderUnit getInitialTrackingUnit() {
+
+        Epoch epoch = epochMap.get(INITIAL_EPOCH_ID);
+        if (epoch == null) {
+            return null;
+        }
+
+        return epoch.getFirstUnit();
+    }
+
 
     /**
      * Iterate over the leader units in the timeline for different epochs.
      * Fetch them in order and add to the result list.
      *
      * @param baseUnit base unit
-     * @param limit limit
-     *
+     * @param limit    limit
      * @return collection.
      */
-    public List<LeaderUnit> getNextLeaderUnits(LeaderUnit baseUnit, int limit){
+    public List<LeaderUnit> getNextLeaderUnits(LeaderUnit baseUnit, int limit) {
 
         List<LeaderUnit> units = new ArrayList<LeaderUnit>();
-        
+
         int count = 0;
         LeaderUnit result = getNextUnitInOrder(baseUnit, false);
-        
-        while(result != null && count < limit){
-            
+
+        while (result != null && count < limit) {
+
             LeaderUnit copy = result.shallowCopy();
             result.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);
             units.add(result);
-            
+
             result = getNextUnitInOrder(copy, false);
-            count ++;
+            count++;
         }
-        
+
         return units;
     }
 
@@ -166,73 +167,73 @@ public class TimeLine {
      * @param leaderUnit Current Leader Unit.
      * @return Completed Leader Unit.
      */
-    public LeaderUnit markUnitComplete (LeaderUnit leaderUnit) {
-        
+    public LeaderUnit markUnitComplete(LeaderUnit leaderUnit) {
+
         Epoch epoch;
         epoch = epochMap.get(leaderUnit.getEpochId());
-        
+
         LeaderUnit result;
-        
-        if(epoch == null){
+
+        if (epoch == null) {
             throw new IllegalStateException("Unable to find Epoch for completed Leader Unit ...");
         }
-        
+
         int index = -1;
         List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
-        
-        for(int i =0; i < leaderUnits.size(); i++){
-            
+
+        for (int i = 0; i < leaderUnits.size(); i++) {
+
             LeaderUnit lu = leaderUnits.get(i);
-            if(lu.getEpochId() == leaderUnit.getEpochId() 
-                    && lu.getLeaderId() == leaderUnit.getLeaderId() 
-                    && lu.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED){
+            if (lu.getEpochId() == leaderUnit.getEpochId()
+                    && lu.getLeaderId() == leaderUnit.getLeaderId()
+                    && lu.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED) {
 
                 index = i;
                 break;
             }
         }
-        
-        if(index == -1){
+
+        if (index == -1) {
             throw new IllegalStateException("Unable to locate the completed leader unit inside the Epoch");
         }
-        
+
         result = leaderUnits.get(index);
         result.setEntryPullStatus(LeaderUnit.EntryPullStatus.COMPLETED);
-        
+
         return result.shallowCopy(); // Return shallow copy so that application not able to change status.
     }
 
 
     /**
      * The application moves forward by fetching the next update to track.
-     * The unit should be next in line pending update. In case of a partition merge 
+     * The unit should be next in line pending update. In case of a partition merge
      * there might be several completed updates in between because the class
      * calls a rescan method to rescan whole of timeline.
      *
      * @param leaderUnit Base LE Unit.
      * @return Next Unit to Track.
      */
-    public LeaderUnit getNextUnitToTrack(LeaderUnit leaderUnit){
+    public LeaderUnit getNextUnitToTrack(LeaderUnit leaderUnit) {
 
         LeaderUnit result;
-        
-        if(leaderUnit == null){
+
+        if (leaderUnit == null) {
             return null;
         }
-        
-        if(( leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED )) {
-            
+
+        if ((leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED)) {
+
             throw new IllegalStateException("Can't fetch next update as the leader unit is not properly closed.");
         }
 
         result = getNextInOrderPending(leaderUnit);
-        
-        if(result != null){
-            
+
+        if (result != null) {
+
             LeaderUnit originalUnit = result;
             result = originalUnit.shallowCopy();
         }
-        
+
         return result;
     }
 
@@ -240,65 +241,64 @@ public class TimeLine {
     /**
      * Once the application decides to track an entry a call to this method is necessary, as it
      * will update the status of the entry being tracked in the main history tracker.
-     *  
-     * The method checks on the current status of the entry to determine 
+     * <p/>
+     * The method checks on the current status of the entry to determine
      * if it can be tracked or not.
-     * 
+     *
      * @param leaderUnit
      * @return
      */
-    public LeaderUnit currentTrackUnit(LeaderUnit leaderUnit){
-        
+    public LeaderUnit currentTrackUnit(LeaderUnit leaderUnit) {
+
         Epoch epoch = epochMap.get(leaderUnit.getEpochId());
-        
-        if(epoch == null || !epoch.exactContainsCheck(leaderUnit)){
+
+        if (epoch == null || !epoch.exactContainsCheck(leaderUnit)) {
             logger.warn("Unable to locate the entry in the store. ");
             return null;
         }
-        if(leaderUnit.getEntryPullStatus()!= LeaderUnit.EntryPullStatus.PENDING){
+        if (leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
             logger.warn("Only Pending entries can be tracked, returning ... ");
             return null;
         }
-        
+
         LeaderUnit result = null;
         LeaderUnit lu = epoch.getLeaderUnit(leaderUnit);
-        
-        if(lu != null){
+
+        if (lu != null) {
             lu.setEntryPullStatus(LeaderUnit.EntryPullStatus.ONGOING);
             result = lu.shallowCopy();
             ongoingLeaderUnit = result;
         }
-        
+
         return result;
     }
-    
+
 
     /**
      * Update the value of the leader unit locally to the updated value.
      *
      * @param originalLeaderUnit original
-     * @param updatedValue updated value
+     * @param updatedValue       updated value
      */
-    private void updateLeaderUnitLocally (LeaderUnit originalLeaderUnit, LeaderUnit updatedValue){
-        
-        if(originalLeaderUnit == null || epochMap.get(originalLeaderUnit.getEpochId()) == null){
+    private void updateLeaderUnitLocally(LeaderUnit originalLeaderUnit, LeaderUnit updatedValue) {
+
+        if (originalLeaderUnit == null || epochMap.get(originalLeaderUnit.getEpochId()) == null) {
             throw new IllegalStateException("Unable to update the leader unit in timeline");
         }
-        
-        
+
+
         Epoch epoch = epochMap.get(originalLeaderUnit.getEpochId());
         List<LeaderUnit> units = epoch.getLeaderUnits();
-        
-        if(units.isEmpty() || !units.contains(originalLeaderUnit)){
+
+        if (units.isEmpty() || !units.contains(originalLeaderUnit)) {
             throw new IllegalStateException("Timeline history corrupted");
         }
-        
+
         int index = units.indexOf(originalLeaderUnit);
         units.set(index, updatedValue);
     }
-    
-    
-    
+
+
     /**
      * Simply a wrapper over the in order leader units.
      * In this case we not only need the next update but the next pending update.
@@ -306,20 +306,19 @@ public class TimeLine {
      * @param leaderUnit base unit.
      * @return next pending unit.
      */
-    private LeaderUnit getNextInOrderPending(LeaderUnit leaderUnit){
+    private LeaderUnit getNextInOrderPending(LeaderUnit leaderUnit) {
         return this.getNextUnitInOrder(leaderUnit, true);
     }
-    
+
     /**
      * Recursively go through the epochs and the associated leader units and
      * fetch the next one to track.
-     *
+     * <p/>
      * Ideally there should always be only one ongoing leader unit in the history.
      * It is the responsibility of the application to make sure that the value of the previous epoch is completed
      * before starting the new one.
      *
      * @param leaderUnit base leader unit.
-     *
      * @return next unit.
      */
     private LeaderUnit getNextUnitInOrder(LeaderUnit leaderUnit, boolean pending) {
@@ -330,140 +329,130 @@ public class TimeLine {
 
         LeaderUnit result = null;
 
-        if(epoch == null){
+        if (epoch == null) {
             return null;
         }
 
         List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
-        if(!leaderUnits.isEmpty()) {
+        if (!leaderUnits.isEmpty()) {
 
-            if(leaderUnit == null){
+            if (leaderUnit == null) {
                 result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
-            }
-
-            else {
+            } else {
 
                 int index = leaderUnits.indexOf(leaderUnit);
-                
-                if(index == -1){
+
+                if (index == -1) {
                     throw new IllegalStateException(" Unable to locate leader unit entry ");
                 }
 
-                if( index == (leaderUnits.size() -1) ){     // The entry was the last one in the epoch.
-                    Epoch nextEpoch = epochMap.get(leaderUnit.getEpochId() +1);
-                    if(nextEpoch != null
-                            && !nextEpoch.getLeaderUnits().isEmpty()){
+                if (index == (leaderUnits.size() - 1)) {     // The entry was the last one in the epoch.
+                    Epoch nextEpoch = epochMap.get(leaderUnit.getEpochId() + 1);
+                    if (nextEpoch != null
+                            && !nextEpoch.getLeaderUnits().isEmpty()) {
 
                         result = nextEpoch.getLeaderUnits().get(0);
                     }
-                }
-
-                else {
+                } else {
 
                     result = leaderUnits.get(index + 1);
                 }
 
-                if( pending && (result != null)){
+                if (pending && (result != null)) {
 
                     // If Next In Line for the pending updates needs to be calculated.
-                    if(result.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
+                    if (result.getEntryPullStatus() != LeaderUnit.EntryPullStatus.PENDING) {
                         result = getNextInOrderPending(result);
                     }
                 }
-                
-                
+
+
             }
         }
 
         return result;
     }
-    
-    
-    
-    
-    
-    
-    
+
+
     /**
      * In case of sharding, we need to add the leader units to the skip list
-     * as the application has already removed the information regarding the entries added as 
-     * part of the shard update. 
+     * as the application has already removed the information regarding the entries added as
+     * part of the shard update.
      *
      * @param skipList skipList
      */
-    public void addSkipList( List<LeaderUnit> skipList ){
-        
-        
-        for(LeaderUnit unit : skipList){
-            
+    public void addSkipList(List<LeaderUnit> skipList) {
+
+
+        for (LeaderUnit unit : skipList) {
+
             Epoch epoch = epochMap.get(unit.getEpochId());
-            if(epoch != null){
-                
+            if (epoch != null) {
+
                 List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
-                
+
                 int index = -1;
-                
-                for(int i=0; i< leaderUnits.size() ; i++){
+
+                for (int i = 0; i < leaderUnits.size(); i++) {
                     LeaderUnit lu = leaderUnits.get(i);
-                    if(lu.getLeaderId() == unit.getLeaderId()){
+                    if (lu.getLeaderId() == unit.getLeaderId()) {
                         index = i;
                         break;
                     }
                 }
-                
-                if(index == -1){
+
+                if (index == -1) {
                     throw new IllegalStateException("Unable to locate leader unit from skip list in local.");
                 }
-                
+
                 LeaderUnit update = leaderUnits.get(index);
                 update.setEntryPullStatus(LeaderUnit.EntryPullStatus.SKIP);
-                
+
                 leaderUnits.set(index, update);
-                
+
             }
         }
-        
-        
-        
+
+
     }
 
 
     /**
      * In case the application goes through sharding or any other major update,
-     * the application can re-check that the update they were tracking is correct 
+     * the application can re-check that the update they were tracking is correct
      * or they need to switch to a next update.
      *
      * @param unit base unit
      * @return
      */
-    public boolean isTrackable(LeaderUnit unit){
-        
+    public boolean isTrackable(LeaderUnit unit) {
+
         boolean result = false;
-        
+
         Epoch epoch = epochMap.get(unit.getEpochId());
-        
-        if(epoch != null){
-            
+
+        if (epoch != null) {
+
             int index = -1;
             List<LeaderUnit> units = epoch.getLeaderUnits();
-            
-            for(int i=0 ; i < units.size(); i ++){
+
+            for (int i = 0; i < units.size(); i++) {
                 LeaderUnit lu = units.get(i);
-                if(lu.getLeaderId() == unit.getLeaderId()){
+                if (lu.getLeaderId() == unit.getLeaderId()) {
                     index = i;
                     break;
                 }
             }
-            
-            if(index != -1){
-                
+
+            if (index != -1) {
+
                 LeaderUnit resultUnit = units.get(index);
                 result = (resultUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED
                         && resultUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.SKIP);
-                
+
             }
         }
-        
+
         return result;
     }
 
@@ -471,6 +460,7 @@ public class TimeLine {
     /**
      * Mainly used by the control pull mechanism in order
      * to determine the
+     *
      * @return
      */
     public LeaderUnit getLastUnit() {
@@ -478,32 +468,31 @@ public class TimeLine {
         LeaderUnit lastUnit = null;
         Set<Long> keySet = epochMap.keySet();
 
-        if( ! keySet.isEmpty()) {
+        if (!keySet.isEmpty()) {
 
             long highestEpoch;
 
             List<Long> keyList = new ArrayList<Long>(keySet);
             Collections.sort(keyList, longComparator);
 
-            highestEpoch = keyList.get(keyList.size()-1); // Last Entry in collection.
+            highestEpoch = keyList.get(keyList.size() - 1); // Last Entry in collection.
             lastUnit = epochMap.get(highestEpoch).getLastUpdate();
         }
 
         return lastUnit;
     }
 
-    
-    
+
     /**
      * Simple Comparator for the epochId's
      */
-    private class LongComparator implements Comparator<Long>{
-        
+    private class LongComparator implements Comparator<Long> {
+
         @Override
         public int compare(Long o1, Long o2) {
             return o1.compareTo(o2);
         }
     }
-    
-    
+
+
 }

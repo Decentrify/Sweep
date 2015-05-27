@@ -111,8 +111,31 @@ public class Epoch {
                 ? leaderUnits.get(leaderUnits.size()-1)
                 : null;
     }
-    
-    
+
+    /**
+     * As the leader unit information changes in terms of it getting closed,
+     * this information needs to be propagated down in the gradient,
+     * so based on the receiving leader unit check a similar one on the epoch and the
+     * leader id and therefore return the matching value.
+     *
+     * @param base
+     * @return
+     */
+    public LeaderUnit getLooseLeaderUnit( LeaderUnit base){
+
+        for(LeaderUnit unit : leaderUnits){
+
+            if(unit.getEpochId() == base.getEpochId()
+                    && unit.getLeaderId() == base.getLeaderId()) {
+                return unit;
+            }
+        }
+
+        return null;
+    }
+
+
+
     
     public LeaderUnit getLeaderUnit(LeaderUnit leaderUnit){
         
@@ -126,6 +149,12 @@ public class Epoch {
         
         return lu;
     }
-    
-    
+
+
+    public LeaderUnit getFirstUnit() {
+
+        return !this.leaderUnits.isEmpty()
+                ? this.leaderUnits.get(0)
+                : null;
+    }
 }
