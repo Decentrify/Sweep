@@ -107,8 +107,11 @@ public class TimeLineTest {
         LeaderUnit lu = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER);
         timeLine.addLeaderUnit(lu);
 
-        LeaderUnit update = timeLine.getSelfUnitUpdate(null);
-        Assert.assertEquals("Self Update ", lu, update);
+        LeaderUnit update = new BaseLeaderUnit(INITIAL_EPOCH_ID, DEFAULT_LEADER, 100);
+        timeLine.addLeaderUnit(update);
+
+        LeaderUnit result = timeLine.getSelfUnitUpdate(lu);
+        Assert.assertEquals("Self Update ", update, result);
 
     }
     
