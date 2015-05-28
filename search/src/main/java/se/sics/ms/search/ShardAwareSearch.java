@@ -2295,9 +2295,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
         if (timeLine.isSafeToAdd(previousUnit)) {
 
             ShardLeaderUnit slu = (ShardLeaderUnit)shardUnit;
-            
             timeLine.addLeaderUnit(previousUnit);      // Close the previous epoch update.
             handleSharding(slu);    // Handle the sharding phase.
+
+            gradientEntrySet.clear();
+
         } else {
             throw new IllegalStateException(" Unable to handle the current state in which shard updates are buffered.");
         }
@@ -2339,8 +2341,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
             timeLine.addLeaderUnit(shardUnit);    // Close the sharding process, once the skip list is added.
 
             logger.warn("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
-            System.exit(-1);
-
             lowestMissingEntryTracker.resumeTracking();
 
         } catch (Exception e) {
@@ -2970,7 +2970,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         self.setOverlayId(newOverlayId);
-        logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        logger.warn("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
 
         return partitionSubId;
     }
@@ -3073,7 +3073,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.debug(prefix + " " + sb);
+        if(self.getId() == 543942802 && self.getPartitioningDepth() == 1)
+            logger.warn(prefix + " " + sb);
     }
 
 
@@ -3498,7 +3499,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 ShardLeaderUnit slu = (ShardLeaderUnit)epochUpdatePacket.getCurrentEpochUpdate();
 
                                 ApplicationEntry shardEntry = new ApplicationEntry(
-                                        new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), slu.getNumEntries()));
+                                        new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), 0));
                                 
                                 addEntryLocally(shardEntry);
                             } 
@@ -3545,7 +3546,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                             ShardLeaderUnit slu = (ShardLeaderUnit) updatePacket.getCurrentEpochUpdate();
                             ApplicationEntry entry = new ApplicationEntry(
-                                    new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), slu.getNumEntries()));
+                                    new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(),0));
 
                             // Here it might be possible that the missing tracker buffers the entry instead of adding it.
                             // But eventually the tracker should see the entry buffered and add it to lucene.
@@ -3672,7 +3673,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         }
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
-                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
+                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates, self.getOverlayId()); // Handler for the DecoratedAddress
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
@@ -3694,6 +3695,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         if (currentPullRound == null || !currentPullRound.equals(response.getPullRound())) {
                             logger.debug("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
+                            return;
+                        }
+
+                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId()) ){
+                            logger.debug("{}: Control Pull response from a node:{} which is not extension of self overlayId:{} ", new Object[]{prefix, event.getSource(), new OverlayId(self.getOverlayId()) });
                             return;
                         }
 
@@ -3858,8 +3864,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            if(self.getId() == 1950184914)
-                logger.warn("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            if(self.getId() == 262536227)
+                logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -3974,7 +3980,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
                                     request.getLowestMissingEntryId(), collector);
 
-                            LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries);
+                            LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries, self.getOverlayId());
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
                         }
@@ -3998,6 +4004,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         try {
                             if (leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())) {
+
+                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                                    logger.warn("{}: OverlayId extension check failed .. ", prefix);
+                                    return;
+                                }
 
                                 leaderPullRound = null; // Quickly reset leader pull round to prevent misuse.
                                 Collection<ApplicationEntry> entries = response.getMissingEntries();
@@ -4129,7 +4140,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             }
                         }
 
-                        EntryExchange.Response response = new EntryExchange.Response(request.getExchangeRoundId(), applicationEntries);
+                        EntryExchange.Response response = new EntryExchange.Response(request.getExchangeRoundId(), applicationEntries, self.getOverlayId());
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
@@ -4154,6 +4165,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 return;
                             }
 
+                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                                logger.warn("{}: Entry Exchange Response from an undeserving node, returning ... ");
+                                return;
+                            }
+
                             for (ApplicationEntry entry : response.getApplicationEntries()) {
                                 addEntryLocally(entry);
                             }
@@ -4163,65 +4179,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         }
                     }
                 };
-
-
-        /**
-         * Look into the timeline and check for an update to the current tracking information.
-         */
-        public void updateCurrentTrackingOld() throws IOException, LuceneAdaptorException {
-
-
-            if(currentTrackingUnit == null) {
-
-                currentTrackingUnit = timeLine.getInitialTrackingUnit();
-                if(currentTrackingUnit != null)
-                {
-                    currentTrackingUnit = timeLine
-                            .getNextUnitToTrack(currentTrackingUnit);
-                }
-            }
-
-            currentTrackingUnit = timeLine
-                    .getSelfUnitUpdate(currentTrackingUnit);
-
-            if (currentTrackingUnit != null) {
-
-                if (currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP) {
-
-                    // I don't need to pull the entry. Duplicate code in the system. ( REFACTOR )
-
-                    LeaderUnit nextUnit = timeLine
-                            .getNextUnitToTrack(currentTrackingUnit);
-
-                    if (nextUnit != null) {
-
-                        currentTrackingUnit = timeLine.currentTrackUnit(nextUnit);
-                        currentTrackingId = 0;
-                    }
-
-                }
-
-                else if ((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
-                        && (currentTrackingId >= currentTrackingUnit.getNumEntries())) {
-
-                    // Close the current tracking update.
-                    currentTrackingUnit = timeLine
-                            .markUnitComplete(currentTrackingUnit);
-
-                    // Fetch the next update from the time line.
-                    LeaderUnit nextUpdate = timeLine
-                            .getNextUnitToTrack(currentTrackingUnit);
-
-                    if (nextUpdate != null) {
-
-                        currentTrackingUnit = timeLine.currentTrackUnit(nextUpdate);
-                        currentTrackingId = 0;
-                    }
-                }
-
-
-            }
-        }
 
 
         /**
@@ -4416,11 +4373,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
          */
         private void resumeTracking() {
 
-            logger.debug("{}: Switching the entry exchange round again ..", prefix);
-
+            logger.warn("{}: Switching the entry exchange round again ..", prefix);
             isPaused = false;
 
-            // Check if the unit is trackable or not.
+            // Based on the current tracking information,
+            // check if the unit has become obsolete ?
 
             if (!timeLine.isTrackable(currentTrackingUnit)) {
 
@@ -4444,7 +4401,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * Check for the buffered entries and then remove the entry with
          * id's more than the specified id.
          *
-         * @param medianId
+         * @param medianId splitting id.
          */
         private void deleteDocumentsWithIdMoreThen(ApplicationEntry.ApplicationEntryId medianId) {
 
@@ -4462,7 +4419,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
          * Check for the buffered entries and then remove the entry with
          * ids less than the specified id.
          *
-         * @param medianId
+         * @param medianId splitting id.
          */
         private void deleteDocumentsWithIdLessThen(ApplicationEntry.ApplicationEntryId medianId) {
 

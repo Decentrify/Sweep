@@ -20,26 +20,26 @@ public class SweepGradientFilter implements GradientFilter<SearchDescriptor> {
         OverlayAddress selfOverlayAddress = selfDescriptor.getOverlayAddress();
         OverlayAddress otherOverlayAddress = otherDescriptor.getOverlayAddress();
 
+        // Donot allow other category nodes in the system.
+        if(selfOverlayAddress.getCategoryId() != otherOverlayAddress.getCategoryId()){
+            return false;
+        }
+
         if(selfOverlayAddress.getPartitionIdDepth() > otherOverlayAddress.getPartitionIdDepth()){
             return false;
         }
-        
-        else if (selfOverlayAddress.getPartitionIdDepth() < otherOverlayAddress.getPartitionIdDepth()){
-            
-            boolean isNeverBefore = selfOverlayAddress.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE;
-            if(!isNeverBefore){
 
-                int bitsToCheck = selfOverlayAddress.getPartitionIdDepth();
-                boolean isOnceBefore = selfOverlayAddress.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
-                
-                PartitionId generatedPartitionId = PartitionHelper.determineSearchDescriptorPartition(otherDescriptor, isOnceBefore, bitsToCheck);
-                return (generatedPartitionId.getPartitionId() == selfOverlayAddress.getPartitionId());
-            }
-            
-            return true;
-        }
-        
-        return ( !(otherOverlayAddress.getCategoryId() != selfOverlayAddress.getCategoryId() || otherOverlayAddress.getPartitionId() != selfOverlayAddress.getPartitionId()));
+        int selfOverlayId = selfOverlayAddress
+                .getOverlayId()
+                .getId();
+
+        int receivedOverlayId = otherOverlayAddress
+                .getOverlayId()
+                .getId();
+
+
+        return PartitionHelper.isOverlayExtension(receivedOverlayId, selfOverlayId, selfDescriptor.getId());
+
     }
 
     @Override

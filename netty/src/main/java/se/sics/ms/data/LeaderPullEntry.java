@@ -71,21 +71,23 @@ public class LeaderPullEntry {
         
         private UUID directPullRound;
         private Collection<ApplicationEntry> missingEntries;
+        private final int overlayId;
 
-        public Response(UUID directPullRound, Collection<ApplicationEntry> missingEntries){
-            
+        public Response(UUID directPullRound, Collection<ApplicationEntry> missingEntries, int overlayId){
             this.directPullRound = directPullRound;
             this.missingEntries = missingEntries;
+            this.overlayId = overlayId;
         }
 
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (!(o instanceof Response)) return false;
 
             Response response = (Response) o;
 
+            if (overlayId != response.overlayId) return false;
             if (directPullRound != null ? !directPullRound.equals(response.directPullRound) : response.directPullRound != null)
                 return false;
             if (missingEntries != null ? !missingEntries.equals(response.missingEntries) : response.missingEntries != null)
@@ -98,6 +100,7 @@ public class LeaderPullEntry {
         public int hashCode() {
             int result = directPullRound != null ? directPullRound.hashCode() : 0;
             result = 31 * result + (missingEntries != null ? missingEntries.hashCode() : 0);
+            result = 31 * result + overlayId;
             return result;
         }
 
@@ -107,6 +110,7 @@ public class LeaderPullEntry {
             return "Response{" +
                     "directPullRound=" + directPullRound +
                     ", missingEntries=" + missingEntries +
+                    ", overlayId=" + overlayId +
                     '}';
         }
 
@@ -116,6 +120,10 @@ public class LeaderPullEntry {
 
         public Collection<ApplicationEntry> getMissingEntries() {
             return missingEntries;
+        }
+
+        public int getOverlayId() {
+            return overlayId;
         }
     }
     

@@ -57,21 +57,25 @@ public class EntryExchange {
 
         private UUID entryExchangeRound;
         private Collection<ApplicationEntry> applicationEntries;
+        private final int overlayId;
         
-        public Response ( UUID entryExchangeRound, Collection<ApplicationEntry> applicationEntries){
+        public Response ( UUID entryExchangeRound, Collection<ApplicationEntry> applicationEntries, int overlayId){
             
             this.entryExchangeRound = entryExchangeRound;
             this.applicationEntries = applicationEntries;
+            this.overlayId = overlayId;
         }
 
 
         @Override
         public boolean equals(Object o) {
+
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (!(o instanceof Response)) return false;
 
             Response response = (Response) o;
 
+            if (overlayId != response.overlayId) return false;
             if (applicationEntries != null ? !applicationEntries.equals(response.applicationEntries) : response.applicationEntries != null)
                 return false;
             if (entryExchangeRound != null ? !entryExchangeRound.equals(response.entryExchangeRound) : response.entryExchangeRound != null)
@@ -84,14 +88,17 @@ public class EntryExchange {
         public int hashCode() {
             int result = entryExchangeRound != null ? entryExchangeRound.hashCode() : 0;
             result = 31 * result + (applicationEntries != null ? applicationEntries.hashCode() : 0);
+            result = 31 * result + overlayId;
             return result;
         }
+
 
         @Override
         public String toString() {
             return "Response{" +
                     "entryExchangeRound=" + entryExchangeRound +
                     ", applicationEntries=" + applicationEntries +
+                    ", overlayId=" + overlayId +
                     '}';
         }
 
@@ -101,6 +108,10 @@ public class EntryExchange {
 
         public Collection<ApplicationEntry> getApplicationEntries() {
             return applicationEntries;
+        }
+
+        public int getOverlayId() {
+            return overlayId;
         }
     }
 

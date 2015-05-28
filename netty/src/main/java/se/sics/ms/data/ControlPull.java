@@ -81,23 +81,26 @@ public class ControlPull {
         private DecoratedAddress leaderAddress;
         private PublicKey leaderKey;
         private List<LeaderUnit> nextUpdates;
+        private final int overlayId;
 
 
-        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<LeaderUnit> nextUpdates) {
+        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<LeaderUnit> nextUpdates, int overlayId) {
             this.pullRound = pullRound;
             this.leaderAddress = leaderAddress;
             this.leaderKey = leaderKey;
             this.nextUpdates = nextUpdates;
+            this.overlayId = overlayId;
         }
 
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (!(o instanceof Response)) return false;
 
             Response response = (Response) o;
 
+            if (overlayId != response.overlayId) return false;
             if (leaderAddress != null ? !leaderAddress.equals(response.leaderAddress) : response.leaderAddress != null)
                 return false;
             if (leaderKey != null ? !leaderKey.equals(response.leaderKey) : response.leaderKey != null) return false;
@@ -114,6 +117,7 @@ public class ControlPull {
             result = 31 * result + (leaderAddress != null ? leaderAddress.hashCode() : 0);
             result = 31 * result + (leaderKey != null ? leaderKey.hashCode() : 0);
             result = 31 * result + (nextUpdates != null ? nextUpdates.hashCode() : 0);
+            result = 31 * result + overlayId;
             return result;
         }
 
@@ -124,7 +128,12 @@ public class ControlPull {
                     ", leaderAddress=" + leaderAddress +
                     ", leaderKey=" + leaderKey +
                     ", nextUpdates=" + nextUpdates +
+                    ", overlayId=" + overlayId +
                     '}';
+        }
+
+        public int getOverlayId() {
+            return overlayId;
         }
 
         public PublicKey getLeaderKey() {

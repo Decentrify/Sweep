@@ -225,17 +225,19 @@ public class TimeLine {
             return null;
         }
 
-        if ((leaderUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED)) {
+        if ((leaderUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.COMPLETED
+        || leaderUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP)) {
+
+            result = getNextInOrderPending(leaderUnit);
+            if (result != null) {
+
+                LeaderUnit originalUnit = result;
+                result = originalUnit.shallowCopy();
+            }
+        }
+        else{
 
             throw new IllegalStateException("Can't fetch next update as the leader unit is not properly closed.");
-        }
-
-        result = getNextInOrderPending(leaderUnit);
-
-        if (result != null) {
-
-            LeaderUnit originalUnit = result;
-            result = originalUnit.shallowCopy();
         }
 
         return result;
@@ -439,24 +441,24 @@ public class TimeLine {
 
         if (epoch != null) {
 
-            int index = -1;
-            List<LeaderUnit> units = epoch.getLeaderUnits();
+//            int index = -1;
+//            List<LeaderUnit> units = epoch.getLeaderUnits();
+//
+//            for (int i = 0; i < units.size(); i++) {
+//                LeaderUnit lu = units.get(i);
+//                if (lu.getLeaderId() == unit.getLeaderId()) {
+//                    index = i;
+//                    break;
+//                }
+//            }
 
-            for (int i = 0; i < units.size(); i++) {
-                LeaderUnit lu = units.get(i);
-                if (lu.getLeaderId() == unit.getLeaderId()) {
-                    index = i;
-                    break;
-                }
-            }
+            LeaderUnit resultUnit = epoch.getLooseLeaderUnit(unit);
+            if (resultUnit != null) {
 
-            if (index != -1) {
-
-                LeaderUnit resultUnit = units.get(index);
                 result = (resultUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED
                         && resultUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.SKIP);
-
             }
+
         }
 
         return result;

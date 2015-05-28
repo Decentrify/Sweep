@@ -3,6 +3,7 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.SearchDescriptor;
 
@@ -58,6 +59,46 @@ public class PartitionHelper {
 
         return new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, bitsToCheck, partitionId);
     }
+
+
+    /**
+     * Check if the received overlay is a logical extension of the base self overlay
+     * id information.
+     *
+     * @param receivedId receivedId
+     * @param selfId selfId
+     * @param nodeId nodeId
+     * @return Extension
+     */
+    public static boolean isOverlayExtension(int receivedId, int selfId, int nodeId){
+
+        boolean result = false;
+
+        if(selfId == receivedId){
+            result = true;
+        }
+
+        OverlayId selfOverlay = new OverlayId(selfId);
+        OverlayId receivedOverlay = new OverlayId(receivedId);
+
+        if(receivedOverlay.getPartitionIdDepth() > selfOverlay.getPartitionIdDepth()){
+
+            int bitsToCheck = receivedOverlay.getPartitionIdDepth();
+            int partitionId = 0;
+
+            for(int i=0; i<bitsToCheck; i++)
+                partitionId = partitionId | (nodeId & (1<<i));
+
+            if(partitionId == receivedOverlay.getPartitionId())
+                result = true;
+        }
+
+        return result;
+
+
+
+    }
+
 
 
 

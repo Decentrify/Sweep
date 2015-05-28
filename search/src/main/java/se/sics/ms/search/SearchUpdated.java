@@ -3963,13 +3963,13 @@ public final class SearchUpdated extends ComponentDefinition {
                         updates = historyTracker.getNextUpdates(request.getLeaderUnit(),
                                     config.getMaximumEpochUpdatesPullSize());
                         
-                        if(updates != null || !updates.isEmpty()){
+                        if(updates != null && !updates.isEmpty()){
                             nextUpdates.addAll(updates);
                         }
                         
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
-                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates); // Handler for the DecoratedAddress
+                        ControlPull.Response response = new ControlPull.Response(request.getPullRound(), address, key, nextUpdates, self.getOverlayId()); // Handler for the DecoratedAddress
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
@@ -4233,7 +4233,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
                             request.getLowestMissingEntryId(), collector);
                     
-                    LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries);
+                    LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries, self.getOverlayId());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     
                 }
@@ -4392,7 +4392,7 @@ public final class SearchUpdated extends ComponentDefinition {
                             }
                         }
 
-                        EntryExchange.Response response = new EntryExchange.Response(request.getExchangeRoundId(), applicationEntries);
+                        EntryExchange.Response response = new EntryExchange.Response(request.getExchangeRoundId(), applicationEntries, self.getOverlayId());
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                     }
                 };
