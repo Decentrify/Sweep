@@ -2296,8 +2296,10 @@ public final class ShardAwareSearch extends ComponentDefinition {
         // BUFFERING OF UPDATES POSSIBLE.
         if (timeLine.isSafeToAdd(previousUnit)) {
 
+            ShardLeaderUnit slu = (ShardLeaderUnit)shardUnit;
+            
             timeLine.addLeaderUnit(previousUnit);      // Close the previous epoch update.
-            handleSharding((ShardLeaderUnit) shardUnit);    // Handle the sharding phase.
+            handleSharding(slu);    // Handle the sharding phase.
         } else {
             throw new IllegalStateException(" Unable to handle the current state in which shard updates are buffered.");
         }
@@ -2384,14 +2386,18 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 container,
                 Integer.MAX_VALUE);
 
-        pendingUnits.add(container);        // TODO: Add the updates that are currently buffered by the Application ...
+        // ( In case leader pushes the update to node and it is not in order, just buffer it for the time being. )
+        // No updates could be buffered at this point as updates are added in order 
+        // so the shard update will be the next in line to be added when it was detected. 
+        
+        pendingUnits.add(container);        
         Collections.sort(pendingUnits, luComparator);
 
         Iterator<LeaderUnit> iterator = pendingUnits.iterator();
 
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
-        // FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH.
+        // TODO : FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH for the below fix.
 
         if (partitionSubId) {
             // If right to the median id is removed, skip list should contain
@@ -3476,16 +3482,32 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         if (promises >= cohorts.size()) {
 
-                            logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
-                            ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
+                            try{
 
-                            for (DecoratedAddress destination : cohorts) {
-                                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                                logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
+                                ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
+
+                                for (DecoratedAddress destination : cohorts) {
+                                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
+                                }
+
+                                // For now let's apply the partitioning update on the majority of responses.
+
+                                handleSharding( shardRoundId,
+                                        epochUpdatePacket.getPreviousEpochUpdate(),
+                                        epochUpdatePacket.getCurrentEpochUpdate());
+
+                                ShardLeaderUnit slu = (ShardLeaderUnit)epochUpdatePacket.getCurrentEpochUpdate();
+
+                                ApplicationEntry shardEntry = new ApplicationEntry(
+                                        new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), slu.getNumEntries()));
+                                
+                                addEntryLocally(shardEntry);
+                            } 
+                            
+                            catch(Exception e){
+                                throw new RuntimeException("Unable to complete sharding commit.", e);
                             }
-
-                            // For now let's apply the partitioning update on the majority of responses.
-                            handleSharding(shardRoundId, epochUpdatePacket.getPreviousEpochUpdate(), epochUpdatePacket.getCurrentEpochUpdate());
-
                         }
 
 
@@ -3510,19 +3532,36 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             logger.warn("{}: Received a request for an expired shard round id, returning ... ");
                             return;
                         }
+                        
+                        try{
 
-                        // Cancel the awaiting timeout.
-                        UUID timeoutId = shardPacketPair.getValue0();
-                        CancelTimeout ct = new CancelTimeout(timeoutId);
-                        trigger(ct, timerPort);
-                        awaitShardCommit = null;
+                            // Cancel the awaiting timeout.
+                            UUID timeoutId = shardPacketPair.getValue0();
+                            CancelTimeout ct = new CancelTimeout(timeoutId);
+                            trigger(ct, timerPort);
+                            awaitShardCommit = null;
 
-                        // Shard the node.
-                        LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
-//                handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
+                            // Shard the node.
+                            LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
+                            handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
 
-                        ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                            ShardLeaderUnit slu = (ShardLeaderUnit) updatePacket.getCurrentEpochUpdate();
+                            ApplicationEntry entry = new ApplicationEntry(
+                                    new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), slu.getNumEntries()));
+
+                            // Here it might be possible that the missing tracker buffers the entry instead of adding it.
+                            // But eventually the tracker should see the entry buffered and add it to lucene.
+                            
+                            addEntryLocally(entry);     
+
+                            ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
+                            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+                            
+                        }
+                        catch(Exception e){
+                            throw new RuntimeException("Unable to complete the sharding process", e);
+                        }
+                        
                     }
                 };
 
@@ -3534,8 +3573,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
 
                         logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
-
-
                     }
                 };
 
