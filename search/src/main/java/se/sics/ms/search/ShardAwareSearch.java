@@ -3864,8 +3864,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            if(self.getId() == 262536227)
-                logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+            logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
         }
 
 
@@ -3909,7 +3908,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
             if (currentTrackingUnit != null) {
 
                 UUID entryExchangeRound = UUID.randomUUID();
-                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {} and tracking unit:{} ", new Object[]{prefix, entryExchangeRound, currentTrackingUnit});
+                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {} and tracking unit:{} ", new Object[]{ prefix, entryExchangeRound, currentTrackingUnit });
                 triggerHashExchange(entryExchangeRound);
 
             } else {
@@ -4080,7 +4079,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             }
 
                             entryExchangeTracker.addEntryHashResponse(event.getSource(), response);
-                            if (entryExchangeTracker.allHashResponsesComplete()) {
+                            if (entryExchangeTracker.majorityResponses()) {
 
                                 Collection<EntryHash> entryHashCollection = entryExchangeTracker.getCommonEntryHashes(entryExchangeTracker
                                         .getExchangeRoundEntryHashCollection()

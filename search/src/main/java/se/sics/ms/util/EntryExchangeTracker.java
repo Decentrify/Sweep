@@ -67,6 +67,7 @@ public class EntryExchangeTracker {
 
         exchangeRoundId = null;
         exchangeRoundEntryHashCollection.clear();
+        this.hashRoundAnswered = false;
     }
 
 
@@ -97,6 +98,32 @@ public class EntryExchangeTracker {
 
 
     /**
+     * Used ot calculate the majority vote in the system.
+     * When majority of nodes have replied, then we move to commit phase.
+     * The commit phase simply sends the message to all the higher
+     * nodes the request to commit.
+     *
+     * @return
+     */
+    public boolean majorityResponses(){
+        
+        boolean result = false;
+        
+        if(exchangeRoundId != null && !hashRoundAnswered){
+            
+            if(exchangeRoundEntryHashCollection.size() 
+                    >= Math.round((float)this.higherNodesCount/2)){
+                
+                result = true;
+                hashRoundAnswered = true;
+            }
+        }
+        
+        return result;
+    }
+    
+    
+    /**
      * Fetch the current exchange round
      * information
      *
@@ -106,69 +133,14 @@ public class EntryExchangeTracker {
         return this.exchangeRoundId;
     }
 
-    /**
-     * Based on the collection of hashes,
-     * return the common hashes present in the collection.
-     *
-     * @return Common Hash Collection
-     */
-    public Collection<IndexHash> getIntersectionHashes() {
-        throw new UnsupportedOperationException("Operation Unsupported");
+    
+    
+    public boolean isHashRoundAnswered(){
+        return this.isHashRoundAnswered();
     }
-
-
-    /**
-     * The application needs to always add entries in the system in order.
-     * Therefore, when we get the responses from the nodes in terms of the hashes we need to
-     * process the hashes based on the current missing entry.
-     *
-     * @return EntryHash Collection.
-     */
-    public Collection<EntryHash> getInOrderEntryHashes(ApplicationEntry.ApplicationEntryId currentMissingId) {
-
-        Collection<EntryHash> commonInOrderCollection = new ArrayList<EntryHash>();
-
-        if (allHashResponsesComplete()) {
-
-            Collection<EntryHash> intersection =
-                    new HashSet<EntryHash>(exchangeRoundEntryHashCollection.values().iterator().next());
-
-            for (Collection<EntryHash> hashCollection : exchangeRoundEntryHashCollection.values()) {
-                intersection.retainAll(hashCollection);
-            }
-
-            if (!intersection.isEmpty()) {
-
-                // Check the ordering now.
-                boolean entryHashFound = true;
-
-                while (entryHashFound) {
-
-                    entryHashFound = false;
-                    for (EntryHash hash : intersection) {
-
-                        if (hash.getEntryId().equals(currentMissingId)) {
-
-                            commonInOrderCollection.add(hash);
-                            currentMissingId = new ApplicationEntry.ApplicationEntryId(
-                                    currentMissingId.getEpochId(),
-                                    currentMissingId.getLeaderId(),
-                                    currentMissingId.getEpochId() + 1);
-
-                            entryHashFound = true;
-                            break;
-                        }
-                    }
-                }
-
-
-            }
-        }
-
-        return commonInOrderCollection;
-    }
-
-
+    
+    
+    
     public Collection<EntryHash> getCommonEntryHashes(Collection<Collection<EntryHash>> entryHashesCollection){
 
         Collection<EntryHash> intersection = new ArrayList<EntryHash>();
