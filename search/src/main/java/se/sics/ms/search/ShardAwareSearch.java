@@ -195,7 +195,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private ShardTracker shardTracker;
     private TimeLine timeLine;
     private Comparator<LeaderUnit> luComparator = new GenericECComparator();
-
+    private SearchDescriptor selfDescriptor;
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -2364,7 +2364,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         if (lastLeaderUnit == null || (lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
                 && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId())) {
-
+            
+            logger.warn("{}: Last Unit ...{} ",prefix , lastLeaderUnit);
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
         }
 
@@ -3029,7 +3030,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private void informListeningComponentsAboutUpdates(ApplicationSelf self) {
 
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
-
+        
+        selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
@@ -3047,6 +3049,14 @@ public final class ShardAwareSearch extends ComponentDefinition {
         public void handle(GradientSample event) {
 
             logger.debug("{}: Received gradient sample", self.getId());
+            
+            if(selfDescriptor != null 
+                    && !selfDescriptor.equals(event.selfView)){
+                
+                logger.warn("{}: Getting sample for old descriptor from the gradient ... ");
+                return;
+            }
+            
             gradientEntrySet.clear();
 
             Collection<Container> collection = event.gradientSample;
@@ -3073,8 +3083,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        if(self.getId() == 543942802 && self.getPartitioningDepth() == 1)
-            logger.warn(prefix + " " + sb);
+        logger.debug(prefix + " " + sb);
     }
 
 
@@ -3185,22 +3194,34 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         if (lastUnit != null) {
 
-            Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
-                    ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
-                    ApplicationEntry.LEADER_ID,
-                    lastUnit.getLeaderId());
+            if(!(lastUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)){
+                
+                Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
+                        ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
+                        ApplicationEntry.LEADER_ID,
+                        lastUnit.getLeaderId());
 
-            TotalHitCountCollector hitCollector = new TotalHitCountCollector();
-            writeEntryLuceneAdaptor.searchDocumentsInLucene(
-                    epochUpdateEntriesQuery,
-                    hitCollector);
+                TotalHitCountCollector hitCollector = new TotalHitCountCollector();
+                writeEntryLuceneAdaptor.searchDocumentsInLucene(
+                        epochUpdateEntriesQuery,
+                        hitCollector);
 
-            int numEntries = hitCollector.getTotalHits();
+                int numEntries = hitCollector.getTotalHits();
 
-            lastUnit = new BaseLeaderUnit(
-                    lastUnit.getEpochId(),
-                    lastUnit.getLeaderId(),
-                    numEntries);
+                lastUnit = new BaseLeaderUnit(
+                        lastUnit.getEpochId(),
+                        lastUnit.getLeaderId(),
+                        numEntries);    
+            }
+            
+            else{
+                
+                lastUnit = new BaseLeaderUnit(
+                        lastUnit.getEpochId(),
+                        lastUnit.getLeaderId(),
+                        lastUnit.getNumEntries());
+            }
+            
 
         }
 
@@ -3812,7 +3833,22 @@ public final class ShardAwareSearch extends ComponentDefinition {
             for (LeaderUnit unit : units) {
 
                 if (timeLine.isSafeToAdd(unit)) {
+                    
+                    if( currentUpdate != null && ( unit.getEpochId() == currentUpdate.getEpochId()
+                            && unit.getLeaderId() == currentUpdate.getLeaderId()) ){
+                        
+                        // If self update is found, then check for the completion of the update.
+                        
+                        if( currentUpdate.getLeaderUnitStatus()
+                                == LeaderUnit.LUStatus.COMPLETED ){
+                            
+                            // Important check.
+                            // Do not allow completed updates to be added again.
+                            continue;      
+                        }
+                    }
 
+                    // Continue with the checks.
                     if (unit instanceof ShardLeaderUnit) {
                         handleSharding((ShardLeaderUnit) unit);
                         break;

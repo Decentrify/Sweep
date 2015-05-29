@@ -74,22 +74,23 @@ public class PartitionHelper {
 
         boolean result = false;
 
-        if(selfId == receivedId){
+        // If they are same level, Overlay Id's should be same.
+        if(selfId == receivedId){   
             result = true;
         }
 
-        OverlayId selfOverlay = new OverlayId(selfId);
-        OverlayId receivedOverlay = new OverlayId(receivedId);
+        OverlayId selfOverlay = new OverlayId( selfId );
+        OverlayId receivedOverlay = new OverlayId( receivedId );
 
         if(receivedOverlay.getPartitionIdDepth() > selfOverlay.getPartitionIdDepth()){
 
-            int bitsToCheck = receivedOverlay.getPartitionIdDepth();
+            int bitsToCheck = selfOverlay.getPartitionIdDepth();
             int partitionId = 0;
 
             for(int i=0; i<bitsToCheck; i++)
                 partitionId = partitionId | (nodeId & (1<<i));
 
-            if(partitionId == receivedOverlay.getPartitionId())
+            if(partitionId == selfOverlay.getPartitionId())     // Bring node to self level and then check.
                 result = true;
         }
 

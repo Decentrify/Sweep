@@ -22,7 +22,7 @@ public class TimeLine {
     private static final Long INITIAL_EPOCH_ID = 0l;
     private LeaderUnit ongoingLeaderUnit;
     private Logger logger = LoggerFactory.getLogger(TimeLine.class);
-
+    
     public TimeLine() {
 
         this.epochMap = new HashMap<Long, Epoch>();
