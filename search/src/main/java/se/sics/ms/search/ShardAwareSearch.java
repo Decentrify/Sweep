@@ -196,6 +196,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private TimeLine timeLine;
     private Comparator<LeaderUnit> luComparator = new GenericECComparator();
     private SearchDescriptor selfDescriptor;
+    private UUID preShardTimeoutId;
+    
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -328,6 +330,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
         subscribe(shardTracker.awaitingShardCommitHandler, timerPort);
 
         subscribe(gradientSampleHandler, gradientPort);
+        subscribe(preShardTimeoutHandler, timerPort);
+        
     }
 
     /**
@@ -2251,19 +2255,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
             logger.warn("{}: Sharding Median ID: {} ", prefix, entryId);
 
             partitionInProgress = true;
-            LeaderUnit previousUpdate = closePreviousEpoch();
-            ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId() + 1, self.getId(), 1, entryId, publicKey);
-
-            // Create Hash of the Shard Update.
-            String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
-            sec.setHash(hash);
-
-            ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
-            st.setTimeoutEvent(new TimeoutCollection.ShardRoundTimeout(st, previousUpdate, sec));
-            UUID shardRoundId = st.getTimeoutEvent().getTimeoutId();
-
-            shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
-            trigger(st, timerPort);
+            
+            ScheduleTimeout st1 = new ScheduleTimeout(12000);
+            TimeoutCollection.PreShardTimeout preShardTimeout = new TimeoutCollection.PreShardTimeout(st1, entryId);
+            st1.setTimeoutEvent(preShardTimeout);
+            preShardTimeoutId = st1.getTimeoutEvent().getTimeoutId();
+            trigger(st1, timerPort);
+            
         } else {
             logger.trace("{}: Not the time to shard, return .. ", prefix);
         }
@@ -2271,6 +2269,56 @@ public final class ShardAwareSearch extends ComponentDefinition {
     }
 
 
+    /**
+     * Pre sharding phase timed out, now lets initiate sharding.
+     * The shard protocol gets initiated only after we check that the sharding 
+     * condition and the leader condition is still valid after the timeout.
+     */
+    Handler<TimeoutCollection.PreShardTimeout> preShardTimeoutHandler = new Handler<TimeoutCollection.PreShardTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.PreShardTimeout event) {
+
+            
+            // Some condition check needs to be there.
+            
+            if (leader && (preShardTimeoutId != null 
+                    && preShardTimeoutId.equals(event.getTimeoutId())) ) {
+                
+                // If after the timeout I am still the leader.
+                LeaderUnit previousUpdate = null;
+                try {
+
+                    previousUpdate = closePreviousEpoch();
+                    ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId() + 1, self.getId(), 1, event.medianId, publicKey);
+
+                    // Create Hash of the Shard Update.
+                    String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
+                    sec.setHash(hash);
+
+                    ScheduleTimeout st = new ScheduleTimeout(config.getAddTimeout());
+                    st.setTimeoutEvent(new TimeoutCollection.ShardRoundTimeout(st, previousUpdate, sec));
+                    UUID shardRoundId = st.getTimeoutEvent().getTimeoutId();
+
+                    shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
+                    trigger(st, timerPort);
+
+                }
+                catch (LuceneAdaptorException e) {
+
+                    partitionInProgress = false;
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }    
+            }
+            
+            else {
+                logger.debug("{}: Unable to start sharding process as shard conditions don't hold.  ", prefix);
+            }
+            
+            
+        }
+    };
+    
     /**
      * Event from the shard tracker that the sharding round has been completed and therefore
      * the system state needs to be updated in accordance with the sharding.
@@ -3083,7 +3131,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.debug(prefix + " " + sb);
+        if(self.getId() == 262536227 && self.getPartitioningDepth() == 1)
+            logger.warn(prefix + " " + sb);
     }
 
 
