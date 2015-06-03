@@ -6,7 +6,10 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.common.ApplicationSelf;
+import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
+import se.sics.ms.gradient.ports.PAGPort;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.gradient.GradientComp;
@@ -29,18 +32,22 @@ public class PartitionAwareGradient extends ComponentDefinition {
     
     private Logger logger = LoggerFactory.getLogger(PartitionAwareGradient.class);
     private Component gradient;
-    private ApplicationSelf self;
     private SystemConfig systemConfig;
+    private SearchDescriptor selfDescriptor;
     
     // PORTS.
     private Positive<Timer> timerPositive = requires(Timer.class);
     private Positive<Network> networkPositive = requires(Network.class);
     private Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
-
+    private Negative<PAGPort> pagPortNegative = provides(PAGPort.class);
+    
     public PartitionAwareGradient(PAGInit init){
         
         doInit(init);
+        
         subscribe(startHandler, control);
+        subscribe(updateHandler, pagPortNegative);
+        
         subscribe(croupierSampleHandler, croupierPortPositive);
         subscribe(handleShuffleRequest, networkPositive);
         subscribe(handleShuffleResponse, networkPositive);
@@ -77,7 +84,24 @@ public class PartitionAwareGradient extends ComponentDefinition {
         }
     };
 
-
+    /**
+     * Simple handler for the self update
+     * which is pushed by the application whenever the value
+     * in self descriptor changes.
+     * 
+     */
+    Handler<PAGUpdate> updateHandler = new Handler<PAGUpdate>() {
+        @Override
+        public void handle(PAGUpdate event) {
+            
+            logger.debug(" Received update from the application ");
+            selfDescriptor = event.getSelfView();
+        }
+    };
+    
+    
+    
+    
     /**
      * Handler that intercepts the sample from Croupier and then looks into the sample,
      * to filter them into safe and unsafe samples. The safe samples are allowed to pass through while 
