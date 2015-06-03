@@ -13,6 +13,8 @@ import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.search.SearchPeerInitUpdated;
+import se.sics.ms.search.SearchPeerUpdated;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
@@ -103,7 +105,43 @@ public class SweepOperations {
             };
         }
     };
-    
+
+    public static Operation1<StartNodeCmd, Long> startPAGNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+
+            return new StartNodeCmd<SearchPeerUpdated, DecoratedAddress>() {
+
+                long nodeId = SweepOperationsHelper.getStableId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int)nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 2;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return SearchPeerUpdated.class;
+                }
+
+                @Override
+                public SearchPeerInitUpdated getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
+                }
+
+                @Override
+                public DecoratedAddress  getAddress() {
+                    return SweepOperationsHelper.getBasicAddress(nodeId);
+                }
+            };
+        }
+    };
+
     
     public static Operation1<NetworkOpCmd,Long> addIndexEntryCommand = new Operation1<NetworkOpCmd, Long>() {
 

@@ -82,7 +82,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     private PrivateKey privateKey;
 
 
-    public SearchPeerUpdated(SearchPeerInit init) throws NoSuchAlgorithmException {
+    public SearchPeerUpdated(SearchPeerInitUpdated init) throws NoSuchAlgorithmException {
 
         // Generate the Key Pair to be used by the application.
         generateKeys();
@@ -171,6 +171,9 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(partitionAwareGradient.getNegative(Timer.class), timer);
         connect(network, partitionAwareGradient.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(croupier.getPositive(CroupierPort.class), partitionAwareGradient.getNegative(CroupierPort.class));
+        
+        connect(partitionAwareGradient.getPositive(GradientPort.class), search.getNegative(GradientPort.class));
+        connect(partitionAwareGradient.getPositive(GradientPort.class), pseudoGradient.getNegative(GradientPort.class));
     }
 
     /**
@@ -231,14 +234,14 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         // Election leader connections.
         connect(network, electionLeader.getNegative(Network.class));
         connect(timer, electionLeader.getNegative(Timer.class));
-        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
+        connect(partitionAwareGradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
         
         // Election follower connections.
         connect(network, electionFollower.getNegative(Network.class));
         connect(timer, electionFollower.getNegative(Timer.class));
-        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
+        connect(partitionAwareGradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
     }
@@ -275,6 +278,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
 
     /**
      * Boot Up the gradient service.
+     * @deprecated
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
@@ -282,9 +286,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     }
 
     private void startCroupier() {
-
-        log.debug("Sending update to croupier.");
-        trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
+//       log.debug("Sending update to croupier.");
+//       trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
     }
     
     /**
@@ -293,6 +296,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     private void startPAG(){
         log.debug("Sending initial self update to the PAG ... ");
         trigger(new PAGUpdate(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(PAGPort.class));
+        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
     }
     
     
@@ -305,8 +309,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
-        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
-        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
+//        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
+//        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
         
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");

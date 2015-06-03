@@ -3081,7 +3081,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
         
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
@@ -3131,8 +3130,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        if(self.getId() == 262536227 && self.getPartitioningDepth() == 1)
-            logger.warn(prefix + " " + sb);
+        logger.warn(prefix + " " + sb);
     }
 
 
