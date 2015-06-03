@@ -66,3 +66,4 @@ lib
 *.log*
 /ms-webservice/target/
 /webapp/target
+*.lst
