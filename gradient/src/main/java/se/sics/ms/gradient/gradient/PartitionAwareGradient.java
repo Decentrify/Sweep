@@ -15,11 +15,8 @@ import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientPort;
-import se.sics.p2ptoolbox.gradient.msg.GradientSample;
 import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
-import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
 import se.sics.p2ptoolbox.gradient.util.GradientLocalView;
-import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -39,16 +36,13 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private Component gradient;
     private SystemConfig systemConfig;
     private SearchDescriptor selfDescriptor;
-
+    private String prefix;
+    
     // PORTS.
     private Positive<Timer> timerPositive = requires(Timer.class);
     private Positive<Network> networkPositive = requires(Network.class);
-    
     private Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
-    private Negative<CroupierPort> croupierPortNegative = provides(CroupierPort.class);
-    
     private Negative<PAGPort> pagPortNegative = provides(PAGPort.class);
-    private Positive<GradientPort> gradientPortPositive = requires(GradientPort.class);
     private Negative<GradientPort> gradientPortNegative = provides(GradientPort.class);
 
 
@@ -60,9 +54,6 @@ public class PartitionAwareGradient extends ComponentDefinition {
         subscribe(updateHandler, pagPortNegative);
         
         subscribe(croupierUpdateHandler, gradient.getNegative(CroupierPort.class));
-        subscribe(gradientSampleHandler, gradient.getPositive(GradientPort.class));
-        subscribe(gradientUpdateHandler, gradientPortNegative);
-        
         subscribe(croupierSampleHandler, croupierPortPositive);
         subscribe(handleShuffleRequest, gradient.getNegative(Network.class));
         subscribe(handleShuffleResponse, gradient.getNegative(Network.class));
@@ -75,9 +66,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
      */
     private void doInit(PAGInit init) {
         
-        logger.debug("Initializing the Partition Aware Gradient");
+        logger.debug(" Initializing the Partition Aware Gradient ");
         
         systemConfig = init.getSystemConfig();
+        prefix = String.valueOf(init.getBasicAddress().getId());
         
         // Gradient Connections.
         GradientComp.GradientInit gInit = new GradientComp.GradientInit(
@@ -89,13 +81,14 @@ public class PartitionAwareGradient extends ComponentDefinition {
         
         gradient = create(GradientComp.class, gInit);
         connect(gradient.getNegative(Timer.class), timerPositive);
+        connect(gradient.getPositive(GradientPort.class), gradientPortNegative);    // Auxiliary Port for Direct Transfer of Data.
     }
 
     
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
-            logger.debug("Partition Aware Gradient Initialized ... ");
+            logger.debug(" {}: Partition Aware Gradient Initialized ... ", prefix);
         }
     };
 
@@ -109,37 +102,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(PAGUpdate event) {
 
-            logger.debug(" Received update from the application ");
+            logger.debug(" {}: Received update from the application ", prefix);
             selfDescriptor = event.getSelfView();
         }
     };
-
-
-    /**
-     * Relay the gradient update from the application 
-     * to the gradient component.
-     */
-    Handler<GradientUpdate> gradientUpdateHandler = new Handler<GradientUpdate>() {
-        @Override
-        public void handle(GradientUpdate event) {
-            
-            logger.warn(" Received Gradient View from the application:{} ", event.view);
-            trigger(event, gradient.getPositive(GradientPort.class));
-        }
-    };
-    
-    
-    /**
-     * Just simply forward the gradient sample to the above
-     * application. NEED to Find a short circuiting technique.
-     */
-    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
-        @Override
-        public void handle(GradientSample event) {
-            trigger(event, gradientPortNegative);
-        }
-    };
-
 
     /**
      * Blocks the direct update from the gradient component to the croupier
@@ -148,7 +114,8 @@ public class PartitionAwareGradient extends ComponentDefinition {
     Handler<CroupierUpdate> croupierUpdateHandler = new Handler<CroupierUpdate>() {
         @Override
         public void handle(CroupierUpdate event) {
-            logger.warn("{}: Received croupier update from the gradient. ");
+            
+            logger.debug("{}: Received croupier update from the gradient. ", prefix);
             trigger(event, croupierPortPositive);
         }
     };
@@ -164,7 +131,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(CroupierSample<GradientLocalView> event) {
 
-            logger.warn("{}: Received sample from croupier ");
+            logger.warn("{}: Received sample from croupier ", prefix);
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
     };
@@ -186,7 +153,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
             
-            logger.debug("Received Shuffle Request, forwarding it ... ");
+            logger.debug("{}: Received Shuffle Request, forwarding it ... ", prefix);
             trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
                     content), networkPositive);
         }
@@ -201,7 +168,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
             
-            logger.debug("Received gradient shuffle response, forwarding it ...");
+            logger.debug("{}: Received gradient shuffle response, forwarding it ...", prefix);
             trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
                     content), networkPositive);
         }

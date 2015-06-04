@@ -99,8 +99,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
 
         // External Components creating and connection to the local components.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
-//        connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
-        connectPAG(systemConfig, init.getGradientConfig());
+        connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
         connectChunkManager(systemConfig, chunkManagerConfig);
         
@@ -140,7 +139,6 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
@@ -165,7 +163,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         
         log.debug("Initiating the connection to the partition aware gradient.");
         
-        PAGInit init = new PAGInit(systemConfig, gradientConfig);
+        PAGInit init = new PAGInit(systemConfig, gradientConfig, self.getAddress().getBase());
         partitionAwareGradient = create(PartitionAwareGradient.class, init);
         
         connect(partitionAwareGradient.getNegative(Timer.class), timer);
@@ -192,9 +190,6 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
-            
-            startCroupier();
-//            startGradient();
             startPAG();
         }
     };
@@ -259,37 +254,6 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(chunkManager.getNegative(Timer.class), timer);
     }
     
-    
-    /**
-     * Connect gradient with the application.
-     * @param gradientConfig System's Gradient Configuration.
-     * @param seed Seed for the Random Generator.
-     */
-    private void connectGradient(GradientConfig gradientConfig, int seed) {
-        
-        log.info("connecting gradient configuration ...");
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter()));
-        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(0));
-        connect(timer, gradient.getNegative(Timer.class));
-        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
-        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-    }
-
-    /**
-     * Boot Up the gradient service.
-     * @deprecated
-     */
-    private void startGradient() {
-        log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
-    }
-
-    private void startCroupier() {
-//       log.debug("Sending update to croupier.");
-//       trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
-    }
-    
     /**
      * Initialize the PAG service.
      */
@@ -309,8 +273,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
-//        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
-//        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
         
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
@@ -361,7 +325,9 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     // =====
     
     
-    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
+    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = 
+            new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
+                
         @Override
         public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> event) {
             trigger(new SimulationEventsPort.AddIndexSimulated(request.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
@@ -369,7 +335,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     };
 
     
-    ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>> searchSimulatorHandler = new ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>>() {
+    ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>> searchSimulatorHandler = 
+            new ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>>() {
         @Override
         public void handle(SearchP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> event) {
             
