@@ -59,12 +59,13 @@ public class PartitionAwareGradient extends ComponentDefinition {
         subscribe(startHandler, control);
         subscribe(updateHandler, pagPortNegative);
         
+        subscribe(croupierUpdateHandler, gradient.getNegative(CroupierPort.class));
         subscribe(gradientSampleHandler, gradient.getPositive(GradientPort.class));
         subscribe(gradientUpdateHandler, gradientPortNegative);
         
         subscribe(croupierSampleHandler, croupierPortPositive);
-        subscribe(handleShuffleRequest, networkPositive);
-        subscribe(handleShuffleResponse, networkPositive);
+        subscribe(handleShuffleRequest, gradient.getNegative(Network.class));
+        subscribe(handleShuffleResponse, gradient.getNegative(Network.class));
     }
 
     
@@ -88,7 +89,6 @@ public class PartitionAwareGradient extends ComponentDefinition {
         
         gradient = create(GradientComp.class, gInit);
         connect(gradient.getNegative(Timer.class), timerPositive);
-        connect(gradient.getNegative(CroupierPort.class), croupierPortPositive);
     }
 
     
@@ -139,6 +139,20 @@ public class PartitionAwareGradient extends ComponentDefinition {
             trigger(event, gradientPortNegative);
         }
     };
+
+
+    /**
+     * Blocks the direct update from the gradient component to the croupier
+     * and relays it through this handler.
+     */
+    Handler<CroupierUpdate> croupierUpdateHandler = new Handler<CroupierUpdate>() {
+        @Override
+        public void handle(CroupierUpdate event) {
+            logger.warn("{}: Received croupier update from the gradient. ");
+            trigger(event, croupierPortPositive);
+        }
+    };
+    
     
     /**
      * Handler that intercepts the sample from Croupier and then looks into the sample,
@@ -149,8 +163,8 @@ public class PartitionAwareGradient extends ComponentDefinition {
     Handler<CroupierSample<GradientLocalView>> croupierSampleHandler = new Handler<CroupierSample<GradientLocalView>>() {
         @Override
         public void handle(CroupierSample<GradientLocalView> event) {
-            
-            logger.warn("{}: Receiving something from croupier. ");
+
+            logger.warn("{}: Received sample from croupier ");
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
     };
@@ -174,7 +188,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
             
             logger.debug("Received Shuffle Request, forwarding it ... ");
             trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
-                    content), gradient.getPositive(Network.class));
+                    content), networkPositive);
         }
     };
 
@@ -186,9 +200,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
         @Override
         public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
+            
             logger.debug("Received gradient shuffle response, forwarding it ...");
             trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
-                    content), gradient.getPositive(Network.class));
+                    content), networkPositive);
         }
     };
 }
