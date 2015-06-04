@@ -1,6 +1,7 @@
 package se.sics.ms.common;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
@@ -21,6 +22,7 @@ public class ApplicationSelf {
     private long numberOfEntries;
     private long epochContainerEntries;
     private long actualEntries;     // Entries excluding landing entries.
+    private LeaderUnit lastLeaderUnit;
     
     public ApplicationSelf (DecoratedAddress address){
 
@@ -32,7 +34,7 @@ public class ApplicationSelf {
         this.actualEntries = 0;
     }
 
-    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries){
+    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries, LeaderUnit lastLeaderUnit){
 
         this.address = address;
         this.overlayId = overlayId;
@@ -40,6 +42,7 @@ public class ApplicationSelf {
         this.numberOfEntries = numberOfEntries;
         this.epochContainerEntries = epochContainerEntries;
         this.actualEntries = actualEntries;
+        this.lastLeaderUnit = lastLeaderUnit;
     }
     
     
@@ -103,7 +106,7 @@ public class ApplicationSelf {
      * @return Self Descriptor.
      */
     public SearchDescriptor getSelfDescriptor(){
-        return new SearchDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember);
+        return new SearchDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember, this.lastLeaderUnit);
     }
 
     /**
@@ -111,14 +114,13 @@ public class ApplicationSelf {
      * @return Copy of Self.
      */
     public ApplicationSelf shallowCopy(){
-        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries, this.actualEntries);
+        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries, this.actualEntries, this.lastLeaderUnit);
     }
 
     public void setNumberOfEntries(long entries){
         this.numberOfEntries = entries;
     }
 
-    
     public void incrementActualEntries(){
         this.actualEntries ++;
     }
@@ -129,5 +131,9 @@ public class ApplicationSelf {
 
     public void setActualEntries(long actualEntries) {
         this.actualEntries = actualEntries;
+    }
+
+    public void setLastLeaderUnit(LeaderUnit lastLeaderUnit) {
+        this.lastLeaderUnit = lastLeaderUnit;
     }
 }

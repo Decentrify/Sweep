@@ -3,7 +3,6 @@ package se.sics.ms.ports;
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
 import se.sics.ms.common.ApplicationSelf;
-import se.sics.ms.common.MsSelfImpl;
 
 /**
  * Port containing event about the updated self information.

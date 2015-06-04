@@ -186,8 +186,9 @@ public class ApplicationTypesDecoderFactory {
         VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();
-
-        descriptor = new SearchDescriptor(new OverlayAddress(null, 0), false, numberOfIndexEntries, isLGMember);
+        
+        // TODO : FIX this deserializer.
+        descriptor = new SearchDescriptor(new OverlayAddress(null, 0), false, numberOfIndexEntries, isLGMember, null);
         return descriptor;
     }
 

@@ -1473,9 +1473,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 // Encapsulate the below structure in a separate method.
 
                                 LeaderUnit update = new BaseLeaderUnit(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
-                                timeLine.addLeaderUnit(info.getAssociatedEpochUpdate());
-                                timeLine.addLeaderUnit(update);
-
+                                addUnitPacket(info.getAssociatedEpochUpdate(), update);
+                                
                                 lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
                                 self.resetContainerEntries(); // Update the epoch container entries to be 0, in case epoch gets added.
                                 nextInsertionId = LANDING_ENTRY_ID;
@@ -1524,6 +1523,102 @@ public final class ShardAwareSearch extends ComponentDefinition {
             };
 
 
+    /**
+     * Usually the unit commit happen in a pair,
+     * the leader closes previous update and then
+     * commit the current update. It may be a shard or a simple 
+     * unit switch.
+     *
+     * @param previousUnit previous unit.
+     * @param currentUnit
+     */
+    private void addUnitPacket(LeaderUnit previousUnit, LeaderUnit currentUnit){
+        
+        addUnitAndCheckSafety(previousUnit);
+        addUnitAndCheckSafety(currentUnit);
+    }
+    
+    
+    
+    
+    /**
+     * Wrapper method to perform the addition of the leader unit
+     * to the Time Line.
+     *
+     * @param leaderUnit LeaderUnit.
+     */
+    private boolean addUnitAndCheckSafety(LeaderUnit leaderUnit){
+
+        boolean result = true;
+        LeaderUnit storedUnit = timeLine.getLooseUnit(leaderUnit);
+        
+        if(storedUnit != null 
+                && storedUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED){
+            
+            // Check for the update. It might happen that the unit trying to 
+            // add is already present and closed. ( Usually happens in ShardUpdates and NPUpdates
+            // which are already added as self contained closed units.
+            
+            logger.debug("{}: Unit already completed, returning .. ");      // An Important Check, as Sharding Might Start Happening Again.
+            return true;
+        }
+        
+        if (timeLine.isSafeToAdd(leaderUnit) )
+        {
+
+            if (leaderUnit instanceof ShardLeaderUnit) {
+
+                // Don' t handle any more update after the shard update.
+                logger.debug("{}: Handling Shard Leader Unit.", prefix);
+                handleSharding((ShardLeaderUnit) leaderUnit);
+                
+                gradientEntrySet.clear();
+                result = false;
+            }
+
+            else if (leaderUnit instanceof NPLeaderUnit) {
+                // Don't handle any updates after the NP Leader Unit for now. 
+                // We can handle updates after it also.
+                logger.debug("{}: Handling NP Leader Unit.", prefix);
+                result = false;
+            }
+            
+            else{
+                
+                logger.debug("{}: Handling Basic Leader Unit.", prefix);
+                addUnitToTimeLine(leaderUnit);
+            }
+        }
+        
+        else{
+            
+            throw new IllegalStateException("{}: Leader Unit buffering not handled.");
+        }
+        
+        return result;
+    }
+
+
+    /**
+     * Simply add leader unit to the timeline.
+     * At this point the in order addition needs to be implemented by the application.
+     * Because the timeline adds whatever is given to it to add.
+     * The application needs to check for the in order add themselves.
+     * 
+     * @param unit uni to add.
+     */
+    private void addUnitToTimeLine(LeaderUnit unit){
+        
+        timeLine.addLeaderUnit(unit);
+        self.setLastLeaderUnit(unit);
+        
+        // Check for buffered updates, 
+        //Some might become applicable to be added.
+        
+        informListeningComponentsAboutUpdates(self);
+    }
+    
+    
     /**
      * Handler for the entry commit request as part of the index entry addition protocol.
      * Verify that the request is from the leader and then add the entry to the node.
@@ -1577,13 +1672,12 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                     try {
 
-                        LeaderUnit associatedEpochUpdate = pendingForCommit.get(toCommit).getValue1();
+                        LeaderUnit associatedUnitUpdate = pendingForCommit.get(toCommit).getValue1();
                         if (toCommit.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
 
                             logger.warn("{}: Request to add a new landing entry in system", prefix);
-                            timeLine.addLeaderUnit(associatedEpochUpdate);
                             LeaderUnit update = new BaseLeaderUnit(toCommit.getEpochId(), toCommit.getLeaderId());
-                            timeLine.addLeaderUnit(update);
+                            addUnitPacket(associatedUnitUpdate, update);
 
                             // As you are directly updating the epoch history,
                             // missing tracker needs to be informed about it.
@@ -2338,20 +2432,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
             trigger(cancelTimeout, timerPort);
             shardTracker.resetShardingParameters();
         }
-
-        // BUFFERING OF UPDATES POSSIBLE.
-        if (timeLine.isSafeToAdd(previousUnit)) {
-
-            ShardLeaderUnit slu = (ShardLeaderUnit)shardUnit;
-            timeLine.addLeaderUnit(previousUnit);      // Close the previous epoch update.
-            handleSharding(slu);    // Handle the sharding phase.
-
-            gradientEntrySet.clear();
-
-        } else {
-            throw new IllegalStateException(" Unable to handle the current state in which shard updates are buffered.");
-        }
-
+        
+        addUnitPacket(previousUnit, shardUnit);
         partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
 
@@ -2386,8 +2468,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
             logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
 
             timeLine.addSkipList(skipList);
-            timeLine.addLeaderUnit(shardUnit);    // Close the sharding process, once the skip list is added.
-
+            addUnitToTimeLine(shardUnit);
+            
             logger.warn("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
             lowestMissingEntryTracker.resumeTracking();
 
@@ -3408,9 +3490,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
 
     /**
-     * *******************
+     * ********************************
      * SHARDING PROTOCOL TRACKER
-     * *******************
+     * ********************************
      * <p/>
      * Main tracker for the sharding protocol,
      * in which the leader informs the leader group nodes about the
@@ -3879,46 +3961,35 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
             for (LeaderUnit unit : units) {
 
-                if (timeLine.isSafeToAdd(unit)) {
-                    
-                    if( currentUpdate != null && ( unit.getEpochId() == currentUpdate.getEpochId()
-                            && unit.getLeaderId() == currentUpdate.getLeaderId()) ){
-                        
-                        // If self update is found, then check for the completion of the update.
-                        
-                        if( currentUpdate.getLeaderUnitStatus()
-                                == LeaderUnit.LUStatus.COMPLETED ){
-                            
-                            // Important check.
-                            // Do not allow completed updates to be added again.
-                            continue;      
-                        }
-                    }
+                if( currentUpdate != null && ( unit.getEpochId() == currentUpdate.getEpochId()
+                        && unit.getLeaderId() == currentUpdate.getLeaderId()) ){
 
-                    // Continue with the checks.
-                    if (unit instanceof ShardLeaderUnit) {
-                        handleSharding((ShardLeaderUnit) unit);
-                        break;
+                    // If self update is found, 
+                    // then check for the completion of the update.
+                    if( currentUpdate.getLeaderUnitStatus()
+                            == LeaderUnit.LUStatus.COMPLETED ){
+                        continue;
                     }
-
-                    if (unit instanceof NPLeaderUnit) {
-                        break;
-                    }
-
-                    timeLine.addLeaderUnit(unit);
                 }
-
-
+                
+                // Check for the update
+                // and add to time line. In addition to this, check if it is safe to 
+                // add next units in line because in case sharding update is received then
+                // adding further updates needs to be prevented.
+                if(! addUnitAndCheckSafety(unit)){
+                    break;
+                }
             }
+            
         }
 
 
     }
 
     /**
-     * ****************************************************
+     * **********************************
      * LOWEST MISSING ENTRY TRACKER
-     * ****************************************************
+     * **********************************
      * <p/>
      * Inner class used to keep track of the lowest missing index entry and also
      * communicate with the Epoch History Tracker, which for now keeps history of the

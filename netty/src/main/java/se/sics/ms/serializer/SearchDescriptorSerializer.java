@@ -45,6 +45,6 @@ public class SearchDescriptorSerializer implements Serializer{
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();
 
-        return new SearchDescriptor(new OverlayAddress(decoratedAddress, overlayId), false, numberOfIndexEntries, isLGMember);
+        return new SearchDescriptor(new OverlayAddress(decoratedAddress, overlayId), false, numberOfIndexEntries, isLGMember, null);
     }
 }

@@ -18,24 +18,26 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     private OverlayAddress overlayAddress;
     private final long numberOfIndexEntries;
     private final boolean isLGMember;
+    private LeaderUnit lastLeaderUnit;
 
     public SearchDescriptor(DecoratedAddress address) {
-        this(new OverlayAddress(address, 0), false, 0, false);
+        this(new OverlayAddress(address, 0), false, 0, false, null);
     }
 
     public SearchDescriptor(DecoratedAddress address, int overlayId){
-        this(new OverlayAddress(address, overlayId), false, 0, false);
+        this(new OverlayAddress(address, overlayId), false, 0, false, null);
     }
 
     public SearchDescriptor(SearchDescriptor descriptor){
-        this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLeaderGroupMember());
+        this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLeaderGroupMember(), descriptor.getLastLeaderUnit());
     }
 
-    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember){
+    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember, LeaderUnit lastLeaderUnit){
         this.overlayAddress = overlayAddress;
         this.connected = connected;
         this.numberOfIndexEntries = numberOfIndexEntries;
         this.isLGMember = isLGMember;
+        this.lastLeaderUnit = lastLeaderUnit;
     }
 
 
@@ -110,11 +112,12 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     }
 
     @Override
-
     public int hashCode() {
-        final int prime = 87;
-        int result = 1;
-        result = prime * result + ((this.getOverlayAddress() == null) ? 0 : this.getOverlayAddress().hashCode());
+        int result = (connected ? 1 : 0);
+        result = 31 * result + (overlayAddress != null ? overlayAddress.hashCode() : 0);
+        result = 31 * result + (int) (numberOfIndexEntries ^ (numberOfIndexEntries >>> 32));
+        result = 31 * result + (isLGMember ? 1 : 0);
+        result = 31 * result + (lastLeaderUnit != null ? lastLeaderUnit.hashCode() : 0);
         return result;
     }
 
@@ -163,11 +166,19 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
             return false;
         }
 
-        return (this.isLGMember == other.isLGMember);
+        else if (this.isLGMember == other.isLGMember);
+        
+        return (this.lastLeaderUnit == null 
+                ? other.lastLeaderUnit == null 
+                : (other.lastLeaderUnit != null && this.lastLeaderUnit.equals(other.lastLeaderUnit)));
     }
 
     public long getNumberOfIndexEntries() {
         return numberOfIndexEntries;
+    }
+
+    public LeaderUnit getLastLeaderUnit() {
+        return lastLeaderUnit;
     }
 
     /**
@@ -187,11 +198,11 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
     @Override
     public LCPeerView enableLGMembership() {
-        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true);
+        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true, this.lastLeaderUnit);
     }
 
     @Override
     public LCPeerView disableLGMembership() {
-        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false);
+        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false, this.lastLeaderUnit);
     }
 }
