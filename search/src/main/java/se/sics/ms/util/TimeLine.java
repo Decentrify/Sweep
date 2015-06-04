@@ -441,17 +441,6 @@ public class TimeLine {
 
         if (epoch != null) {
 
-//            int index = -1;
-//            List<LeaderUnit> units = epoch.getLeaderUnits();
-//
-//            for (int i = 0; i < units.size(); i++) {
-//                LeaderUnit lu = units.get(i);
-//                if (lu.getLeaderId() == unit.getLeaderId()) {
-//                    index = i;
-//                    break;
-//                }
-//            }
-
             LeaderUnit resultUnit = epoch.getLooseLeaderUnit(unit);
             if (resultUnit != null) {
 
@@ -487,9 +476,12 @@ public class TimeLine {
 
     /**
      * Mainly used by the control pull mechanism in order
-     * to determine the
+     * to determine the last leader unit in the system.
+     * 
+     * We can reduce the complexity of the method by keeping track at the addition time
+     * of leader unit to epoch. For now use this method.
      *
-     * @return
+     * @return Last Unit
      */
     public LeaderUnit getLastUnit() {
 
