@@ -113,8 +113,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private PublicKey leaderKey;
 
     private Map<UUID, ReplicationCount> replicationRequests;
-    private Map<UUID, ReplicationCount> commitRequests;
-    private Map<Long, UUID> gapTimeouts;
     private Map<UUID, Long> recentRequests;
 
     // Apache Lucene used for searching
@@ -172,7 +170,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private Comparator<LeaderUnit> luComparator = new GenericECComparator();
     private SearchDescriptor selfDescriptor;
     private UUID preShardTimeoutId;
-    
+    private List<LeaderUnit> bufferedUnits;
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -295,19 +293,15 @@ public final class ShardAwareSearch extends ComponentDefinition {
         recentRequests = new HashMap<UUID, Long>();
         nextInsertionId = LANDING_ENTRY_ID;
         lowestMissingIndexValue = 0;
-        commitRequests = new HashMap<UUID, ReplicationCount>();
         existingEntries = new TreeSet<Long>();
-
+        bufferedUnits = new ArrayList<LeaderUnit>();
+        
         // Trackers.
         initializeTrackers();
-        gapTimeouts = new HashMap<Long, UUID>();
         partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         index = new RAMDirectory();
-
         setupLuceneIndexWriter(index, indexWriterConfig);
         setupApplicationLuceneWriter(index, indexWriterConfig);
-
-        // FIX : Remove dependency on the max and min store id.
         minStoredId = maxStoredId = 0;
     }
 
@@ -873,9 +867,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
             
             // Check for the update. It might happen that the unit trying to 
             // add is already present and closed. ( Usually happens in ShardUpdates and NPUpdates
-            // which are already added as self contained closed units.
+            // which are already added as self contained closed units. )
             
-            logger.debug("{}: Unit already completed, returning .. ");      // An Important Check, as Sharding Might Start Happening Again.
+            logger.debug("{}: Unit already completed, returning .. ", prefix);      // An Important Check, as Sharding Might Start Happening Again.
             return true;
         }
         
@@ -886,9 +880,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                 // Don' t handle any more update after the shard update.
                 logger.debug("{}: Handling Shard Leader Unit.", prefix);
-                handleSharding((ShardLeaderUnit) leaderUnit);
                 
-                gradientEntrySet.clear();
+                handleSharding((ShardLeaderUnit) leaderUnit);
+                gradientEntrySet.clear();    // Clear the gradient entry set to prevent pulling the next partition data from other shard nodes.
+                bufferedUnits.clear();      // Expire any buffered units as they might be misleading at this point.
+                
                 result = false;
             }
 
@@ -900,20 +896,51 @@ public final class ShardAwareSearch extends ComponentDefinition {
             }
             
             else{
-                
-                logger.debug("{}: Handling Basic Leader Unit.", prefix);
+                logger.debug("{}: Basic Leader Unit Update", prefix);
                 addUnitToTimeLine(leaderUnit);
             }
+
         }
         
         else{
-            
-            throw new IllegalStateException("{}: Leader Unit buffering not handled.");
+            // Buffering needs to go here.
+            bufferUnit(leaderUnit);
         }
         
         return result;
     }
 
+
+    /**
+     * In case the leader unit that was added by the leader
+     * is not in order regarding the current last leader unit,
+     * the unit is buffered.
+     * 
+     * NOTE: It might be that the buffered list
+     * already contains the leader unit, therefore check before adding.
+     * 
+     * @param leaderUnit unit to buffer
+     */
+    private void bufferUnit(LeaderUnit leaderUnit) {
+       
+        int index = -1;
+        for(int i=0, len = bufferedUnits.size() ; i < len ; i++){
+            
+            if(bufferedUnits.get(i).getEpochId() == leaderUnit.getEpochId()
+                    && bufferedUnits.get(i).getLeaderId() == leaderUnit.getLeaderId()){
+                index= i;
+                break;
+            }
+        }
+        
+        if(index != -1){
+            bufferedUnits.set(index, leaderUnit);
+        }
+        else {
+            bufferedUnits.add(leaderUnit);
+            Collections.sort(bufferedUnits, luComparator);
+        }
+    }
 
     /**
      * Simply add leader unit to the time line.
@@ -928,11 +955,25 @@ public final class ShardAwareSearch extends ComponentDefinition {
         timeLine.addLeaderUnit(unit);
         self.setLastLeaderUnit(timeLine.getLastUnit());
         
-        // Check for buffered updates, 
         //Some might become applicable to be added.
         informListeningComponentsAboutUpdates(self);
     }
-    
+
+
+    /**
+     * When a leader unit is added in the time line,
+     * it might be possible that a buffered unit becomes available 
+     * for application.
+     */
+    private void checkBufferedUnit(){
+        
+        for(LeaderUnit unit : bufferedUnits){
+            if(!addUnitAndCheckSafety(unit)){
+                break;
+            }
+        }
+        
+    }
     
     /**
      * Handler for the entry commit request as part of the index entry addition protocol.
@@ -1797,52 +1838,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Based on the source address, provide the control message enum that needs to be associated with the control response object.
-     */
-    private ControlMessageEnum getParitionUpdateStatus(OverlayId overlayId, List<PartitionHelper.PartitionInfoHash> partitionUpdateHashes) {
-
-        boolean isOnePartition = self.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
-
-        // for ONE_BEFORE
-        if (isOnePartition) {
-            if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
-                for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory)
-                    partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
-            }
-        }
-
-        // for MANY_BEFORE.
-        else {
-
-            int myDepth = self.getPartitioningDepth();
-            if (overlayId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
-
-                if (myDepth <= (HISTORY_LENGTH)) {
-                    for (PartitionHelper.PartitionInfo partitionInfo : partitionHistory)
-                        partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionInfo));
-                } else
-                    return ControlMessageEnum.REJOIN;
-            } else {
-
-                int receivedNodeDepth = overlayId.getPartitionIdDepth();
-                if (myDepth - receivedNodeDepth > HISTORY_LENGTH)
-                    return ControlMessageEnum.REJOIN;
-
-                else if ((myDepth - receivedNodeDepth) <= (HISTORY_LENGTH) && (myDepth - receivedNodeDepth) > 0) {
-
-                    // TODO : Test this condition.
-                    int j = partitionHistory.size() - (myDepth - receivedNodeDepth);
-                    for (int i = 0; i < (myDepth - receivedNodeDepth) && j < HISTORY_LENGTH; i++) {
-                        partitionUpdateHashes.add(new PartitionHelper.PartitionInfoHash(partitionHistory.get(j)));
-                        j++;
-                    }
-                }
-            }
-        }
-        return ControlMessageEnum.PARTITION_UPDATE;
-    }
-
-    /**
      * Based on the current shard information, determine the updated shard information
      * value and then split to the current shard to the next level.
      *
@@ -2691,17 +2686,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
             Collections.sort(units, comparator);
 
             for (LeaderUnit unit : units) {
-
-                if( currentUpdate != null && ( unit.getEpochId() == currentUpdate.getEpochId()
-                        && unit.getLeaderId() == currentUpdate.getLeaderId()) ){
-
-                    // If self update is found, 
-                    // then check for the completion of the update.
-                    if( currentUpdate.getLeaderUnitStatus()
-                            == LeaderUnit.LUStatus.COMPLETED ){
-                        continue;
-                    }
-                }
                 
                 // Check for the update
                 // and add to time line. In addition to this, check if it is safe to 
@@ -2711,7 +2695,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     break;
                 }
             }
-            
+
+            checkBufferedUnit();
         }
 
 
