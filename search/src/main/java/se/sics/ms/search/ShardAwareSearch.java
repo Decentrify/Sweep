@@ -30,7 +30,6 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
-import se.sics.ms.gradient.control.*;
 import se.sics.ms.gradient.events.LeaderInfoUpdate;
 import se.sics.ms.gradient.events.NumberOfPartitions;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -89,7 +88,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
-    Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
@@ -137,12 +135,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private HashMap<ApplicationEntry, org.javatuples.Pair<UUID, LeaderUnit>> pendingForCommit = new HashMap<ApplicationEntry, org.javatuples.Pair<UUID, LeaderUnit>>();
     private HashMap<UUID, Integer> searchPartitionsNumber = new HashMap<UUID, Integer>();
 
-    private long minStoredId = Long.MIN_VALUE;
-    private long maxStoredId = Long.MIN_VALUE;
-
     private HashMap<UUID, Long> timeStoringMap = new HashMap<UUID, Long>();
     private static HashMap<UUID, Pair<Long, Integer>> searchRequestStarted = new HashMap<UUID, Pair<Long, Integer>>();
-
 
     // Partitioning Protocol Information.
     private boolean partitionInProgress = false;
@@ -302,7 +296,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
         index = new RAMDirectory();
         setupLuceneIndexWriter(index, indexWriterConfig);
         setupApplicationLuceneWriter(index, indexWriterConfig);
-        minStoredId = maxStoredId = 0;
     }
 
 
@@ -843,8 +836,16 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
     private void addUnitPacket(LeaderUnit... units){
         
-        for(LeaderUnit unit: units){
-            addUnitAndCheckSafety(unit);
+        for (LeaderUnit unit : units) {
+
+            if(timeLine.isSafeToAdd(unit))
+            {
+                if(!addUnitAndCheckSafety(unit)){
+                    break;  // Stop adding beyond unsafe.
+                }
+            }
+            
+            else bufferedUnits.add(unit);
         }
     }
     
@@ -904,7 +905,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         
         else{
             // Buffering needs to go here.
-            bufferUnit(leaderUnit);
+            throw new IllegalStateException(" Not safe to add entry in the system. Should have been checked earlier. ");
         }
         
         return result;
@@ -966,13 +967,23 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * for application.
      */
     private void checkBufferedUnit(){
-        
-        for(LeaderUnit unit : bufferedUnits){
-            if(!addUnitAndCheckSafety(unit)){
-                break;
+
+        Iterator<LeaderUnit> unitIterator = bufferedUnits.iterator();
+        while(unitIterator.hasNext()){
+
+            LeaderUnit nextUnit = unitIterator.next();
+            if(timeLine.isSafeToAdd(nextUnit))
+            {
+                boolean nextSafety = addUnitAndCheckSafety(nextUnit);
+                unitIterator.remove();
+                
+                if(!nextSafety){ // stop adding any more buffered units if they are not safe to add.
+                    break;
+                }
             }
+            
+            else break; // Don't wait for next as they are sorted and therefore break now.
         }
-        
     }
     
     /**
@@ -1806,22 +1817,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
     /**
      * Find an entry for the given id in the local index store.
      *
-     * @param id the id of the entry
-     * @return the entry if found or null if non-existing
-     * @throws java.io.IOException if Lucene errors occur
-     */
-    private IndexEntry findById(long id) throws IOException {
-        List<IndexEntry> indexEntries = ApplicationLuceneQueries.findIdRange(writeLuceneAdaptor, id, id, 1);
-        if (indexEntries.isEmpty()) {
-            return null;
-        }
-        return indexEntries.get(0);
-    }
-
-
-    /**
-     * Find an entry for the given id in the local index store.
-     *
      * @param entryId the id of the entry
      * @return the entry if found or null if non-existing
      */
@@ -2010,29 +2005,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         logger.warn(landingEntryTracker.toString());
         trigger(st, timerPort);
-    }
-
-
-    /**
-     * Simple convenience constructor for calculating the next epoch to add.
-     *
-     * @param lastUnit last leader unit.
-     * @return Updated Leader Unit
-     */
-    private LeaderUnit getNextEpochToAdd(LeaderUnit lastUnit) {
-
-        long currentEpoch;
-
-        if (lastUnit == null) {
-            logger.warn(" I think I am the first leader in the system. ");
-            currentEpoch = STARTING_EPOCH;
-
-        } else {
-            logger.info("Found the highest known epoch");
-            currentEpoch = lastUnit.getEpochId() + 1;
-        }
-
-        return new BaseLeaderUnit(currentEpoch, self.getId());
     }
 
 
@@ -2682,18 +2654,18 @@ public final class ShardAwareSearch extends ComponentDefinition {
             if (units == null || units.isEmpty()) {
                 return;
             }
-
+            
             Collections.sort(units, comparator);
-
             for (LeaderUnit unit : units) {
-                
-                // Check for the update
-                // and add to time line. In addition to this, check if it is safe to 
-                // add next units in line because in case sharding update is received then
-                // adding further updates needs to be prevented.
-                if(! addUnitAndCheckSafety(unit)){
-                    break;
+
+                if(timeLine.isSafeToAdd(unit))
+                {
+                    if(!addUnitAndCheckSafety(unit)){
+                        break;  // Stop adding beyond unsafe.
+                    }
                 }
+                
+                else bufferedUnits.add(unit);
             }
 
             checkBufferedUnit();
