@@ -55,8 +55,12 @@ public class PartitionAwareGradient extends ComponentDefinition {
         
         subscribe(croupierUpdateHandler, gradient.getNegative(CroupierPort.class));
         subscribe(croupierSampleHandler, croupierPortPositive);
-        subscribe(handleShuffleRequest, gradient.getNegative(Network.class));
-        subscribe(handleShuffleResponse, gradient.getNegative(Network.class));
+
+        subscribe(handleShuffleRequestFromNetwork, networkPositive);
+        subscribe(handleShuffleResponseFromNetwork, networkPositive);
+
+        subscribe(handleShuffleRequestFromGradient, gradient.getNegative(Network.class));
+        subscribe(handleShuffleResponseFromGradient, gradient.getNegative(Network.class));
     }
 
     
@@ -75,7 +79,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         GradientComp.GradientInit gInit = new GradientComp.GradientInit(
                 systemConfig, 
                 init.getGradientConfig(),
-                0,
+                init.getOverlayId(),
                 new SimpleUtilityComparator(), 
                 new SweepGradientFilter());
         
@@ -138,6 +142,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
 
     /**
+     *
      * Interceptor for the gradient shuffle request.
      * The component analyzes the node from which the shuffle request is 
      * received and only if the node feels safe, then it is allowed to pass else the request is dropped.
@@ -147,31 +152,73 @@ public class PartitionAwareGradient extends ComponentDefinition {
      * a verification mechanism. After verification gets over, appropriate steps are taken.
      * 
      */
-    ClassMatchedHandler handleShuffleRequest
+    ClassMatchedHandler handleShuffleRequestFromGradient
             = new ClassMatchedHandler<GradientShuffle.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request>>() {
 
         @Override
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
             
-            logger.debug("{}: Received Shuffle Request, forwarding it ... ", prefix);
-            trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
-                    content), networkPositive);
+            logger.debug("{}: Received Shuffle Request, from gradient,  forwarding it ... ", prefix);
+            BasicContentMsg request = new BasicContentMsg(context.getHeader(), content);
+            trigger(request, networkPositive);
         }
     };
 
     /**
      * Same implementation as above but for the Shuffle Response.
      */
-    ClassMatchedHandler handleShuffleResponse
+    ClassMatchedHandler handleShuffleResponseFromGradient
             = new ClassMatchedHandler<GradientShuffle.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response>>() {
 
         @Override
         public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
             
             logger.debug("{}: Received gradient shuffle response, forwarding it ...", prefix);
-            trigger(CommonHelper.getDecoratedContentMessage(context.getSource(), context.getDestination(), context.getProtocol(),
-                    content), networkPositive);
+            BasicContentMsg response = new BasicContentMsg(context.getHeader(), content);
+            trigger(response, networkPositive);
         }
     };
+
+
+
+
+    /**
+     * Interceptor for the gradient shuffle request.
+     * The component analyzes the node from which the shuffle request is
+     * received and only if the node feels safe, then it is allowed to pass else the request is dropped.
+     * <br/>
+     * In some cases it might be really difficult to determine if based on the current
+     * state of self the  node is good or bad. Therefore, the component will buffer the request and initiate
+     * a verification mechanism. After verification gets over, appropriate steps are taken.
+     *
+     */
+    ClassMatchedHandler handleShuffleRequestFromNetwork
+            = new ClassMatchedHandler<GradientShuffle.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request>>() {
+
+        @Override
+        public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
+
+            logger.debug("{}: Received Shuffle Request, from network..  forwarding it ... ", prefix);
+            BasicContentMsg request = new BasicContentMsg(context.getHeader(), content);
+            trigger(request, gradient.getNegative(Network.class));
+        }
+    };
+
+    /**
+     * Same implementation as above but for the Shuffle Response.
+     */
+    ClassMatchedHandler handleShuffleResponseFromNetwork
+            = new ClassMatchedHandler<GradientShuffle.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response>>() {
+
+        @Override
+        public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
+
+            logger.debug("{}: Received gradient shuffle response, forwarding it ...", prefix);
+            BasicContentMsg response = new BasicContentMsg(context.getHeader(), content);
+            trigger(response, gradient.getNegative(Network.class));
+        }
+    };
+
+
 }
 

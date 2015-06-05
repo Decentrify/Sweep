@@ -163,7 +163,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         
         log.debug("Initiating the connection to the partition aware gradient.");
         
-        PAGInit init = new PAGInit(systemConfig, gradientConfig, self.getAddress().getBase());
+        PAGInit init = new PAGInit(systemConfig, gradientConfig, self.getAddress().getBase(), 0);
         partitionAwareGradient = create(PartitionAwareGradient.class, init);
         
         connect(partitionAwareGradient.getNegative(Timer.class), timer);

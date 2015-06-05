@@ -16,12 +16,14 @@ public class PAGInit extends Init<PartitionAwareGradient> {
     private SystemConfig systemConfig;
     private GradientConfig gradientConfig;
     private BasicAddress basicAddress;
+    private int overlayId;
 
-    public PAGInit(SystemConfig systemConfig, GradientConfig gradientConfig, BasicAddress basicAddress){
+    public PAGInit(SystemConfig systemConfig, GradientConfig gradientConfig, BasicAddress basicAddress, int overlayId){
         
         this.systemConfig = systemConfig;
         this.gradientConfig = gradientConfig;
         this.basicAddress = basicAddress;
+        this.overlayId = overlayId;
     }
 
 
@@ -34,4 +36,8 @@ public class PAGInit extends Init<PartitionAwareGradient> {
     }
 
     public BasicAddress getBasicAddress() { return basicAddress; }
+
+    public int getOverlayId() {
+        return overlayId;
+    }
 }
