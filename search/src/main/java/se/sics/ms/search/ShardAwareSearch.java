@@ -620,7 +620,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
     /**
      * No acknowledgment for an issued {@link se.sics.ms.messages.AddIndexEntryMessage.Request} was received
-     * in time. Try to add the entry again or respons with failure to the web client.
+     * in time. Try to add the entry again or responds with failure to the web client.
      */
     final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
         @Override
@@ -1223,7 +1223,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     logger.debug("{}: Received Search Request from : {}", self.getId(), event.getSource());
                     try {
 
-                        ArrayList<IndexEntry> result = searchLocal(writeLuceneAdaptor, request.getPattern(), config.getHitsPerQuery());
+                        ArrayList<IndexEntry> result = searchLocal(writeEntryLuceneAdaptor, request.getPattern(), config.getHitsPerQuery());
                         SearchInfo.Response searchMessageResponse = new SearchInfo.Response(request.getRequestId(), result, request.getPartitionId(), 0, 0);
                         trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, searchMessageResponse), networkPort);
 
@@ -1245,9 +1245,16 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * @return a list of matching entries
      * @throws java.io.IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(IndexEntryLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+    private ArrayList<IndexEntry> searchLocal(ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+        
         TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
-        ArrayList<IndexEntry> result = (ArrayList<IndexEntry>) adaptor.searchIndexEntriesInLucene(pattern.getQuery(), collector);
+        ArrayList<ApplicationEntry> entryResult = (ArrayList<ApplicationEntry>) adaptor.searchApplicationEntriesInLucene(pattern.getQuery(), collector);
+        
+        ArrayList<IndexEntry> result  = new ArrayList<IndexEntry>();
+        for(ApplicationEntry entry : entryResult){
+            result.add(entry.getEntry());
+        }
+        
         return result;
     }
 
@@ -1393,7 +1400,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private void answerSearchRequest() {
         ArrayList<IndexEntry> result = null;
         try {
-            result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+            result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
             logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
 
         } catch (LuceneAdaptorException e) {
