@@ -274,8 +274,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
-        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
-        
+
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
     }

@@ -162,6 +162,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private ShardTracker shardTracker;
     private TimeLine timeLine;
     private Comparator<LeaderUnit> luComparator = new GenericECComparator();
+    private Comparator<ApplicationEntry> entryComparator = new AppEntryComparator();
     private SearchDescriptor selfDescriptor;
     private UUID preShardTimeoutId;
     private List<LeaderUnit> bufferedUnits;
@@ -758,12 +759,18 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         return;
                     }
 
+                    if(info.isPromiseMajority()){
+                        logger.warn("{}: Majority already achieved", prefix);
+                        return;
+                    }
+
                     info.addEntryAddPromiseResponse(response);
-                    if (info.isPromiseAccepted()) {
+
+                    if (info.isPromiseMajority()) {
 
                         try {
 
-                            logger.debug("{}: All nodes have promised for entry addition. Move to commit. ", self.getId());
+                            logger.warn("{}: Majority nodes have promised for entry addition. Move to commit. ", self.getId());
                             CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                             trigger(ct, timerPort);
 
@@ -837,6 +844,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private void addUnitPacket(LeaderUnit... units){
         
         for (LeaderUnit unit : units) {
+
+            if(unit == null)
+                continue;
 
             if(timeLine.isSafeToAdd(unit))
             {
@@ -1284,24 +1294,27 @@ public final class ShardAwareSearch extends ComponentDefinition {
             return;
         }
 
-        try {
+        try
+        {
             addIndexEntries(searchRequestLuceneAdaptor, entries);
-        } catch (IOException e) {
-            java.util.logging.Logger.getLogger(ShardAwareSearch.class.getName()).log(Level.SEVERE, null, e);
+            searchRequest.addRespondedPartition(partition);
+
+            Integer numOfPartitions = searchPartitionsNumber.get(requestId);
+            if (numOfPartitions == null) {
+                return;
+            }
+
+            if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
+
+                logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
+                CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+                trigger(ct, timerPort);
+                answerSearchRequest();
+            }
         }
 
-        searchRequest.addRespondedPartition(partition);
-
-        Integer numOfPartitions = searchPartitionsNumber.get(requestId);
-        if (numOfPartitions == null) {
-            return;
-        }
-
-        if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
-            logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
-            trigger(ct, timerPort);
-            answerSearchRequest();
+        catch (IOException e) {
+            logger.warn("{}: Unable to add the Search Response from the nodes in the system.", prefix);
         }
     }
 
@@ -1940,7 +1953,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.warn(prefix + " " + sb);
+        logger.debug(prefix + " " + sb);
     }
 
 
@@ -2859,7 +2872,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 }
 
                                 leaderPullRound = null; // Quickly reset leader pull round to prevent misuse.
-                                Collection<ApplicationEntry> entries = response.getMissingEntries();
+
+                                List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>(response.getMissingEntries());
+                                Collections.sort(entries, entryComparator);
 
                                 for (ApplicationEntry entry : entries) {
                                     addEntryLocally(entry);
@@ -2887,8 +2902,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
                         logger.debug("{}: Received the entry hash exchange request from the node:{} in the system.", prefix, event.getSource());
                         Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
-
-                        logger.warn("{}: Lowest mising Entry Information :{} ", prefix, request.getLowestMissingIndexEntry());
 
                         TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
                         List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.findEntryIdRange(
@@ -2928,7 +2941,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             }
 
                             entryExchangeTracker.addEntryHashResponse(event.getSource(), response);
-                            if (entryExchangeTracker.majorityResponses()) {
+                            if (entryExchangeTracker.allHashResponsesComplete()) {
 
                                 Collection<EntryHash> entryHashCollection = entryExchangeTracker.getCommonEntryHashes(entryExchangeTracker
                                         .getExchangeRoundEntryHashCollection()
@@ -3017,6 +3030,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 logger.warn("{}: Entry Exchange Response from an undeserving node, returning ... ");
                                 return;
                             }
+
+                            List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>(response.getApplicationEntries());
+                            Collections.sort(entries, entryComparator);
 
                             for (ApplicationEntry entry : response.getApplicationEntries()) {
                                 addEntryLocally(entry);
@@ -3131,14 +3147,18 @@ public final class ShardAwareSearch extends ComponentDefinition {
                     currentTrackingId++;
                     return true;
 
-                } else if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
+                }
 
-                    logger.error("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
-                    throw new RuntimeException(" Some Condition that cannot be tracked ... ");
+                if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
+
+                    // Don't allow anything lower than current tracking.
+                    logger.debug("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
+                    return false;
                 }
             }
 
-            // In case we reached this point we add it to the existing entries as we cannot add to Lucene Yet.
+            // In case we reached this point we add it to the existing entries
+            // as we cannot add to Lucene Yet. Start storing entries when we have a tracking unit.
             if (!existingEntries.keySet().contains(entry.getApplicationEntryId()))
                 existingEntries.put(entry.getApplicationEntryId(), entry);
 

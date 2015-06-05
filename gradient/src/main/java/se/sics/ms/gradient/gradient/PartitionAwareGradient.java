@@ -131,7 +131,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(CroupierSample<GradientLocalView> event) {
 
-            logger.warn("{}: Received sample from croupier ", prefix);
+            logger.debug("{}: Received sample from croupier ", prefix);
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
     };

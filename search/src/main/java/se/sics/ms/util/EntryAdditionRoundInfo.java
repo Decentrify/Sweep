@@ -46,15 +46,49 @@ public class EntryAdditionRoundInfo {
 
     public void addEntryAddPromiseResponse(EntryAddPrepare.Response response){
         
-        if(entryAdditionRoundId != null && response.getEntryAdditionRound().equals(entryAdditionRoundId)){
+        if(entryAdditionRoundId != null
+                && response.getEntryAdditionRound().equals(entryAdditionRoundId)
+                && promiseResponses < Math.round((float)this.leaderGroupAddress.size()/2)){
+
             promiseResponses +=1;
         }
     }
-    
+
+    /**
+     * In a distributed system, a leader should not wait
+     * for all the response but only wait till majority are
+     * received.
+     *
+     * @deprecated
+     *
+     * @return All Promised.
+     */
     public boolean isPromiseAccepted(){
         return this.promiseResponses >= this.leaderGroupAddress.size();
     }
-    
+
+
+    /**
+     * Used ot calculate the majority vote in the system.
+     * When majority of nodes have replied, then we move to commit phase.
+     * The commit phase simply sends the message to all the higher
+     * nodes the request to commit.
+     *
+     * @return
+     */
+    public boolean isPromiseMajority(){
+
+        boolean result = false;
+
+        if( (promiseResponses >=  Math.round((float)this.leaderGroupAddress.size()/2))
+                && entryAdditionRoundId != null) {
+            result = true;
+        }
+
+        return result;
+    }
+
+
     public Collection<DecoratedAddress> getLeaderGroupAddress() {
         return leaderGroupAddress;
     }
