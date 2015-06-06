@@ -12,7 +12,7 @@ import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.search.SearchPeerInitUpdated;
+import se.sics.ms.search.SearchPeerInitRef;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
@@ -121,7 +121,7 @@ public class SweepOperationsHelper {
      * Based on the NodeId provided, generate an init configuration for the search peer.
      * @param id NodeId
      */
-    public static SearchPeerInit generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
+    public static SearchPeerInitRef generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
         logger.trace(" Generating address for peer with id: {} ", id);
 
@@ -130,7 +130,7 @@ public class SweepOperationsHelper {
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
+        SearchPeerInitRef init  = new SearchPeerInitRef(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
         
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());
@@ -146,7 +146,7 @@ public class SweepOperationsHelper {
      * Based on the NodeId provided, generate an init configuration for the search peer.
      * @param id NodeId
      */
-    public static SearchPeerInitUpdated generatePAGPeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
+    public static SearchPeerInit generatePAGPeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
 
         logger.trace(" Generating address for peer with id: {} ", id);
 
@@ -155,7 +155,7 @@ public class SweepOperationsHelper {
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInitUpdated init  = new SearchPeerInitUpdated(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
+        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
 
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());

@@ -21,7 +21,6 @@ import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
-import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
@@ -60,7 +59,6 @@ public final class PseudoGradient extends ComponentDefinition {
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
-    Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = requires(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
@@ -83,13 +81,6 @@ public final class PseudoGradient extends ComponentDefinition {
 
     private TreeSet<SearchDescriptor> gradientEntrySet;
     private SimpleUtilityComparator utilityComparator;
-
-    private boolean converged;
-    private boolean changed;
-
-    private double convergenceTest;
-    private int convergenceTestRounds;
-    private int currentConvergedRounds;
 
     private IndexEntry indexEntryToAdd;
     private UUID addIndexEntryRequestTimeoutId;
@@ -146,11 +137,6 @@ public final class PseudoGradient extends ComponentDefinition {
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
         gradientEntrySet = new TreeSet<SearchDescriptor>(utilityComparator);
-
-        this.converged = false;
-        this.changed = false;
-        this.convergenceTest = config.getConvergenceTest();
-        this.convergenceTestRounds = config.getConvergenceTestRounds();
 
         this.routingTableHandler = new RoutingTableHandler(config.getMaxNumRoutingEntries());
         this.invertedAgeComparator = new ComparatorCollection.InvertedAgeComparator();
@@ -474,19 +460,15 @@ public final class PseudoGradient extends ComponentDefinition {
                 return;
             }
 
-            HashSet<DecoratedAddress> nodesSelectedForExchange = new HashSet<DecoratedAddress>();
             IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries());
-            
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
                 SearchDescriptor node = nodes.get(n);
                 nodes.remove(node);
                 logger.debug("{}: Sending exchange request to :{} with round {}", new Object[]{ self.getId(), node.getId(), event.getTimeoutId()});
-//                nodesSelectedForExchange.add(node.getVodAddress());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node.getVodAddress(), Transport.UDP, request), networkPort);
             }
 
-//            trigger(new GradientRoutingPort.IndexHashExchangeResponse(nodesSelectedForExchange), gradientRoutingPort);
         }
     };
 
@@ -572,8 +554,6 @@ public final class PseudoGradient extends ComponentDefinition {
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
             ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
-//            if (preferredNodes.size() < event.getControlMessageExchangeNumber())
-//                preferredNodes.addAll(getLowerUtilityNodes());
 
             if (preferredNodes.size() < event.getControlMessageExchangeNumber()){
                 logger.debug("{}: Not enough higher nodes to start the control pull mechanism.", self.getId());
@@ -657,8 +637,7 @@ public final class PseudoGradient extends ComponentDefinition {
             routingTableHandler.addEntriesToRoutingTable(rawCroupierSample);
             routingTableHandler.incrementRoutingTableDescriptorAges();
 
-            publishUpdatedRoutingTable();
-//            publishRoutingTable();
+            publishRoutingTable();
         }
     };
 
@@ -668,11 +647,9 @@ public final class PseudoGradient extends ComponentDefinition {
         public void handle(GradientSample event) {
 
             logger.debug("{}: Received gradient sample", self.getId());
-            Collection<SearchDescriptor> oldGradientEntrySet = (Collection<SearchDescriptor>) gradientEntrySet.clone();
-
             gradientEntrySet.clear();
             checkInstanceAndAdd(gradientEntrySet, event.gradientSample);
-            performAdditionalHouseKeepingTasks(oldGradientEntrySet);
+            performAdditionalHouseKeepingTasks();
 
         }
     };
@@ -684,7 +661,7 @@ public final class PseudoGradient extends ComponentDefinition {
      *
      * @param oldGradientEntrySet changed gradient set
      */
-    private void performAdditionalHouseKeepingTasks(Collection<SearchDescriptor> oldGradientEntrySet) {
+    private void performAdditionalHouseKeepingTasks() {
 
         publishSample();
 
@@ -712,37 +689,6 @@ public final class PseudoGradient extends ComponentDefinition {
         return gradientEntrySet;
     }
 
-
-    /**
-     * Based on the changed gradient set, check the local convergence of the gradient.
-     *
-     * @param oldGradientEntrySet Old Entry Set
-     * @param gradientEntrySet    Current Entry Set
-     */
-    private void checkConvergence(Collection<SearchDescriptor> oldGradientEntrySet, Collection<SearchDescriptor> gradientEntrySet) {
-
-        int oldSize = oldGradientEntrySet.size();
-        int newSize = gradientEntrySet.size();
-
-
-        oldGradientEntrySet.retainAll(gradientEntrySet);
-
-        if (oldSize == newSize && oldGradientEntrySet.size() > convergenceTest * newSize) {
-            currentConvergedRounds++;
-        } else {
-            currentConvergedRounds = 0;
-        }
-
-        if (currentConvergedRounds > convergenceTestRounds) {
-            if (!converged) {
-                this.changed = true;
-            }
-            converged = true;
-        } else {
-            converged = false;
-        }
-    }
-
     /**
      * Get the nodes which have the higher utility from the node.
      *
@@ -761,27 +707,7 @@ public final class PseudoGradient extends ComponentDefinition {
         return gradientEntrySet.headSet(self.getSelfDescriptor());
     }
 
-    /**
-     * Has the node converged i.e the change within the gradient
-     * is within the specified limits.
-     *
-     * @return local convergence
-     */
-    private boolean isConverged() {
-        return converged;
-    }
-
-
-    /**
-     * Has gradient sample changed within successive iterations.
-     *
-     * @return gradient change
-     */
-    private boolean isChanged() {
-        return changed;
-    }
-
-    private void publishUpdatedRoutingTable() {
+    private void publishRoutingTable() {
 
         for (Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryMap : routingTableHandler.values()) {
 

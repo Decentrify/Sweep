@@ -9,7 +9,6 @@ import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.SearchDescriptor;
-import se.sics.ms.util.CommonHelper;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;

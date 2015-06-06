@@ -11,7 +11,7 @@ import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
-public final class SearchPeerInitUpdated extends Init<SearchPeerUpdated> {
+public final class SearchPeerInitRef extends Init<SearchPeerRef> {
 
     private final ApplicationSelf self;
     private final SystemConfig systemConfig;
@@ -23,11 +23,11 @@ public final class SearchPeerInitUpdated extends Init<SearchPeerUpdated> {
     private final GradientConfig gradientConfig;
     private final ElectionConfig electionConfig;
 
-    public SearchPeerInitUpdated(ApplicationSelf self, SystemConfig systemConfig,
-                                 CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
-                                 GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
-                                 ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
-                                 ElectionConfig electionConfig) {
+    public SearchPeerInitRef(ApplicationSelf self, SystemConfig systemConfig,
+                             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
+                             GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
+                             ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
+                             ElectionConfig electionConfig) {
         super();
         this.self = self;
         this.systemConfig = systemConfig;

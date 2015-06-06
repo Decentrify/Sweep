@@ -1,10 +1,7 @@
 package se.sics.ms.search;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import se.sics.co.FailureDetectorPort;
-import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.config.SearchConfiguration;
+import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.Timer;
@@ -18,16 +15,22 @@ import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.gradient.events.PAGUpdate;
-import se.sics.ms.gradient.gradient.*;
+import se.sics.ms.gradient.gradient.PseudoGradient;
+import se.sics.ms.gradient.gradient.PseudoGradientInit;
+import se.sics.ms.gradient.gradient.SweepGradientFilter;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
 import se.sics.ms.types.SearchDescriptor;
+
+import java.security.*;
+import java.util.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierComp;
@@ -46,6 +49,7 @@ import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
+
 import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -53,13 +57,9 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import se.sics.util.SimpleLCPViewComparator;
 import se.sics.util.SweepLeaderFilter;
 
-import java.security.*;
-import java.util.ArrayList;
-import java.util.List;
+public final class SearchPeerRef extends ComponentDefinition {
 
-public final class SearchPeerUpdated extends ComponentDefinition {
-
-    private static final Logger log = LoggerFactory.getLogger(SearchPeerUpdated.class);
+    private static final Logger log = LoggerFactory.getLogger(SearchPeerRef.class);
 
     Positive<SimulationEventsPort> indexPort = positive(SimulationEventsPort.class);
     Positive<Network> network = positive(Network.class);
@@ -70,7 +70,6 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     private Component croupier;
     private Component gradient;
     private Component search, chunkManager, aggregatorComponent, pseudoGradient;
-    private Component partitionAwareGradient;
     private Component electionLeader, electionFollower;
     private ApplicationSelf self;
     private SearchConfiguration searchConfiguration;
@@ -82,7 +81,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     private PrivateKey privateKey;
 
 
-    public SearchPeerUpdated(SearchPeerInitUpdated init) throws NoSuchAlgorithmException {
+    public SearchPeerRef(SearchPeerInitRef init) throws NoSuchAlgorithmException {
 
         // Generate the Key Pair to be used by the application.
         generateKeys();
@@ -93,37 +92,22 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         chunkManagerConfig = init.getChunkManagerConfig();
         systemConfig = init.getSystemConfig();
 
+        subscribe(handleStart, control);
+        subscribe(searchRequestHandler, externalUiPort);
+        subscribe(addIndexEntryRequestHandler, externalUiPort);
+
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(ShardAwareSearch.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 
-        // External Components creating and connection to the local components.
+        // External General Components in the system needs to be connected.
         connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
-        connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
+        connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
         connectChunkManager(systemConfig, chunkManagerConfig);
-        
-        // Internal Component Connections.
-        doInternalConnections();
-        
-        // Subscriptions.
-        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
-        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
-        subscribe(addEntrySimulatorHandler, network);
-        subscribe(searchSimulatorHandler, network);
-        subscribe(handleStart, control);
-        subscribe(searchRequestHandler, externalUiPort);
-        subscribe(addIndexEntryRequestHandler, externalUiPort);
-        
-    }
 
+        // Gradient Port Connections.
 
-    /**
-     * Perform the internal connections among the components
-     * that are local to the application. In other words, connect the components
-     */
-    private void doInternalConnections(){
-        
         // Network Connections.
         connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), pseudoGradient.getNegative(Network.class));
@@ -139,6 +123,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
+        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
@@ -146,32 +132,18 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(search.getNegative(FailureDetectorPort.class), fdPort);
         connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
         connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
-        
-    }
-    
-    
-    
-    /**
-     * Connect the application with the partition aware 
-     * gradient. The PAG will enclose the gradient, so connection to the 
-     * PAG will be similar to the gradient.
-     *  
-     * @param systemConfig system configuration.
-     * @param gradientConfig gradient configuration.
-     */
-    private void connectPAG(SystemConfig systemConfig, GradientConfig gradientConfig) {
-        
-        log.debug("Initiating the connection to the partition aware gradient.");
-        
-        PAGInit init = new PAGInit(systemConfig, gradientConfig, self.getAddress().getBase(), 0);
-        partitionAwareGradient = create(PartitionAwareGradient.class, init);
-        
-        connect(partitionAwareGradient.getNegative(Timer.class), timer);
-        connect(network, partitionAwareGradient.getNegative(Network.class), new IntegerOverlayFilter(0));
-        connect(croupier.getPositive(CroupierPort.class), partitionAwareGradient.getNegative(CroupierPort.class));
-        
-        connect(partitionAwareGradient.getPositive(GradientPort.class), search.getNegative(GradientPort.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), pseudoGradient.getNegative(GradientPort.class));
+        subscribe(searchResponseHandler, search.getPositive(UiPort.class));
+        subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
+
+        // ===
+        // SEARCH + (PSEUDO - GRADIENT) <-- CROUPIER + GRADIENT + (LEADER - ELECTION)
+        //===
+        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), search.getNegative(CroupierPort.class));
+
+        // Simulator Events.
+        subscribe(addEntrySimulatorHandler, network);
+        subscribe(searchSimulatorHandler, network);
     }
 
     /**
@@ -190,7 +162,8 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
-            startPAG();
+            startCroupier();
+            startGradient();
         }
     };
 
@@ -229,14 +202,14 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         // Election leader connections.
         connect(network, electionLeader.getNegative(Network.class));
         connect(timer, electionLeader.getNegative(Timer.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
+        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
         
         // Election follower connections.
         connect(network, electionFollower.getNegative(Network.class));
         connect(timer, electionFollower.getNegative(Timer.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
+        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
     }
@@ -254,13 +227,27 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         connect(chunkManager.getNegative(Timer.class), timer);
     }
     
+    
     /**
-     * Initialize the PAG service.
+     * Connect gradient with the application.
+     * @param gradientConfig System's Gradient Configuration.
+     * @param seed Seed for the Random Generator.
      */
-    private void startPAG(){
-        log.debug("Sending initial self update to the PAG ... ");
-        trigger(new PAGUpdate(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(PAGPort.class));
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
+    private void connectGradient(GradientConfig gradientConfig, int seed) {
+        
+        log.info("connecting gradient configuration ...");
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 0 , new SimpleUtilityComparator(), new SweepGradientFilter()));
+        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(0));
+        connect(timer, gradient.getNegative(Timer.class));
+        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
+    }
+
+    /**
+     * Boot Up the gradient service.
+     */
+    private void startGradient() {
+        log.info("Starting Gradient component.");
+        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
     
     
@@ -273,7 +260,6 @@ public final class SearchPeerUpdated extends ComponentDefinition {
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
-        connect(croupier.getPositive(CroupierPort.class), pseudoGradient.getNegative(CroupierPort.class));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
@@ -288,7 +274,11 @@ public final class SearchPeerUpdated extends ComponentDefinition {
 
     };
 
-    
+    private void startCroupier() {
+        
+        log.debug("Sending update to croupier.");
+        trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
+    }
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
@@ -324,9 +314,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     // =====
     
     
-    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = 
-            new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
-                
+    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
         @Override
         public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> event) {
             trigger(new SimulationEventsPort.AddIndexSimulated(request.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
@@ -334,8 +322,7 @@ public final class SearchPeerUpdated extends ComponentDefinition {
     };
 
     
-    ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>> searchSimulatorHandler = 
-            new ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>>() {
+    ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>> searchSimulatorHandler = new ClassMatchedHandler<SearchP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated>>() {
         @Override
         public void handle(SearchP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated> event) {
             

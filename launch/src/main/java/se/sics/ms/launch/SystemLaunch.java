@@ -16,8 +16,8 @@ import se.sics.kompics.timer.java.JavaTimer;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
-import se.sics.ms.search.SearchPeer;
-import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.search.SearchPeerInitRef;
+import se.sics.ms.search.SearchPeerRef;
 import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
@@ -31,7 +31,6 @@ import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  *
@@ -64,7 +63,7 @@ public class SystemLaunch extends ComponentDefinition{
 
         timer = create(JavaTimer.class, Init.NONE);
         network = create(NettyNetwork.class, new NettyInit(systemConfig.self));
-        searchPeer = create(SearchPeer.class, new SearchPeerInit(applicationSelf, systemConfig, croupierConfig,
+        searchPeer = create(SearchPeerRef.class, new SearchPeerInitRef(applicationSelf, systemConfig, croupierConfig,
                 SearchConfiguration.build(), GradientConfiguration.build(),
                 ElectionConfiguration.build(), chunkManagerConfig, gradientConfig, electionConfig ));
 

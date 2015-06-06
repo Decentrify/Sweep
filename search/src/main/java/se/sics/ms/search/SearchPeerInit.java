@@ -24,10 +24,10 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final ElectionConfig electionConfig;
 
     public SearchPeerInit(ApplicationSelf self, SystemConfig systemConfig,
-            CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
-            GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
-            ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
-            ElectionConfig electionConfig) {
+                          CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
+                          GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
+                          ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
+                          ElectionConfig electionConfig) {
         super();
         this.self = self;
         this.systemConfig = systemConfig;

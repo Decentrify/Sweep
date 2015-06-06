@@ -2,38 +2,26 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.VodConfig;
-import se.sics.kompics.Init;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.search.SearchPeerInitUpdated;
-import se.sics.ms.search.SearchPeerUpdated;
+import se.sics.ms.search.SearchPeerInitRef;
+import se.sics.ms.search.SearchPeerRef;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
-import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
-import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
-import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
-import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
-import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
 import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.Set;
 
 /**
@@ -74,6 +62,42 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
+            return new StartNodeCmd<SearchPeerRef, DecoratedAddress>() {
+
+                long nodeId = SweepOperationsHelper.getStableId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int)nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 2;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return SearchPeerRef.class;
+                }
+
+                @Override
+                public SearchPeerInitRef getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePeerInit(address, bootstrapNodes, nodeId);
+                }
+
+                @Override
+                public DecoratedAddress  getAddress() {
+                    return SweepOperationsHelper.getBasicAddress(nodeId);
+                }
+            };
+        }
+    };
+
+    public static Operation1<StartNodeCmd, Long> startPAGNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+
             return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
@@ -95,42 +119,6 @@ public class SweepOperations {
 
                 @Override
                 public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePeerInit(address, bootstrapNodes, nodeId);
-                }
-
-                @Override
-                public DecoratedAddress  getAddress() {
-                    return SweepOperationsHelper.getBasicAddress(nodeId);
-                }
-            };
-        }
-    };
-
-    public static Operation1<StartNodeCmd, Long> startPAGNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
-        @Override
-        public StartNodeCmd generate(final Long id) {
-
-            return new StartNodeCmd<SearchPeerUpdated, DecoratedAddress>() {
-
-                long nodeId = SweepOperationsHelper.getStableId(id);
-
-                @Override
-                public Integer getNodeId() {
-                    return (int)nodeId;
-                }
-
-                @Override
-                public int bootstrapSize() {
-                    return 2;
-                }
-
-                @Override
-                public Class getNodeComponentDefinition() {
-                    return SearchPeerUpdated.class;
-                }
-
-                @Override
-                public SearchPeerInitUpdated getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
                     return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
                 }
 
