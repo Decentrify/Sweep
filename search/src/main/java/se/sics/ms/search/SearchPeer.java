@@ -166,7 +166,7 @@ public final class SearchPeer extends ComponentDefinition {
         connect(partitionAwareGradient.getNegative(Timer.class), timer);
         connect(network, partitionAwareGradient.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(croupier.getPositive(CroupierPort.class), partitionAwareGradient.getNegative(CroupierPort.class));
-        
+        connect(partitionAwareGradient.getPositive(PAGPort.class), search.getNegative(PAGPort.class));
         connect(partitionAwareGradient.getPositive(GradientPort.class), search.getNegative(GradientPort.class));
         connect(partitionAwareGradient.getPositive(GradientPort.class), pseudoGradient.getNegative(GradientPort.class));
     }

@@ -32,8 +32,10 @@ import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
 import se.sics.ms.gradient.events.LeaderInfoUpdate;
 import se.sics.ms.gradient.events.NumberOfPartitions;
+import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
+import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.model.LocalSearchRequest;
 import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
@@ -62,7 +64,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.*;
-import java.util.logging.Level;
 
 
 /**
@@ -91,6 +92,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
+    Positive<PAGPort> pagPort = requires(PAGPort.class);
 
     // ======== LOCAL VARIABLES.
 
@@ -106,7 +108,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private static final long STARTING_EPOCH = 0;
     private long currentEpoch = 0;
     private boolean landingEntryAdded = false;
-    TreeSet<SearchDescriptor> gradientEntrySet;
+    private TreeSet<SearchDescriptor> gradientEntrySet;
     private DecoratedAddress leaderAddress;
     private PublicKey leaderKey;
 
@@ -142,13 +144,10 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private boolean partitionInProgress = false;
 
     // Generic Control Pull Mechanism.
-    private LinkedList<PartitionHelper.PartitionInfo> partitionHistory;
-    private static final int HISTORY_LENGTH = 5;
     private IndexEntryLuceneAdaptor writeLuceneAdaptor;
     private IndexEntryLuceneAdaptor searchRequestLuceneAdaptor;
 
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
-    private ApplicationLuceneAdaptor searchEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
 
     // Leader Election Protocol.
@@ -293,7 +292,6 @@ public final class ShardAwareSearch extends ComponentDefinition {
         
         // Trackers.
         initializeTrackers();
-        partitionHistory = new LinkedList<PartitionHelper.PartitionInfo>();      // Store the history of partitions but upto a specified level.
         index = new RAMDirectory();
         setupLuceneIndexWriter(index, indexWriterConfig);
         setupApplicationLuceneWriter(index, indexWriterConfig);
@@ -1309,6 +1307,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                 logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
                 CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
                 trigger(ct, timerPort);
+//                answerSearchRequestBase();
                 answerSearchRequest();
             }
         }
@@ -1410,20 +1409,32 @@ public final class ShardAwareSearch extends ComponentDefinition {
         }
     }
 
-    private void answerSearchRequest() {
-        ArrayList<IndexEntry> result = null;
-        try {
-            result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
-            logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
+    private void answerSearchRequestBase() {
+        
+//        ArrayList<IndexEntry> result = null;
+//        try {
+//            result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+//            logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
+//
+//        } catch (LuceneAdaptorException e) {
+//            result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
+//            logger.warn("{} : Unable to search for the entries.", self.getId());
+//            e.printStackTrace();
+//        } finally {
+//            searchRequest = null;   // Stop handling more searches.
+//            trigger(new UiSearchResponse(result), uiPort);
+//        }
+    }
 
-        } catch (LuceneAdaptorException e) {
-            result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
-            logger.warn("{} : Unable to search for the entries.", self.getId());
-            e.printStackTrace();
-        } finally {
-            searchRequest = null;   // Stop handling more searches.
-            trigger(new UiSearchResponse(result), uiPort);
-        }
+    /**
+     * The search responses that are collected, are added
+     * in the lucene instance and then when its time to reply back,
+     * the application simply searches the created lucene instance 
+     * and reply back. It helps the application to perform manipulations on the data like
+     * sorting, searching.
+     */
+    private void answerSearchRequest(){
+        throw new UnsupportedOperationException("Operation Not Supported");
     }
 
     /**
@@ -1908,6 +1919,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
+        trigger(new PAGUpdate(updatedDesc), pagPort);
     }
 
 

@@ -105,7 +105,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(PAGUpdate event) {
 
-            logger.debug(" {}: Received update from the application ", prefix);
+            logger.warn(" {}: Received update from the application ", prefix);
             selfDescriptor = event.getSelfView();
         }
     };
