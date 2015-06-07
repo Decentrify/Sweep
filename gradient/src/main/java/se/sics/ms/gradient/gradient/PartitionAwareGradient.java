@@ -3,14 +3,21 @@ package se.sics.ms.gradient.gradient;
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
+import se.sics.ms.gradient.events.AwaitVerificationTimeout;
+import se.sics.ms.gradient.events.LUCheck;
+import se.sics.ms.gradient.events.NPTimeout;
 import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.GenericECComparator;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
@@ -25,10 +32,7 @@ import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Main component for the exerting tight control over the gradient and the
@@ -49,7 +53,13 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private Comparator lcComparator;
     private Set<Pair<Long, Integer>> verifiedSet;
     private Set<Pair<Long, Integer>> suspects;
-
+    private Collection<DecoratedAddress> pnpNodes; // Possible Network Partitioned Nodes.
+    private Map<UUID, Container<DecoratedAddress, GradientLocalView>> awaitingVerificationSelf;
+    private Map<UUID, Pair<DecoratedAddress, LUCheck.Request>>awaitingVerificationSystem;
+    
+    private DecoratedAddress selfAddress;
+    private int overlayId;
+    
     // PORTS.
     private Positive<Timer> timerPositive = requires(Timer.class);
     private Positive<Network> networkPositive = requires(Network.class);
@@ -64,6 +74,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
         subscribe(startHandler, control);
         subscribe(updateHandler, pagPortNegative);
+        subscribe(npTimeoutHandler, timerPositive);
         
         subscribe(croupierUpdateHandler, gradient.getNegative(CroupierPort.class));
         subscribe(croupierSampleHandler, croupierPortPositive);
@@ -73,6 +84,11 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
         subscribe(handleShuffleRequestFromGradient, gradient.getNegative(Network.class));
         subscribe(handleShuffleResponseFromGradient, gradient.getNegative(Network.class));
+        
+        subscribe(luCheckRequestHandler, networkPositive);
+        subscribe(awaitVerificationTimeoutHandler, timerPositive);
+        subscribe(applicationLUCheckResponse, pagPortNegative);
+        
     }
 
     
@@ -87,12 +103,17 @@ public class PartitionAwareGradient extends ComponentDefinition {
         prefix = String.valueOf(init.getBasicAddress().getId());
         systemConfig = init.getSystemConfig();
         lcComparator = new GenericECComparator();
+        selfAddress = systemConfig.self;
+        overlayId = init.getOverlayId();
+        
+        awaitingVerificationSelf = new HashMap<UUID, Container<DecoratedAddress, GradientLocalView>>();
+        awaitingVerificationSystem = new HashMap<UUID, Pair<DecoratedAddress, LUCheck.Request>>();
         
         // Gradient Connections.
         GradientComp.GradientInit gInit = new GradientComp.GradientInit(
                 systemConfig, 
                 init.getGradientConfig(),
-                init.getOverlayId(),
+                overlayId,
                 new SimpleUtilityComparator(), 
                 new SweepGradientFilter());
         
@@ -108,9 +129,31 @@ public class PartitionAwareGradient extends ComponentDefinition {
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
+            
             logger.debug(" {}: Partition Aware Gradient Initialized ... ", prefix);
+            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(3000, 3000);
+            NPTimeout npTimeout = new NPTimeout(spt);
+            
+            trigger(npTimeout, timerPositive);
         }
     };
+
+
+    /**
+     *
+     * Network Partition timeout handler. Push to the application a list 
+     * of the potential network partitioned nodes in the system.
+     */
+    Handler<NPTimeout> npTimeoutHandler = new Handler<NPTimeout>() {
+        
+        @Override
+        public void handle(NPTimeout event) {
+            
+            logger.debug("{}: Timeout for handing over the potential network partitioned nodes to the application", prefix);
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+    };
+    
 
     /**
      * Simple handler for the self update
@@ -178,7 +221,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 event = new CroupierSample<GradientLocalView>(event.overlayId, publicSample, privateSample);
                 
                 // TO DO : Handle Suspects.
-                checkSuspects(suspects);
+                handleSuspects(suspects);
             }
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
@@ -193,10 +236,100 @@ public class PartitionAwareGradient extends ComponentDefinition {
      *
      * @param suspects suspects for NP.
      */
-    private void checkSuspects(Set<Container<DecoratedAddress, GradientLocalView>> suspects){
-        throw new UnsupportedOperationException("Operation not yet supported");
+    private void handleSuspects(Set<Container<DecoratedAddress, GradientLocalView>> suspects){
+        
+        if(lastLeaderUnit == null){
+            throw new IllegalStateException(" Method should not have been remove. ");
+        }
+
+        for(Container<DecoratedAddress, GradientLocalView> suspect : suspects){
+            
+            GradientLocalView glv = suspect.getContent();
+            SearchDescriptor sd = (SearchDescriptor) glv.appView;
+            
+            LeaderUnit unit = sd.getLastLeaderUnit();
+
+            ScheduleTimeout st = new ScheduleTimeout(3000);
+            AwaitVerificationTimeout awt = new AwaitVerificationTimeout(st);
+            st.setTimeoutEvent(awt);
+
+            UUID requestId = st.getTimeoutEvent().getTimeoutId();
+            LUCheck.Request request = new LUCheck.Request(requestId, unit.getEpochId(), unit.getLeaderId());
+            
+            if(unit.getEpochId() <  lastLeaderUnit.getEpochId()){
+                
+                // Send to application.
+                trigger(request, pagPortNegative);
+            }
+            
+            else {
+                
+                // Send through the network.
+                BasicContentMsg requestMsg = CommonHelper.getDecoratedMsgWithOverlay(selfAddress, 
+                        suspect.getSource(), Transport.UDP, 
+                        overlayId, request);
+                
+                trigger(requestMsg, networkPositive);
+            }
+            
+            
+            awaitingVerificationSelf.put(requestId, suspect);
+            trigger(st, timerPositive);
+        }
+
     }
+
+
+    /**
+     * Handler for the Leader Unit Check response from the application.
+     */
+    Handler<LUCheck.Response> applicationLUCheckResponse = new Handler<LUCheck.Response>() {
+        @Override
+        public void handle(LUCheck.Response event) {
+            
+            logger.debug("{}: Received leader unit check response from the application", prefix);
+            throw new UnsupportedOperationException("Operation not supported yet");
+        }
+    };
     
+    
+    
+    /**
+     * Timeout handler triggered for for the component waiting for the 
+     * verification of a suspected node from the application / other nodes.
+     */
+    Handler<AwaitVerificationTimeout> awaitVerificationTimeoutHandler = new Handler<AwaitVerificationTimeout>() {
+        @Override
+        public void handle(AwaitVerificationTimeout event) {
+            
+            logger.debug("{}: Await Verification Timeout triggered", prefix);
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+    };
+    
+    
+    ClassMatchedHandler<LUCheck.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request>> luCheckRequestHandler = 
+            new ClassMatchedHandler<LUCheck.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request>>() {
+                
+        @Override
+        public void handle(LUCheck.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request> context) {
+            
+            logger.debug("{}: Leader Unit Check Request Received from the Node in System", prefix);
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+    };
+    
+    
+    ClassMatchedHandler<LUCheck.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Response>> luCheckResponseHandler = 
+            new ClassMatchedHandler<LUCheck.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Response>>() {
+                
+        @Override
+        public void handle(LUCheck.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Response> context) {
+            
+            logger.debug("{}: Leader Unit Check Response Received from the node in the System.", prefix);
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+    };
     
     
 
@@ -226,12 +359,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
                     suspects.add(next);
                     itr.remove();
                 }
-                
-                
             }
+            
+            
         }
-
-        
     }
     
 
