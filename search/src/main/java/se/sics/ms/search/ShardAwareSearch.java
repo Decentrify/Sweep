@@ -30,6 +30,7 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.gradient.events.LUCheck;
 import se.sics.ms.gradient.events.LeaderInfoUpdate;
 import se.sics.ms.gradient.events.NumberOfPartitions;
 import se.sics.ms.gradient.events.PAGUpdate;
@@ -165,6 +166,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private SearchDescriptor selfDescriptor;
     private UUID preShardTimeoutId;
     private List<LeaderUnit> bufferedUnits;
+    
+    
+    
+    
+    
+    
+    
     /**
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
@@ -269,6 +277,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(preShardTimeoutHandler, timerPort);
         
+        // PAG Handlers.
+        subscribe(leaderUnitCheckHandler, pagPort);
     }
 
     /**
@@ -2218,6 +2228,24 @@ public final class ShardAwareSearch extends ComponentDefinition {
         return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
     }
 
+    
+    
+    /**
+     * *****************************
+     * PAG Handlers.
+     * ***************************** 
+     */
+    
+    
+    Handler<LUCheck.Request> leaderUnitCheckHandler = new Handler<LUCheck.Request>() {
+        @Override
+        public void handle(LUCheck.Request event) {
+            logger.debug("{}: Received request to look up for a leader unit.");
+        }
+    };
+    
+    
+    
 
     /**
      * ********************************

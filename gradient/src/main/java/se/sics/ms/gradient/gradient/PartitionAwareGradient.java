@@ -1,5 +1,6 @@
 package se.sics.ms.gradient.gradient;
 
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
@@ -8,7 +9,9 @@ import se.sics.kompics.timer.Timer;
 import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.util.GenericECComparator;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
@@ -16,10 +19,16 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
 import se.sics.p2ptoolbox.gradient.util.GradientLocalView;
+import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 /**
  * Main component for the exerting tight control over the gradient and the
@@ -36,7 +45,11 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private SystemConfig systemConfig;
     private SearchDescriptor selfDescriptor;
     private String prefix;
-    
+    private LeaderUnit lastLeaderUnit;
+    private Comparator lcComparator;
+    private Set<Pair<Long, Integer>> verifiedSet;
+    private Set<Pair<Long, Integer>> suspects;
+
     // PORTS.
     private Positive<Timer> timerPositive = requires(Timer.class);
     private Positive<Network> networkPositive = requires(Network.class);
@@ -70,9 +83,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private void doInit(PAGInit init) {
         
         logger.debug(" Initializing the Partition Aware Gradient ");
-        
-        systemConfig = init.getSystemConfig();
+
         prefix = String.valueOf(init.getBasicAddress().getId());
+        systemConfig = init.getSystemConfig();
+        lcComparator = new GenericECComparator();
         
         // Gradient Connections.
         GradientComp.GradientInit gInit = new GradientComp.GradientInit(
@@ -81,6 +95,9 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 init.getOverlayId(),
                 new SimpleUtilityComparator(), 
                 new SweepGradientFilter());
+        
+        verifiedSet = new HashSet<Pair<Long, Integer>>();
+        suspects = new HashSet<Pair<Long, Integer>>();
         
         gradient = create(GradientComp.class, gInit);
         connect(gradient.getNegative(Timer.class), timerPositive);
@@ -105,8 +122,18 @@ public class PartitionAwareGradient extends ComponentDefinition {
         @Override
         public void handle(PAGUpdate event) {
 
-            logger.warn(" {}: Received update from the application ", prefix);
+            logger.debug(" {}: Received update from the application ", prefix);
             selfDescriptor = event.getSelfView();
+            LeaderUnit unit = selfDescriptor.getLastLeaderUnit();
+            
+            if(unit.getEpochId() != lastLeaderUnit.getEpochId() 
+                    || unit.getLeaderId() != lastLeaderUnit.getLeaderId()) {
+
+                // Clear the verified list if the last leader unit changes.
+                verifiedSet.clear();
+            }
+            
+            lastLeaderUnit = unit;
         }
     };
 
@@ -135,10 +162,78 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(CroupierSample<GradientLocalView> event) {
 
             logger.debug("{}: Received sample from croupier ", prefix);
+
+            // TO DO : Iterate through the sample to check for the unverified nodes.
+            if(lastLeaderUnit != null){
+                
+                Set<Container<DecoratedAddress, GradientLocalView>> suspects =
+                        new HashSet<Container<DecoratedAddress, GradientLocalView>>();
+                                
+                Set<Container<DecoratedAddress, GradientLocalView>> publicSample = event.publicSample;
+                Set<Container<DecoratedAddress, GradientLocalView>> privateSample = event.privateSample;
+
+                updateSuspects(publicSample, suspects);
+                updateSuspects(privateSample, suspects);
+                
+                event = new CroupierSample<GradientLocalView>(event.overlayId, publicSample, privateSample);
+                
+                // TO DO : Handle Suspects.
+                checkSuspects(suspects);
+            }
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
     };
 
+
+    /**
+     * Once the events are received, nodes create a unverified list in which the
+     * descriptors are not verified. The method analyzes the descriptors 
+     * and based on there last leader unit either sends them to application or through the
+     * network to the other node.
+     *
+     * @param suspects suspects for NP.
+     */
+    private void checkSuspects(Set<Container<DecoratedAddress, GradientLocalView>> suspects){
+        throw new UnsupportedOperationException("Operation not yet supported");
+    }
+    
+    
+    
+
+    /**
+     * Update the suspected descriptors based on the verified set 
+     * and the current last leader unit.
+     *
+     * @param baseSet set to check
+     * @param suspects set to add
+     */
+    private void updateSuspects(Set<Container<DecoratedAddress, GradientLocalView>> baseSet, Set<Container<DecoratedAddress, GradientLocalView>> suspects){
+
+        Iterator<Container<DecoratedAddress, GradientLocalView>> itr = baseSet.iterator();
+        
+        while(itr.hasNext()) {
+            
+            Container<DecoratedAddress, GradientLocalView> next = itr.next();
+            LeaderUnit lastUnit = ((SearchDescriptor)next.getContent().appView)
+                    .getLastLeaderUnit();
+
+            if(lastUnit != null) {
+
+                Pair<Long, Integer> pair = Pair.with(
+                        lastUnit.getEpochId(), lastUnit.getLeaderId());
+
+                if(!verifiedSet.contains(pair)){
+                    suspects.add(next);
+                    itr.remove();
+                }
+                
+                
+            }
+        }
+
+        
+    }
+    
 
     /**
      *
