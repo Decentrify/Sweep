@@ -1,6 +1,7 @@
 package se.sics.ms.gradient.gradient;
 
 import org.javatuples.Pair;
+import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.network.Transport;
@@ -11,6 +12,8 @@ import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.ms.gradient.events.*;
+import se.sics.ms.gradient.misc.CroupierContainerWrapper;
+import se.sics.ms.gradient.misc.GradientShuffleWrapper;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
@@ -19,6 +22,7 @@ import se.sics.ms.util.CommonHelper;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
+import se.sics.p2ptoolbox.croupier.util.CroupierContainer;
 import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
@@ -29,6 +33,7 @@ import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+import se.sics.p2ptoolbox.util.traits.Nated;
 
 import java.util.*;
 
@@ -215,15 +220,16 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 Set<Container<DecoratedAddress, GradientLocalView>> suspects =
                         new HashSet<Container<DecoratedAddress, GradientLocalView>>();
                                 
-                Set<Container<DecoratedAddress, GradientLocalView>> publicSample = event.publicSample;
-                Set<Container<DecoratedAddress, GradientLocalView>> privateSample = event.privateSample;
+                Set<Container<DecoratedAddress, GradientLocalView>> pubSample = event.publicSample;
+                Set<Container<DecoratedAddress, GradientLocalView>> privSample = event.privateSample;
 
-                updateSuspects(publicSample, suspects);
-                updateSuspects(privateSample, suspects);
+                updateSuspects(pubSample, suspects);
+                updateSuspects(privSample, suspects);
                 
-                event = new CroupierSample<GradientLocalView>(event.overlayId, publicSample, privateSample);
+                event = new CroupierSample<GradientLocalView>(event.overlayId,
+                        pubSample, privSample);
 
-                handleSuspects(suspects);
+                handleSuspects(event.overlayId, suspects);
             }
             trigger(event, gradient.getNegative(CroupierPort.class));
         }
@@ -238,7 +244,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
      *
      * @param suspects suspects for NP.
      */
-    private void handleSuspects(Set<Container<DecoratedAddress, GradientLocalView>> suspects){
+    private void handleSuspects(int overlayId, Set<Container<DecoratedAddress, GradientLocalView>> suspects){
         
         if(lastLeaderUnit == null){
             throw new IllegalStateException(" Method should not have been remove. ");
@@ -250,7 +256,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
             SearchDescriptor sd = (SearchDescriptor) glv.appView;
             
             LeaderUnit unit = sd.getLastLeaderUnit();
-            initiateLUCheckRequest(unit, suspect.getSource(), suspect);
+            initiateLUCheckRequest(unit, suspect.getSource(), new CroupierContainerWrapper(suspect, overlayId));
         }
 
     }
@@ -289,7 +295,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
             trigger(requestMsg, networkPositive);
         }
 
-        awaitingVerificationSelf.put(requestId, Pair.with( suspectAddress, content ));
+        awaitingVerificationSelf.put(requestId, Pair.with(suspectAddress, content));
         trigger(st, timerPositive);
 
     }
@@ -309,11 +315,42 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 
                 // Response from application as part of request originated by self.
                 // Add to the verified list.
+
                 
                 if(event.isVerified())
                 {
                     verifiedSet.add(Pair.with(event.getEpochId(),
                             event.getLeaderId()));
+
+                    Pair<DecoratedAddress, Object> associatedData = awaitingVerificationSelf.get(requestId);
+                    
+                    DecoratedAddress address = associatedData.getValue0();
+                    Object content = associatedData.getValue1();
+                    
+                    if(content instanceof CroupierContainerWrapper){
+                        
+                        CroupierContainerWrapper ccw = ((CroupierContainerWrapper)content);
+                        Container<DecoratedAddress, GradientLocalView> cc = ccw.container;
+                        Set<Container> privateSet = new HashSet<Container>();
+                        Set<Container> publicSet = new HashSet<Container>();
+                        
+                        if(address.hasTrait(Nated.class)){
+                            privateSet.add(cc);
+                        }else{
+                            publicSet.add(cc);
+                        }
+                        
+                        CroupierSample sample = new CroupierSample(ccw.overlayId, publicSet, privateSet);
+                        trigger(sample, gradient.getNegative(CroupierPort.class));
+                        
+                    }
+                    
+                    else if (content instanceof GradientShuffleWrapper){
+
+                        GradientShuffleWrapper gsw = (GradientShuffleWrapper)content;
+                        BasicContentMsg requestMsg = new BasicContentMsg(gsw.header, gsw.content);
+                        trigger(requestMsg, gradient.getNegative(Network.class));
+                    }
                 }
                 else
                 {
@@ -379,8 +416,14 @@ public class PartitionAwareGradient extends ComponentDefinition {
             awaitingVerificationSystem.remove(requestId);
         }
     };
-    
-    
+
+
+    /**
+     * The {@link se.sics.ms.gradient.events.LUCheck.Request} over the network is a special case and triggered by a node 
+     * when it thinks that based on its current last leader unit, the unit that it wants to verify is ahead of it 
+     * and therefore sends a request. The metadata associated with the request is stored separately
+     * and request is triggered to the application.  
+     */
     ClassMatchedHandler<LUCheck.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request>> luCheckRequestHandler = 
             new ClassMatchedHandler<LUCheck.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request>>() {
                 
@@ -542,7 +585,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
             LeaderUnit lastUnit = descriptor.getLastLeaderUnit();
 
             if(!verifiedSet.contains(Pair.with(lastUnit.getEpochId(), lastUnit.getLeaderId()))) {
-                initiateLUCheckRequest(lastUnit, context.getSource(), content);
+                initiateLUCheckRequest(lastUnit, context.getSource(), new GradientShuffleWrapper(content, context.getHeader()));
             }
 
             else {
