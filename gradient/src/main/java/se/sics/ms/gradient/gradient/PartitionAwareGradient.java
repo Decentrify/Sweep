@@ -4,6 +4,7 @@ import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.CancelTimeout;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
@@ -18,7 +19,6 @@ import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.CommonHelper;
-import se.sics.ms.util.GenericECComparator;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
@@ -50,12 +50,11 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private SearchDescriptor selfDescriptor;
     private String prefix;
     private LeaderUnit lastLeaderUnit;
-    private Comparator lcComparator;
     private Set<Pair<Long, Integer>> verifiedSet;
     private Set<Pair<Long, Integer>> suspects;
     private Collection<DecoratedAddress> pnpNodes; // Possible Network Partitioned Nodes.
-    private Map<UUID, Container<DecoratedAddress, GradientLocalView>> awaitingVerificationSelf;
-    private Map<UUID, Pair<DecoratedAddress, LUCheck.Request>>awaitingVerificationSystem;
+    private Map<UUID, DecoratedAddress> awaitingVerificationSelf;           // TO DO: Clear it on the leader unit switch, so as to invalidate all the responses.
+    private Map<UUID, DecoratedAddress>awaitingVerificationSystem;
     
     private DecoratedAddress selfAddress;
     private int overlayId;
@@ -86,6 +85,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         subscribe(handleShuffleResponseFromGradient, gradient.getNegative(Network.class));
         
         subscribe(luCheckRequestHandler, networkPositive);
+        subscribe(luCheckResponseHandler, networkPositive);
         subscribe(awaitVerificationTimeoutHandler, timerPositive);
         subscribe(applicationLUCheckResponse, pagPortNegative);
         
@@ -102,12 +102,11 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
         prefix = String.valueOf(init.getBasicAddress().getId());
         systemConfig = init.getSystemConfig();
-        lcComparator = new GenericECComparator();
         selfAddress = systemConfig.self;
         overlayId = init.getOverlayId();
         
-        awaitingVerificationSelf = new HashMap<UUID, Container<DecoratedAddress, GradientLocalView>>();
-        awaitingVerificationSystem = new HashMap<UUID, Pair<DecoratedAddress, LUCheck.Request>>();
+        awaitingVerificationSelf = new HashMap<UUID, DecoratedAddress>();
+        awaitingVerificationSystem = new HashMap<UUID, DecoratedAddress>();
         
         // Gradient Connections.
         GradientComp.GradientInit gInit = new GradientComp.GradientInit(
@@ -219,8 +218,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 updateSuspects(privateSample, suspects);
                 
                 event = new CroupierSample<GradientLocalView>(event.overlayId, publicSample, privateSample);
-                
-                // TO DO : Handle Suspects.
+
                 handleSuspects(suspects);
             }
             trigger(event, gradient.getNegative(CroupierPort.class));
@@ -273,7 +271,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
             }
             
             
-            awaitingVerificationSelf.put(requestId, suspect);
+            awaitingVerificationSelf.put(requestId, suspect.getSource());
             trigger(st, timerPositive);
         }
 
@@ -288,11 +286,57 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(LUCheck.Response event) {
             
             logger.debug("{}: Received leader unit check response from the application", prefix);
-            throw new UnsupportedOperationException("Operation not supported yet");
+            
+            UUID requestId = event.getRequestId();
+            if(awaitingVerificationSelf.containsKey(requestId)){
+                
+                // Response from application as part of request originated by self.
+                // Add to the verified list.
+                
+                if(event.isVerified()){
+                    
+                    // What happens if unverified ??    
+                    verifiedSet.add(Pair.with(event.getEpochId(), 
+                            event.getLeaderId()));
+                }
+                else {
+                    throw new UnsupportedOperationException("NP Nodes case needs to be handled.");
+                }
+                
+                cancelTimeout(requestId);
+                awaitingVerificationSelf.remove(requestId);
+                
+            }
+            
+            else if(awaitingVerificationSystem.containsKey(requestId)){
+                
+                // Response from application as part of request originated by node in system.
+                DecoratedAddress dest = awaitingVerificationSystem.get(requestId);
+                BasicContentMsg response = CommonHelper.getDecoratedMsgWithOverlay(selfAddress,
+                        dest, Transport.UDP, 
+                        overlayId, event);
+                
+                trigger(response, networkPositive);
+                
+                cancelTimeout(requestId);
+                awaitingVerificationSystem.remove(requestId);
+                
+            }
+            
+            else {
+                logger.debug("{}: Received leader unit check response for an already expired round", prefix);
+            }
+            
         }
     };
     
     
+    
+    private void cancelTimeout(UUID timeoutId){
+
+        CancelTimeout ct = new CancelTimeout(timeoutId);
+        trigger(ct, timerPositive);
+    }
     
     /**
      * Timeout handler triggered for for the component waiting for the 
@@ -303,7 +347,14 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(AwaitVerificationTimeout event) {
             
             logger.debug("{}: Await Verification Timeout triggered", prefix);
-            throw new UnsupportedOperationException("Operation not supported yet.");
+            
+            // As the response is not received in time, simply remove the entry from the 
+            // maps if any.
+            
+            UUID requestId = event.getTimeoutId();
+            
+            awaitingVerificationSelf.remove(requestId);
+            awaitingVerificationSystem.remove(requestId);
         }
     };
     
@@ -315,7 +366,25 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(LUCheck.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Request> context) {
             
             logger.debug("{}: Leader Unit Check Request Received from the Node in System", prefix);
-            throw new UnsupportedOperationException("Operation not supported yet.");
+            
+            if(lastLeaderUnit == null || lastLeaderUnit.getEpochId() < content.getEpochId()){
+                logger.debug("{}: Unable to determine as last leader unit currently behind the requested unit check.");
+                return;
+            }
+
+            ScheduleTimeout st = new ScheduleTimeout(3000);
+            AwaitVerificationTimeout awt = new AwaitVerificationTimeout(st);
+            st.setTimeoutEvent(awt);
+            
+            UUID requestId = st.getTimeoutEvent().getTimeoutId();
+            LUCheck.Request request = new LUCheck.Request(requestId, 
+                    content.getEpochId(), 
+                    content.getLeaderId());
+            
+            trigger(request, pagPortNegative);
+            trigger(st, timerPositive);
+            
+            awaitingVerificationSystem.put(requestId, context.getSource());
         }
     };
     
@@ -327,7 +396,22 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(LUCheck.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LUCheck.Response> context) {
             
             logger.debug("{}: Leader Unit Check Response Received from the node in the System.", prefix);
-            throw new UnsupportedOperationException("Operation not supported yet.");
+            UUID requestId = content.getRequestId();
+            
+            if(!awaitingVerificationSelf.containsKey(requestId)){
+                logger.debug("{}: Round for which the check response received over network has already expired.", prefix);
+                return;
+            }
+            
+            cancelTimeout(requestId);
+            awaitingVerificationSelf.remove(requestId);
+            
+            if(content.isVerified()){
+                verifiedSet.add(Pair.with(content.getEpochId(), content.getLeaderId()));
+            }
+            else{
+                throw new UnsupportedOperationException("Operation for np nodes is not handled yet");
+            }
         }
     };
     
