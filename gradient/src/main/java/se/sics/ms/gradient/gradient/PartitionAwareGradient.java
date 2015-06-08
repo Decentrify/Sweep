@@ -25,6 +25,7 @@ import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
+import se.sics.p2ptoolbox.gradient.util.GradientContainer;
 import se.sics.p2ptoolbox.gradient.util.GradientLocalView;
 import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
@@ -50,10 +51,10 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private SearchDescriptor selfDescriptor;
     private String prefix;
     private LeaderUnit lastLeaderUnit;
-    private Set<Pair<Long, Integer>> verifiedSet;
+    private Queue<Pair<Long, Integer>> verifiedSet;
     private Set<Pair<Long, Integer>> suspects;
-    private Collection<DecoratedAddress> pnpNodes; // Possible Network Partitioned Nodes.
-    private Map<UUID, DecoratedAddress> awaitingVerificationSelf;           // TO DO: Clear it on the leader unit switch, so as to invalidate all the responses.
+    private Set<DecoratedAddress> pnpNodes; // Possible Network Partitioned Nodes.
+    private Map<UUID, Pair<DecoratedAddress, Object>> awaitingVerificationSelf;           // TO DO: Clear it on the leader unit switch, so as to invalidate all the responses.
     private Map<UUID, DecoratedAddress>awaitingVerificationSystem;
     
     private DecoratedAddress selfAddress;
@@ -104,8 +105,9 @@ public class PartitionAwareGradient extends ComponentDefinition {
         systemConfig = init.getSystemConfig();
         selfAddress = systemConfig.self;
         overlayId = init.getOverlayId();
-        
-        awaitingVerificationSelf = new HashMap<UUID, DecoratedAddress>();
+
+        pnpNodes = new HashSet<DecoratedAddress>();
+        awaitingVerificationSelf = new HashMap<UUID, Pair<DecoratedAddress, Object>>();
         awaitingVerificationSystem = new HashMap<UUID, DecoratedAddress>();
         
         // Gradient Connections.
@@ -116,7 +118,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 new SimpleUtilityComparator(), 
                 new SweepGradientFilter());
         
-        verifiedSet = new HashSet<Pair<Long, Integer>>();
+        verifiedSet = new Queue<Pair<Long, Integer>>(init.getHistoryBufferSize());
         suspects = new HashSet<Pair<Long, Integer>>();
         
         gradient = create(GradientComp.class, gInit);
@@ -246,34 +248,47 @@ public class PartitionAwareGradient extends ComponentDefinition {
             SearchDescriptor sd = (SearchDescriptor) glv.appView;
             
             LeaderUnit unit = sd.getLastLeaderUnit();
-
-            ScheduleTimeout st = new ScheduleTimeout(3000);
-            AwaitVerificationTimeout awt = new AwaitVerificationTimeout(st);
-            st.setTimeoutEvent(awt);
-
-            UUID requestId = st.getTimeoutEvent().getTimeoutId();
-            LUCheck.Request request = new LUCheck.Request(requestId, unit.getEpochId(), unit.getLeaderId());
-            
-            if(unit.getEpochId() <  lastLeaderUnit.getEpochId()){
-                
-                // Send to application.
-                trigger(request, pagPortNegative);
-            }
-            
-            else {
-                
-                // Send through the network.
-                BasicContentMsg requestMsg = CommonHelper.getDecoratedMsgWithOverlay(selfAddress, 
-                        suspect.getSource(), Transport.UDP, 
-                        overlayId, request);
-                
-                trigger(requestMsg, networkPositive);
-            }
-            
-            
-            awaitingVerificationSelf.put(requestId, suspect.getSource());
-            trigger(st, timerPositive);
+            initiateLUCheckRequest(unit, suspect.getSource(), suspect);
         }
+
+    }
+
+
+    /**
+     * Based on the supplied last leader unit and the suspected address
+     * the node tries to determine the component to request for the verification
+     * of the node.
+     *
+     * @param unit last unit
+     * @param suspectAddress address
+     */
+    private void initiateLUCheckRequest(LeaderUnit unit, DecoratedAddress suspectAddress, Object content){
+
+        ScheduleTimeout st = new ScheduleTimeout(3000);
+        AwaitVerificationTimeout awt = new AwaitVerificationTimeout(st);
+        st.setTimeoutEvent(awt);
+
+        UUID requestId = st.getTimeoutEvent().getTimeoutId();
+        LUCheck.Request request = new LUCheck.Request(requestId, unit.getEpochId(), unit.getLeaderId());
+
+        if(unit.getEpochId() <  lastLeaderUnit.getEpochId()){
+
+            // Send to application.
+            trigger(request, pagPortNegative);
+        }
+
+        else {
+
+            // Send through the network.
+            BasicContentMsg requestMsg = CommonHelper.getDecoratedMsgWithOverlay(selfAddress,
+                    suspectAddress, Transport.UDP,
+                    overlayId, request);
+
+            trigger(requestMsg, networkPositive);
+        }
+
+        awaitingVerificationSelf.put(requestId, Pair.with( suspectAddress, content ));
+        trigger(st, timerPositive);
 
     }
 
@@ -286,26 +301,28 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(LUCheck.Response event) {
             
             logger.debug("{}: Received leader unit check response from the application", prefix);
-            
             UUID requestId = event.getRequestId();
+
             if(awaitingVerificationSelf.containsKey(requestId)){
                 
                 // Response from application as part of request originated by self.
                 // Add to the verified list.
                 
-                if(event.isVerified()){
-                    
-                    // What happens if unverified ??    
-                    verifiedSet.add(Pair.with(event.getEpochId(), 
+                if(event.isVerified())
+                {
+                    verifiedSet.add(Pair.with(event.getEpochId(),
                             event.getLeaderId()));
                 }
-                else {
-                    throw new UnsupportedOperationException("NP Nodes case needs to be handled.");
+                else
+                {
+
+                    DecoratedAddress pnpNode = awaitingVerificationSelf.get(requestId)
+                            .getValue0();
+                    pnpNodes.add(pnpNode);
                 }
                 
                 cancelTimeout(requestId);
                 awaitingVerificationSelf.remove(requestId);
-                
             }
             
             else if(awaitingVerificationSystem.containsKey(requestId)){
@@ -329,9 +346,12 @@ public class PartitionAwareGradient extends ComponentDefinition {
             
         }
     };
-    
-    
-    
+
+
+    /**
+     * Convenient wrapper for the cancelling of timeout.
+     * @param timeoutId timeout id.
+     */
     private void cancelTimeout(UUID timeoutId){
 
         CancelTimeout ct = new CancelTimeout(timeoutId);
@@ -508,8 +528,25 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
 
             logger.debug("{}: Received Shuffle Request, from network..  forwarding it ... ", prefix);
-            BasicContentMsg request = new BasicContentMsg(context.getHeader(), content);
-            trigger(request, gradient.getNegative(Network.class));
+
+
+            GradientContainer container = content.selfGC;
+
+            if(! (container.getContent() instanceof SearchDescriptor)){
+                throw new IllegalStateException(" Gradient Shuffle state corrupted. ");
+            }
+
+            SearchDescriptor descriptor = (SearchDescriptor)container.getContent();
+            LeaderUnit lastUnit = descriptor.getLastLeaderUnit();
+
+            if(!verifiedSet.contains(Pair.with(lastUnit.getEpochId(), lastUnit.getLeaderId()))) {
+                initiateLUCheckRequest(lastUnit, context.getSource(), content);
+            }
+
+            else {
+                BasicContentMsg request = new BasicContentMsg(context.getHeader(), content);
+                trigger(request, gradient.getNegative(Network.class));
+            }
         }
     };
 
@@ -527,6 +564,82 @@ public class PartitionAwareGradient extends ComponentDefinition {
             trigger(response, gradient.getNegative(Network.class));
         }
     };
+
+
+    /**
+     * A simple queue implementation in the system.
+     * The data is currently added to the queue which has a max capacity.
+     * FIFO order is followed in order to remove the element from the queue.
+     *
+     * @param <T>
+     */
+    private class Queue <T> {
+
+        private LinkedList<T> queue;
+        private int maxCapacity;
+
+        public Queue(int maxCapacity) {
+
+            if(! (maxCapacity >= 0)){
+                throw new IllegalStateException(" Max Capacity needs to be greater than 0 ");
+            }
+
+            this.maxCapacity = maxCapacity;
+            this.queue = new LinkedList<T>();
+        }
+
+
+        /**
+         * Simply add the element to the structure.
+         * Always keep a check on the history size after we have added
+         * the element.
+         *
+         * @param data data to add.
+         */
+        public void add (T data) {
+
+            if(data == null){
+
+                logger.debug("{}: Tried to add null element to queue");
+                return;
+            }
+
+            int index = this.queue.indexOf(data);
+
+            if(index != -1)
+            {
+                this.queue.set(index, data);
+            }
+            else
+            {
+                this.queue.add(data);
+            }
+
+            checkCapacityAndResize();
+        }
+
+
+        private void checkCapacityAndResize(){
+
+            while(queue.size() >= maxCapacity){
+                queue.remove();
+            }
+        }
+
+        public boolean contains(T data){
+            return this.queue.contains(data);
+        }
+
+
+        public void clear(){
+            this.queue.clear();
+        }
+
+    }
+
+
+
+
 
 
 }
