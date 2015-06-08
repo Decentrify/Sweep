@@ -10,10 +10,7 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
-import se.sics.ms.gradient.events.AwaitVerificationTimeout;
-import se.sics.ms.gradient.events.LUCheck;
-import se.sics.ms.gradient.events.NPTimeout;
-import se.sics.ms.gradient.events.PAGUpdate;
+import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
@@ -151,7 +148,12 @@ public class PartitionAwareGradient extends ComponentDefinition {
         public void handle(NPTimeout event) {
             
             logger.debug("{}: Timeout for handing over the potential network partitioned nodes to the application", prefix);
-            throw new UnsupportedOperationException("Operation not supported yet.");
+            Collection<DecoratedAddress> npNodes = new ArrayList<DecoratedAddress>(pnpNodes);
+
+            NPEvent npEvent = new NPEvent(npNodes);
+            trigger(npEvent, pagPortNegative);
+
+            pnpNodes.clear();
         }
     };
     

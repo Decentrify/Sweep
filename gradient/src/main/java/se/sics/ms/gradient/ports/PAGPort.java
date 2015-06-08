@@ -2,6 +2,7 @@ package se.sics.ms.gradient.ports;
 
 import se.sics.kompics.PortType;
 import se.sics.ms.gradient.events.LUCheck;
+import se.sics.ms.gradient.events.NPEvent;
 import se.sics.ms.gradient.events.PAGUpdate;
 
 /**
@@ -13,6 +14,8 @@ import se.sics.ms.gradient.events.PAGUpdate;
 public class PAGPort extends PortType{{
     
     request(PAGUpdate.class);
+    indication(NPEvent.class);
+
     indication(LUCheck.Request.class);
     request(LUCheck.Response.class);
 }}
