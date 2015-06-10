@@ -122,19 +122,29 @@ public class Epoch {
      * @return
      */
     public LeaderUnit getLooseLeaderUnit( LeaderUnit base){
+        return getLooseLeaderUnit(base.getEpochId(), base.getLeaderId());
+    }
+
+
+    /**
+     * Main method to calculate similar id leader unit in the 
+     * epoch list for the particular timeline.
+     * @param epochId
+     * @param leaderId
+     * @return
+     */
+    public LeaderUnit getLooseLeaderUnit(long epochId, int leaderId){
 
         for(LeaderUnit unit : leaderUnits){
 
-            if(unit.getEpochId() == base.getEpochId()
-                    && unit.getLeaderId() == base.getLeaderId()) {
+            if(unit.getEpochId() == epochId
+                    && unit.getLeaderId() == leaderId) {
                 return unit;
             }
         }
 
         return null;
     }
-
-
 
     
     public LeaderUnit getLeaderUnit(LeaderUnit leaderUnit){

@@ -30,10 +30,7 @@ import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
-import se.sics.ms.gradient.events.LUCheck;
-import se.sics.ms.gradient.events.LeaderInfoUpdate;
-import se.sics.ms.gradient.events.NumberOfPartitions;
-import se.sics.ms.gradient.events.PAGUpdate;
+import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.gradient.ports.PAGPort;
@@ -279,6 +276,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         
         // PAG Handlers.
         subscribe(leaderUnitCheckHandler, pagPort);
+        subscribe(npTimeoutHandler, pagPort);
     }
 
     /**
@@ -2235,15 +2233,38 @@ public final class ShardAwareSearch extends ComponentDefinition {
      * PAG Handlers.
      * ***************************** 
      */
-    
-    
+
+
+    /**
+     * Handler for the request to check for presence of 
+     * leader unit in the timeline history of the node.
+     */
     Handler<LUCheck.Request> leaderUnitCheckHandler = new Handler<LUCheck.Request>() {
         @Override
         public void handle(LUCheck.Request event) {
+            
             logger.debug("{}: Received request to look up for a leader unit.");
+            boolean result = timeLine.getLooseUnit(event.getEpochId(), event.getLeaderId()) != null;
+
+            LUCheck.Response response = new LUCheck.Response(event.getRequestId(),
+                    event.getEpochId(), event.getLeaderId(), result);
+            trigger(response, pagPort);
         }
     };
-    
+
+
+    /**
+     * Handler indicating presence of potential network partitioned
+     * nodes in the system.
+     */
+    Handler<NPTimeout> npTimeoutHandler = new Handler<NPTimeout>() {
+        @Override
+        public void handle(NPTimeout event) {
+            
+            logger.debug("{}: Received probable partitioned nodes from the PAG");
+            throw new IllegalStateException("Unhandled functionality");
+        }
+    };
     
     
 
@@ -2258,7 +2279,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
 
     public class ShardTracker {
-
+        
         private UUID shardRoundId;
         private LeaderUnitUpdate epochUpdatePacket;
         private Collection<DecoratedAddress> cohorts;

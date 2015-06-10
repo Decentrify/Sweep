@@ -463,17 +463,39 @@ public class TimeLine {
      */
     public LeaderUnit getLooseUnit(LeaderUnit leaderUnit){
 
-        if(leaderUnit == null
-                || !this.epochMap.containsKey(leaderUnit.getEpochId())){
-
+        if(leaderUnit == null){
             return null;
         }
 
-        Epoch epoch = epochMap.get(leaderUnit.getEpochId());
-        return epoch.getLooseLeaderUnit(leaderUnit);
+        return this.getLooseUnit(leaderUnit.getEpochId(), leaderUnit.getLeaderId());
     }
 
 
+    /**
+     * Check for a similar leader unit in the local store and in case 
+     * a match is found , return the value. 
+     *
+     * @param epochId unit epoch
+     * @param leaderId unit leader
+     * @return unit
+     */
+    public LeaderUnit getLooseUnit(long epochId, int leaderId){
+        
+        if(!this.epochMap.containsKey(epochId)){
+            return null;
+        }
+        
+        Epoch epoch = epochMap.get(epochId);
+        return epoch.getLooseLeaderUnit(epochId, leaderId);
+        
+    }
+    
+    
+    
+    
+    
+    
+    
     /**
      * Mainly used by the control pull mechanism in order
      * to determine the last leader unit in the system.
