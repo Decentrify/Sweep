@@ -19,6 +19,7 @@ import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.SearchDescriptor;
 import se.sics.ms.util.CommonHelper;
+import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
@@ -223,8 +224,8 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 Set<Container<DecoratedAddress, GradientLocalView>> pubSample = event.publicSample;
                 Set<Container<DecoratedAddress, GradientLocalView>> privSample = event.privateSample;
 
-                updateSuspects(pubSample, suspects);
-                updateSuspects(privSample, suspects);
+                updateSuspectsMod(pubSample, suspects);
+                updateSuspectsMod(privSample, suspects);
                 
                 event = new CroupierSample<GradientLocalView>(event.overlayId,
                         pubSample, privSample);
@@ -247,7 +248,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private void handleSuspects(int overlayId, Set<Container<DecoratedAddress, GradientLocalView>> suspects){
         
         if(lastLeaderUnit == null){
-            throw new IllegalStateException(" Method should not have been remove. ");
+            throw new IllegalStateException(" Method should not have been invoked. ");
         }
 
         for(Container<DecoratedAddress, GradientLocalView> suspect : suspects){
@@ -258,7 +259,12 @@ public class PartitionAwareGradient extends ComponentDefinition {
             LeaderUnit unit = sd.getLastLeaderUnit();
             initiateLUCheckRequest(unit, suspect.getSource(), new CroupierContainerWrapper(suspect, overlayId));
         }
+        
+        // Well Do not include the partitioned node list to prevent sending the message
+        // Because in case the reply from earlier set is not received on time then try again.
 
+        // clear the suspects list. ( Only keep a verified list. )
+        suspects.clear();
     }
 
 
@@ -511,6 +517,48 @@ public class PartitionAwareGradient extends ComponentDefinition {
             }
             
             
+        }
+    }
+
+
+    /**
+     * Update the suspected descriptors based on the verified set
+     * and the current last leader unit.
+     *
+     * @param baseSet set to check
+     * @param suspects set to add
+     */
+    private void updateSuspectsMod(Set<Container<DecoratedAddress, GradientLocalView>> baseSet, Set<Container<DecoratedAddress, GradientLocalView>> suspects){
+
+        Iterator<Container<DecoratedAddress, GradientLocalView>> itr = baseSet.iterator();
+
+        while(itr.hasNext()) {
+
+            Container<DecoratedAddress, GradientLocalView> next = itr.next();
+            
+            SearchDescriptor descriptor = (SearchDescriptor)next.getContent().appView;
+            LeaderUnit lastUnit = descriptor
+                    .getLastLeaderUnit();
+            
+            if(lastUnit != null) {
+
+                Pair<Long, Integer> pair = Pair.with(
+                        lastUnit.getEpochId(), lastUnit.getLeaderId());
+                
+                int selfOverlayId = selfDescriptor.getOverlayId().getId();
+                int otherOverlayId = descriptor.getOverlayId().getId();
+                
+                if( PartitionHelper.isOverlayExtension(selfOverlayId, otherOverlayId, selfAddress.getId())
+                        && !verifiedSet.contains(pair) ){
+                    
+                    // Only if the suspect is not present in the verified set and 
+                    // an extension of my current overlay, then add it as a suspect.
+                    // NOT ENABLING EXTN CHECK WOULD WRECK HAVOC. ( !!BEWARE!! )
+                    suspects.add(next);
+                    itr.remove();
+                }
+            }
+
         }
     }
     
