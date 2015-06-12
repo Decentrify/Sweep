@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.codec.binary.Base64;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.ApplicationConst;
 import sun.misc.BASE64Encoder;
 
 import java.io.Serializable;
@@ -21,7 +22,7 @@ import java.util.UUID;
  */
 public class IndexEntry implements Serializable {
 
-    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), 0, "landing-entry", "none", 0, new Date(0), "none", MsConfig.Categories.Default, "none", "none", null);
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry(UUID.randomUUID().toString(), ApplicationConst.LANDING_ENTRY_ID, "landing-entry", "none", 0, new Date(0), "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";
