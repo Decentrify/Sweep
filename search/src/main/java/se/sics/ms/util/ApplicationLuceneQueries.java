@@ -223,6 +223,98 @@ public class ApplicationLuceneQueries {
 
 
     /**
+     * Delete the documents with the median identifier which is
+     * less than the specified medianId.
+     *
+     * @param luceneAdaptor Adaptor.
+     * @param medianId MedianId.
+     */
+    public static void deleteDocumentsWithIdMoreThenMod(ApplicationLuceneAdaptor luceneAdaptor, ApplicationEntry.ApplicationEntryId medianId) throws LuceneAdaptorException {
+
+        BooleanQuery query = new BooleanQuery();
+
+        Long epochId = medianId.getEpochId();
+        Integer leaderId = medianId.getLeaderId();
+        Long entryId = medianId.getEntryId();
+
+        // Delete that epoch completely first from the split point ...
+
+        Query epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, epochId, epochId, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+
+        Query leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, leaderId, leaderId, true, true);
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+
+        Query entryIdQuery = NumericRangeQuery.newLongRange( ApplicationEntry.ENTRY_ID, entryId, Long.MAX_VALUE , true, true);
+        query.add(entryIdQuery, BooleanClause.Occur.MUST);
+
+        luceneAdaptor.deleteDocumentsFromLucene(query); // Cleared the Epoch First.
+
+
+        // Delete the higher entries for same epoch and higher leaderIds.
+        query = new BooleanQuery();
+        epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, epochId, Long.MAX_VALUE, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+        
+        leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, leaderId, Integer.MAX_VALUE, false, true);
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+        
+        
+        // Clean all the above epochs now ... 
+        
+        query = new BooleanQuery();
+        epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, epochId, Long.MAX_VALUE, false, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+    }
+
+
+    /**
+     * Delete the documents with median Identifier that is
+     * more than the specified medianId.
+     *
+     * @param luceneAdaptor Lucene Adaptor.
+     * @param medianId MedianId.
+     */
+    public static void deleteDocumentsWithIdLessThenMod(ApplicationLuceneAdaptor luceneAdaptor, ApplicationEntry.ApplicationEntryId medianId) throws LuceneAdaptorException {
+
+        BooleanQuery query = new BooleanQuery();
+
+        Long lowestEpochId = medianId.getEpochId();
+        Integer leaderId = medianId.getLeaderId();
+        Long entryId = medianId.getEntryId();
+
+        // Delete till all the leader id in the lowest epoch.
+        
+        Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, Long.MIN_VALUE, lowestEpochId , true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+
+        Query leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, Integer.MIN_VALUE, leaderId, true, false );
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+        
+        
+        // Clear the half of the epoch in the median.
+        query = new BooleanQuery();
+
+        epochQuery = NumericRangeQuery.newLongRange( ApplicationEntry.EPOCH_ID, lowestEpochId, lowestEpochId, true, true);
+        query.add(epochQuery, BooleanClause.Occur.MUST);
+
+        leaderQuery = NumericRangeQuery.newIntRange( ApplicationEntry.LEADER_ID, leaderId, leaderId, true, true );
+        query.add(leaderQuery, BooleanClause.Occur.MUST);
+
+        Query entryIdQuery = NumericRangeQuery.newLongRange( ApplicationEntry.ENTRY_ID, Long.MIN_VALUE, entryId, true, false);
+        query.add(entryIdQuery, BooleanClause.Occur.MUST);
+        
+        luceneAdaptor.deleteDocumentsFromLucene(query);
+    }
+    
+
+    /**
      * Delete the documents with the median identifier which is 
      * less than the specified medianId.
      *

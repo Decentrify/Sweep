@@ -1015,10 +1015,8 @@ public final class NPAwareSearch extends ComponentDefinition {
             e.printStackTrace();
             throw new RuntimeException("Unable to add marker entry in system",e);
         }
-
-
     }
-
+    
 
     /**
      * When a leader unit is added in the time line,
@@ -1036,7 +1034,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 boolean nextSafety = addUnitAndCheckSafety(nextUnit);
                 unitIterator.remove();
                 
-                if(!nextSafety){ // stop adding any more buffered units if they are not safe to add.
+                if(!nextSafety) { // stop adding any more buffered units if they are not safe to add.
                     break;
                 }
             }
@@ -1070,7 +1068,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                     idBuffer.putLong(applicationEntryId.getEntryId());
 
                     try {
-                        if (!ApplicationSecurity.verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
+                        if (!ApplicationSecurity.verifyRSASignature( idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
                             return;
                     } catch (NoSuchAlgorithmException e) {
                         logger.error(self.getId() + " " + e.getMessage());
@@ -1114,7 +1112,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                             addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.    
                         }
 
-                        
                         pendingForCommit.remove(toCommit);
 
                     } catch (Exception e) {
@@ -1218,7 +1215,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     final Handler<NumberOfPartitions> handleNumberOfPartitions = new Handler<NumberOfPartitions>() {
         @Override
         public void handle(NumberOfPartitions numberOfPartitions) {
-            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfPartitions());
+            
+            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), 
+                    numberOfPartitions.getNumberOfPartitions());
+            
             searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
                     numberOfPartitions.getNumberOfPartitions()));
         }
@@ -1250,7 +1250,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest( pattern, 
+                searchRequest.getTimeoutId(), config.getQueryTimeout()), 
+                gradientRoutingPort);
     }
 
 
@@ -1285,10 +1287,15 @@ public final class NPAwareSearch extends ComponentDefinition {
                     logger.debug("{}: Received Search Request from : {}", self.getId(), event.getSource());
                     try {
 
-                        ArrayList<IndexEntry> result = searchLocal(writeEntryLuceneAdaptor, request.getPattern(), config.getHitsPerQuery());
-                        SearchInfo.Response searchMessageResponse = new SearchInfo.Response(request.getRequestId(), result, request.getPartitionId(), 0, 0);
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, searchMessageResponse), networkPort);
-
+                        ArrayList<IndexEntry> result = searchLocal( writeEntryLuceneAdaptor, 
+                                request.getPattern(), config.getHitsPerQuery());
+                        
+                        SearchInfo.Response searchMessageResponse = new SearchInfo.Response( request.getRequestId(), 
+                                result, request.getPartitionId(), 0, 0);
+                        
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), 
+                                Transport.UDP, searchMessageResponse), networkPort);
+                        
                     } catch (LuceneAdaptorException e) {
                         logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
                         e.printStackTrace();
@@ -1414,14 +1421,14 @@ public final class NPAwareSearch extends ComponentDefinition {
             // Remove Entries from the lowest missing tracker also.
             if (isPartition) {
 
-                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(
+                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThenMod(
                         writeEntryLuceneAdaptor,
                         middleId);
 
                 lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
             } else {
 
-                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(
+                ApplicationLuceneQueries.deleteDocumentsWithIdLessThenMod(
                         writeEntryLuceneAdaptor,
                         middleId);
 
@@ -1429,15 +1436,17 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
 
             int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
-            int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
-
-            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{prefix, size, actualSize});
+//            int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
+            int markerEntrySize = markerEntryLuceneAdaptor.getSizeOfLuceneInstance();
+            
+            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{prefix, size + markerEntrySize, size});
             lowestMissingEntryTracker.printExistingEntries();
 
-            // Recalculte the size of total and the actual entries in the system.
-            self.setNumberOfEntries(size);
-            self.setActualEntries(actualSize);
-
+            // Re-calculate the size of total and the actual entries in the system.
+            // Utility comprised of marker entries and the index entries.
+            self.setNumberOfEntries(size + markerEntrySize); 
+            self.setActualEntries(size);
+            
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
