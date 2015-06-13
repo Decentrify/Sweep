@@ -23,5 +23,5 @@ public abstract class MarkerEntryLuceneAdaptor extends LuceneAdaptorBasic{
      * Priority in sorting is given to the epoch id and then to the leader unit id.
      * @return last marker entry
      */
-    public abstract MarkerEntry getLastEntry();
+    public abstract MarkerEntry getLastEntry() throws LuceneAdaptorException;
 }

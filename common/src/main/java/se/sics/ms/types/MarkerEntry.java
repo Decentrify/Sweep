@@ -12,8 +12,8 @@ import org.apache.lucene.document.LongField;
  */
 public class MarkerEntry {
     
-    private static final String EPOCH_ID = "markerEpoch";
-    private static final String LEADER_ID = "markerLeader";
+    public static final String EPOCH_ID = "markerEpoch";
+    public static final String LEADER_ID = "markerLeader";
     
     private long epochId;
     private int leaderId;
@@ -42,6 +42,14 @@ public class MarkerEntry {
         int result = (int) (epochId ^ (epochId >>> 32));
         result = 31 * result + leaderId;
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "MarkerEntry{" +
+                "epochId=" + epochId +
+                ", leaderId=" + leaderId +
+                '}';
     }
 
     public long getEpochId() {
