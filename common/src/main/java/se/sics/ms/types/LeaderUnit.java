@@ -120,4 +120,9 @@ public abstract class LeaderUnit {
     }
 
     public abstract LeaderUnit shallowCopy();
+
+
+    public void setNumEntries(long numEntries) {
+        this.numEntries = numEntries;
+    }
 }

@@ -532,7 +532,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private void initiateEntryAdditionMechanism(AddIndexEntry.Request request, DecoratedAddress source) {
 
         if (!entryAdditionTracker.canTrack()) {
-            logger.warn("{}: Unable to track a new entry addition limit reached ... ", prefix);
+            logger.warn("{}: Unable to track a new entry addition as limit reached !! ", prefix);
             return;
         }
 
@@ -720,7 +720,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         ApplicationEntry applicationEntry = request.getApplicationEntry();
         IndexEntry entry = applicationEntry.getEntry();
-
+        
+        // FIX : Fix the below condition as it seems tricky.
         if (!entry.equals(IndexEntry.DEFAULT_ENTRY) && (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))) {
             logger.warn("{}: Received a promise for entry addition from unknown node: {}", prefix, source);
             return;
@@ -749,7 +750,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getApplicationEntry()));
         st.getTimeoutEvent().getTimeoutId();
 
-        pendingForCommit.put(applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate));
+        pendingForCommit.put( applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate) );
         trigger(st, timerPort);
     }
 
@@ -812,7 +813,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 logger.debug("{}: Request to add a new landing entry in system", prefix);
 
                                 // Encapsulate the below structure in a separate method.
-
                                 LeaderUnit update = new BaseLeaderUnit(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 addUnitPacket(info.getAssociatedEpochUpdate(), update);
                                 
@@ -822,8 +822,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                             } else {
                                 
-                                logger.debug(" {}: Reached at stage of committing actual entries:{}  in the system .... ", prefix, entryToCommit);
-                                addEntryLocally(entryToCommit);   // Commit to local first.
+                                
+                                logger.debug( " {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit );
+                                pushEntry(entryToCommit);   // Commit to local first.
                             }
                             
 
@@ -843,17 +844,9 @@ public final class NPAwareSearch extends ComponentDefinition {
                             AddIndexEntry.Response addEntryResponse = new AddIndexEntry.Response(info.getEntryAdditionRoundId());
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), info.getEntryAddSourceNode(), Transport.UDP, addEntryResponse), networkPort);
 
-                        } catch (NoSuchAlgorithmException e) {
-                            logger.error(self.getId() + " " + e.getMessage());
-                        } catch (InvalidKeyException e) {
-                            logger.error(self.getId() + " " + e.getMessage());
-                        } catch (SignatureException e) {
-                            logger.error(self.getId() + " " + e.getMessage());
-                        } catch (LuceneAdaptorException e) {
+                        } catch (Exception e) {
                             e.printStackTrace();
                             throw new RuntimeException("Entry addition failed", e);
-                        } catch (IOException e) {
-                            e.printStackTrace();
                         } finally {
 
                             entryAdditionTracker.resetTracker(entryAdditionRoundId);
@@ -863,6 +856,93 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
             };
 
+
+    /**
+     * Method which needs to be invoked in case the 
+     * leader pushes the entry onto the leader group in the system. 
+     *  
+     * This method addition increments the max leader unit entries which can be then fetched
+     * by the lower nodes in the system.
+     *
+     * @param entry Application Entry.
+     */
+    private void pushEntry(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+
+        // Check for the leader unit and update the max entries
+        // in the leader unit.
+        updateLeaderUnitEntries(entry);
+        
+        // Once the leader unit is updated with the number of entries,
+        // try to add entries in the system.
+        commitEntryLocally(entry);
+        
+    }
+    
+    
+    
+    
+    
+    /**
+     * Method enclosing the semantics associated 
+     * with the process of adding the entries in the system.
+     * 
+     * @param entry entry
+     * @throws IOException
+     * @throws LuceneAdaptorException
+     */
+    private void commitEntryLocally( ApplicationEntry entry ) throws IOException, LuceneAdaptorException {
+
+
+        if ( lowestMissingEntryTracker.isNextEntryToAdd(entry.getApplicationEntryId())) {
+            
+            commitAndUpdateUtility(entry);
+            lowestMissingEntryTracker.updateTrackerInfo(entry);
+            lowestMissingEntryTracker.checkAndRemoveEntryGaps();        
+            lowestMissingEntryTracker.printCurrentTrackingInfo();
+
+            // Check for the maximum entries in the leader unit.
+            if (self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader) {
+
+                logger.warn("{}: Time to initiate the container switch.", prefix);
+                addMarkerUnit();
+                return;
+            }
+
+            // If container switch is not going on, check for the sharding update.
+            checkAndInitiateSharding();
+        }
+        
+        else {
+            lowestMissingEntryTracker.bufferEntry(entry);
+        }
+        
+    }
+    
+    
+    
+    /**
+     * The application entry is added as part of the 
+     * push protocol. Update the entries in the leader unit 
+     * 
+     * Better semantics of the 
+     * @param entry entry
+     */
+    private void updateLeaderUnitEntries( ApplicationEntry entry ){
+        
+        LeaderUnit unit = timeLine.getLooseUnit(entry.getEpochId(), entry.getLeaderId());
+        if(unit == null){
+            throw new RuntimeException(" Buffered units not handled yet. ");
+        }
+        
+        long existingEntries = unit.getNumEntries();
+        ApplicationEntry.ApplicationEntryId entryId = entry.getApplicationEntryId();
+
+        // As the entry number start from 0.
+        long resultantEntries = existingEntries >= (entryId.getEntryId() + 1) ? existingEntries 
+                : (entryId.getEntryId() + 1); 
+        
+        unit.setNumEntries(resultantEntries);
+    }
 
     /**
      * Usually the unit commit happens in a pair,
@@ -1070,12 +1150,9 @@ public final class NPAwareSearch extends ComponentDefinition {
                     try {
                         if (!ApplicationSecurity.verifyRSASignature( idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
                             return;
-                    } catch (NoSuchAlgorithmException e) {
-                        logger.error(self.getId() + " " + e.getMessage());
-                    } catch (InvalidKeyException e) {
-                        logger.error(self.getId() + " " + e.getMessage());
-                    } catch (SignatureException e) {
-                        logger.error(self.getId() + " " + e.getMessage());
+                    } catch(Exception e){
+                        e.printStackTrace();
+                        throw new RuntimeException("Entry commit failed", e);
                     }
 
                     ApplicationEntry toCommit = null;
@@ -1109,13 +1186,17 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                         }
                         else {
-                            addEntryLocally(toCommit); // FIX ADD ENTRY MECHANISM.    
+                            // Landing Entry is no longer stored with Index Entries.
+                            pushEntry(toCommit);
                         }
 
-                        pendingForCommit.remove(toCommit);
-
-                    } catch (Exception e) {
-                        throw new RuntimeException("Unable to preocess Entry Commit Request, exiting ... ");
+                    } 
+                    catch (Exception e) {
+                        throw new RuntimeException("Unable to process Entry Commit Request, exiting ... ");
+                    }
+                    
+                    finally {
+                        pendingForCommit.remove(toCommit); // Remove Entry to prevent memory leak.
                     }
 
                 }
@@ -1538,6 +1619,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      *
      * @param entry the {@link se.sics.ms.types.ApplicationEntry} to be added
      * @throws java.io.IOException if the Lucene index fails to store the entry
+     * @deprecated
      */
     private void addEntryLocally(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
@@ -1581,14 +1663,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Increment self utility in terms of entries addition to self.
         self.incrementECEntries();
         self.incrementEntries();
-
-        if (!entry.getEntry().equals(IndexEntry.DEFAULT_ENTRY)) {
-
-            // We do not include landing entries
-            // as part of actual entries for calculating the splitting point.
-
-            self.incrementActualEntries();
-        }
+        self.incrementActualEntries();
 
         informListeningComponentsAboutUpdates(self);
     }
@@ -1820,20 +1895,21 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Now based on the entries found, compare with the actual
         // state of the entry pull mechanism and remove the entries already fetched .
 
-        for(LeaderUnit next: pendingUnits) {
-
-            if (next.equals(container) && currentId > 0) {
-                continue;
-            }
-
-            ApplicationEntry entry = new ApplicationEntry(
-                    new ApplicationEntry.ApplicationEntryId(
-                            next.getEpochId(),
-                            next.getLeaderId(),
-                            0));
-
-            commitAndUpdateUtility(entry);
-        }
+//        for(LeaderUnit next: pendingUnits) {
+//
+//            if (next.equals(container) && currentId > 0) {
+//                continue;
+//            }
+//
+//            // Won't be needing this now.
+//            ApplicationEntry entry = new ApplicationEntry(
+//                    new ApplicationEntry.ApplicationEntryId(
+//                            next.getEpochId(),
+//                            next.getLeaderId(),
+//                            0));
+//
+//            commitAndUpdateUtility(entry);
+//        }
 
         return pendingUnits;
     }
@@ -2097,7 +2173,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
         UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
 
-        landingEntryTracker.startTracking(currentEpoch, landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID, lastLeaderUnit);
+        landingEntryTracker.startTracking( currentEpoch, landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID, lastLeaderUnit );
         initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
         logger.warn(landingEntryTracker.toString());
@@ -2118,7 +2194,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         if (lastUnit != null) {
 
-            if(!(lastUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)){
+            if( (lastUnit.getLeaderUnitStatus() != LeaderUnit.LUStatus.COMPLETED)){
                 
                 Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
                         ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
@@ -2490,7 +2566,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 ApplicationEntry shardEntry = new ApplicationEntry(
                                         new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), 0));
                                 
-                                addEntryLocally(shardEntry);
+                                commitEntryLocally(shardEntry);
                             } 
                             
                             catch(Exception e){
@@ -2540,7 +2616,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             // Here it might be possible that the missing tracker buffers the entry instead of adding it.
                             // But eventually the tracker should see the entry buffered and add it to lucene.
                             
-                            addEntryLocally(entry);     
+                            commitEntryLocally(entry);
 
                             ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
@@ -2994,12 +3070,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                                 leaderPullRound = null; // Quickly reset leader pull round to prevent misuse.
 
+                                // Only expected entries i.e. less than limit are allowed.
                                 List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>(response.getMissingEntries());
                                 Collections.sort(entries, entryComparator);
-
-                                for (ApplicationEntry entry : entries) {
-                                    addEntryLocally(entry);
-                                }
+                                commitPulledEntries(entries);  
                             }
 
                         } catch (Exception ex) {
@@ -3155,9 +3229,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>(response.getApplicationEntries());
                             Collections.sort(entries, entryComparator);
 
-                            for (ApplicationEntry entry : response.getApplicationEntries()) {
-                                addEntryLocally(entry);
-                            }
+                            commitPulledEntries(entries);
 
                         } catch (Exception e) {
                             throw new RuntimeException("Unable to add entries in the Lucene. State Corrupted, exiting ...", e);
@@ -3166,6 +3238,29 @@ public final class NPAwareSearch extends ComponentDefinition {
                 };
 
 
+        /**
+         * Do not allow commit entries beyond the specified
+         * max entries in the system.
+         *  
+         * @param entries entry collection
+         */
+        private void commitPulledEntries (Collection<ApplicationEntry> entries){
+            
+            Iterator<ApplicationEntry> itr = entries.iterator();
+            long limit = currentTrackingUnit.getNumEntries();
+            
+            while(itr.hasNext()){
+                
+                long entryId = itr.next().getApplicationEntryId().getEntryId();
+                if( entryId >= limit) {
+                    // If any entry exceed beyond the limit, remove from the iterator.
+                    // Such control is required for the NP Merge.
+                    itr.remove();  
+                }
+            }
+
+        }
+        
         /**
          * Look into the timeline and check for an update to the current tracking information.
          */
@@ -3225,9 +3320,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 currentTrackingId = 0;
             }
 
-        }
-
-
+        }        
 
 
         /**
@@ -3237,8 +3330,12 @@ public final class NPAwareSearch extends ComponentDefinition {
          * @param entryId
          * @return Add Entry.
          */
-        public boolean nextEntryToAdd(ApplicationEntry.ApplicationEntryId entryId) throws IOException, LuceneAdaptorException {
-            return getEntryBeingTracked().equals(entryId);
+        public boolean isNextEntryToAdd(ApplicationEntry.ApplicationEntryId entryId) throws IOException, LuceneAdaptorException {
+            
+            return (currentTrackingUnit != null 
+                && currentTrackingUnit.getEpochId() == entryId.getEpochId()
+                && currentTrackingUnit.getLeaderId() == entryId.getLeaderId()
+                && currentTrackingId == entryId.getEntryId());
         }
 
 
@@ -3262,7 +3359,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 ApplicationEntry.ApplicationEntryId idBeingTracked =
                         getEntryBeingTracked();
 
-                if (nextEntryToAdd(entry.getApplicationEntryId())) {
+                if (isNextEntryToAdd(entry.getApplicationEntryId())) {
 
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
@@ -3286,6 +3383,58 @@ public final class NPAwareSearch extends ComponentDefinition {
             return false;
         }
 
+
+        /**
+         * Application requests to buffer the current entry 
+         * in the system. Buffer if only the entry is exactly ahead
+         * in terms of entry information.
+         *
+         * @param entry entry
+         *
+         */
+        public void bufferEntry(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+            
+            ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
+            
+            if( entryBeingTracked.compareTo(entry.getApplicationEntryId()) < 0 ){
+                existingEntries.put(entry.getApplicationEntryId(), entry);
+            }
+        }
+        
+        
+        
+        /**
+         * Once the node receives an entry to be added in the application,
+         * the method needs to be invoked, which according to the entry that needs to be added,
+         * updates the local existing entries map information.
+         * <p/>
+         * The methods returns the boolean which informs the application if the entry can be added in the system
+         * or not. (It can be added if it is the currently being tracked else goes to the existing entries map).
+         *
+         * @param entry entry to add.
+         * @throws java.io.IOException
+         * @throws se.sics.ms.common.LuceneAdaptorException
+         */
+
+        public boolean updateTrackerInfo (ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+
+            
+            boolean result = false;
+            
+            if (currentTrackingUnit != null) {
+
+                if ( isNextEntryToAdd(entry.getApplicationEntryId()) ) {
+
+                    logger.info("Received update for the current tracked entry");
+                    currentTrackingId++;
+                    result = true;
+                }
+            }
+            
+            return result;
+        }
+        
+
         /**
          * Get the application entry that is being currently tracked by the application.
          * Here Tracking means that application is looking for the entry in the system or in other words waiting for
@@ -3306,7 +3455,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             return entryId;
         }
-
 
         /**
          * The operation itself does nothing but calls

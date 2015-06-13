@@ -224,7 +224,7 @@ public class ApplicationLuceneQueries {
 
     /**
      * Delete the documents with the median identifier which is
-     * less than the specified medianId.
+     * less than the specified medianId including the exact median id entry.
      *
      * @param luceneAdaptor Adaptor.
      * @param medianId MedianId.
@@ -274,7 +274,7 @@ public class ApplicationLuceneQueries {
 
     /**
      * Delete the documents with median Identifier that is
-     * more than the specified medianId.
+     * less than the specified medianId.
      *
      * @param luceneAdaptor Lucene Adaptor.
      * @param medianId MedianId.
