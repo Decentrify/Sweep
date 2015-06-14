@@ -1801,7 +1801,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             applyShardingUpdate(partitionSubId, selfPartitionId, medianId);
 
             lowestMissingEntryTracker.printCurrentTrackingInfo();
-            List<LeaderUnit> skipList = generateSkipList(shardUnit, medianId, partitionSubId);
+            List<LeaderUnit> skipList = generateLUSkipList(shardUnit, medianId, partitionSubId);
 
             logger.warn("{}: Most Important Part of Sharding generated: {}", prefix, skipList);
 
@@ -1816,6 +1816,93 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
+
+    /**
+     * Based on the median Id and the current tracking update,
+     * generate the skipList which is a list containing the epoch updates
+     * that the node has to jump over because the higher nodes might not have the
+     * information as they would have removed it as part of there partitioning
+     * update.
+     *
+     * @return Skip List
+     */
+    private List<LeaderUnit> generateLUSkipList(LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId)
+            throws IOException, LuceneAdaptorException {
+
+        LeaderUnit lastLeaderUnit = timeLine.getLastUnit();
+
+        if (lastLeaderUnit == null || (lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
+                && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId())) {
+
+            logger.warn("{}: Last Unit -> {} ",prefix , lastLeaderUnit);
+            throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
+        }
+
+        // Current Tracking might be lagging
+        // behind the original information in the store. Therefore Update it before proceeding forward.
+
+        LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
+        container = timeLine.getLooseUnit(container);
+
+        if(container == null){
+            throw new IllegalStateException("Unable to get updated value for current tracking.. ");
+        }
+
+        // Calculate the next in line leader units.
+        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits (
+                container,
+                Integer.MAX_VALUE);
+
+        // ( In case leader pushes the update to node and it is not in order, just buffer it for the time being. )
+        // No updates could be buffered at this point as updates are added in order
+        // so the shard update will be the next in line to be added when it was detected.
+
+        pendingUnits.add(container);
+        Collections.sort(pendingUnits, luComparator);
+
+        Iterator<LeaderUnit> iterator = pendingUnits.iterator();
+
+        // Based on which section of the entries that the nodes will clear
+        // Update the pending list.
+        // TO DO : FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH for the below fix.
+
+        if (partitionSubId) {
+            // If right to the median id is removed, skip list should contain
+            // entries to right of the median.
+            while (iterator.hasNext()) {
+
+                LeaderUnit nextContainer = iterator.next();
+                
+                if(nextContainer.getEpochId() == medianId.getEpochId() 
+                        && nextContainer.getLeaderId() == medianId.getLeaderId()){
+                    break;
+                }
+                
+                if (nextContainer.getEpochId() <= medianId.getEpochId()) {
+                    iterator.remove();
+                }
+
+            }
+        } else {
+
+            // If left to the median is removed, skip list should contain
+            // entries to the left of the median.
+            while (iterator.hasNext()) {
+
+                LeaderUnit nextContainer = iterator.next();
+                
+                if( (nextContainer.getEpochId() == medianId.getEpochId() 
+                        && nextContainer.getLeaderId() >= medianId.getLeaderId()) || nextContainer.getEpochId() > medianId.getEpochId()){
+                    
+                    iterator.remove();
+                }
+            }
+        }
+
+        return pendingUnits;
+    }
+    
+    
     /**
      * Based on the median Id and the current tracking update,
      * generate the skipList which is a list containing the epoch updates
@@ -1846,9 +1933,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         if(container == null){
             throw new IllegalStateException("Unable to get updated value for current tracking.. ");
         }
-
-        long currentId = lowestMissingEntryTracker.getEntryBeingTracked().getEntryId();
-
+        
+        // Calculate the next in line leader units.
         List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits(
                 container,
                 Integer.MAX_VALUE);
