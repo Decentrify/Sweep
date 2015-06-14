@@ -44,7 +44,7 @@ public class MsConfig extends VodConfig {
     // Index hash exchange
     public static final int SEARCH_INDEX_EXCHANGE_TIMEOUT = 5 * 1000;
     public static final int SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER = 3;
-    public static final int INDEX_EXCHANGE_PERIOD = 10 * 1000;
+    public static final int INDEX_EXCHANGE_PERIOD = 4 * 1000;
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
     public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
@@ -57,8 +57,8 @@ public class MsConfig extends VodConfig {
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
     // Generic control exchange message.
-    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 10*1000;
-    public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5*1000;
+    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 3 * 1000;
+    public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5 * 1000;
     public static final int CONTROL_MESSAGE_ENUM_SIZE = 2;
 
     // Two phase commit timeout.

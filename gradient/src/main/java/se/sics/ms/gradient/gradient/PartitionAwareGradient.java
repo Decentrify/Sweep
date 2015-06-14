@@ -548,7 +548,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
                 int selfOverlayId = selfDescriptor.getOverlayId().getId();
                 int otherOverlayId = descriptor.getOverlayId().getId();
                 
-                if( PartitionHelper.isOverlayExtension(selfOverlayId, otherOverlayId, selfAddress.getId())
+                if( PartitionHelper.isOverlayExtension(selfOverlayId, otherOverlayId, descriptor.getId())
                         && !verifiedSet.contains(pair) ){
                     
                     // Only if the suspect is not present in the verified set and 

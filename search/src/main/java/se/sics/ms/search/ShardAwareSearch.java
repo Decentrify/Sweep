@@ -2628,7 +2628,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                             return;
                         }
 
-                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId()) ){
+                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId()) ){
                             logger.debug("{}: Control Pull response from a node:{} which is not extension of self overlayId:{} ", new Object[]{prefix, event.getSource(), new OverlayId(self.getOverlayId()) });
                             return;
                         }
@@ -2928,7 +2928,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                         try {
                             if (leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())) {
 
-                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
                                     logger.warn("{}: OverlayId extension check failed .. ", prefix);
                                     return;
                                 }
@@ -3088,7 +3088,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
                                 return;
                             }
 
-                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
                                 logger.warn("{}: Entry Exchange Response from an undeserving node, returning ... ");
                                 return;
                             }

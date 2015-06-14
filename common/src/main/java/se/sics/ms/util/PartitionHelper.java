@@ -82,6 +82,7 @@ public class PartitionHelper {
         OverlayId selfOverlay = new OverlayId( selfId );
         OverlayId receivedOverlay = new OverlayId( receivedId );
 
+        // TO DO : Below Condition looks fishy.
         if(receivedOverlay.getPartitionIdDepth() > selfOverlay.getPartitionIdDepth()){
 
             int bitsToCheck = selfOverlay.getPartitionIdDepth();

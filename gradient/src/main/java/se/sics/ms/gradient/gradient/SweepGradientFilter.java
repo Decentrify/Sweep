@@ -38,7 +38,7 @@ public class SweepGradientFilter implements GradientFilter<SearchDescriptor> {
                 .getId();
 
 
-        return PartitionHelper.isOverlayExtension(receivedOverlayId, selfOverlayId, selfDescriptor.getId());
+        return PartitionHelper.isOverlayExtension(receivedOverlayId, selfOverlayId, otherDescriptor.getId());
 
     }
 

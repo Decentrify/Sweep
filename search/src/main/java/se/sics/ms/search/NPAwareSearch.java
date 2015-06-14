@@ -386,7 +386,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(7000, 7000);
+            rst = new SchedulePeriodicTimeout(MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -511,7 +511,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 @Override
                 public void handle(AddIndexEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request> event) {
 
-                    logger.debug("{}: Received add index entry request from : {}", self.getId(), event.getSource());
+                    logger.warn("{}: Received add index entry request from : {}", self.getId(), event.getSource());
                     if (!leader || partitionInProgress) {
                         logger.warn("{}: Received request to add entry but self state doesn't permit to move ahead. Returning ... ");
                         return;
@@ -821,7 +821,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 nextInsertionId = ApplicationConst.STARTING_ENTRY_ID; // Reset the insertion id for the current container.
 
                             } else {
-                                logger.debug( " {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit );
+                                logger.debug(" {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit);
                                 pushEntry(entryToCommit);   // Commit to local first.
                             }
                             
@@ -939,6 +939,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         ApplicationEntry.ApplicationEntryId entryId = entry.getApplicationEntryId();
 
         // As the entry number start from 0.
+        // This is required in case a node suddenly becomes a part of leader group and doesn't have the 
+        // previous entries.
+        
         long resultantEntries = existingEntries >= (entryId.getEntryId() + 1) ? existingEntries 
                 : (entryId.getEntryId() + 1); 
         
@@ -2755,7 +2758,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             return;
                         }
 
-                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId()) ){
+                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId()) ){
                             logger.debug("{}: Control Pull response from a node:{} which is not extension of self overlayId:{} ", new Object[]{prefix, event.getSource(), new OverlayId(self.getOverlayId()) });
                             return;
                         }
@@ -3055,7 +3058,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         try {
                             if (leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())) {
 
-                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
                                     logger.warn("{}: OverlayId extension check failed .. ", prefix);
                                     return;
                                 }
@@ -3213,7 +3216,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 return;
                             }
 
-                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), self.getId())){
+                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
                                 logger.warn("{}: Entry Exchange Response from an undeserving node, returning ... ");
                                 return;
                             }
@@ -3236,10 +3239,13 @@ public final class NPAwareSearch extends ComponentDefinition {
          *  
          * @param entries entry collection
          */
-        private void commitPulledEntries (Collection<ApplicationEntry> entries){
-            
+        private void commitPulledEntries (Collection<ApplicationEntry> entries) throws IOException, LuceneAdaptorException {
+
             Iterator<ApplicationEntry> itr = entries.iterator();
             long limit = currentTrackingUnit.getNumEntries();
+            
+            if( limit <= 0 )
+                return;
             
             while(itr.hasNext()){
                 
@@ -3249,6 +3255,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                     // Such control is required for the NP Merge.
                     itr.remove();  
                 }
+            }
+                
+            // Commit the remaining entries
+            for(ApplicationEntry entry: entries) {
+                commitEntryLocally(entry);
             }
 
         }
