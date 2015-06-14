@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
 import se.sics.ms.common.ApplicationSelf;
@@ -12,7 +11,7 @@ import java.security.PublicKey;
 /**
  * The init event for Search.
  */
-public final class SearchInit extends Init<ShardAwareSearch> {
+public final class SearchInit extends Init<NPAwareSearch> {
     
 	private final ApplicationSelf self;
 	private final SearchConfiguration configuration;

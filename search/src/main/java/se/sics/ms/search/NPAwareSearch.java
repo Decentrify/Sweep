@@ -271,7 +271,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         // PAG Handlers.
         subscribe(leaderUnitCheckHandler, pagPort);
-        subscribe(npTimeoutHandler, pagPort);
+        subscribe(npTimeoutHandler, timerPort);
     }
 
     /**
@@ -529,7 +529,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @param request Add Entry Request
      * @param source  Source
      */
-    private void initiateEntryAdditionMechanism(AddIndexEntry.Request request, DecoratedAddress source) {
+    private void initiateEntryAdditionMechanism (AddIndexEntry.Request request, DecoratedAddress source) {
 
         if (!entryAdditionTracker.canTrack()) {
             logger.warn("{}: Unable to track a new entry addition as limit reached !! ", prefix);
@@ -559,7 +559,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             if (newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
-                logger.warn(" {}: Going to add a new landing entry in the system. ", prefix);
+                logger.debug(" {}: Going to add a new landing entry in the system. ", prefix);
                 lastEpochUpdate = landingEntryTracker.getPreviousEpochContainer() != null 
                         ? landingEntryTracker.getPreviousEpochContainer() 
                         : null;
@@ -815,14 +815,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 // Encapsulate the below structure in a separate method.
                                 LeaderUnit update = new BaseLeaderUnit(entryToCommit.getEpochId(), entryToCommit.getLeaderId());
                                 addUnitPacket(info.getAssociatedEpochUpdate(), update);
-                                
+
                                 lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
                                 self.resetContainerEntries(); // Update the epoch container entries to be 0, in case epoch gets added.
                                 nextInsertionId = ApplicationConst.STARTING_ENTRY_ID; // Reset the insertion id for the current container.
 
                             } else {
-                                
-                                
                                 logger.debug( " {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit );
                                 pushEntry(entryToCommit);   // Commit to local first.
                             }
@@ -834,7 +832,10 @@ public final class NPAwareSearch extends ComponentDefinition {
                             idBuffer.putLong(entryToCommit.getEntryId());
 
                             String signature = ApplicationSecurity.generateRSASignature(idBuffer.array(), privateKey);
-                            EntryAddCommit.Request entryCommitRequest = new EntryAddCommit.Request(commitTimeout, new ApplicationEntry.ApplicationEntryId(entryToCommit.getEpochId(), entryToCommit.getLeaderId(), entryToCommit.getEntryId()), signature);
+                            EntryAddCommit.Request entryCommitRequest = new EntryAddCommit.Request( commitTimeout, new ApplicationEntry.ApplicationEntryId( entryToCommit.getEpochId(),
+                                    entryToCommit.getLeaderId(),
+                                    entryToCommit.getEntryId()),
+                                    signature );
 
                             for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
                                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, entryCommitRequest), networkPort);
@@ -1075,20 +1076,22 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         try {
 
+            // MAIN MARKER ENTRY INJECTION POINT.
+            if(timeLine.getLooseUnit (unit) == null) {
+
+                MarkerEntry markerEntry = new MarkerEntry(unit.getEpochId(),
+                        unit.getLeaderId());
+
+                Document d = MarkerEntry.MarkerEntryHelper.createDocumentFromEntry(markerEntry);
+                markerEntryLuceneAdaptor.addDocumentToLucene(d);
+                self.incrementEntries();
+            }
+
             timeLine.addLeaderUnit(unit);
             self.setLastLeaderUnit(timeLine.getLastUnit());
 
-            // MAIN MARKER ENTRY INJECTION POINT.
-            MarkerEntry markerEntry = new MarkerEntry(unit.getEpochId(),
-                    unit.getLeaderId());
-            Document d = MarkerEntry.MarkerEntryHelper.createDocumentFromEntry(markerEntry);
-
-            markerEntryLuceneAdaptor.addDocumentToLucene(d);
-            
-            self.incrementEntries();
             //Some might become applicable to be added.
             informListeningComponentsAboutUpdates(self);
-
         } 
         catch (LuceneAdaptorException e) {
             
@@ -1527,8 +1530,8 @@ public final class NPAwareSearch extends ComponentDefinition {
             // Utility comprised of marker entries and the index entries.
             self.setNumberOfEntries(size + markerEntrySize); 
             self.setActualEntries(size);
-            
             logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
+
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
@@ -1904,104 +1907,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     
     
     /**
-     * Based on the median Id and the current tracking update,
-     * generate the skipList which is a list containing the epoch updates
-     * that the node has to jump over because the higher nodes might not have the
-     * information as they would have removed it as part of there partitioning
-     * update.
-     *
-     * @return Skip List
-     */
-    private List<LeaderUnit> generateSkipList(LeaderUnit shardContainer, ApplicationEntry.ApplicationEntryId medianId, boolean partitionSubId)
-            throws IOException, LuceneAdaptorException {
-
-        LeaderUnit lastLeaderUnit = timeLine.getLastUnit();
-
-        if (lastLeaderUnit == null || (lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
-                && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId())) {
-            
-            logger.warn("{}: Last Unit ...{} ",prefix , lastLeaderUnit);
-            throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
-        }
-
-        // Current Tracking might be lagging
-        // behind the original information in the store. Therefore Update it before proceeding forward.
-
-        LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
-        container = timeLine.getLooseUnit(container);
-
-        if(container == null){
-            throw new IllegalStateException("Unable to get updated value for current tracking.. ");
-        }
-        
-        // Calculate the next in line leader units.
-        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits(
-                container,
-                Integer.MAX_VALUE);
-
-        // ( In case leader pushes the update to node and it is not in order, just buffer it for the time being. )
-        // No updates could be buffered at this point as updates are added in order 
-        // so the shard update will be the next in line to be added when it was detected. 
-        
-        pendingUnits.add(container);        
-        Collections.sort(pendingUnits, luComparator);
-
-        Iterator<LeaderUnit> iterator = pendingUnits.iterator();
-
-        // Based on which section of the entries that the nodes will clear
-        // Update the pending list.
-        // TODO : FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH for the below fix.
-
-        if (partitionSubId) {
-            // If right to the median id is removed, skip list should contain
-            // entries to right of the median.
-            while (iterator.hasNext()) {
-
-                LeaderUnit nextContainer = iterator.next();
-
-                if (nextContainer.getEpochId() < medianId.getEpochId()) {
-                    iterator.remove();
-                }
-
-            }
-        } else {
-
-            // If left to the median is removed, skip list should contain
-            // entries to the left of the median.
-            while (iterator.hasNext()) {
-
-                LeaderUnit nextContainer = iterator.next();
-
-                if (nextContainer.getEpochId() >= medianId.getEpochId()) {
-                    iterator.remove();
-                }
-            }
-        }
-
-        // Now based on the entries found, compare with the actual
-        // state of the entry pull mechanism and remove the entries already fetched .
-
-//        for(LeaderUnit next: pendingUnits) {
-//
-//            if (next.equals(container) && currentId > 0) {
-//                continue;
-//            }
-//
-//            // Won't be needing this now.
-//            ApplicationEntry entry = new ApplicationEntry(
-//                    new ApplicationEntry.ApplicationEntryId(
-//                            next.getEpochId(),
-//                            next.getLeaderId(),
-//                            0));
-//
-//            commitAndUpdateUtility(entry);
-//        }
-
-        return pendingUnits;
-    }
-
-
-    /**
      * Apply the main sharding update to the application in terms of
      * removing the entries that are not needed and are lying around in the
      * lucene store in the system.
@@ -2143,8 +2048,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
-        trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
-        trigger(new PAGUpdate(updatedDesc), pagPort);
+        trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
+//        trigger(new PAGUpdate(updatedDesc), pagPort);
     }
 
 
@@ -2222,6 +2127,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                 informListeningComponentsAboutUpdates(self);
                 addMarkerUnit();
+
             } catch (LuceneAdaptorException e) {
                 e.printStackTrace();
                 throw new RuntimeException("Unable to calculate the Landing Entry on becoming the leader.");

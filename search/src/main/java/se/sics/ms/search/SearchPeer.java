@@ -105,14 +105,14 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(addIndexEntryRequestHandler, externalUiPort);
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
-        search = create(ShardAwareSearch.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
+        search = create(NPAwareSearch.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 
         // External Components creating and connection to the local components.
-        connectCroupier(init.getCroupierConfiguration(), pseudoGradientConfiguration.getSeed());
-		connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
+        connectCroupier(init.getCroupierConfiguration());
+//		  connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
+//        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
-        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
         connectChunkManager(systemConfig, chunkManagerConfig);
         
@@ -159,8 +159,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
         connect(internalUiPort, search.getPositive(UiPort.class));
-        connect(search.getNegative(FailureDetectorPort.class), fdPort);
-        connect(pseudoGradient.getNegative(FailureDetectorPort.class), fdPort);
         connect(search.getPositive(SelfChangedPort.class), pseudoGradient.getNegative(SelfChangedPort.class));
         
     }
@@ -206,7 +204,7 @@ public final class SearchPeer extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
-            startPAG();
+            startGradient();
         }
     };
 
@@ -245,14 +243,14 @@ public final class SearchPeer extends ComponentDefinition {
         // Election leader connections.
         connect(network, electionLeader.getNegative(Network.class));
         connect(timer, electionLeader.getNegative(Timer.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
+        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
         
         // Election follower connections.
         connect(network, electionFollower.getNegative(Network.class));
         connect(timer, electionFollower.getNegative(Timer.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
+        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), pseudoGradient.getNegative(LeaderElectionPort.class));
     }
@@ -320,7 +318,7 @@ public final class SearchPeer extends ComponentDefinition {
     }
     
     
-    private void connectCroupier(CroupierConfig config, long seed) {
+    private void connectCroupier( CroupierConfig config ) {
         log.info("connecting croupier components...");
 
         List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
