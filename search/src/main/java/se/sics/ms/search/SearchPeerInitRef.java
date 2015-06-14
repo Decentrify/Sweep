@@ -11,6 +11,9 @@ import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
+/**
+ * @deprecated
+ */
 public final class SearchPeerInitRef extends Init<SearchPeerRef> {
 
     private final ApplicationSelf self;

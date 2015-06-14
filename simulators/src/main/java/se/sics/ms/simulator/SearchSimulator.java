@@ -14,8 +14,8 @@ import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
-import se.sics.ms.search.SearchPeerInitRef;
-import se.sics.ms.search.SearchPeerRef;
+import se.sics.ms.search.SearchPeer;
+import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.simulation.*;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -235,8 +235,8 @@ public final class SearchSimulator extends ComponentDefinition {
         BasicAddress address = new BasicAddress(ip, 9999, (int)id);
         self = new ApplicationSelf(new DecoratedAddress(address));
 
-        Component peer = create(SearchPeerRef.class, new SearchPeerInitRef(self,systemConfig, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig));
+        Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
         connect(network, peer.getNegative(Network.class));

@@ -2,7 +2,6 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.VodConfig;
 import se.sics.kompics.Init;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
@@ -12,11 +11,8 @@ import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplication;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplicationInit;
-import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.search.SearchPeerInitRef;
-import se.sics.ms.search.SearchPeerRef;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
@@ -99,49 +95,6 @@ public class SweepOperations {
                     };
                 }
     };
-
-
-
-	public static Operation1<StartNodeCmd, Long> startNodeCmdOperationUp = new Operation1<StartNodeCmd, Long>() {
-        @Override
-        public StartNodeCmd generate(final Long id) {
-
-            return new StartNodeCmd<SearchPeerRef, DecoratedAddress>() {
-
-                long nodeId = SweepOperationsHelper.getStableId(id);
-
-                @Override
-                public Integer getNodeId() {
-                    return (int)nodeId;
-                }
-
-                @Override
-                public int bootstrapSize() {
-                    return 2;
-                }
-
-                @Override
-                public Class getNodeComponentDefinition() {
-                    return SearchPeerRef.class;
-                }
-
-                @Override
-                public SearchPeerInitRef getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePeerInit(address, bootstrapNodes, nodeId);
-                }
-
-                @Override
-                public DecoratedAddress  getAddress() {
-                    return SweepOperationsHelper.getBasicAddress(nodeId);
-                }
-            };
-        }
-    };
-
-
-
-
-
 
 
     public static Operation1<StartNodeCmd, Long> startLeaderGroupNodes = new Operation1<StartNodeCmd, Long>() {

@@ -59,6 +59,10 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import se.sics.util.SimpleLCPViewComparator;
 import se.sics.util.SweepLeaderFilter;
 
+
+/**
+ * @deprecated
+ */
 public final class SearchPeerRef extends ComponentDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(SearchPeerRef.class);

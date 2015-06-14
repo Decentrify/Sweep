@@ -12,10 +12,8 @@ import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.search.SearchPeerInitRef;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
-import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
@@ -140,29 +138,6 @@ public class SweepOperationsHelper {
         return id;
     }
 
-    /**
-     * Based on the NodeId provided, generate an init configuration for the search peer.
-     * @param id NodeId
-     */
-    public static SearchPeerInitRef generatePeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
-
-        logger.warn(" Generating address for peer with id: {} with bootstrap: {} aggregator:{}", new Object[]{id, bootstrap, simulatorAddress});
-
-        BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
-        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
-
-        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInitRef init  = new SearchPeerInitRef(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig);
-        
-        ringNodes.addNode(id);
-        peersAddressMap.put(id, applicationSelf.getAddress());
-
-        bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(applicationSelf.getAddress());
-        
-        return init;
-    }
 
 
     /**

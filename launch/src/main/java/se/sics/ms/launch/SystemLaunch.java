@@ -18,8 +18,6 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
-import se.sics.ms.search.SearchPeerInitRef;
-import se.sics.ms.search.SearchPeerRef;
 import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
