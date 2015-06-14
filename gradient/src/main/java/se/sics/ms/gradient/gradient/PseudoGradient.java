@@ -21,6 +21,7 @@ import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
+import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
@@ -59,6 +60,7 @@ public final class PseudoGradient extends ComponentDefinition {
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
+    Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
     Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = requires(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
@@ -137,6 +139,7 @@ public final class PseudoGradient extends ComponentDefinition {
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
         gradientEntrySet = new TreeSet<SearchDescriptor>(utilityComparator);
+
 
         this.routingTableHandler = new RoutingTableHandler(config.getMaxNumRoutingEntries());
         this.invertedAgeComparator = new ComparatorCollection.InvertedAgeComparator();
@@ -460,7 +463,7 @@ public final class PseudoGradient extends ComponentDefinition {
                 return;
             }
 
-            IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries());
+            IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), self.getOverlayId());
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
                 SearchDescriptor node = nodes.get(n);
@@ -483,6 +486,9 @@ public final class PseudoGradient extends ComponentDefinition {
             MsConfig.Categories category = event.getPattern().getCategory();
             Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
 
+            int parallelism = event.getFanoutParameter() != null ? event.getFanoutParameter() : config.getSearchParallelism();
+            logger.warn("Updated the fanout parameter to: {}", parallelism);
+            
             if (categoryRoutingMap == null) {
                 logger.warn("Unable to locate nodes for the category :{}, from the local routing table", category);
                 return;
@@ -500,7 +506,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
                 Collection<RoutingTableContainer> bucket = sortCollection(categoryRoutingMap.get(partition).getValue1().values(), invertedAgeComparator);
                 Iterator<RoutingTableContainer> iterator = bucket.iterator();
-                for (int i = 0; i < config.getSearchParallelism() && iterator.hasNext(); i++) {
+                for (int i = 0; i < parallelism && iterator.hasNext(); i++) {
 
                     RoutingTableContainer container = iterator.next();
                     SearchDescriptor searchDescriptor = container.getContent();
@@ -659,7 +665,6 @@ public final class PseudoGradient extends ComponentDefinition {
      * After every sample merge, perform some additional tasks
      * in a <b>predefined order</b>.
      *
-     * @param oldGradientEntrySet changed gradient set
      */
     private void performAdditionalHouseKeepingTasks() {
 

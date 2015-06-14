@@ -984,7 +984,7 @@ public final class SearchUpdated extends ComponentDefinition {
                     }
                 }
 
-                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes);
+                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
             } catch (IOException e) {
@@ -1029,7 +1029,7 @@ public final class SearchUpdated extends ComponentDefinition {
 
                 // Use Softmax approach to select the node to ask the request for index entries from.
                 DecoratedAddress node = collectedHashes.keySet().iterator().next();
-                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids);
+                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node, Transport.UDP, request), networkPort);
 
             }
@@ -1056,7 +1056,7 @@ public final class SearchUpdated extends ComponentDefinition {
                         indexEntries.add(entry);
                 }
 
-                IndexExchange.Response response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0);
+                IndexExchange.Response response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
             } catch (IOException e) {
@@ -1143,10 +1143,10 @@ public final class SearchUpdated extends ComponentDefinition {
         }
     };
 
-    final Handler<SimulationEventsPort.SearchSimulated> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated>() {
+    final Handler<SimulationEventsPort.SearchSimulated.Request> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated.Request>() {
         @Override
-        public void handle(SimulationEventsPort.SearchSimulated event) {
-            startSearch(event.getSearchPattern());
+        public void handle(SimulationEventsPort.SearchSimulated.Request event) {
+            startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
         }
     };
 
@@ -1754,7 +1754,7 @@ public final class SearchUpdated extends ComponentDefinition {
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
         public void handle(UiSearchRequest searchRequest) {
-            startSearch(searchRequest.getPattern());
+            startSearch(searchRequest.getPattern(), null, null);
         }
     };
 
@@ -1780,8 +1780,9 @@ public final class SearchUpdated extends ComponentDefinition {
      *
      * @param pattern the search pattern
      */
-    private void startSearch(SearchPattern pattern) {
+    private void startSearch(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter) {
 
+        // TO DO: Add check for the same request but a different page ( Implement Pagination ).
         searchRequest = new LocalSearchRequest(pattern);
         closeIndex(searchIndex);
 
@@ -1795,12 +1796,13 @@ public final class SearchUpdated extends ComponentDefinition {
             throw new RuntimeException("Unable to open search index", e);
         }
 
-        ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
+        logger.error("Search Timeout from Application: {}", searchTimeout);
+        ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
 
@@ -2321,7 +2323,6 @@ public final class SearchUpdated extends ComponentDefinition {
      * In case the sharding event is handled by the shard commit or the control pull, the application needs to be informed
      * immediately, so the application can carry out the necessary sharding steps.
      *
-     * @param container Shard Epoch Container.
      */
     private void handleSharding (ShardLeaderUnit shardContainer){
         

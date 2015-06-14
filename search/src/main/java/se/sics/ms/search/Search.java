@@ -186,7 +186,8 @@ public final class Search extends ComponentDefinition {
      * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
      * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
      */
-    private static class AddIndexTimeout extends Timeout {
+    private class AddIndexTimeout extends Timeout {
+        
         private final int retryLimit;
         private int numberOfRetries = 0;
         private final IndexEntry entry;
@@ -197,17 +198,10 @@ public final class Search extends ComponentDefinition {
          *                   {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
          * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
-        public AddIndexTimeout(ScheduleTimeout request, int retryLimit, IndexEntry entry) {
+        public AddIndexTimeout(ScheduleTimeout request, int retryLimit, int numberOfRetries,  IndexEntry entry) {
             super(request);
             this.retryLimit = retryLimit;
             this.entry = entry;
-        }
-
-        /**
-         * Increment the number of retries executed.
-         */
-        public void incrementTries() {
-            numberOfRetries++;
         }
 
         /**
@@ -217,6 +211,7 @@ public final class Search extends ComponentDefinition {
             return numberOfRetries == retryLimit;
         }
 
+        
         /**
          * @return the {@link IndexEntry} this timeout was scheduled for
          */
@@ -288,6 +283,9 @@ public final class Search extends ComponentDefinition {
         subscribe(leaderUpdateHandler, electionPort);
         subscribe(enableLGMembershipHandler, electionPort);
         subscribe(disableLGMembershipHandler, electionPort);
+        
+        // SHARDING.
+        subscribe(preShardingTimeoutHandler, timerPort);
     }
 
     /**
@@ -371,7 +369,7 @@ public final class Search extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(7000  , 7000);
+            rst = new SchedulePeriodicTimeout(5000  , 5000);
             rst.setTimeoutEvent(new TimeoutCollection.ExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -887,8 +885,14 @@ public final class Search extends ComponentDefinition {
     ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>> handleIndexHashExchangeRequest = new ClassMatchedHandler<IndexHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request>>() {
         @Override
         public void handle(IndexHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexHashExchange.Request> event) {
+            
             logger.debug("{}: Received Index Hash Exchange from: {}", self.getId(), event.getSource());
-
+            
+            if(self.getOverlayId() != request.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), request.getOverlayId()});
+                return;
+            }
+            
             try {
 
                 List<IndexHash> hashes = new ArrayList<IndexHash>();
@@ -915,7 +919,7 @@ public final class Search extends ComponentDefinition {
                     }
                 }
 
-                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes);
+                IndexHashExchange.Response response = new IndexHashExchange.Response(request.getExchangeRoundId(), hashes, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
 
             } catch (IOException e) {
@@ -932,6 +936,11 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received index hash exchange response from the node: {}", new Object[]{self.getId(), event.getSource()});
 
+            if(self.getOverlayId() != response.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), response.getOverlayId()});
+                return;
+            }
+            
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 logger.warn("{}: Received response for an old index hash exchange request. Current UUID :{}, Received :{}, Source:{} ", new Object[]{self.getId(), indexExchangeTimeout, response.getExchangeRoundId(), event.getSource().getId()});
@@ -960,7 +969,7 @@ public final class Search extends ComponentDefinition {
 
                 // Use Softmax approach to select the node to ask the request for index entries from.
                 DecoratedAddress node = collectedHashes.keySet().iterator().next();
-                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids);
+                IndexExchange.Request request = new IndexExchange.Request(response.getExchangeRoundId(), ids, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node, Transport.UDP, request), networkPort);
                 
             }
@@ -977,6 +986,12 @@ public final class Search extends ComponentDefinition {
         public void handle(IndexExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, IndexExchange.Request> event) {
             
             logger.warn("{}: Received Index Exchange request from: {}", self.getId(), event.getSource());
+
+            if(self.getOverlayId() != request.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), request.getOverlayId()});
+                return;
+            }
+            
             
             try {
                 List<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
@@ -987,7 +1002,7 @@ public final class Search extends ComponentDefinition {
                         indexEntries.add(entry);
                 }
                 
-                IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0);
+                IndexExchange.Response  response = new IndexExchange.Response(request.getExchangeRoundId(), indexEntries, 0, 0, self.getOverlayId());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
                 
             } catch (IOException e) {
@@ -1013,6 +1028,11 @@ public final class Search extends ComponentDefinition {
 
             logger.debug("{}: Received index exchange response BEFORE CHECK from the node: {}", self.getId(), event.getSource());
 
+            if(self.getOverlayId() != response.getOverlayId()){
+                logger.warn("{}: Rejecting the entry exchange mechanism for overlayId mismatch: self:{}, received:{}", new Object[]{ self.getId(), self.getOverlayId(), response.getOverlayId()});
+                return;
+            }
+            
             // Drop old responses
             if (!response.getExchangeRoundId().equals(indexExchangeTimeout)) {
                 return;
@@ -1073,10 +1093,10 @@ public final class Search extends ComponentDefinition {
         }
     };
 
-    final Handler<SimulationEventsPort.SearchSimulated> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated>() {
+    final Handler<SimulationEventsPort.SearchSimulated.Request> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated.Request>() {
         @Override
-        public void handle(SimulationEventsPort.SearchSimulated event) {
-            startSearch(event.getSearchPattern());
+        public void handle(SimulationEventsPort.SearchSimulated.Request event) {
+            startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
         }
     };
 
@@ -1088,8 +1108,10 @@ public final class Search extends ComponentDefinition {
      */
     private void addEntryGlobal(IndexEntry entry) {
 
+        System.out.println("{}: Triggering entry addition timeout. EntryId: {}" +  self.getId() + entry);
+
         ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-        rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), entry));
+        rst.setTimeoutEvent(new AddIndexTimeout(rst, config.getRetryCount(), 0, entry));
         addEntryGlobal(entry, rst);
     }
 
@@ -1100,7 +1122,8 @@ public final class Search extends ComponentDefinition {
      * @param timeout timeout for adding the entry
      */
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
-
+        
+        
         trigger(timeout, timerPort);
         trigger(new GradientRoutingPort.AddIndexEntryRequest(entry, timeout.getTimeoutEvent().getTimeoutId()), gradientRoutingPort);
         timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
@@ -1222,18 +1245,21 @@ public final class Search extends ComponentDefinition {
             timeStoringMap.remove(event.getTimeoutId());
 
             if (event.reachedRetryLimit()) {
-                logger.warn("{} reached retry limit for adding a new entry {} ", self.getAddress(), event.entry);
+                logger.error("{} reached retry limit for adding a new entry {} with timeoutId: {}", new Object[]{self.getAddress(), event.entry, event.getTimeoutId()});
                 trigger(new UiAddIndexEntryResponse(false), uiPort);
             }
             else {
 
+                logger.error("Retry is called in :{} for entry: {} ", new Object[]{self.getAddress().getId(), event.getEntry()});
+                
                 //If prepare phase was started but no response received, then replicationRequests will have left
                 // over data
                 replicationRequests.remove(event.getTimeoutId());
 
-                event.incrementTries();
+                
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
-                rst.setTimeoutEvent(event);
+                AddIndexTimeout timeout = new AddIndexTimeout(rst, event.retryLimit, event.numberOfRetries++, event.entry);
+                rst.setTimeoutEvent(timeout);
                 addEntryGlobal(event.getEntry(), rst);
             }
         }
@@ -1538,7 +1564,7 @@ public final class Search extends ComponentDefinition {
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
         public void handle(UiSearchRequest searchRequest) {
-            startSearch(searchRequest.getPattern());
+            startSearch(searchRequest.getPattern(), null, null);
         }
     };
 
@@ -1564,9 +1590,9 @@ public final class Search extends ComponentDefinition {
      *
      * @param pattern the search pattern
      */
-    private void startSearch(SearchPattern pattern) {
+    private void startSearch(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter) {
 
-        // TODO: Add check for the same request but a different page ( Implement Pagination ).
+        // TO DO: Add check for the same request but a different page ( Implement Pagination ).
         searchRequest = new LocalSearchRequest(pattern);
         closeIndex(searchIndex);
 
@@ -1580,12 +1606,13 @@ public final class Search extends ComponentDefinition {
             throw new RuntimeException("Unable to open search index", e);
         }
 
-        ScheduleTimeout rst = new ScheduleTimeout(config.getQueryTimeout());
+        logger.error("Search Timeout from Application: {}", searchTimeout);
+        ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout()), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
 
@@ -1768,8 +1795,6 @@ public final class Search extends ComponentDefinition {
             minStoredId = temp;
         }
 
-        // TODO: The behavior of the lowestMissingIndex in case of the wrap around needs to be tested and some edge cases exists in this implementation.
-        // FIXME: More cleaner solution is required.
         nextInsertionId = maxStoredId;
         lowestMissingIndexValue = (lowestMissingIndexValue < maxStoredId && lowestMissingIndexValue > minStoredId) ? lowestMissingIndexValue : maxStoredId;
         partitionInProgress = false;
@@ -1798,17 +1823,22 @@ public final class Search extends ComponentDefinition {
 
     private void answerSearchRequest() {
         ArrayList<IndexEntry> result = null;
+        int allResults =0 ;
         try {
+            
             result = searchLocal(searchRequestLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+            allResults = searchRequestLuceneAdaptor.getSizeOfLuceneInstance();   // HACK For All.
             logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
-
+            logger.error("Partitions Hit : {}", searchRequest.getNumberOfRespondedPartitions());
         } catch (LuceneAdaptorException e) {
             result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
             logger.warn("{} : Unable to search for the entries.", self.getId());
             e.printStackTrace();
         } finally {
-            searchRequest = null;   // Stop handling more searches.
+            
             trigger(new UiSearchResponse(result), uiPort);
+            trigger(new SimulationEventsPort.SearchSimulated.Response(allResults, searchRequest.getNumberOfRespondedPartitions()), simulationEventsPort);
+            searchRequest = null;   // Stop handling more searches.
         }
     }
 
@@ -1889,7 +1919,7 @@ public final class Search extends ComponentDefinition {
         long medianId;
 
         if (maxStoredId > minStoredId) {
-            medianId = (maxStoredId - minStoredId) / 2;
+            medianId = ((maxStoredId-1) - minStoredId) / 2;
         } else {
             long values = numberOfEntries / 2;
 
@@ -1904,15 +1934,33 @@ public final class Search extends ComponentDefinition {
 
         // Avoid start of partitioning in case if one is already going on.
         if (!partitionInProgress) {
-
-            logger.warn(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + maxStoredId);
+            
             partitionInProgress = true;
-            start2PhasePartitionCommit(minStoredId + medianId, partitionsNumber);
+            logger.error(" Partitioning Message Initiated at : " + self.getId() + " with Minimum Id: " + minStoredId + " and MaxStoreId: " + +maxStoredId + "and Median id: " + medianId);
+            preShardingTimeout(minStoredId, medianId, partitionsNumber);
         }
 
 
     }
 
+    private void preShardingTimeout (long minStoredId, long medianId, VodAddress.PartitioningType partitioningType) {
+        
+        ScheduleTimeout st = new ScheduleTimeout(30000);
+        TimeoutCollection.PreShardingTimeout timeout = new TimeoutCollection.PreShardingTimeout (minStoredId, medianId, partitioningType, st);
+        st.setTimeoutEvent(timeout);
+        
+        trigger(st, timerPort);
+    }
+
+    
+    Handler<TimeoutCollection.PreShardingTimeout> preShardingTimeoutHandler  = new Handler<TimeoutCollection.PreShardingTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.PreShardingTimeout event) {
+            logger.error("{}: Presharding timeout handler invoked, initiate sharding");
+            start2PhasePartitionCommit(event.minStoreId + event.medianId, event.partitioningType);
+        }
+    };
+    
     /**
      * Starting point of the two phase commit protocol for partitioning commit in the
      * system.
@@ -2371,12 +2419,19 @@ public final class Search extends ComponentDefinition {
             self.setOverlayId(newOverlayId);
 
         } else {
-            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionId());
+
+            int newDepth = self.getPartitioningDepth() +1;
+            int partition =0;
+            for(int i=0; i< newDepth; i++){
+                partition = partition | (nodeId & (1 << i));
+            }
+            
+//            int newPartitionId = self.getPartitionId() | ((partitionSubId ? 1 : 0) << self.getPartitionId());
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
             int newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
-                    self.getPartitioningDepth() + 1, newPartitionId, selfCategory);
+                    self.getPartitioningDepth() + 1, partition, selfCategory);
             self.setOverlayId(newOverlayId);
         }
         logger.debug("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
@@ -2439,7 +2494,7 @@ public final class Search extends ComponentDefinition {
         SearchDescriptor updatedDesc = self.getSelfDescriptor();
 
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
+//        trigger(new CroupierUpdate<SearchDescriptor>(updatedDesc), croupierPortPositive);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
@@ -2455,6 +2510,7 @@ public final class Search extends ComponentDefinition {
     Handler<LeaderState.ElectedAsLeader> leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
+            
             logger.warn("{}: Self node is elected as leader.", self.getId());
             leader = true;
             leaderGroupInformation = event.leaderGroup;
@@ -2504,7 +2560,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
 
-            logger.warn("{}: Node is chosen to be a part of leader group.", self.getId());
+            logger.debug("{}: Node is chosen to be a part of leader group.", self.getId());
             self.setIsLGMember(true);
             electionRound = event.electionRoundId;
             informListeningComponentsAboutUpdates(self);

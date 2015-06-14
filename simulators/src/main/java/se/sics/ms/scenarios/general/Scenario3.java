@@ -1,4 +1,4 @@
-package se.sics.ms.scenarios;
+package se.sics.ms.scenarios.general;
 
 import se.sics.ms.simulation.Operations;
 
@@ -6,11 +6,10 @@ import se.sics.ms.simulation.Operations;
  * Initializes the system with 100 nodes, add 200 entries to the index and
  * another 100 nodes after that. During the adding process the leader is
  * crashed. Hence, some add operations might be lost. Later, another 100 nodes
- * are joined and churn is produced. After the churn was introduced, it might
- * take some time until the newly added nodes received all indexes.
+ * are joined.
  */
 @SuppressWarnings("serial")
-public class Scenario4 extends Scenario {
+public class Scenario3 extends Scenario {
 	private static ThreadedSimulationScenario scenario = new ThreadedSimulationScenario() {
 		{
 			StochasticProcess joinNodes = new StochasticProcess() {
@@ -24,14 +23,6 @@ public class Scenario4 extends Scenario {
 				{
 					eventInterArrivalTime(constant(100));
 					raise(100, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
-				}
-			};
-
-			StochasticProcess churn = new StochasticProcess() {
-				{
-					eventInterArrivalTime(constant(2000));
-					raise(30, Operations.peerJoin(), uniform(0, Integer.MAX_VALUE));
-					raise(30, Operations.peerFail(), uniform(30, 200));
 				}
 			};
 
@@ -53,11 +44,10 @@ public class Scenario4 extends Scenario {
 			addEntries.startAfterTerminationOf(5000, joinNodes);
 			failLeader.startAfterTerminationOf(7000, joinNodes);
 			massiveJoin.startAfterTerminationOf(2000, addEntries);
-			churn.startAfterTerminationOf(30000, massiveJoin);
 		}
 	};
 
-	public Scenario4() {
+	public Scenario3() {
 		super(scenario);
 	}
 }

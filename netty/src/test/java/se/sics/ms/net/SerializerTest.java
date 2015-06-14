@@ -366,7 +366,7 @@ public class SerializerTest {
         ids.add(new Id(11, publicKey));
 
 
-        IndexExchange.Request originalExchangeRequest  = new IndexExchange.Request(UUID.randomUUID(), ids);
+        IndexExchange.Request originalExchangeRequest  = new IndexExchange.Request(UUID.randomUUID(), ids, 0);
         Serializer exchangeSerializer = Serializers.lookupSerializer(IndexExchange.Request.class);
 
         IndexExchange.Request copiedExchangeRequest = (IndexExchange.Request)addObjectAndCreateCopiedObject(exchangeSerializer, originalBuf, originalExchangeRequest, copiedBuf);
@@ -378,7 +378,7 @@ public class SerializerTest {
     public void addIndexExchangeResponseTest(){
         logger.info("Add Index Exchange Response Serialization Test.");
 
-        IndexExchange.Response originalExchangeResponse  = new IndexExchange.Response(UUID.randomUUID(), getIndexEntryCollection(10), 10, 0);
+        IndexExchange.Response originalExchangeResponse  = new IndexExchange.Response(UUID.randomUUID(), getIndexEntryCollection(10), 10, 0, 0);
         Serializer exchangeSerializer = Serializers.lookupSerializer(IndexExchange.Response.class);
 
         IndexExchange.Response copiedExchangeResponse = (IndexExchange.Response)addObjectAndCreateCopiedObject(exchangeSerializer, originalBuf, originalExchangeResponse, copiedBuf);
@@ -446,7 +446,7 @@ public class SerializerTest {
     public void indexHashRequestTest(){
         logger.info("Index Hash Exchange Request Test");
 
-        IndexHashExchange.Request request = new IndexHashExchange.Request(UUID.randomUUID(), 10, new Long[]{(long)10, (long)11, (long)12});
+        IndexHashExchange.Request request = new IndexHashExchange.Request(UUID.randomUUID(), 10, new Long[]{(long)10, (long)11, (long)12},0);
         Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Request.class);
 
         IndexHashExchange.Request copiedRequest = (IndexHashExchange.Request) addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
@@ -459,7 +459,7 @@ public class SerializerTest {
     public void indexHashExchangeResponseTest(){
         logger.info("Index Hash Exchange Response Test");
 
-        IndexHashExchange.Response originalResponse = new IndexHashExchange.Response(UUID.randomUUID(), getIndexHashCollection(5));
+        IndexHashExchange.Response originalResponse = new IndexHashExchange.Response(UUID.randomUUID(), getIndexHashCollection(5), 0);
         Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Response.class);
 
         IndexHashExchange.Response copiedResponse = (IndexHashExchange.Response) addObjectAndCreateCopiedObject(serializer, originalBuf, originalResponse, copiedBuf);

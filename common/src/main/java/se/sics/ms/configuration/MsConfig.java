@@ -31,7 +31,7 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
-    public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
+    public static final int SEARCH_MAX_EXCHANGE_COUNT = 25;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;
     public static final int SEARCH_REPLICATION_TIMEOUT = 30*1000;
@@ -52,12 +52,12 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 25;
+    public static final long MAX_ENTRIES_ON_PEER = 10000;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
     // Generic control exchange message.
-    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 30*1000;
+    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 10*1000;
     public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5*1000;
     public static final int CONTROL_MESSAGE_ENUM_SIZE = 2;
 

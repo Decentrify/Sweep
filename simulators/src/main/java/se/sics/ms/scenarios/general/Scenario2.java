@@ -1,4 +1,4 @@
-package se.sics.ms.scenarios;
+package se.sics.ms.scenarios.general;
 
 import se.sics.ms.simulation.Operations;
 

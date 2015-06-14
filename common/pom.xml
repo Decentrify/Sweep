@@ -112,6 +112,11 @@
             <version>${croupier.version}</version>
         </dependency>
         <dependency>
+            <groupId>se.sics.p2ptoolbox.gradient</groupId>
+            <artifactId>gradient-core</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+        <dependency>
             <groupId>se.sics.p2ptoolbox.aggregator</groupId>
             <artifactId>aggregator-api</artifactId>
             <version>${global.aggregator.version}</version>

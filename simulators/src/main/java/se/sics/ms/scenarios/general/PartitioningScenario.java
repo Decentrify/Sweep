@@ -4,7 +4,7 @@
  * and open the template in the editor.
  */
 
-package se.sics.ms.scenarios;
+package se.sics.ms.scenarios.general;
 
 import se.sics.kompics.p2p.experiment.dsl.SimulationScenario;
 import se.sics.ms.simulation.Operations;

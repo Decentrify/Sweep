@@ -9,6 +9,7 @@ import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
@@ -22,12 +23,13 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final ChunkManagerConfig chunkManagerConfiguration;
     private final GradientConfig gradientConfig;
     private final ElectionConfig electionConfig;
-
+    private final TreeGradientConfig tGradientConfig;
+    
     public SearchPeerInit(ApplicationSelf self, SystemConfig systemConfig,
-                          CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
-                          GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
-                          ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
-                          ElectionConfig electionConfig) {
+            CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
+            GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
+            ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
+            ElectionConfig electionConfig, TreeGradientConfig tGradientConfig) {
         super();
         this.self = self;
         this.systemConfig = systemConfig;
@@ -38,6 +40,11 @@ public final class SearchPeerInit extends Init<SearchPeer> {
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig  = gradientConfig;
         this.electionConfig = electionConfig;
+        this.tGradientConfig = tGradientConfig;
+    }
+
+    public TreeGradientConfig getTGradientConfig() {
+        return tGradientConfig;
     }
 
     public SystemConfig getSystemConfig(){

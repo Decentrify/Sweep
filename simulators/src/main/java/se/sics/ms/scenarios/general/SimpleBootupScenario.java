@@ -1,4 +1,4 @@
-package se.sics.ms.scenarios;
+package se.sics.ms.scenarios.general;
 
 import se.sics.ms.simulation.SweepOperations;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
@@ -45,12 +45,12 @@ public class SimpleBootupScenario {
                         raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
-                
+
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE));
-                        
+                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(3000), constant(3));
+
                     }
                 };
 

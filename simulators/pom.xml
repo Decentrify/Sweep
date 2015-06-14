@@ -69,4 +69,28 @@
         </dependency>
         
     </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <artifactId>
+                    maven-assembly-plugin
+                </artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>se.sics.ms.main.FlashCrowdMainTest</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            
+        </plugins>
+
+    </build>
+
 </project>
