@@ -43,6 +43,14 @@ public class TimeLine {
         this.epochMap.clear();
     }
 
+    /**
+     * As we can have multiple epochs with same id in the timeline
+     * because of the network partition merge. 
+     * Therefore, we have to allow safety in terms of nodes with same or next greater epoch id in the system.
+     * 
+     * @param leaderUnit leader unit
+     * @return safety
+     */
     public boolean isSafeToAdd(LeaderUnit leaderUnit) {
 
         if (maxEpochId != -1) {

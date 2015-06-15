@@ -915,10 +915,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
         
         else {
-
-            logger.warn("{}: Call to buffer the entry in the system :{}", prefix, entry.getApplicationEntryId());
-            logger.warn("{}: Current Tracking Unit :{}", prefix, lowestMissingEntryTracker.currentTrackingUnit);
-            System.exit(-1);
             lowestMissingEntryTracker.bufferEntry(entry);
         }
         
@@ -1116,7 +1112,9 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     private void checkBufferedUnit(){
 
+        Collections.sort(bufferedUnits, luComparator);
         Iterator<LeaderUnit> unitIterator = bufferedUnits.iterator();
+        
         while(unitIterator.hasNext()){
 
             LeaderUnit nextUnit = unitIterator.next();
@@ -2872,7 +2870,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                 return;
             }
             
-            Collections.sort(units, comparator);
+            // Certain housekeeping tasks need to be 
+            // performed before the system can move forward in terms
+            // of adding new units.
+            matchAndRemoveBuffered(units);
+            
+            // Now add the units to the timeline.
             for (LeaderUnit unit : units) {
 
                 if(timeLine.isSafeToAdd(unit))
@@ -2880,13 +2883,52 @@ public final class NPAwareSearch extends ComponentDefinition {
                     if(!addUnitAndCheckSafety(unit)){
                         break;  // Stop adding beyond unsafe.
                     }
+                    checkBufferedUnit(); // Check buffered units after every addition.
                 }
                 
                 else bufferedUnits.add(unit);
             }
+        }
 
+
+        /**
+         * Check common entries between the units received through the pull and the 
+         * buffered entries. In case a match is found, remove that buffered entry from the
+         * collection.
+         * <br/>
+         * Assume collection of units to be sorted.
+         * @param units units
+         */
+        private void matchAndRemoveBuffered(List<LeaderUnit> units) {
+            
+            Collections.sort(bufferedUnits, luComparator);
+            Collections.sort(units, luComparator);
+            
+            Iterator<LeaderUnit> itr = bufferedUnits.iterator();
+            
+            while(itr.hasNext()) {
+
+                LeaderUnit next = itr.next();
+                
+                for(LeaderUnit unit : units){
+                    
+                    if(next.getEpochId() == unit.getEpochId() 
+                            && next.getLeaderId() == unit.getLeaderId()){
+                        itr.remove();
+                    }
+                    // In case epoch id has exceeded, break as the units are sorted.
+                    if(unit.getEpochId() > next.getEpochId()) {
+                        break;
+                    }
+                }                
+            }
+            
+            // Before returning, check if any buffered entry can be added
+            // to the system.
             checkBufferedUnit();
         }
+        
+        
 
 
     }
