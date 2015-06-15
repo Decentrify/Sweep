@@ -2924,7 +2924,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
 
-            logger.warn("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
+            logger.debug("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
                     new Object[]{prefix, getEntryBeingTracked(), self.getActualEntries(), self.getNumberOfEntries()});
         }
 
