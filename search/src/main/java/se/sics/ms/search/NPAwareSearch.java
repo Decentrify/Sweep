@@ -915,6 +915,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
         
         else {
+
+            logger.warn("{}: Call to buffer the entry in the system :{}", prefix, entry.getApplicationEntryId());
+            logger.warn("{}: Current Tracking Unit :{}", prefix, lowestMissingEntryTracker.currentTrackingUnit);
+            System.exit(-1);
             lowestMissingEntryTracker.bufferEntry(entry);
         }
         
@@ -2069,7 +2073,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             if(selfDescriptor != null 
                     && !selfDescriptor.equals(event.selfView)){
                 
-                logger.warn("{}: Getting sample for old descriptor from the gradient ... ");
+                logger.warn("{}: Getting sample for old descriptor from the gradient ... ", prefix);
                 return;
             }
             
@@ -2920,8 +2924,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
 
-            logger.debug("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
-                    new Object[]{ prefix, getEntryBeingTracked(), self.getActualEntries(), self.getNumberOfEntries()});
+            logger.warn("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
+                    new Object[]{prefix, getEntryBeingTracked(), self.getActualEntries(), self.getNumberOfEntries()});
         }
 
 
@@ -3033,7 +3037,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                             // Return reply if I am leader else chuck it.
                             TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
-                            List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(writeEntryLuceneAdaptor,
+                            List<ApplicationEntry> entries = ApplicationLuceneQueries.strictEntryIdRange(writeEntryLuceneAdaptor,
                                     request.getLowestMissingEntryId(), collector);
 
                             LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries, self.getOverlayId());
@@ -3097,7 +3101,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
 
                         TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
-                        List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.findEntryIdRange(
+                        List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.strictEntryIdRange(
                                 writeEntryLuceneAdaptor,
                                 request.getLowestMissingIndexEntry(),
                                 collector);

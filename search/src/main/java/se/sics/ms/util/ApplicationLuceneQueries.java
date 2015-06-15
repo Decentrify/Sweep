@@ -127,6 +127,54 @@ public class ApplicationLuceneQueries {
     }
 
 
+
+
+    /**
+     * Retrieve all indexes with ids in the given range from the local index
+     * store.
+     *
+     * @param minId     the inclusive minimum of the range
+     * @param collector Collector for limiting entries.
+     * @return a list of the entries found
+     * @throws java.io.IOException if Lucene errors occur
+     */
+    public static List<ApplicationEntry> strictEntryIdRange(ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId minId, TopDocsCollector collector) {
+
+        List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
+
+        try {
+
+            BooleanQuery booleanQuery = new BooleanQuery();
+
+            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, minId.getEpochId(), minId.getEpochId(), true, true);
+            booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
+
+            Query leaderQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, minId.getLeaderId(), minId.getLeaderId(), true, true);
+            booleanQuery.add(leaderQuery, BooleanClause.Occur.MUST);
+
+            Query entryQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, minId.getEntryId(), Long.MAX_VALUE, true, true);
+            booleanQuery.add(entryQuery, BooleanClause.Occur.MUST);
+
+            entries = adaptor.searchApplicationEntriesInLucene(booleanQuery, collector);
+
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            logger.error("Exception while trying to fetch the index entries between specified range.");
+        }
+
+        return entries;
+    }
+
+
+
+
+
+
+
+
+
+
+
     /**
      * In case the node decides to initiate shard procedure, the splitting point needs to be calculated.
      * This splitting point happens to be midpoint of the sorted entries in the system.
