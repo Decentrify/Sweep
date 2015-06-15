@@ -801,7 +801,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                         try {
 
-                            logger.warn("{}: Majority nodes have promised for entry addition. Move to commit. ", self.getId());
+                            logger.debug("{}: Majority nodes have promised for entry addition. Move to commit. ", self.getId());
+
                             CancelTimeout ct = new CancelTimeout(entryPrepareTimeoutMap.get(entryAdditionRoundId));
                             trigger(ct, timerPort);
 
@@ -1044,7 +1045,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      * NOTE: It might be that the buffered list
      * already contains the leader unit, therefore check before adding.
      * 
-     * @param leaderUnit unit to buffer
+     * @param leaderUnit unit toPENDING buffer
      */
     private void bufferUnit(LeaderUnit leaderUnit) {
        
@@ -2779,8 +2780,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
                             logger.debug("{}: Pull Response Map: {}", pullResponseMap);
-
                             performResponseMatch();
+
                             currentPullRound = null;
                             pullResponseMap.clear();
                         }
@@ -2818,7 +2819,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 for (ControlPull.Response response : pullResponseMap.values()) {
                     intersection.retainAll(response.getNextUpdates());
                 }
-                addLeaderUnits(intersection);
+                addLeaderUnits(intersection);  // Store the common leader units in the system.
 
 
                 // Leader Matching.
@@ -2918,7 +2919,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
-            logger.debug("{}: Entry Being Tracked by Application :{} ", prefix, getEntryBeingTracked());
+
+            logger.debug("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
+                    new Object[]{ prefix, getEntryBeingTracked(), self.getActualEntries(), self.getNumberOfEntries()});
         }
 
 
@@ -3265,40 +3268,32 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
         
         /**
-         * Look into the timeline and check for an update to the current tracking information.
+         * Main helper method for updating the entry tracker which keeps in sync with the
+         * timeline about the next tracking id and information.
          */
-        public void updateCurrentTracking() throws IOException, LuceneAdaptorException {
+        public void updateCurrentLUTracking() {
 
+            if(currentTrackingUnit == null){
 
-            // Handle the initial case.
-            if(currentTrackingUnit == null) {
-
+                // Initial case, we need to fetch the initial tracking unit.
                 currentTrackingUnit = timeLine.getInitialTrackingUnit();
-                if(currentTrackingUnit != null)
-                {
-                    currentTrackingUnit = timeLine
-                            .currentTrackUnit(currentTrackingUnit);
-                }
+                currentTrackingUnit = timeLine.currentTrackUnit(currentTrackingUnit);   // Inform the timeline about the decision to track the unit.
             }
 
-            currentTrackingUnit = timeLine
-                    .getSelfUnitUpdate(currentTrackingUnit);
-
-            if (currentTrackingUnit != null) {
-
-                if (currentTrackingUnit.getEntryPullStatus()
-                        == LeaderUnit.EntryPullStatus.SKIP) {
-
+            else {
+                currentTrackingUnit = timeLine.getSelfUnitUpdate(currentTrackingUnit);
+                if(currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP){
                     checkAndUpdateTracking();
                 }
 
-                else if ((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
-                        && (currentTrackingId >= currentTrackingUnit.getNumEntries())){
+                else if((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
+                        && (currentTrackingId >= currentTrackingUnit.getNumEntries())) {
 
-                    if(currentTrackingUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED) {
-                        currentTrackingUnit = timeLine
-                                .markUnitComplete(currentTrackingUnit);
+                    // Application needs to inform the timeline about the completed entry pull status
+                    if(currentTrackingUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED){
+                        currentTrackingUnit = timeLine.markUnitComplete(currentTrackingUnit);
                     }
+
                     checkAndUpdateTracking();
                 }
             }
@@ -3466,7 +3461,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void updateInternalState() throws IOException, LuceneAdaptorException {
 
             // Update the current tracking information.
-            updateCurrentTracking();
+            updateCurrentLUTracking();
 
             // Check for some entry gaps and remove them.
             checkAndRemoveEntryGaps();

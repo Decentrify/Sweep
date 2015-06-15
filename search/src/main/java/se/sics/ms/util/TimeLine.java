@@ -256,6 +256,9 @@ public class TimeLine {
      */
     public LeaderUnit currentTrackUnit(LeaderUnit leaderUnit) {
 
+        if(leaderUnit == null)
+            return null;
+
         Epoch epoch = epochMap.get(leaderUnit.getEpochId());
 
         if (epoch == null || !epoch.exactContainsCheck(leaderUnit)) {
