@@ -9,6 +9,7 @@ import org.apache.lucene.store.Directory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.types.MarkerEntry;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -108,7 +109,7 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
                 return null;
             }
             
-            int median = ( hits.length/2 );
+            int median = ( hits.length / 2 );
             Document d = searcher.doc( hits[median].doc );
             
             return ApplicationEntry.ApplicationEntryHelper
@@ -140,6 +141,23 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
         
         size = countCollector.getTotalHits();
         return size;
+    }
+
+    @Override
+    public int getApplicationEntrySize() throws LuceneAdaptorException {
+
+        int numberOfEntries;
+        Query epochRangeQuery = NumericRangeQuery.newLongRange(
+
+                ApplicationEntry.EPOCH_ID, 0l,
+                Long.MAX_VALUE,
+                true, true);
+
+        TotalHitCountCollector totalHitCountCollector = new TotalHitCountCollector();
+        searchDocumentsInLucene(epochRangeQuery, totalHitCountCollector);
+        numberOfEntries = totalHitCountCollector.getTotalHits();
+
+        return numberOfEntries;
     }
 
 }

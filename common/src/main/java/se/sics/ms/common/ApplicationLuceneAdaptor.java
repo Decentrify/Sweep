@@ -66,4 +66,14 @@ public abstract class ApplicationLuceneAdaptor extends LuceneAdaptorBasic {
      * @return
      */
     public abstract int getActualSizeOfInstance() throws LuceneAdaptorException;
+
+
+    /**
+     * Count the application entries in the lucene instance.
+     *
+     * @return Application Entry count.
+     * @throws LuceneAdaptorException
+     */
+    public abstract int getApplicationEntrySize() throws LuceneAdaptorException;
+
 }

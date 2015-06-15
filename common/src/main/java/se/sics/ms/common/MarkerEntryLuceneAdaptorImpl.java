@@ -60,4 +60,22 @@ public class MarkerEntryLuceneAdaptorImpl extends MarkerEntryLuceneAdaptor {
             throw new LuceneAdaptorException(e.getMessage());
         }
     }
+
+
+    @Override
+    public int getMarkerEntriesSize() throws LuceneAdaptorException {
+
+        int numberOfEntries;
+        Query epochRangeQuery = NumericRangeQuery.newLongRange(
+
+                MarkerEntry.EPOCH_ID, 0l,
+                Long.MAX_VALUE,
+                true, true);
+
+        TotalHitCountCollector totalHitCountCollector = new TotalHitCountCollector();
+        searchDocumentsInLucene(epochRangeQuery, totalHitCountCollector);
+        numberOfEntries = totalHitCountCollector.getTotalHits();
+
+        return numberOfEntries;
+    }
 }

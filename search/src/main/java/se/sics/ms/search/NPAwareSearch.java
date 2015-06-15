@@ -1523,18 +1523,16 @@ public final class NPAwareSearch extends ComponentDefinition {
                 lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
             }
 
-            int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
-//            int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
-            int markerEntrySize = markerEntryLuceneAdaptor.getSizeOfLuceneInstance();
+            int entrySize = writeEntryLuceneAdaptor.getApplicationEntrySize();
+            int markerEntrySize = markerEntryLuceneAdaptor.getMarkerEntriesSize();
             
-            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{prefix, size + markerEntrySize, size});
+            logger.warn("{}: After Sharding,  Marker Entry Size :{}, Application Entry Size :{}", new Object[] {prefix, markerEntrySize, entrySize});
             lowestMissingEntryTracker.printExistingEntries();
 
             // Re-calculate the size of total and the actual entries in the system.
             // Utility comprised of marker entries and the index entries.
-            self.setNumberOfEntries(size + markerEntrySize); 
-            self.setActualEntries(size);
-            logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
+            self.setNumberOfEntries(entrySize + markerEntrySize);
+            self.setActualEntries(entrySize);
 
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
@@ -1683,11 +1681,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         if (isTimeToShard()) {
 
-            logger.warn("{}: Let's finish this sharding fear now ...", prefix);
             ApplicationEntry.ApplicationEntryId entryId = ApplicationLuceneQueries.getMedianId(writeEntryLuceneAdaptor);
 
             if (entryId == null || leaderGroupInformation == null || leaderGroupInformation.isEmpty() || !leader) {
-                logger.error("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
+                logger.debug("{}: Missing Parameters to initiate sharding, returning ... ", prefix);
                 return;
             }
 
@@ -1728,7 +1725,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                 try {
 
                     previousUpdate = closePreviousEpoch();
-                    ShardLeaderUnit sec = new ShardLeaderUnit(previousUpdate.getEpochId() + 1, self.getId(), 1, event.medianId, publicKey);
+
+                    ShardLeaderUnit sec = new ShardLeaderUnit(
+                            previousUpdate.getEpochId() + 1, self.getId(),
+                            ApplicationConst.SHARD_UNIT_SIZE, event.medianId,
+                            publicKey );
 
                     // Create Hash of the Shard Update.
                     String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
@@ -1815,7 +1816,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             timeLine.addSkipList(skipList);
             addUnitToTimeLine(shardUnit);
             
-            logger.warn("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
+            logger.debug("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
             lowestMissingEntryTracker.resumeTracking();
 
         } catch (Exception e) {
@@ -1914,9 +1915,8 @@ public final class NPAwareSearch extends ComponentDefinition {
      * Apply the main sharding update to the application in terms of
      * removing the entries that are not needed and are lying around in the
      * lucene store in the system.
-     * <p/>
      * <br/>
-     * <p/>
+     * <br/>
      * The order in which the shard updates that needs to be applied is as follows:<br/>
      * <ul>
      * <li>The updates the level and the partitioning information by sharding to

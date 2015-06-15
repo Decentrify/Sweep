@@ -10,4 +10,5 @@ public class ApplicationConst {
     public static final long LANDING_ENTRY_ID = -1;
     public static final long STARTING_ENTRY_ID = 0;
     public static final long STARTING_EPOCH = 0;
+    public static final long SHARD_UNIT_SIZE = 0;
 }

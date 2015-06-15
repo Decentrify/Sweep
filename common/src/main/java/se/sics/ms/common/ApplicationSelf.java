@@ -44,8 +44,20 @@ public class ApplicationSelf {
         this.actualEntries = actualEntries;
         this.lastLeaderUnit = lastLeaderUnit;
     }
-    
-    
+
+    @Override
+    public String toString() {
+        return "ApplicationSelf{" +
+                "address=" + address +
+                ", overlayId=" + overlayId +
+                ", isLGMember=" + isLGMember +
+                ", numberOfEntries=" + numberOfEntries +
+                ", epochContainerEntries=" + epochContainerEntries +
+                ", actualEntries=" + actualEntries +
+                ", lastLeaderUnit=" + lastLeaderUnit +
+                '}';
+    }
+
     public void incrementECEntries(){
         this.epochContainerEntries ++;
     }

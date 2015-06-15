@@ -24,4 +24,15 @@ public abstract class MarkerEntryLuceneAdaptor extends LuceneAdaptorBasic{
      * @return last marker entry
      */
     public abstract MarkerEntry getLastEntry() throws LuceneAdaptorException;
+
+
+    /**
+     * Look for all the marker entries in the lucene instance.
+     * Do not rely on the get size instance of lucene as the instance is shared with
+     * index entries.
+     *
+     * @return marker entries count.
+     * @throws LuceneAdaptorException
+     */
+    public abstract int getMarkerEntriesSize() throws LuceneAdaptorException;
 }

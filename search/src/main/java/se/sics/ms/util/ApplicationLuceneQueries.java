@@ -142,10 +142,6 @@ public class ApplicationLuceneQueries {
         booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
 
 
-        Query landingEntryQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, 0l, 0l, true, true);
-        booleanQuery.add(landingEntryQuery, BooleanClause.Occur.MUST_NOT);
-
-
         Sort sort = new Sort(SortField.FIELD_SCORE,
                 new SortField(ApplicationEntry.EPOCH_ID, SortField.Type.LONG),
                 new SortField(ApplicationEntry.LEADER_ID, SortField.Type.INT),

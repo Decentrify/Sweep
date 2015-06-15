@@ -163,7 +163,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private SearchDescriptor selfDescriptor;
     private UUID preShardTimeoutId;
     private List<LeaderUnit> bufferedUnits;
-    
+    private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     
     
     
@@ -303,6 +303,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         index = new RAMDirectory();
         setupLuceneIndexWriter(index, indexWriterConfig);
         setupApplicationLuceneWriter(index, indexWriterConfig);
+        setupMarkerLuceneWriter(index, indexWriterConfig);
     }
 
 
@@ -351,6 +352,24 @@ public final class ShardAwareSearch extends ComponentDefinition {
         try {
             writeEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(index, indexWriterConfig);
             writeEntryLuceneAdaptor.initialEmptyWriterCommit();
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            throw new RuntimeException(" Unable to open index for Lucene");
+        }
+    }
+
+
+    /**
+     * Based on the information provided, create a lucene writer for adding application
+     * entries in the system.
+     *
+     * @param index             Directory
+     * @param indexWriterConfig Index Writer Configuration.
+     */
+    private void setupMarkerLuceneWriter(Directory index, IndexWriterConfig indexWriterConfig) {
+        try {
+            markerEntryLuceneAdaptor= new MarkerEntryLuceneAdaptorImpl(index, indexWriterConfig);
+            markerEntryLuceneAdaptor.initialEmptyWriterCommit();
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
             throw new RuntimeException(" Unable to open index for Lucene");
@@ -1369,31 +1388,34 @@ public final class ShardAwareSearch extends ComponentDefinition {
             // Remove Entries from the lowest missing tracker also.
             if (isPartition) {
 
-                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThen(
+                ApplicationLuceneQueries.deleteDocumentsWithIdMoreThenMod(
                         writeEntryLuceneAdaptor,
                         middleId);
 
                 lowestMissingEntryTracker.deleteDocumentsWithIdMoreThen(middleId);
             } else {
 
-                ApplicationLuceneQueries.deleteDocumentsWithIdLessThen(
+                ApplicationLuceneQueries.deleteDocumentsWithIdLessThenMod(
                         writeEntryLuceneAdaptor,
                         middleId);
 
                 lowestMissingEntryTracker.deleteDocumentsWithIdLessThen(middleId);
             }
 
-            int size = writeEntryLuceneAdaptor.getSizeOfLuceneInstance();
-            int actualSize = writeEntryLuceneAdaptor.getActualSizeOfInstance();
+            int entrySize = writeEntryLuceneAdaptor.getApplicationEntrySize();
 
-            logger.warn("{}: After Sharding,  Size :{}, Actual Size :{}", new Object[]{prefix, size, actualSize});
+            int markerEntrySize = markerEntryLuceneAdaptor.getMarkerEntriesSize();
+
+            logger.warn("{}: After Sharding,  Marker Entry Size :{}, Application Entry Size :{}", new Object[] {prefix, markerEntrySize, entrySize});
+            System.exit(-1);
+
             lowestMissingEntryTracker.printExistingEntries();
 
-            // Recalculte the size of total and the actual entries in the system.
-            self.setNumberOfEntries(size);
-            self.setActualEntries(actualSize);
+            // Re-calculate the size of total and the actual entries in the system.
+            // Utility comprised of marker entries and the index entries.
+            self.setNumberOfEntries(entrySize + markerEntrySize);
+            self.setActualEntries(entrySize);
 
-            logger.debug("{}: Removed the entries from the partition and updated the value of self ... ", prefix);
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
