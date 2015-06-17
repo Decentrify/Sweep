@@ -36,7 +36,7 @@ import se.sics.ms.data.aggregator.ElectionLeaderUpdateEvent;
 import se.sics.ms.events.UiAddIndexEntryRequest;
 import se.sics.ms.events.UiAddIndexEntryResponse;
 import se.sics.ms.events.UiSearchRequest;
-import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.events.UiSearchResponseBase;
 import se.sics.ms.gradient.control.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -55,7 +55,6 @@ import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.*;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
-import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
 import se.sics.p2ptoolbox.election.api.msg.ElectionState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderState;
 import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
@@ -67,7 +66,6 @@ import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import sun.misc.BASE64Encoder;
 
 import java.io.File;
 import java.io.IOException;
@@ -1836,7 +1834,7 @@ public final class Search extends ComponentDefinition {
             e.printStackTrace();
         } finally {
             
-            trigger(new UiSearchResponse(result), uiPort);
+            trigger(new UiSearchResponseBase(result), uiPort);
             trigger(new SimulationEventsPort.SearchSimulated.Response(allResults, searchRequest.getNumberOfRespondedPartitions()), simulationEventsPort);
             searchRequest = null;   // Stop handling more searches.
         }

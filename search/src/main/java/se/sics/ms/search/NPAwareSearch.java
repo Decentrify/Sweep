@@ -25,9 +25,7 @@ import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
 import se.sics.ms.data.aggregator.ElectionLeaderUpdateEvent;
 import se.sics.ms.data.aggregator.SearchComponentUpdate;
 import se.sics.ms.data.aggregator.SearchComponentUpdateEvent;
-import se.sics.ms.events.UiAddIndexEntryRequest;
-import se.sics.ms.events.UiAddIndexEntryResponse;
-import se.sics.ms.events.UiSearchRequest;
+import se.sics.ms.events.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
@@ -136,9 +134,8 @@ public final class NPAwareSearch extends ComponentDefinition {
     private boolean partitionInProgress = false;
 
     // Generic Control Pull Mechanism.
-    private IndexEntryLuceneAdaptor writeLuceneAdaptor;
     private IndexEntryLuceneAdaptor searchRequestLuceneAdaptor;
-
+    private ApplicationLuceneAdaptor searchEntryLuceneAdaptor;
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
@@ -296,7 +293,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Trackers.
         initializeTrackers();
         index = new RAMDirectory();
-        setupLuceneIndexWriter(index, indexWriterConfig);
         setupApplicationLuceneWriter(index, indexWriterConfig);
         setupMarkerLuceneWriter(index, indexWriterConfig);
     }
@@ -316,25 +312,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         timeLine = new TimeLine();
 
     }
-
-
-    /**
-     * Setting up of the old lucene index entry writer.
-     *
-     * @param index             Directory
-     * @param indexWriterConfig writer config.
-     * @deprecated
-     */
-    private void setupLuceneIndexWriter(Directory index, IndexWriterConfig indexWriterConfig) {
-        try {
-            writeLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(index, indexWriterConfig);
-            writeLuceneAdaptor.initialEmptyWriterCommit();
-        } catch (LuceneAdaptorException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Unable to open index for Lucene");
-        }
-    }
-
 
     /**
      * Based on the information provided, create a lucene writer for adding application
@@ -1327,10 +1304,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         closeIndex(searchIndex);
 
         searchIndex = new RAMDirectory();
-        searchRequestLuceneAdaptor = new IndexEntryLuceneAdaptorImpl(searchIndex, indexWriterConfig);
+        searchEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(searchIndex, indexWriterConfig);
 
         try {
-            searchRequestLuceneAdaptor.initialEmptyWriterCommit();
+            searchEntryLuceneAdaptor.initialEmptyWriterCommit();
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
             throw new RuntimeException("Unable to open search index", e);
@@ -1342,7 +1319,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getTimeoutId(),
+                config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
 
@@ -1377,14 +1355,14 @@ public final class NPAwareSearch extends ComponentDefinition {
                     logger.debug("{}: Received Search Request from : {}", self.getId(), event.getSource());
                     try {
 
-                        ArrayList<IndexEntry> result = searchLocal( writeEntryLuceneAdaptor, 
+                        ArrayList<ApplicationEntry> result = searchLocal( writeEntryLuceneAdaptor,
                                 request.getPattern(), config.getHitsPerQuery());
                         
-                        SearchInfo.Response searchMessageResponse = new SearchInfo.Response( request.getRequestId(), 
+                        SearchInfo.ResponseUpdated searchMessageResponse = new SearchInfo.ResponseUpdated( request.getRequestId(),
                                 result, request.getPartitionId(), 0, 0);
                         
-                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), 
-                                Transport.UDP, searchMessageResponse), networkPort);
+                        trigger(CommonHelper.getDecoratedContentMessage( self.getAddress(), event.getSource(),
+                                Transport.UDP, searchMessageResponse), networkPort );
                         
                     } catch (LuceneAdaptorException e) {
                         logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
@@ -1404,31 +1382,31 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @return a list of matching entries
      * @throws java.io.IOException if Lucene errors occur
      */
-    private ArrayList<IndexEntry> searchLocal(ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+    private ArrayList<ApplicationEntry> searchLocal( ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit ) throws LuceneAdaptorException {
         
         TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
         ArrayList<ApplicationEntry> entryResult = (ArrayList<ApplicationEntry>) adaptor.searchApplicationEntriesInLucene(pattern.getQuery(), collector);
         
-        ArrayList<IndexEntry> result  = new ArrayList<IndexEntry>();
-        for(ApplicationEntry entry : entryResult){
-            result.add(entry.getEntry());
-        }
-        
-        return result;
+        return entryResult != null ? entryResult : new ArrayList<ApplicationEntry>();
     }
 
 
     /**
      * Node received search response for the current search request.
+     * 
      */
-    ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>> handleSearchResponse = new ClassMatchedHandler<SearchInfo.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response>>() {
+    ClassMatchedHandler<SearchInfo.ResponseUpdated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated>> handleSearchResponse = 
+            new ClassMatchedHandler<SearchInfo.ResponseUpdated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated>>() {
+                
         @Override
-        public void handle(SearchInfo.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response> event) {
+        public void handle(SearchInfo.ResponseUpdated response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated> event) {
 
             if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
                 return;
             }
-            addSearchResponse(response.getResults(), response.getPartitionId(), response.getSearchTimeoutId());
+            addSearchResponse( response.getResults(), 
+                    response.getPartitionId(), 
+                    response.getSearchTimeoutId());
         }
     };
 
@@ -1438,14 +1416,15 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @param entries   the entries to be added
      * @param partition the partition from which the entries originate from
      */
-    private void addSearchResponse(Collection<IndexEntry> entries, int partition, UUID requestId) {
+    private void addSearchResponse (Collection<ApplicationEntry> entries, int partition, UUID requestId) {
+        
         if (searchRequest.hasResponded(partition)) {
             return;
         }
 
         try
         {
-            addIndexEntries(searchRequestLuceneAdaptor, entries);
+            addEntries(searchEntryLuceneAdaptor, entries);
             searchRequest.addRespondedPartition(partition);
 
             Integer numOfPartitions = searchPartitionsNumber.get(requestId);
@@ -1458,8 +1437,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
                 CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
                 trigger(ct, timerPort);
-//                answerSearchRequestBase();
-                answerSearchRequest();
+                answerSearchRequestBase();
             }
         }
 
@@ -1468,6 +1446,14 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
+    
+    /**
+     * Log the time results for the search results.
+     *  
+     * @param requestId requestId
+     * @param timeCompleted time of completion
+     * @param numOfPartitions partition number
+     */
     private void logSearchTimeResults(UUID requestId, long timeCompleted, Integer numOfPartitions) {
         Pair<Long, Integer> searchIssued = searchRequestStarted.get(requestId);
         if (searchIssued == null)
@@ -1492,7 +1478,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void handle(TimeoutCollection.SearchTimeout event) {
             logSearchTimeResults(event.getTimeoutId(), System.currentTimeMillis(),
                     searchRequest.getNumberOfRespondedPartitions());
-            answerSearchRequest();
+            answerSearchRequestBase();
         }
     };
 
@@ -1502,8 +1488,8 @@ public final class NPAwareSearch extends ComponentDefinition {
      * the entry base that needs to be removed and ultimately update the
      * self with the remaining entries.
      *
-     * @param middleId
-     * @param isPartition
+     * @param middleId middle entry.
+     * @param isPartition is partition.
      */
     private void removeEntriesNotFromYourShard(ApplicationEntry.ApplicationEntryId middleId, boolean isPartition) {
 
@@ -1542,17 +1528,17 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Add the given {@link se.sics.ms.types.IndexEntry}s to the given Lucene directory
+     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the given Lucene directory
      *
      * @param searchRequestLuceneAdaptor adaptor
      * @param entries                    a collection of index entries to be added
      * @throws java.io.IOException in case the adding operation failed
      */
-    private void addIndexEntries(IndexEntryLuceneAdaptor searchRequestLuceneAdaptor, Collection<IndexEntry> entries)
+    private void addEntries(ApplicationLuceneAdaptor searchRequestLuceneAdaptor, Collection<ApplicationEntry> entries)
             throws IOException {
         try {
-            for (IndexEntry entry : entries) {
-                addIndexEntry(searchRequestLuceneAdaptor, entry);
+            for (ApplicationEntry entry : entries) {
+                addEntry(searchRequestLuceneAdaptor, entry);
             }
         } catch (LuceneAdaptorException e) {
             logger.warn("{}: Unable to update search index with additional entries", self.getId());
@@ -1560,32 +1546,28 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
-    private void answerSearchRequestBase() {
-        
-//        ArrayList<IndexEntry> result = null;
-//        try {
-//            result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
-//            logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
-//
-//        } catch (LuceneAdaptorException e) {
-//            result = new ArrayList<IndexEntry>();  // In case of error set the result set as empty.
-//            logger.warn("{} : Unable to search for the entries.", self.getId());
-//            e.printStackTrace();
-//        } finally {
-//            searchRequest = null;   // Stop handling more searches.
-//            trigger(new UiSearchResponse(result), uiPort);
-//        }
-    }
-
     /**
      * The search responses that are collected, are added
      * in the lucene instance and then when its time to reply back,
-     * the application simply searches the created lucene instance 
+     * the application simply searches the created lucene instance
      * and reply back. It helps the application to perform manipulations on the data like
      * sorting, searching.
      */
-    private void answerSearchRequest(){
-        throw new UnsupportedOperationException("Operation Not Supported");
+    private void answerSearchRequestBase() {
+        
+        ArrayList<ApplicationEntry> result = null;
+        try {
+            result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
+            logger.error("{} found {} entries for {}", new Object[]{self.getId(), result.size(), searchRequest.getSearchPattern()});
+
+        } catch (LuceneAdaptorException e) {
+            result = new ArrayList<ApplicationEntry>();  // In case of error set the result set as empty.
+            logger.warn("{} : Unable to search for the entries.", self.getId());
+            e.printStackTrace();
+        } finally {
+            searchRequest = null;   // Stop handling more searches.
+            trigger(new UiSearchResponse(result), uiPort);
+        }
     }
 
     /**
@@ -1612,50 +1594,14 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @param entry   the {@link se.sics.ms.types.IndexEntry} to be added
      * @throws java.io.IOException in case the adding operation failed
      */
-    private void addIndexEntry(IndexEntryLuceneAdaptor adaptor, IndexEntry entry) throws IOException, LuceneAdaptorException {
+    private void addEntry (ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
-        logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getId());
+        logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getApplicationEntryId());
 
         Document doc = new Document();
-        doc = IndexEntry.IndexEntryHelper.addIndexEntryToDocument(doc, entry);
+        doc = ApplicationEntry.ApplicationEntryHelper.createDocumentFromEntry(doc, entry);
         adaptor.addDocumentToLucene(doc);
     }
-
-    /**
-     * Add a new {@link se.sics.ms.types.IndexEntry} to the local Lucene index.
-     *
-     * @param entry the {@link se.sics.ms.types.ApplicationEntry} to be added
-     * @throws java.io.IOException if the Lucene index fails to store the entry
-     * @deprecated
-     */
-    private void addEntryLocally(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
-
-        // As the lowest missing tracker keeps track of the missing entries, the onus of whether the entry is ready to
-        // be added to the system depends upon the current state of it.
-
-        if (lowestMissingEntryTracker.updateMissingEntryTracker(entry)) {
-
-            commitAndUpdateUtility(entry);
-            lowestMissingEntryTracker.checkAndRemoveEntryGaps();    // Check if any gaps can be removed with this entry addition.
-            lowestMissingEntryTracker.printCurrentTrackingInfo();
-
-            // After committing the utility, check for the container switch.
-            if (self.getEpochContainerEntries() >= config.getMaxEpochContainerSize() && leader) {
-
-                logger.warn("{}: Time to initiate the container switch.", prefix);
-                addMarkerUnit();
-                return;
-            }
-
-            // If container switch is not going on, check for the sharding update.
-            checkAndInitiateSharding();
-
-        } else {
-            logger.warn("{}: Not supposed to add entry :{} in Lucene ...Buffering It And Returning ... ", prefix, entry);
-            lowestMissingEntryTracker.printCurrentTrackingInfo();
-        }
-    }
-
 
     /**
      * Once the entry passes all the checks for authenticity and being a correctly tracked entry,
