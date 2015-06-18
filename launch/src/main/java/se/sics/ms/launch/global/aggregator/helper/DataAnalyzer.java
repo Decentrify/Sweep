@@ -106,7 +106,7 @@ public class DataAnalyzer {
                 .append(overview.getSize()).append(",")
                 .append(overview.getBucketDivision().getValue0()).append(",")
                 .append(overview.getBucketDivision().getValue1()).append(",")
-                .append(overview.getBucketDivision().getValue2()).append(",");
+                .append(overview.getBucketDivision().getValue2());
         
         
         builder.append("\n");

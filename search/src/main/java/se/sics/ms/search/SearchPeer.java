@@ -100,7 +100,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(self, searchConfiguration, publicKey, privateKey));
-        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
+        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 800));       // FIX ME: Address Set as Null.
 
         // External Components creating and connection to the local components.
         connectCroupier(init.getCroupierConfiguration());

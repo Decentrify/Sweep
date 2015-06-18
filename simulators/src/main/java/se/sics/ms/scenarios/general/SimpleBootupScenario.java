@@ -17,10 +17,18 @@ public class SimpleBootupScenario {
         SimulationScenario scenario = new SimulationScenario() {
             
             {
+
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startAggregatorNodeCmd);
+                    }
+                };
+                
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(2 , SweepOperations.startPAGNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
+                        raise(5 , SweepOperations.startPAGNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };
 
@@ -35,7 +43,7 @@ public class SimpleBootupScenario {
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(5000));
-                        raise(25, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(1 , SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 
@@ -54,8 +62,8 @@ public class SimpleBootupScenario {
                     }
                 };
 
-                peerJoin.start();
-
+                startAggregatorNode.start();
+                peerJoin.startAfterTerminationOf(1000, startAggregatorNode);
 //                addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
 //                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
 //                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
