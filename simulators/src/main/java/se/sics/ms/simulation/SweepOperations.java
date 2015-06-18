@@ -519,12 +519,11 @@ public class SweepOperations {
                 }
 
                 @Override
-                public Msg getNetworkMsg(Address address) {
+                public Msg getNetworkMsg (Address address) {
 
                     logger.debug("Search Index Entry Command invoked for ->" + destination.getId());
-
                     SearchP2pSimulated.Request simulated = new SearchP2pSimulated.Request(pattern, searchTimeout.intValue(), fanoutParameter.intValue());
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, (DecoratedAddress) address, Transport.UDP);
+                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>((DecoratedAddress) address, destination, Transport.UDP);
                     BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request> msg = new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>(header, simulated);
 
                     return msg;
