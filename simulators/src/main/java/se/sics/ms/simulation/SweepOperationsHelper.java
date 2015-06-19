@@ -176,7 +176,7 @@ public class SweepOperationsHelper {
      */
     public static DecoratedAddress getNodeAddressToCommunicate(Long id){
         
-        logger.info(" Fetching random node address from the map. ");
+        logger.debug(" Fetching random node address from the map. ");
         Long successor = ringNodes.getNode(id);
         
         DecoratedAddress address = peersAddressMap.get(successor);
@@ -336,7 +336,7 @@ public class SweepOperationsHelper {
             throw new RuntimeException(" Unable to generate partition buckets.");
         }
 
-        logger.warn("Partition Node Map : {}", partitionNodeMap);
+        logger.debug("Partition Node Map : {}", partitionNodeMap);
     }
 
     public static DecoratedAddress getAggregatorAddress() {

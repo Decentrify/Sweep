@@ -105,8 +105,8 @@ public final class SearchPeer extends ComponentDefinition {
         // External Components creating and connection to the local components.
         connectCroupier(init.getCroupierConfiguration());
 //		  connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
-//        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
+        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
         connectChunkManager(systemConfig, chunkManagerConfig);
         
@@ -147,8 +147,11 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), pseudoGradient.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+//        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+//        connect(pseudoGradient.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+
+        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(pseudoGradient.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), pseudoGradient.getNegative(LeaderStatusPort.class));
         connect(pseudoGradient.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));

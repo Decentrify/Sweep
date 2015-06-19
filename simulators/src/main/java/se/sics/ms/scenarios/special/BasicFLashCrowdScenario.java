@@ -54,7 +54,7 @@ public class BasicFLashCrowdScenario {
                 StochasticProcess flashCrowdPeerJoin = new StochasticProcess() {
                     {
                         System.out.println(" Initiating the Flash Crowd peer join");
-                        eventInterArrivalTime(constant(1000));
+                        eventInterArrivalTime(uniform(400, 2000));
                         raise(flashCrowdSize , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };

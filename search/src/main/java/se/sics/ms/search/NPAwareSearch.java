@@ -2368,7 +2368,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         private UUID awaitShardCommit;
 
         public ShardTracker() {
-            logger.warn("{}: Shard Tracker Initialized ", prefix);
+            logger.debug("{}: Shard Tracker Initialized ", prefix);
         }
 
         /**
