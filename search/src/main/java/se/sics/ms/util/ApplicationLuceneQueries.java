@@ -127,6 +127,49 @@ public class ApplicationLuceneQueries {
     }
 
 
+    /**
+     * Find the particular entry id in the local index in the system.
+     *
+     * @param adaptor adaptor
+     * @param entryId entry
+     * @return
+     */
+    public static ApplicationEntry findEntryId(ApplicationLuceneAdaptor adaptor, ApplicationEntry.ApplicationEntryId entryId) {
+
+        ApplicationEntry entry = null;
+
+        try {
+
+            BooleanQuery booleanQuery = new BooleanQuery();
+
+            Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID, entryId.getEpochId(), entryId.getEpochId(), true, true);
+            booleanQuery.add(epochQuery, BooleanClause.Occur.MUST);
+
+            Query leaderQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, entryId.getLeaderId(), entryId.getLeaderId(), true, true);
+            booleanQuery.add(leaderQuery, BooleanClause.Occur.MUST);
+
+            Query entryQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, entryId.getEntryId(), entryId.getEntryId(), true, true);
+            booleanQuery.add(entryQuery, BooleanClause.Occur.MUST);
+
+            Sort sort = new Sort(SortField.FIELD_SCORE,
+                    new SortField(ApplicationEntry.EPOCH_ID, SortField.Type.LONG),
+                    new SortField(ApplicationEntry.LEADER_ID, SortField.Type.INT),
+                    new SortField(ApplicationEntry.ENTRY_ID, SortField.Type.LONG));
+
+            List<ApplicationEntry> entries = adaptor.searchApplicationEntriesInLucene(booleanQuery, sort, 1);
+
+            entry = entries.isEmpty() ? entry : entries.get(0);
+
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            logger.error("Exception while trying to fetch the index entries between specified range.");
+        }
+
+        return entry;
+
+
+    }
+
 
 
     /**

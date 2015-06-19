@@ -129,8 +129,8 @@ public class SweepOperationsHelper {
     public static long getStableId(long id){
         
         Long successor = ringNodes.getNode(id);
-        
-        while (successor != null && successor.equals(id) && reservedIdList.contains(successor)) {
+
+        while ( (successor != null && successor.equals(id) ) || reservedIdList.contains(successor)) {
             id = (id + 1) % identifierSpaceSize;
             successor = ringNodes.getNode(id);
         }

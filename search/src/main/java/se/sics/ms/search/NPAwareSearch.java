@@ -1933,7 +1933,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @param entryId the id of the entry
      * @return the entry if found or null if non-existing
      */
-    private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
+    private ApplicationEntry findEntryByIdBase(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
         List<ApplicationEntry> entries = ApplicationLuceneQueries.findEntryIdRange(
                 writeEntryLuceneAdaptor,
                 entryId, entryId,
@@ -1944,6 +1944,23 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
         return entries.get(0);
     }
+
+
+    /**
+     * Find an entry for the given id in the local index store.
+     *
+     * @param entryId the id of the entry
+     * @return the entry if found or null if non-existing
+     */
+    private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId) {
+
+        ApplicationEntry entry  = ApplicationLuceneQueries.findEntryId(
+                writeEntryLuceneAdaptor,
+                entryId);
+
+        return entry;
+    }
+
 
     /**
      * Based on the current shard information, determine the updated shard information
@@ -2937,7 +2954,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         startEntryPullMechanism();
 
                     } else {
-                        logger.debug("{}: Entry exchange round is paused, returning ... ");
+                        logger.error("{}: Entry exchange round is paused, returning ... ");
                     }
 
                 } catch (Exception e) {
@@ -2973,10 +2990,10 @@ public final class NPAwareSearch extends ComponentDefinition {
          */
         private void triggerHashExchange(UUID entryExchangeRound) throws IOException, LuceneAdaptorException {
 
+            ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
             if (leaderAddress != null && isLeaderInGradient(leaderAddress)) {
 
                 logger.debug("Start the special direct leader pull protocol.");
-                ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
 
                 leaderPullRound = UUID.randomUUID();
                 LeaderPullEntry.Request pullRequest = new LeaderPullEntry.Request(leaderPullRound, entryBeingTracked);
@@ -2986,7 +3003,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             } else {
 
                 EntryHashExchange.Request request =
-                        new EntryHashExchange.Request(entryExchangeRound, getEntryBeingTracked());
+                        new EntryHashExchange.Request(entryExchangeRound, entryBeingTracked);
 
                 Collection<DecoratedAddress> higherNodesForFetch =
                         getNodesForExchange(entryExchangeTracker.getHigherNodesCount());
@@ -3135,14 +3152,13 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 Collection<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList<ApplicationEntry.ApplicationEntryId>();
 
                                 if (entryHashCollection.isEmpty()) {
-                                    logger.debug("{}: Unable to find any common in order hashes", prefix);
+                                    logger.warn("{}: Unable to find any common in order hashes", prefix);
                                     return;
                                 }
 
                                 for (EntryHash hash : entryHashCollection) {
                                     entryIds.add(hash.getEntryId());
                                 }
-
 
                                 // Trigger request to get application entries from a particular user.
 
@@ -3180,7 +3196,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         Collection<ApplicationEntry.ApplicationEntryId> applicationEntryIds = request.getEntryIds();
 
                         for (ApplicationEntry.ApplicationEntryId entryId : applicationEntryIds) {
-                            ApplicationEntry applicationEntry = findEntryById(entryId, collector);
+                            ApplicationEntry applicationEntry = findEntryById(entryId);
                             if (applicationEntry != null) {
                                 applicationEntries.add(applicationEntry);
                             }
