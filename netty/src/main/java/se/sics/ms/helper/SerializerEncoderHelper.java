@@ -119,4 +119,23 @@ public class SerializerEncoderHelper {
     }
 
 
+    /**
+     * In cases where the object could be null, extra information
+     * needs to be placed before writing the object.
+     *
+     * @param buf buffer
+     * @param obj object
+     */
+    public static void checkNullAndUpdateBuff(ByteBuf buf, Object obj){
+        
+        if(obj == null){
+            buf.writeBoolean(true);
+        }
+        else{
+            buf.writeBoolean(false);
+        }
+        
+    }
+    
+
 }

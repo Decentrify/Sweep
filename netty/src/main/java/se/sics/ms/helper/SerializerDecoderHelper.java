@@ -106,8 +106,8 @@ public class SerializerDecoderHelper {
     /**
      * Read the collection from the buffer.
      *
-     * @param objCollection
-     * @param buffer
+     * @param objCollection objCollection
+     * @param buffer buffer
      */
     public static void readCollectionFromBuff(Collection objCollection, Serializer serializer, ByteBuf buffer, Optional<Object> hint){
 
@@ -117,6 +117,18 @@ public class SerializerDecoderHelper {
             Object entry = serializer.fromBinary(buffer, hint);
             objCollection.add(entry);
         }
+    }
+
+
+    /**
+     * Check if the value of the object is committed as null.
+     * If null, then move to next object in queue to be read.
+     *
+     * @param buf buffer
+     * @return boolean
+     */
+    public static boolean checkNullCommit(ByteBuf buf){
+        return buf.readBoolean();
     }
 
 }
