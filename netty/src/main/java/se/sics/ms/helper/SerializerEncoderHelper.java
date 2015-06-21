@@ -2,9 +2,11 @@ package se.sics.ms.helper;
 
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
+import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.types.IndexEntry;
 import sun.misc.BASE64Encoder;
 import java.io.UnsupportedEncodingException;
+import java.util.Collection;
 
 /**
  * Helper class for the encoding of the
@@ -97,6 +99,24 @@ public class SerializerEncoderHelper {
         }
     }
 
+
+    /**
+     * Simple helper method to write a collection
+     * to byte buffer.
+     *
+     * @param objCollection
+     * @param serializer
+     * @param buf
+     */
+    public static void collectionToBuff(Collection objCollection, Serializer serializer, ByteBuf buf){
+
+        int size = objCollection.size();
+        buf.writeInt(size);
+
+        for(Object obj : objCollection){
+            serializer.toBinary(obj, buf);
+        }
+    }
 
 
 }

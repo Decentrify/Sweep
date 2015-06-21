@@ -1,8 +1,10 @@
 package se.sics.ms.helper;
 
+import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import org.apache.commons.codec.binary.Base64;
 import se.sics.gvod.common.msgs.MessageDecodingException;
+import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 
@@ -12,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Collection;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -98,6 +101,22 @@ public class SerializerDecoderHelper {
         int temp0 = bytes[0] & 255;
         int temp1 = bytes[1] & 255;
         return (temp0 << 8) + temp1;
+    }
+
+    /**
+     * Read the collection from the buffer.
+     *
+     * @param objCollection
+     * @param buffer
+     */
+    public static void readCollectionFromBuff(Collection objCollection, Serializer serializer, ByteBuf buffer, Optional<Object> hint){
+
+        int size = buffer.readInt();
+
+        while(size > 0) {
+            Object entry = serializer.fromBinary(buffer, hint);
+            objCollection.add(entry);
+        }
     }
 
 }
