@@ -45,7 +45,7 @@ public class BasicFLashCrowdScenario {
 
                 StochasticProcess initialPeerJoin = new StochasticProcess() {
                     {
-                        eventInterArrivalTime(constant(1000));
+                        eventInterArrivalTime(constant(500));
                         raise(initialClusterSize-1 , SweepOperations.startNodeCmdOperation, uniform(0,Integer.MAX_VALUE));
                     }
                 };

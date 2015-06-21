@@ -77,7 +77,7 @@ public class BasicAvailabilityScenario {
                 // Churn Scenario Commands.
 //                churnPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
 //                churnPeerKillProcess.startAtSameTimeWith(churnPeerJoin);
-                churnEntryAddition.startAfterTerminationOf(150*1000, addIndexEntryCommand);
+                churnEntryAddition.startAfterTerminationOf(50*1000, addIndexEntryCommand);
 
             }
         };

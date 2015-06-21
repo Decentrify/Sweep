@@ -54,7 +54,7 @@ public class BasicChurnScenario {
 
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
-                        eventInterArrivalTime(constant(3000 / throughput));
+                        eventInterArrivalTime(constant(1000 / throughput));
                         raise( numEntries , SweepOperations.addIndexEntryCommand, constant(Integer.MIN_VALUE));
                     }
                 };

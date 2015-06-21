@@ -26,7 +26,7 @@ public class AvailabilityMainTest {
 
         
 
-        System.out.println(" Starting the Availability Scenario with"
+        System.out.println(" Starting the Epoch Aware Availability Scenario with"
                 + " seed: " + seed 
                 + " throughput: " + throughput 
                 + " initialClusterSize: "+ initialClusterSize 

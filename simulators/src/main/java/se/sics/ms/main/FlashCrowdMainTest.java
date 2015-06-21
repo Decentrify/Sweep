@@ -23,7 +23,7 @@ public class FlashCrowdMainTest {
         int initialClusterSize = Integer.valueOf(args[3]);
         int flashCrowdSize = Integer.valueOf(args[4]);
         
-        System.out.println(" Starting the Epoch Aware Flash Crowd Test with" + " seed: " + seed + " throughput: " + throughput + " entries: " + numEntries + " initialClusterSize: " + initialClusterSize + " flashCrowdSize: " + flashCrowdSize);
+        System.out.println(" Starting the Fixed Epoch Aware Flash Crowd Test with" + " seed: " + seed + " throughput: " + throughput + " entries: " + numEntries + " initialClusterSize: " + initialClusterSize + " flashCrowdSize: " + flashCrowdSize);
         BasicFLashCrowdScenario.boot(seed,throughput, numEntries, initialClusterSize, flashCrowdSize).simulate(LauncherComp.class);
     }
 
