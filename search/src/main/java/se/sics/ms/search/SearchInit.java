@@ -17,6 +17,7 @@ public final class SearchInit extends Init<NPAwareSearch> {
 	private final SearchConfiguration configuration;
     private PublicKey publicKey;
     private PrivateKey privateKey;
+    private long seed;
     
 	/**
 	 * @param self
@@ -24,13 +25,23 @@ public final class SearchInit extends Init<NPAwareSearch> {
 	 * @param configuration
 	 *            the {@link SearchConfiguration} of the local node
 	 */
-	public SearchInit(ApplicationSelf self, SearchConfiguration configuration, PublicKey publicKey, PrivateKey privateKey) {
+	public SearchInit(long seed, ApplicationSelf self, SearchConfiguration configuration, PublicKey publicKey, PrivateKey privateKey) {
 		super();
+        this.seed = seed;
 		this.self = self;
 		this.configuration = configuration;
         this.publicKey = publicKey;
         this.privateKey = privateKey;
 	}
+
+
+    /**
+     * Get the seed for the system.
+     * @return seed
+     */
+    public long getSeed(){
+        return this.seed;
+    }
 
 	/**
 	 * @return the address of the local node

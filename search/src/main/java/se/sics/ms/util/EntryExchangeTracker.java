@@ -27,13 +27,17 @@ public class EntryExchangeTracker {
     UUID exchangeRoundId;
     private int higherNodesCount;
     private boolean hashRoundAnswered;
+    private long seed;
+    private Random random;
 
     Map<DecoratedAddress, Collection<EntryHash>> exchangeRoundEntryHashCollection;
 
 
 
-    public EntryExchangeTracker(int higherNodesCount) {
+    public EntryExchangeTracker(int higherNodesCount, long seed) {
 
+        this.seed = seed;
+        this.random = new Random(this.seed);
         this.exchangeRoundEntryHashCollection = new HashMap<DecoratedAddress, Collection<EntryHash>>();
         this.higherNodesCount = higherNodesCount;
     }
@@ -173,7 +177,7 @@ public class EntryExchangeTracker {
         if (exchangeRoundEntryHashCollection != null && !exchangeRoundEntryHashCollection.isEmpty()) {
 
             List<DecoratedAddress> keyList = new ArrayList<DecoratedAddress>(exchangeRoundEntryHashCollection.keySet());
-            int index = ProbabilitiesHelper.getSoftMaxVal(keyList.size(), new Random(), 10);
+            int index = ProbabilitiesHelper.getSoftMaxVal(keyList.size(), random, 10);
             result = keyList.get(index);
         }
 

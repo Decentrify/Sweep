@@ -90,6 +90,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     private static final Logger logger = LoggerFactory.getLogger(NPAwareSearch.class);
     private String prefix;
+    private long seed;
     private ApplicationSelf self;
     private SearchConfiguration config;
     private boolean leader;
@@ -276,6 +277,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
+        seed = init.getSeed();
         self = init.getSelf();
         prefix = String.valueOf(self.getId());
         config = init.getConfiguration();
@@ -2921,7 +2923,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         public LowestMissingEntryTracker() {
 
-            this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
+            this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber(), seed);
             this.existingEntries = new HashMap<ApplicationEntry.ApplicationEntryId, ApplicationEntry>();
             this.currentTrackingId = 0;
         }

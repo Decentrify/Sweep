@@ -11,6 +11,7 @@ import se.sics.ms.common.ApplicationSelf;
  */
 public class PseudoGradientInit extends Init<PseudoGradient>{
 
+    private final long seed;
     private final ApplicationSelf self;
     private final GradientConfiguration configuration;
 
@@ -20,10 +21,21 @@ public class PseudoGradientInit extends Init<PseudoGradient>{
      * @param configuration
      *            the configuration file
      */
-    public PseudoGradientInit(ApplicationSelf self, GradientConfiguration configuration) {
+    public PseudoGradientInit(long seed, ApplicationSelf self, GradientConfiguration configuration) {
         super();
+        this.seed = seed;
         this.self = self;
         this.configuration = configuration;
+    }
+
+    /**
+     * Seed from the application to be used inside the
+     * component.
+     *
+     * @return seed.
+     */
+    public long getSeed(){
+        return this.seed;
     }
 
     /**

@@ -93,6 +93,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     // ======== LOCAL VARIABLES.
 
     private static final Logger logger = LoggerFactory.getLogger(ShardAwareSearch.class);
+    long seed;
     private String prefix;
     private ApplicationSelf self;
     private SearchConfiguration config;
@@ -282,6 +283,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
     private void doInit(SearchInit init) {
 
+        seed = init.getSeed();
         self = init.getSelf();
         prefix = String.valueOf(self.getId());
         config = init.getConfiguration();
@@ -2801,7 +2803,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
 
         public LowestMissingEntryTracker() {
 
-            this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber());
+            this.entryExchangeTracker = new EntryExchangeTracker(config.getIndexExchangeRequestNumber(), seed);
             this.existingEntries = new HashMap<ApplicationEntry.ApplicationEntryId, ApplicationEntry>();
             this.currentTrackingId = 0;
         }

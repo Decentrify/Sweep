@@ -281,7 +281,7 @@ public class SweepOperationsHelper {
     
     private static Integer randomPartitionBucket;
     private static List<Integer> partitionBucketNodes;
-    private static Random random = new Random();
+    private static Random random = new Random(100);
     
     
     public static long getPartitionBucketNode(long id){

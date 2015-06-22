@@ -131,7 +131,7 @@ public final class PseudoGradient extends ComponentDefinition {
 
         self = init.getSelf().shallowCopy();
         config = init.getConfiguration();
-        random = new Random(init.getConfiguration().getSeed());
+        random = new Random(init.getSeed());
 
         leader = false;
         leaderAddress = null;
