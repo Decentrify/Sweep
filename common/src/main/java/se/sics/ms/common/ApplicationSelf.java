@@ -58,6 +58,11 @@ public class ApplicationSelf {
                 '}';
     }
 
+
+    public boolean isLGMember() {
+        return isLGMember;
+    }
+
     public void incrementECEntries(){
         this.epochContainerEntries ++;
     }

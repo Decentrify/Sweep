@@ -17,11 +17,14 @@ public class Epoch {
     private long epochId;
     private List<LeaderUnit> leaderUnits;
     public static Logger logger = LoggerFactory.getLogger(TimeLine.class);
-    
+
+    public GenericECComparator comparator;
+
     public Epoch(long epochId){
         
         this.epochId = epochId;
         this.leaderUnits = new ArrayList<LeaderUnit>();
+        this.comparator = new GenericECComparator();
     }
 
 
@@ -77,17 +80,22 @@ public class Epoch {
         }
         
         for(int i =0 ; i < leaderUnits.size() ; i ++){
+
             LeaderUnit lu = leaderUnits.get(i);
-            
             if(lu.getLeaderId() == leaderUnit.getLeaderId()) {
-                leaderUnit.setEntryPullStatus( lu.getEntryPullStatus());
-                leaderUnits.set(i, leaderUnit);
+
+                if(lu.getNumEntries() <= leaderUnit.getNumEntries()) {
+
+                    leaderUnit.setEntryPullStatus( lu.getEntryPullStatus());
+                    leaderUnits.set(i, leaderUnit);
+                }
+
                 return;
             }
         }
         
         leaderUnits.add(leaderUnit);
-        Collections.sort(leaderUnits, new GenericECComparator());
+        Collections.sort(leaderUnits, comparator);
     }
 
 

@@ -39,10 +39,7 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
-import se.sics.p2ptoolbox.election.api.msg.ElectionState;
-import se.sics.p2ptoolbox.election.api.msg.LeaderState;
-import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
-import se.sics.p2ptoolbox.election.api.msg.ViewUpdate;
+import se.sics.p2ptoolbox.election.api.msg.*;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientSample;
@@ -246,6 +243,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(leaderUpdateHandler, electionPort);
         subscribe(enableLGMembershipHandler, electionPort);
         subscribe(disableLGMembershipHandler, electionPort);
+        subscribe(extensionUpdateHandler, electionPort);
 
         // Updated Missing tracker information.
         subscribe(lowestMissingEntryTracker.entryExchangeRoundHandler, timerPort);
@@ -365,11 +363,13 @@ public final class NPAwareSearch extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
+            rst = new SchedulePeriodicTimeout( (int)(3000 * Math.random()) + MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
+//            rst = new SchedulePeriodicTimeout( MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+            rst = new SchedulePeriodicTimeout((int)(4000 * Math.random()) + MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+//            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
             trigger(rst, timerPort);
         }
@@ -1127,8 +1127,10 @@ public final class NPAwareSearch extends ComponentDefinition {
                     logger.debug("{}: Received index entry commit request from : {}", self.getId(), event.getSource());
                     ApplicationEntry.ApplicationEntryId applicationEntryId = request.getEntryId();
 
-                    if (leaderIds.isEmpty())
+                    if (leaderIds.isEmpty()) {
+                        logger.error(" {}: Leader Id's is empty returning ", self.getId());
                         return;
+                    }
 
                     ByteBuffer idBuffer = ByteBuffer.allocate((2 * 8) + 4);
                     idBuffer.putLong(applicationEntryId.getEpochId());
@@ -1136,8 +1138,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                     idBuffer.putLong(applicationEntryId.getEntryId());
 
                     try {
-                        if (!ApplicationSecurity.verifyRSASignature( idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature()))
+                        if (!ApplicationSecurity.verifyRSASignature( idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature())){
+                            logger.warn("{}: Returning as signature not verified ... ", self.getId());
                             return;
+                        }
+
                     } catch(Exception e){
                         e.printStackTrace();
                         throw new RuntimeException("Entry commit failed", e);
@@ -2084,18 +2089,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             try {
 
-                logger.warn("{}: Self node is elected as leader.", self.getId());
+                logger.error("{}: Self node is elected as leader.", self.getId());
                 leader = true;
                 leaderGroupInformation = event.leaderGroup;
-                BasicAddress selfPeerAddress = self.getAddress().getBase();
-                Iterator<DecoratedAddress> itr = leaderGroupInformation.iterator();
-                while (itr.hasNext()) {
-                    if (selfPeerAddress.equals(itr.next().getBase())) {
-                        itr.remove();
-                        break;
-                    }
-                }
-
+                cleanSelfAddress(leaderGroupInformation);
                 informListeningComponentsAboutUpdates(self);
                 addMarkerUnit();
 
@@ -2107,6 +2104,43 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         }
     };
+
+
+    /**
+     * Handler for the leadership extension request in the system.
+     *
+     */
+    Handler<ExtensionUpdate> extensionUpdateHandler  = new Handler<ExtensionUpdate>() {
+        @Override
+        public void handle(ExtensionUpdate event) {
+
+            logger.warn(" {}: Received Leadership Extension Indication. :{} ", self.getId(), event.groupMembership);
+            leaderGroupInformation = event.groupMembership;
+            cleanSelfAddress(leaderGroupInformation);
+            informListeningComponentsAboutUpdates(self);
+        }
+    };
+
+
+    /**
+     * Remove the decorated address matching self from the collection.
+     * @param collection address collection
+     */
+    private void cleanSelfAddress(Collection<DecoratedAddress> collection){
+
+        BasicAddress selfPeerAddress = self.getAddress().getBase();
+        Iterator<DecoratedAddress> itr = collection.iterator();
+        while (itr.hasNext()) {
+
+            BasicAddress addr = itr.next().getBase();
+            logger.warn("{}: Leader Group Node :{}", self.getId(), addr.getId());
+            if (selfPeerAddress.equals(addr)) {
+                itr.remove();
+                break;
+            }
+        }
+    }
+
 
     /**
      * Once a node gets elected as leader, the parameters regarding the starting entry addition id and the
@@ -2693,7 +2727,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         if (updateUnit != null) {
 
                             receivedUnit = updateUnit.shallowCopy();
-                            receivedUnit.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);    // Reset the uniddt status to prevent the node being replied to with wrong status. ( FIXED with SERIALIZATION )
+                            receivedUnit.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);    // Reset the unit status to prevent the node being replied to with wrong status. ( FIXED with SERIALIZATION )
 
                             nextUpdates.add(receivedUnit);
                             nextUpdates.addAll(timeLine.getNextLeaderUnits(receivedUnit,
@@ -2722,7 +2756,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         logger.debug("{}: Received Control Pull Response from the Node: {}", prefix, event.getSource());
 
                         if (currentPullRound == null || !currentPullRound.equals(response.getPullRound())) {
-                            logger.debug("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
+                            logger.warn("{}: Receiving the Control Pull Response for an expired or unavailable round, returning ...", prefix);
                             return;
                         }
 
@@ -2736,8 +2770,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         if (currentUpdate != null) {
 
                             if (updates.isEmpty() || !checkOriginalExtension(updates.get(0))) {
-
-                                logger.warn("{}: Control exchange protocol violated", new Object[]{prefix});
+                                logger.error("{}: Control exchange protocol violated", new Object[]{prefix});
                                 throw new IllegalStateException(" Control Pull Protocol Violated ... ");
                             }
                         }
@@ -2775,19 +2808,10 @@ public final class NPAwareSearch extends ComponentDefinition {
          */
         private void performResponseMatch() {
 
-            List<LeaderUnit> intersection;
-
             if (pullResponseMap.size() > 0) {
 
-                intersection = pullResponseMap
-                        .values().iterator().next()
-                        .getNextUpdates();
-
-                for (ControlPull.Response response : pullResponseMap.values()) {
-                    intersection.retainAll(response.getNextUpdates());
-                }
-                addLeaderUnits(intersection);  // Store the common leader units in the system.
-
+                // Perform the special matching for the leader units.
+                matchLeaderUnits();
 
                 // Leader Matching.
                 ControlPull.Response baseResponse = pullResponseMap.values()
@@ -2821,6 +2845,85 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         }
 
+
+        /**
+         * Matching of the leader units is tricky and therefore needs to
+         * be handled carefully. We need to divide the leader units in two parts,
+         * ONGOING and COMPLETED units.
+         */
+        private void matchLeaderUnits() {
+
+            if( pullResponseMap.size() > 0 ) {
+
+                LeaderUnit ongoingUnit = null;
+                List<LeaderUnit> intersection;
+
+                intersection = new ArrayList<LeaderUnit>(pullResponseMap.values().iterator().next().getNextUpdates());
+
+                for(LeaderUnit unit: intersection) {
+
+                    if(unit.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING){
+
+                        // Ideally do not break because there should never be two ongoing units.
+                        // Which could be TESTED here. ADD THE CHECK LATER ON.
+                        ongoingUnit = unit;
+                        break;
+                    }
+                }
+
+                // Perform the matching of the ongoing leader unit separately.
+                if(ongoingUnit != null) {
+                    intersection.remove(ongoingUnit);
+                }
+
+                // Retain without the ONGOING Value i.e Completed Units.
+                // ONGOING One has number of entries and in a very dynamic system it might be that the
+                // node discards the update because the value is changing so frequently.
+
+                for (ControlPull.Response response : pullResponseMap.values()) {
+                    intersection.retainAll(response.getNextUpdates());
+                }
+
+                if (ongoingUnit != null) {
+
+                    long baseEntries= ongoingUnit.getNumEntries();
+
+                    // Check the common ongoing one and take the lowest entries.
+                    for(ControlPull.Response response : pullResponseMap.values()){
+
+                        boolean unitPresent = false;
+                        for(LeaderUnit unit : response.getNextUpdates()) {
+
+                            if( unit.getEpochId() == ongoingUnit.getEpochId()
+                                    && unit.getLeaderId() == ongoingUnit.getLeaderId()) {
+
+                                if(unit.getNumEntries() < baseEntries) {
+
+                                    baseEntries = unit.getNumEntries();
+                                    ongoingUnit.setNumEntries(baseEntries);
+                                }
+
+                                unitPresent = true;
+                                break;
+                            }
+                        }
+
+                        if(!unitPresent) {
+                            ongoingUnit = null;
+                            break;
+                        }
+                    }
+                }
+
+                if (ongoingUnit != null) {
+                    intersection.add(ongoingUnit);
+                }
+
+                Collections.sort(intersection, luComparator);
+                addLeaderUnits(intersection);  // Store the common leader units in the system.
+            }
+
+        }
 
         /**
          * Check for the leader units and add them in the timeline.
@@ -3043,9 +3146,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                             logger.debug("{}: Direct Leader Pull Request from: {}", prefix, event.getSource());
 
                             // Return reply if I am leader else chuck it.
-                            TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
-                            List<ApplicationEntry> entries = ApplicationLuceneQueries.strictEntryIdRange(writeEntryLuceneAdaptor,
-                                    request.getLowestMissingEntryId(), collector);
+                            List<ApplicationEntry> entries = ApplicationLuceneQueries.strictEntryIdRangeOnDefaultSort(writeEntryLuceneAdaptor,
+                                    request.getLowestMissingEntryId(), config.getMaxExchangeCount());
 
                             LeaderPullEntry.Response response = new LeaderPullEntry.Response(request.getDirectPullRound(), entries, self.getOverlayId());
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
@@ -3107,11 +3209,10 @@ public final class NPAwareSearch extends ComponentDefinition {
                         logger.debug("{}: Received the entry hash exchange request from the node:{} in the system.", prefix, event.getSource());
                         Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
 
-                        TopScoreDocCollector collector = TopScoreDocCollector.create(config.getMaxExchangeCount(), true);
-                        List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.strictEntryIdRange(
+                        List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.strictEntryIdRangeOnDefaultSort(
                                 writeEntryLuceneAdaptor,
                                 request.getLowestMissingIndexEntry(),
-                                collector);
+                                config.getMaxExchangeCount());
 
                         for (ApplicationEntry entry : applicationEntries) {
                             entryHashs.add(new EntryHash(entry));
@@ -3347,50 +3448,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
 
-        /**
-         * Once the node receives an entry to be added in the application,
-         * the method needs to be invoked, which according to the entry that needs to be added,
-         * updates the local existing entries map information.
-         * <p/>
-         * The methods returns the boolean which informs the application if the entry can be added in the system
-         * or not. (It can be added if it is the currently being tracked else goes to the existing entries map).
-         *
-         * @param entry entry to add.
-         * @throws java.io.IOException
-         * @throws se.sics.ms.common.LuceneAdaptorException
-         */
-
-        public boolean updateMissingEntryTracker(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
-
-            if (currentTrackingUnit != null) {
-
-                ApplicationEntry.ApplicationEntryId idBeingTracked =
-                        getEntryBeingTracked();
-
-                if (isNextEntryToAdd(entry.getApplicationEntryId())) {
-
-                    logger.info("Received update for the current tracked entry");
-                    currentTrackingId++;
-                    return true;
-
-                }
-
-                if (idBeingTracked.compareTo(entry.getApplicationEntryId()) > 0) {
-
-                    // Don't allow anything lower than current tracking.
-                    logger.debug("Application trying to add entry: {} that is smaller to the counter that is being tracked :{}", entry, getEntryBeingTracked());
-                    return false;
-                }
-            }
-
-            // In case we reached this point we add it to the existing entries
-            // as we cannot add to Lucene Yet. Start storing entries when we have a tracking unit.
-            if (!existingEntries.keySet().contains(entry.getApplicationEntryId()))
-                existingEntries.put(entry.getApplicationEntryId(), entry);
-
-            return false;
-        }
-
 
         /**
          * Application requests to buffer the current entry 
@@ -3405,6 +3462,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
             
             if( entryBeingTracked.compareTo(entry.getApplicationEntryId()) < 0 ){
+                logger.debug("{}:  Buffering the Pulled Entry Locally with current tracking id :{}  ", self.getId(), lowestMissingEntryTracker.getCurrentTrackingUnit());
                 existingEntries.put(entry.getApplicationEntryId(), entry);
             }
         }
@@ -3489,9 +3547,11 @@ public final class NPAwareSearch extends ComponentDefinition {
             ApplicationEntry.ApplicationEntryId existingEntryId = getEntryBeingTracked();
             while (existingEntries.keySet().contains(existingEntryId)) {
 
+                logger.debug("{}: Picking up entries from the buffered store, {}", self.getId(), existingEntryId);
                 commitAndUpdateUtility(existingEntries.get(existingEntryId));
                 existingEntries.remove(existingEntryId);
                 currentTrackingId++;
+                existingEntryId = getEntryBeingTracked();
             }
         }
 

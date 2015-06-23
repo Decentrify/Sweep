@@ -1,5 +1,6 @@
 package se.sics.ms.launch.global.aggregator.model;
 
+import org.javatuples.Pair;
 import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,14 +21,14 @@ public class ShardEntryDivisionBucket {
     private int partitionDepth;
     private Integer leaderId;
     private Long leaderEntries;
-    private List<Long> bucketEntryList;
+    private List<Pair<Integer, Long>> bucketEntryList;
     
     private Logger logger = LoggerFactory.getLogger(DataAnalyzer.class);
     
     public ShardEntryDivisionBucket (int partitionId, int partitionDepth){
         this.partitionId = partitionId;
         this.partitionDepth = partitionDepth;
-        this.bucketEntryList = new ArrayList<Long>();
+        this.bucketEntryList = new ArrayList<Pair<Integer, Long>>();
     }
 
     
@@ -45,7 +46,7 @@ public class ShardEntryDivisionBucket {
             this.leaderEntries = model.getNumberOfEntries();
         }
         
-        bucketEntryList.add(model.getNumberOfEntries());
+        bucketEntryList.add(Pair.with(model.getNodeId(), model.getNumberOfEntries()));
     }
     
     public ShardOverview calculateBucketDivision(){
@@ -63,10 +64,10 @@ public class ShardEntryDivisionBucket {
         
         if(leaderEntries > 0){
             
-            for(Long entries : bucketEntryList){
+            for(Pair<Integer, Long> entries : bucketEntryList){
                 
-                double fraction = entries / (double) leaderEntries;
-                
+                double fraction = entries.getValue1() / (double) leaderEntries;
+
                 if(fraction >= 0.5){
                     fiftyAndGreater++;
                 }

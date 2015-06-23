@@ -134,7 +134,10 @@ public class SweepOperationsHelper {
             id = (id + 1) % identifierSpaceSize;
             successor = ringNodes.getNode(id);
         }
-        
+
+        if(id == Integer.MIN_VALUE){
+            logger.error("Call to generate the lowest id. ");
+        }
         return id;
     }
 
