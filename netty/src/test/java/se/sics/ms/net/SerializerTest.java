@@ -16,6 +16,7 @@ import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
 import se.sics.ms.serializer.ReplicationPrepareCommitSerializer;
+import se.sics.ms.serializer.ShardCommitSerializer;
 import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
@@ -645,7 +646,69 @@ public class SerializerTest {
 
 
 
+    @Test
+    public void shardPrepareRequestTest(){
+        
+        logger.info("Sharding Prepare Request Test");
+        
+        UUID shardRoundId = UUID.randomUUID();
+        OverlayId id = new OverlayId(0);
+        LeaderUnitUpdate unitUpdate = new LeaderUnitUpdate(null, new BaseLeaderUnit(1, 100));
+        ShardingPrepare.Request request = new ShardingPrepare.Request(shardRoundId, unitUpdate, id);
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingPrepare.Request.class);
+        ShardingPrepare.Request copiedRequest = (ShardingPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        
+        org.junit.Assert.assertEquals("Sharding Prepare Request Test", request, copiedRequest);
+    }
 
+
+
+    @Test
+    public void shardingPrepareResponseTest(){
+
+        logger.info("Sharding Prepare Response Test");
+
+        UUID shardRoundId = UUID.randomUUID();
+        ShardingPrepare.Response response = new ShardingPrepare.Response(shardRoundId);
+
+        Serializer serializer = Serializers.lookupSerializer(ShardingPrepare.Response.class);
+        ShardingPrepare.Response copiedResponse = (ShardingPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Prepare Response Test", response, copiedResponse);
+    }
+
+    
+    
+    @Test
+    public void shardCommitRequestTest(){
+        
+        logger.info("Shard Commit Request Test");
+        
+        UUID shardCommitRoundId = UUID.randomUUID();
+        ShardingCommit.Request request = new ShardingCommit.Request(shardCommitRoundId);
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingCommit.Request.class);
+        ShardingCommit.Request copiedRequest = (ShardingCommit.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Commit Request Test", request, copiedRequest);
+    }
+    
+    
+    @Test
+    public void shardCommitResponseTest(){
+        
+        logger.info("Shard Commit Response Test");
+        
+        UUID shardCommitRoundId = UUID.randomUUID();
+        ShardingCommit.Response response = new ShardingCommit.Response(shardCommitRoundId);
+        
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingCommit.Response.class);
+        ShardingCommit.Response copiedResponse = (ShardingCommit.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Commit Response Test", response, copiedResponse);
+    }
 
 
     /**

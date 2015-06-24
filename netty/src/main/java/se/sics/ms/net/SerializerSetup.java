@@ -32,7 +32,8 @@ public class SerializerSetup {
         entryHash(EntryHash.class, "entryHash"),
         overlayId(OverlayId.class, "overlayId"),
         baseLeaderUnit(BaseLeaderUnit.class, "baseLeaderUnit"),
-
+        leaderUnitUpdate(LeaderUnitUpdate.class, "leaderUnitUpdate"),
+        
         // aggregators
         searchComponentUpdate(SearchComponentUpdate.class, "searchComponentUpdate"),
         leaderComponentUpdate(ElectionLeaderComponentUpdate.class, "leaderComponentUpdate"),
@@ -76,8 +77,11 @@ public class SerializerSetup {
         entryExchangeResponse(EntryExchange.Response.class, "entryExchangeResponse"),
 
         controlPullRequest(ControlPull.Request.class, "controlPullRequest"),
-        controlPullResponse(ControlPull.Response.class, "controlPullResponse");
-
+        controlPullResponse(ControlPull.Response.class, "controlPullResponse"),
+        shardingPrepareRequest(ShardingPrepare.Request.class, "shardingPrepareRequest"),
+        shardingPrepareResponse(ShardingPrepare.Response.class, "shardingPrepareResponse"),
+        shardingCommitRequest(ShardingCommit.Request.class, "shardingCommitRequest"),
+        shardingCommitResponse(ShardingCommit.Response.class, "shardingCommitResponse");
 
         private final Class serializedClass;
         private final String serializerName;
@@ -316,7 +320,27 @@ public class SerializerSetup {
         Serializers.register(baseLeaderUnitSerializer, SweepSerializers.baseLeaderUnit.serializerName);
         Serializers.register(SweepSerializers.baseLeaderUnit.serializedClass, SweepSerializers.baseLeaderUnit.serializerName);
 
+        LeaderUnitUpdateSerializer luUpdateSerializer = new LeaderUnitUpdateSerializer(currentId++);
+        Serializers.register(luUpdateSerializer, SweepSerializers.leaderUnitUpdate.serializerName);
+        Serializers.register(SweepSerializers.leaderUnitUpdate.serializedClass, SweepSerializers.leaderUnitUpdate.serializerName);
+        
+        ShardPrepareSerializer.Request shardPrepareRequestSerializer = new ShardPrepareSerializer.Request(currentId++);
+        Serializers.register(shardPrepareRequestSerializer, SweepSerializers.shardingPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.shardingPrepareRequest.serializedClass, SweepSerializers.shardingPrepareRequest.serializerName);
 
+        ShardPrepareSerializer.Response shardPrepareResponseSerializer = new ShardPrepareSerializer.Response(currentId++);
+        Serializers.register(shardPrepareResponseSerializer, SweepSerializers.shardingPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.shardingPrepareResponse.serializedClass, SweepSerializers.shardingPrepareResponse.serializerName);
+
+
+        ShardCommitSerializer.Request shardCommitRequestSerializer = new ShardCommitSerializer.Request(currentId++);
+        Serializers.register(shardCommitRequestSerializer, SweepSerializers.shardingCommitRequest.serializerName);
+        Serializers.register(SweepSerializers.shardingCommitRequest.serializedClass, SweepSerializers.shardingCommitRequest.serializerName);
+        
+        ShardCommitSerializer.Response shardCommitResponseSerializer = new ShardCommitSerializer.Response(currentId++);
+        Serializers.register(shardCommitResponseSerializer, SweepSerializers.shardingCommitResponse.serializerName);
+        Serializers.register(SweepSerializers.shardingCommitResponse.serializedClass, SweepSerializers.shardingCommitResponse.serializerName);
+        
         return currentId;
     }
 
