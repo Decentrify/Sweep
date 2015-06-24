@@ -29,6 +29,7 @@ public class SerializerSetup {
         idInfo(Id.class, "idInfo"),
         indexHash(IndexHash.class, "indexHash"),
         partitionInfoHash(PartitionHelper.PartitionInfoHash.class, "partitionInfoHash"),
+        entryHash(EntryHash.class, "entryHash"),
 
         // aggregators
         searchComponentUpdate(SearchComponentUpdate.class, "searchComponentUpdate"),
@@ -66,8 +67,11 @@ public class SerializerSetup {
         applicationEntryId(ApplicationEntry.ApplicationEntryId.class, "applicationEntryId"),
         applicationEntry(ApplicationEntry.class, "applicationEntry"),
         leaderPullEntryRequest(LeaderPullEntry.Request.class, "leaderPullEntryRequest"),
-        leaderPullEntryResponse(LeaderPullEntry.Response.class, "leaderPullEntryResponse");
-
+        leaderPullEntryResponse(LeaderPullEntry.Response.class, "leaderPullEntryResponse"),
+        entryHashExchangeRequest(EntryHashExchange.Request.class, "entryHashExchangeRequest"),
+        entryHashExchangeResponse(EntryHashExchange.Response.class, "entryHashExchangeResponse"),
+        entryExchangeRequest(EntryExchange.Request.class, "entryExchangeRequest"),
+        entryExchangeResponse(EntryExchange.Response.class, "entryExchangeResponse");
 
         private final Class serializedClass;
         private final String serializerName;
@@ -265,6 +269,29 @@ public class SerializerSetup {
         LeaderPullEntrySerializer.Response leaderPullEntryResponseSerializer = new LeaderPullEntrySerializer.Response(currentId++);
         Serializers.register(leaderPullEntryResponseSerializer, SweepSerializers.leaderPullEntryResponse.serializerName);
         Serializers.register(SweepSerializers.leaderPullEntryResponse.serializedClass, SweepSerializers.leaderPullEntryResponse.serializerName);
+
+        EntryHashExchangeSerializer.Request hashExchangeRequestSerializer = new EntryHashExchangeSerializer.Request(currentId++);
+        Serializers.register(hashExchangeRequestSerializer, SweepSerializers.entryHashExchangeRequest.serializerName);
+        Serializers.register(SweepSerializers.entryHashExchangeRequest.serializedClass, SweepSerializers.entryHashExchangeRequest.serializerName);
+
+        EntryHashExchangeSerializer.Response hashExchangeResponseSerializer = new EntryHashExchangeSerializer.Response(currentId++);
+        Serializers.register(hashExchangeResponseSerializer, SweepSerializers.entryHashExchangeResponse.serializerName);
+        Serializers.register(SweepSerializers.entryHashExchangeResponse.serializedClass, SweepSerializers.entryHashExchangeResponse.serializerName);
+
+        EntryHashSerializer hashSerializer = new EntryHashSerializer(currentId++);
+        Serializers.register(hashSerializer, SweepSerializers.entryHash.serializerName);
+        Serializers.register(SweepSerializers.entryHash.serializedClass, SweepSerializers.entryHash.serializerName);
+
+
+        EntryExchangeSerializer.Request entryExchangeRequestSerializer = new EntryExchangeSerializer.Request(currentId++);
+        Serializers.register(entryExchangeRequestSerializer, SweepSerializers.entryExchangeRequest.serializerName);
+        Serializers.register(SweepSerializers.entryExchangeRequest.serializedClass, SweepSerializers.entryExchangeRequest.serializerName);
+
+
+        EntryExchangeSerializer.Response entryExchangeResponseSerializer = new EntryExchangeSerializer.Response(currentId++);
+        Serializers.register(entryExchangeResponseSerializer, SweepSerializers.entryExchangeResponse.serializerName);
+        Serializers.register(SweepSerializers.entryExchangeResponse.serializedClass, SweepSerializers.entryExchangeResponse.serializerName);
+
 
         return currentId;
     }

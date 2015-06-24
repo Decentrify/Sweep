@@ -57,7 +57,7 @@ public class EntryHashSerializer implements Serializer{
             ApplicationEntry.ApplicationEntryId entryId = (ApplicationEntry.ApplicationEntryId) Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class)
                     .fromBinary(buf, hint);
 
-            PublicKey leaderKey = (PublicKey)Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
+            PublicKey leaderKey = (PublicKey)Serializers.lookupSerializer(PublicKey.class).fromBinary(buf, hint);
             String hash = SerializerDecoderHelper.readStringLength65536(buf);
             return new EntryHash(entryId, leaderKey, hash);
 

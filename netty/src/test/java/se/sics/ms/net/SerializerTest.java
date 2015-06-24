@@ -536,6 +536,70 @@ public class SerializerTest {
         org.junit.Assert.assertEquals("Leader Pull Entry Response Test", response, copiedResponse);
     }
 
+
+    @Test
+    public void entryHashExchangeRequestTest(){
+
+        logger.info("Entry Hash Exchange Request Test");
+
+        UUID exchangeRound = UUID.randomUUID();
+        ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, Integer.MIN_VALUE, 0);
+        EntryHashExchange.Request request = new EntryHashExchange.Request(exchangeRound, entryId);
+
+        Serializer serializer = Serializers.lookupSerializer(EntryHashExchange.Request.class);
+        EntryHashExchange.Request copiedRequest = (EntryHashExchange.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Entry Hash Exchange Request Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void entryHashExchangeResponseTest(){
+
+        logger.info("Entry Hash Exchange Response Test");
+
+        Collection<EntryHash> entryHashCollection = getEntryHashCollection(3);
+        UUID exchangeRound = UUID.randomUUID();
+
+        EntryHashExchange.Response response = new EntryHashExchange.Response(exchangeRound, entryHashCollection);
+        Serializer serializer = Serializers.lookupSerializer(EntryHashExchange.Response.class);
+        EntryHashExchange.Response copiedResponse = (EntryHashExchange.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Hash Exchange Response Test", response, copiedResponse);
+    }
+
+    @Test
+    public void entryExchangeRequestTest(){
+
+        logger.info("Entry Exchange Response Test");
+        Collection<ApplicationEntry.ApplicationEntryId> entryIds = entryIdCollection(3);
+        UUID exchangeId = UUID.randomUUID();
+
+        EntryExchange.Request request = new EntryExchange.Request(exchangeId, entryIds);
+        Serializer serializer = Serializers.lookupSerializer(EntryExchange.Request.class);
+
+        EntryExchange.Request copiedRequest = (EntryExchange.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Exchange Response Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void entryExchangeResponseTest(){
+
+        logger.info("Entry Exchange Request Test");
+        Collection<ApplicationEntry> entries= getApplicationEntryCollection(3);
+        UUID exchangeId = UUID.randomUUID();
+
+        EntryExchange.Response response = new EntryExchange.Response(exchangeId, entries, 0);
+        Serializer serializer = Serializers.lookupSerializer(EntryExchange.Response.class);
+
+        EntryExchange.Response copiedResponse = (EntryExchange.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Exchange Request Test", response, copiedResponse);
+    }
+
+
+
+
+
     /**
      * Helper method to take the object and then add it to the buffer and then
      * copy the buffer to another
@@ -664,5 +728,33 @@ public class SerializerTest {
 
         return applicationEntries;
     }
+
+
+
+    public Collection<EntryHash> getEntryHashCollection(int size) {
+
+        Collection<EntryHash> collection = new ArrayList<EntryHash>();
+        Collection<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
+
+        for(ApplicationEntry entry : entryCollection){
+            collection.add(new EntryHash(entry));
+        }
+
+        return collection;
+    }
+
+
+    public Collection<ApplicationEntry.ApplicationEntryId> entryIdCollection(int size) {
+
+        Collection<ApplicationEntry.ApplicationEntryId> entryIdCollection = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+        Collection<ApplicationEntry> entryCollection  = getApplicationEntryCollection(size);
+
+        for(ApplicationEntry entry : entryCollection) {
+            entryIdCollection.add(entry.getApplicationEntryId());
+        }
+
+        return entryIdCollection;
+    }
+
 
 }

@@ -32,7 +32,7 @@ public class EntryHashExchange {
 
             Request request = (Request) o;
 
-            if (lowestMissingEntryId != request.lowestMissingEntryId) return false;
+            if (!lowestMissingEntryId.equals(request.lowestMissingEntryId)) return false;
             if (exchangeRoundId != null ? !exchangeRoundId.equals(request.exchangeRoundId) : request.exchangeRoundId != null)
                 return false;
 
