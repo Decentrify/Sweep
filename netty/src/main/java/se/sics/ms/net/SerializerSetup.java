@@ -30,6 +30,8 @@ public class SerializerSetup {
         indexHash(IndexHash.class, "indexHash"),
         partitionInfoHash(PartitionHelper.PartitionInfoHash.class, "partitionInfoHash"),
         entryHash(EntryHash.class, "entryHash"),
+        overlayId(OverlayId.class, "overlayId"),
+        baseLeaderUnit(BaseLeaderUnit.class, "baseLeaderUnit"),
 
         // aggregators
         searchComponentUpdate(SearchComponentUpdate.class, "searchComponentUpdate"),
@@ -71,7 +73,11 @@ public class SerializerSetup {
         entryHashExchangeRequest(EntryHashExchange.Request.class, "entryHashExchangeRequest"),
         entryHashExchangeResponse(EntryHashExchange.Response.class, "entryHashExchangeResponse"),
         entryExchangeRequest(EntryExchange.Request.class, "entryExchangeRequest"),
-        entryExchangeResponse(EntryExchange.Response.class, "entryExchangeResponse");
+        entryExchangeResponse(EntryExchange.Response.class, "entryExchangeResponse"),
+
+        controlPullRequest(ControlPull.Request.class, "controlPullRequest"),
+        controlPullResponse(ControlPull.Response.class, "controlPullResponse");
+
 
         private final Class serializedClass;
         private final String serializerName;
@@ -291,6 +297,24 @@ public class SerializerSetup {
         EntryExchangeSerializer.Response entryExchangeResponseSerializer = new EntryExchangeSerializer.Response(currentId++);
         Serializers.register(entryExchangeResponseSerializer, SweepSerializers.entryExchangeResponse.serializerName);
         Serializers.register(SweepSerializers.entryExchangeResponse.serializedClass, SweepSerializers.entryExchangeResponse.serializerName);
+
+
+        OverlayIdSerializer overlayIdSerializer = new OverlayIdSerializer(currentId++);
+        Serializers.register(overlayIdSerializer, SweepSerializers.overlayId.serializerName);
+        Serializers.register(SweepSerializers.overlayId.serializedClass, SweepSerializers.overlayId.serializerName);
+
+        ControlPullSerializer.Request controlPullRequestSerializer = new ControlPullSerializer.Request(currentId++);
+        Serializers.register(controlPullRequestSerializer, SweepSerializers.controlPullRequest.serializerName);
+        Serializers.register(SweepSerializers.controlPullRequest.serializedClass, SweepSerializers.controlPullRequest.serializerName);
+
+        ControlPullSerializer.Response controlPullResponseSerializer = new ControlPullSerializer.Response(currentId++);
+        Serializers.register(controlPullResponseSerializer, SweepSerializers.controlPullResponse.serializerName);
+        Serializers.register(SweepSerializers.controlPullResponse.serializedClass, SweepSerializers.controlPullResponse.serializerName);
+
+
+        BaseLeaderUnitSerializer baseLeaderUnitSerializer = new BaseLeaderUnitSerializer(currentId++);
+        Serializers.register(baseLeaderUnitSerializer, SweepSerializers.baseLeaderUnit.serializerName);
+        Serializers.register(SweepSerializers.baseLeaderUnit.serializedClass, SweepSerializers.baseLeaderUnit.serializerName);
 
 
         return currentId;

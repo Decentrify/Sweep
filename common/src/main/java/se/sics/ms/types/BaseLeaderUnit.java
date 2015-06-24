@@ -13,8 +13,12 @@ public class BaseLeaderUnit extends LeaderUnit {
         super(epochId, leaderId);
     }
 
-    public BaseLeaderUnit(long epochId, int leaderId, long numEntries) {
+    public BaseLeaderUnit (long epochId, int leaderId, long numEntries) {
         super(epochId, leaderId, numEntries);
+    }
+
+    public BaseLeaderUnit (long epochId, int leaderId, long numEntries, LUStatus status) {
+        super(epochId, leaderId, numEntries, status);
     }
 
     public BaseLeaderUnit(long epochId, int leaderId, long numEntries, LUStatus leaderUnitStatus, EntryPullStatus entryPullStatus) {

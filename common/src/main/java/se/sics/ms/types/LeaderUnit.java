@@ -31,7 +31,17 @@ public abstract class LeaderUnit {
         this.leaderUnitStatus = LUStatus.COMPLETED;
         this.entryPullStatus = EntryPullStatus.PENDING;
     }
-    
+
+    public LeaderUnit(long epochId, int leaderId, long numEntries, LUStatus status){
+
+        this.epochId = epochId;
+        this.leaderId = leaderId;
+        this.numEntries = numEntries;
+        this.leaderUnitStatus = status;
+        this.entryPullStatus = EntryPullStatus.PENDING;
+    }
+
+
     public LeaderUnit( long epochId, int leaderId, long numEntries, LUStatus leaderUnitStatus, EntryPullStatus entryPullStatus ){
         this.epochId = epochId;
         this.leaderId = leaderId;

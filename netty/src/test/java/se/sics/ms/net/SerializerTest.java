@@ -600,6 +600,54 @@ public class SerializerTest {
 
 
 
+    @Test
+    public void controlPullNullRequestTest() {
+
+        logger.info("Control Pull Null Unit Request Test.");
+
+        UUID pullRound = UUID.randomUUID();
+        ControlPull.Request request = new ControlPull.Request (pullRound, new OverlayId(0), null);
+        Serializer serializer = Serializers.lookupSerializer(ControlPull.Request.class);
+        ControlPull.Request copiedRequest = (ControlPull.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Control Pull Null Unit Request Test", request, copiedRequest);
+
+    }
+
+    @Test
+    public void controlPullRequestTest(){
+
+        logger.info("Control Pull Request Test");
+        UUID pullRound = UUID.randomUUID();
+        OverlayId overlayId = new OverlayId(0);
+        BaseLeaderUnit unit = new BaseLeaderUnit(0l, 100, 10l, LeaderUnit.LUStatus.ONGOING);
+        Serializer serializer = Serializers.lookupSerializer(ControlPull.Request.class);
+        ControlPull.Request request = new ControlPull.Request(pullRound, overlayId, unit);
+        ControlPull.Request copiedRequest = (ControlPull.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Control Pull Request Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void controlPullResponseTest() {
+
+        logger.info("Control Pull Response Test");
+
+        UUID pullRound = UUID.randomUUID();
+        List<LeaderUnit> leaderUnits = getLeaderUnitCollection(3);
+        int overlayId = 0;
+
+        Serializer serializer= Serializers.lookupSerializer(ControlPull.Response.class);
+        ControlPull.Response response = new ControlPull.Response(pullRound, selfAddress, publicKey, leaderUnits, overlayId);
+        ControlPull.Response copiedResponse = (ControlPull.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Control Pull Response Test", response, copiedResponse);
+    }
+
+
+
+
+
+
     /**
      * Helper method to take the object and then add it to the buffer and then
      * copy the buffer to another
@@ -616,6 +664,25 @@ public class SerializerTest {
 
         return serializer.fromBinary(copiedBuf, Optional.absent());
     }
+
+
+    /**
+     * Helper method to take the object and then add it to the buffer and then
+     * copy the buffer to another
+     * @param originalBuf original buffer
+     * @param originalObject original object
+     * @param copiedBuf copied object.
+     *
+     * @return Copied Object
+     */
+    private Object addObjectAndCreateCopiedObject(ByteBuf originalBuf, Object originalObject, ByteBuf copiedBuf){
+
+        Serializers.toBinary(originalObject , originalBuf);
+        copiedBuf = Unpooled.wrappedBuffer(originalBuf.array());
+
+        return Serializers.fromBinary(copiedBuf, Optional.absent());
+    }
+
 
 
     public static void generateKeys() throws NoSuchAlgorithmException {
@@ -755,6 +822,32 @@ public class SerializerTest {
 
         return entryIdCollection;
     }
+
+
+    /**
+     * Generate a random leader unit collection in the system.
+     * All leader units returned as part of this collection has closed leader units.
+     * @param size
+     * @return
+     */
+    public List<LeaderUnit> getLeaderUnitCollection(int size) {
+
+        List<LeaderUnit> luCollection = new ArrayList<LeaderUnit>();
+
+        long epoch = 0;
+        int leaderId = 100;
+
+        while(size > 0 ){
+
+            LeaderUnit lu = new BaseLeaderUnit( epoch, leaderId, size );
+            luCollection.add(lu);
+
+            size --;
+        }
+
+        return luCollection;
+    }
+
 
 
 }
