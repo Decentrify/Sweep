@@ -61,7 +61,7 @@ public class ApplicationEntryAddSerializer {
 
         private int id;
 
-        private Response(int id){
+        public Response(int id){
             this.id = id;
         }
         

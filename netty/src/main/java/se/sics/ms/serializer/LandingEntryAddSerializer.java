@@ -69,7 +69,7 @@ public class LandingEntryAddSerializer {
 
         private int id;
 
-        private Response(int id){
+        public Response(int id){
             this.id = id;
         }
         
@@ -80,6 +80,7 @@ public class LandingEntryAddSerializer {
 
         @Override
         public void toBinary(Object o, ByteBuf buf) {
+            
             LandingEntryAddPrepare.Response response = (LandingEntryAddPrepare.Response)o;
             Serializers.lookupSerializer(UUID.class).toBinary(response.getEntryAdditionRound(), buf);
             Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class).toBinary(response.getEntryId(), buf);

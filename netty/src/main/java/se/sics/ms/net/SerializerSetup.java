@@ -81,7 +81,14 @@ public class SerializerSetup {
         shardingPrepareRequest(ShardingPrepare.Request.class, "shardingPrepareRequest"),
         shardingPrepareResponse(ShardingPrepare.Response.class, "shardingPrepareResponse"),
         shardingCommitRequest(ShardingCommit.Request.class, "shardingCommitRequest"),
-        shardingCommitResponse(ShardingCommit.Response.class, "shardingCommitResponse");
+        shardingCommitResponse(ShardingCommit.Response.class, "shardingCommitResponse"),
+
+        landingEntryAddPrepareRequest(LandingEntryAddPrepare.Request.class, "landingEntryAddPrepareRequest"),
+        landingEntryAddPrepareResponse(LandingEntryAddPrepare.Response.class, "landingEntryAddPrepareResponse"),
+        applicationEntryAddPrepareRequest(ApplicationEntryAddPrepare.Request.class, "applicationEntryAddPrepareRequest"),
+        applicationEntryAddPrepareResponse(ApplicationEntryAddPrepare.Response.class, "applicationEntryAddPrepareResponse"),
+
+        entryAddCommitRequest(EntryAddCommit.Request.class, "entryAddCommitRequest");
 
         private final Class serializedClass;
         private final String serializerName;
@@ -340,6 +347,28 @@ public class SerializerSetup {
         ShardCommitSerializer.Response shardCommitResponseSerializer = new ShardCommitSerializer.Response(currentId++);
         Serializers.register(shardCommitResponseSerializer, SweepSerializers.shardingCommitResponse.serializerName);
         Serializers.register(SweepSerializers.shardingCommitResponse.serializedClass, SweepSerializers.shardingCommitResponse.serializerName);
+        
+        
+        LandingEntryAddSerializer.Request landingEntryAddRequestSerializer = new LandingEntryAddSerializer.Request(currentId++);
+        Serializers.register(landingEntryAddRequestSerializer, SweepSerializers.landingEntryAddPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.landingEntryAddPrepareRequest.serializedClass, SweepSerializers.landingEntryAddPrepareRequest.serializerName);
+
+        LandingEntryAddSerializer.Response landingEntryAddResponseSerializer = new LandingEntryAddSerializer.Response(currentId++);
+        Serializers.register(landingEntryAddResponseSerializer, SweepSerializers.landingEntryAddPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.landingEntryAddPrepareResponse.serializedClass, SweepSerializers.landingEntryAddPrepareResponse.serializerName);
+
+        ApplicationEntryAddSerializer.Request applicationEntryAddPrepareRequestSerializer = new ApplicationEntryAddSerializer.Request(currentId++);
+        Serializers.register(applicationEntryAddPrepareRequestSerializer, SweepSerializers.applicationEntryAddPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.applicationEntryAddPrepareRequest.serializedClass, SweepSerializers.applicationEntryAddPrepareRequest.serializerName);
+
+        ApplicationEntryAddSerializer.Response applicationEntryAddPrepareResponseSerializer = new ApplicationEntryAddSerializer.Response(currentId++);
+        Serializers.register(applicationEntryAddPrepareResponseSerializer, SweepSerializers.applicationEntryAddPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.applicationEntryAddPrepareResponse.serializedClass, SweepSerializers.applicationEntryAddPrepareResponse.serializerName);
+        
+        
+        EntryAddCommitSerializer entryAddCommitSerializer = new EntryAddCommitSerializer(currentId++);
+        Serializers.register(entryAddCommitSerializer, SweepSerializers.entryAddCommitRequest.serializerName);
+        Serializers.register(SweepSerializers.entryAddCommitRequest.serializedClass, SweepSerializers.entryAddCommitRequest.serializerName);
         
         return currentId;
     }

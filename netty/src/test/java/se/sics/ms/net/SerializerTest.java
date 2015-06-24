@@ -15,6 +15,7 @@ import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
+import se.sics.ms.serializer.ApplicationEntryAddSerializer;
 import se.sics.ms.serializer.ReplicationPrepareCommitSerializer;
 import se.sics.ms.serializer.ShardCommitSerializer;
 import se.sics.ms.types.*;
@@ -710,6 +711,92 @@ public class SerializerTest {
         org.junit.Assert.assertEquals("Sharding Commit Response Test", response, copiedResponse);
     }
 
+    
+    
+    
+    @Test
+    public void applicationEntryAddPrepareTest(){
+        
+        logger.info("Application Entry Add Prepare Request Test");
+        
+        ApplicationEntry applicationEntry = getTestApplicationEntry();
+        UUID entryAddRoundId = UUID.randomUUID();
+        
+        ApplicationEntryAddPrepare.Request request = new ApplicationEntryAddPrepare.Request(entryAddRoundId, applicationEntry);
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntryAddPrepare.Request.class);
+        
+        ApplicationEntryAddPrepare.Request copiedRequest = (ApplicationEntryAddPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Add Prepare Request Test", request, copiedRequest);
+    }
+    
+    
+    
+    @Test
+    public void landingEntryAddPrepareTest(){
+        
+        logger.info("Landing Entry Add Prepare Request Test");
+
+        ApplicationEntry.ApplicationEntryId entryId =  getApplicationEntryId(0, 100, 0);
+        ApplicationEntry applicationEntry = new ApplicationEntry(entryId);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+        
+        LandingEntryAddPrepare.Request request = new LandingEntryAddPrepare.Request(entryAdditionRoundId, applicationEntry, null);
+        Serializer serializer = Serializers.lookupSerializer(LandingEntryAddPrepare.Request.class);
+        
+        LandingEntryAddPrepare.Request copiedRequest = (LandingEntryAddPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Landing Entry Add Prepare Request Test", request, copiedRequest);
+        
+    }
+    
+    
+    @Test
+    public void applicationEntryAddPrepareResponseTest(){
+        
+        logger.info("Application Entry Add Prepare Response Test");
+
+        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(0, 100, 0);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+        
+        ApplicationEntryAddPrepare.Response response = new ApplicationEntryAddPrepare.Response(entryAdditionRoundId, entryId);
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntryAddPrepare.Response.class);
+        
+        ApplicationEntryAddPrepare.Response copiedResponse = (ApplicationEntryAddPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Add Prepare Response Test", response, copiedResponse);
+    }
+    
+    
+    @Test
+    public void landingEntryAddPrepareResponseTest(){
+        
+        logger.info("Landing Entry Add Prepare Response Test");
+
+        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(0, 100, 0);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+
+        LandingEntryAddPrepare.Response response = new LandingEntryAddPrepare.Response(entryAdditionRoundId, entryId);
+        Serializer serializer = Serializers.lookupSerializer(LandingEntryAddPrepare.Response.class);
+
+        LandingEntryAddPrepare.Response copiedResponse = (LandingEntryAddPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Landing Entry Add Prepare Response Test", response, copiedResponse);
+    }
+    
+    
+    @Test
+    public void entryAddCommitTest(){
+        
+        logger.info("Entry Add Commit Test");
+
+        ApplicationEntry.ApplicationEntryId entryId= getApplicationEntryId(0, 100, 0);
+        UUID commitRoundId = UUID.randomUUID();
+        String signature = "signature";
+        
+        EntryAddCommit.Request request = new EntryAddCommit.Request(commitRoundId, entryId, signature);
+        Serializer serializer = Serializers.lookupSerializer(EntryAddCommit.Request.class);
+        
+        EntryAddCommit.Request copiedRequest = (EntryAddCommit.Request)addObjectAndCreateCopiedObject(serializer,originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Add Commit Test", request, copiedRequest);
+    }
+    
 
     /**
      * Helper method to take the object and then add it to the buffer and then
