@@ -58,6 +58,7 @@ public class SerializerTest {
 
         logger.info("Executing the one time setup.");
         int currentId = 128;
+        int seed = 100;
         BasicSerializerSetup.registerBasicSerializers(currentId);
         currentId = currentId + BasicSerializerSetup.serializerIds;
         currentId = SerializerSetup.registerSerializers(currentId);
@@ -74,7 +75,7 @@ public class SerializerTest {
         originalBuf = Unpooled.buffer();
         copiedBuf = Unpooled.buffer();
         randomIndexEntry = new IndexEntry("globalId", 0, "url", "Avengers: Age of Ultron", 10189, new Date(),   "English", MsConfig.Categories.Video, "Description", "Hash", publicKey);
-        random = new Random();
+        random = new Random(seed);
         generateKeys();
     }
 
@@ -479,6 +480,62 @@ public class SerializerTest {
     }
     
 
+
+
+    @Test
+    public void testEntryId(){
+        logger.info("Application Entry Id Test.");
+
+        ApplicationEntry.ApplicationEntryId entryId = testApplicationEntryId();
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class);
+
+        ApplicationEntry.ApplicationEntryId copiedEntryId = (ApplicationEntry.ApplicationEntryId)addObjectAndCreateCopiedObject(serializer, originalBuf, entryId, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Id Test", entryId, copiedEntryId);
+    }
+
+
+    @Test
+    public void testApplicationEntry() {
+        logger.info("Application Entry Test");
+
+        ApplicationEntry entry = getTestApplicationEntry();
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntry.class);
+        ApplicationEntry copiedEntry = (ApplicationEntry)addObjectAndCreateCopiedObject(serializer, originalBuf, entry, copiedBuf);
+
+        org.junit.Assert.assertEquals("Application Entry Test", entry, copiedEntry);
+    }
+
+
+
+    @Test
+    public void leaderPullEntryRequestTest(){
+
+        logger.info("Leader Pull Entry Test");
+
+        UUID pullRoundId = UUID.randomUUID();
+        LeaderPullEntry.Request request = new LeaderPullEntry.Request(pullRoundId, getApplicationEntryId(1,100,0));
+        Serializer serializer = Serializers.lookupSerializer(LeaderPullEntry.Request.class);
+        LeaderPullEntry.Request copiedRequest = (LeaderPullEntry.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Leader Pull Entry Request Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void leaderPullEntryResponseTest(){
+
+        logger.info("Leader Pull Entry Response Test");
+        Collection<ApplicationEntry> entries = getApplicationEntryCollection(2);
+        UUID pullRoundId = UUID.randomUUID();
+        int overlayId = 0;
+
+        LeaderPullEntry.Response response = new LeaderPullEntry.Response(pullRoundId, entries, overlayId);
+        Serializer serializer = Serializers.lookupSerializer(LeaderPullEntry.Response.class);
+        LeaderPullEntry.Response copiedResponse = (LeaderPullEntry.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Leader Pull Entry Response Test", response, copiedResponse);
+    }
+
     /**
      * Helper method to take the object and then add it to the buffer and then
      * copy the buffer to another
@@ -566,6 +623,46 @@ public class SerializerTest {
 
         IndexEntry entry = new IndexEntry(null, -9223372036854775808l,  "220", "messi.mp4", 1, new Date(), "english", MsConfig.Categories.Video, "Something", null, null);
         return entry;
+    }
+
+
+
+    public ApplicationEntry getTestApplicationEntry (){
+
+        ApplicationEntry.ApplicationEntryId entryId = testApplicationEntryId();
+        IndexEntry entry = getRandomIndexEntry();
+
+        return new ApplicationEntry(entryId, entry);
+    }
+
+
+    /**
+     * Simply construct an application entryid.
+     * @return
+     */
+    public ApplicationEntry.ApplicationEntryId testApplicationEntryId(){
+        return getApplicationEntryId(0,100,0);
+    }
+
+
+    public ApplicationEntry.ApplicationEntryId getApplicationEntryId(long epochId, int leaderId, long entryId){
+        return new ApplicationEntry.ApplicationEntryId(epochId, leaderId, entryId);
+    }
+
+
+
+
+    public Collection<ApplicationEntry> getApplicationEntryCollection(int size) {
+
+        Collection<IndexEntry> entryCollection = getIndexEntryCollection(10);
+        Collection<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
+
+        for(IndexEntry entry : entryCollection){
+            ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, 100, entry.getId());
+            applicationEntries.add(new ApplicationEntry(entryId, entry));
+        }
+
+        return applicationEntries;
     }
 
 }

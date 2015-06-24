@@ -363,13 +363,13 @@ public final class NPAwareSearch extends ComponentDefinition {
             rst.setTimeoutEvent(new TimeoutCollection.RecentRequestsGcTimeout(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout( (int)(3000 * Math.random()) + MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
-//            rst = new SchedulePeriodicTimeout( MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
+//            rst = new SchedulePeriodicTimeout( (int)(3000 * Math.random()) + MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
+            rst = new SchedulePeriodicTimeout( MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
-            rst = new SchedulePeriodicTimeout((int)(4000 * Math.random()) + MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
-//            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+//            rst = new SchedulePeriodicTimeout((int)(4000 * Math.random()) + MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
+            rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
             trigger(rst, timerPort);
         }

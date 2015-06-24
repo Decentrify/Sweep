@@ -116,6 +116,7 @@ public class SerializerDecoderHelper {
         while(size > 0) {
             Object entry = serializer.fromBinary(buffer, hint);
             objCollection.add(entry);
+            size--;
         }
     }
 
