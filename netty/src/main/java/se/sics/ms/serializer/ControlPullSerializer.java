@@ -94,9 +94,24 @@ public class ControlPullSerializer {
             ControlPull.Response response = (ControlPull.Response)o;
 
             Serializers.lookupSerializer(UUID.class).toBinary(response.getPullRound(), buf);
-            Serializers.lookupSerializer(DecoratedAddress.class).toBinary(response.getLeaderAddress(), buf);
-            Serializers.lookupSerializer(PublicKey.class).toBinary(response.getLeaderKey(), buf);
-
+            
+            DecoratedAddress leaderAddress = response.getLeaderAddress();
+            SerializerEncoderHelper.checkNullAndUpdateBuff(buf, response.getLeaderAddress());
+            
+            if(leaderAddress != null){
+                
+                Serializers.lookupSerializer(DecoratedAddress.class)
+                        .toBinary(response.getLeaderAddress(), buf);
+            }
+            
+            PublicKey leaderKey = response.getLeaderKey();
+            SerializerEncoderHelper.checkNullAndUpdateBuff(buf, leaderKey);
+            
+            if(leaderKey != null){
+                Serializers.lookupSerializer(PublicKey.class)
+                        .toBinary(response.getLeaderKey(), buf);    
+            }
+            
             List<LeaderUnit> units = response.getNextUpdates();
             int size = units.size();
             buf.writeInt(size);
@@ -113,9 +128,24 @@ public class ControlPullSerializer {
             
             
             UUID pullRound = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
-            DecoratedAddress leaderAddress = (DecoratedAddress)Serializers.lookupSerializer(DecoratedAddress.class).fromBinary(buf, hint);
-            PublicKey leaderKey = (PublicKey)Serializers.lookupSerializer(PublicKey.class).fromBinary(buf, hint);
             
+            boolean address = SerializerDecoderHelper.checkNullCommit(buf);
+            DecoratedAddress leaderAddress = null;
+            if(address){
+                
+                leaderAddress = (DecoratedAddress)Serializers.lookupSerializer(DecoratedAddress.class)
+                        .fromBinary(buf, hint);
+            }
+
+            boolean key = SerializerDecoderHelper.checkNullCommit(buf);
+            PublicKey leaderKey = null;
+            
+            if(key){
+                
+                leaderKey = (PublicKey)Serializers.lookupSerializer(PublicKey.class)
+                        .fromBinary(buf, hint);
+            }
+
             int size = buf.readInt();
             List<LeaderUnit> nextUnits = new ArrayList<LeaderUnit>();
             

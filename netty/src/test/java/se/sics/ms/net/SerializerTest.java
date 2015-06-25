@@ -54,6 +54,7 @@ public class SerializerTest {
     private static PublicKey publicKey;
     private static PrivateKey privateKey;
     private static IndexEntry randomIndexEntry;
+    private static IndexEntry specialIndexEntry;
 
     @BeforeClass
     public static void oneTimeSetup() throws NoSuchAlgorithmException {
@@ -77,6 +78,8 @@ public class SerializerTest {
         originalBuf = Unpooled.buffer();
         copiedBuf = Unpooled.buffer();
         randomIndexEntry = new IndexEntry("globalId", 0, "url", "Avengers: Age of Ultron", 10189, new Date(),   "English", MsConfig.Categories.Video, "Description", "Hash", publicKey);
+        specialIndexEntry = new IndexEntry(" ", 0, "url", "Avengers: Age of Ultron", 10189, new Date(),   "English", MsConfig.Categories.Video, "Description", "Hash", publicKey);
+
         random = new Random(seed);
         generateKeys();
     }
@@ -445,6 +448,18 @@ public class SerializerTest {
 
     }
 
+    
+    @Test
+    public void indexEntryTest(){
+        logger.info("Index Entry Test");
+        
+        Serializer serializer = Serializers.lookupSerializer(IndexEntry.class);
+        IndexEntry entry = (IndexEntry)addObjectAndCreateCopiedObject(serializer, originalBuf, specialIndexEntry, copiedBuf);
+
+        org.junit.Assert.assertEquals("Index Entry Test", specialIndexEntry, entry);
+    }
+    
+    
     @Test
     public void indexHashRequestTest(){
         logger.info("Index Hash Exchange Request Test");
