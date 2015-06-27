@@ -32,6 +32,7 @@ public class PartitionAwareLayer extends ComponentDefinition{
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Negative<CroupierPort> croupierPortNegative = provides(CroupierPort.class);
     Negative<PALPort> palPortNegative = provides(PALPort.class);
+    String prefix;
     
 //  Local Variables.
     private Logger logger = LoggerFactory.getLogger(PartitionAwareLayer.class);
@@ -60,6 +61,7 @@ public class PartitionAwareLayer extends ComponentDefinition{
      */
     private void doInit(PALInit init) {
         selfBase = init.selfBase;
+        prefix = String.valueOf(selfBase.getId());
     }
 
 
@@ -70,8 +72,7 @@ public class PartitionAwareLayer extends ComponentDefinition{
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
-            
-            logger.info("Partition Aware Layer booted up.");
+            logger.info("{}: Partition Aware Layer booted up.", prefix);
         }
     };
     
@@ -82,7 +83,7 @@ public class PartitionAwareLayer extends ComponentDefinition{
         @Override
         public void handle(PALUpdate event) {
             
-            logger.info("Received Update from Application");
+            logger.info("{}: Received Update from Application", prefix);
             selfDescriptor = event.getSelfView();
         }
     };
@@ -98,8 +99,7 @@ public class PartitionAwareLayer extends ComponentDefinition{
         @Override
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
             
-            logger.info("Handle outgoing gradient shuffle request");
-            System.exit(-1);
+            logger.info("{}: Handle outgoing gradient shuffle request", prefix);
             trigger(context, networkPositive);
         }
     };
@@ -109,7 +109,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
             = new ClassMatchedHandler<GradientShuffle.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request>>() {
         @Override
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
-            logger.info("Handle incoming gradient shuffle request");
+            logger.info("{}: Handle incoming gradient shuffle request", prefix);
+            trigger(context, networkNegative);
         }
     };
 
@@ -118,7 +119,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
             = new ClassMatchedHandler<GradientShuffle.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response>>() {
         @Override
         public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
-            logger.info("Handle outgoing shuffle response");
+            logger.info("{}:Handle outgoing shuffle response", prefix);
+            trigger(context, networkPositive);
         }
     };
     
@@ -128,7 +130,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
             = new ClassMatchedHandler<GradientShuffle.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response>>() {
         @Override
         public void handle(GradientShuffle.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Response> context) {
-            logger.info("Handle incoming shuffle response");
+            logger.info("{}: Handle incoming shuffle response", prefix);
+            trigger(context, networkNegative);
         }
     };
                 
@@ -145,7 +148,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
         @Override
         public void handle(CroupierUpdate event) {
             
-            logger.info("Intercepting croupier update from gradient to croupier.");
+            logger.info("{}: Intercepting croupier update from gradient to croupier.", prefix);
+            trigger(event, croupierPortPositive);
         }
     };
 
@@ -160,7 +164,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
         @Override
         public void handle(CroupierSample<GradientLocalView> event) {
             
-            logger.info("Intercepting the croupier sample from the croupier to the gradient");
+            logger.info("{}: Intercepting the croupier sample from the croupier to the gradient", prefix);
+            trigger(event, croupierPortNegative);
         }
     };
     
