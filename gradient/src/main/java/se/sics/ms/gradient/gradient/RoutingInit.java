@@ -1,6 +1,5 @@
 package se.sics.ms.gradient.gradient;
 
-import se.sics.gvod.common.Self;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.kompics.Init;
 import se.sics.ms.common.ApplicationSelf;
@@ -9,7 +8,7 @@ import se.sics.ms.common.ApplicationSelf;
  * Initialization to the pseudo gradient component in application.
  * Created by babbarshaer on 2015-03-05.
  */
-public class PseudoGradientInit extends Init<PseudoGradient>{
+public class RoutingInit extends Init<Routing>{
 
     private final long seed;
     private final ApplicationSelf self;
@@ -21,7 +20,7 @@ public class PseudoGradientInit extends Init<PseudoGradient>{
      * @param configuration
      *            the configuration file
      */
-    public PseudoGradientInit(long seed, ApplicationSelf self, GradientConfiguration configuration) {
+    public RoutingInit(long seed, ApplicationSelf self, GradientConfiguration configuration) {
         super();
         this.seed = seed;
         this.self = self;

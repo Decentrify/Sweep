@@ -16,8 +16,8 @@ import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.gradient.gradient.PseudoGradient;
-import se.sics.ms.gradient.gradient.PseudoGradientInit;
+import se.sics.ms.gradient.gradient.Routing;
+import se.sics.ms.gradient.gradient.RoutingInit;
 import se.sics.ms.gradient.gradient.SweepGradientFilter;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -102,7 +102,7 @@ public final class SearchPeerRef extends ComponentDefinition {
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(addIndexEntryRequestHandler, externalUiPort);
 
-        pseudoGradient = create(PseudoGradient.class, new PseudoGradientInit(systemConfig.seed, self, pseudoGradientConfiguration));
+        pseudoGradient = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 5000));       // FIX ME: Address Set as Null.
 

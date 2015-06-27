@@ -47,16 +47,16 @@ import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
-/**
- * The class is simply a wrapper over the Gradient service.
- * It handles all the tasks provided to it by other components.
- * <p/>
- * NOTE: Proper division of functionality is required. The class will soon be deprecated,
- * once the functionality move to there respective components.
- */
-public final class PseudoGradient extends ComponentDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger(PseudoGradient.class);
+/**
+ * The component is responsible for routing the requests and creating 
+ * a wrapper over the routing table which keeps track of nodes in other
+ * shards.
+ *
+ */
+public final class Routing extends ComponentDefinition {
+
+    private static final Logger logger = LoggerFactory.getLogger(Routing.class);
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
@@ -97,7 +97,7 @@ public final class PseudoGradient extends ComponentDefinition {
     private RoutingTableHandler routingTableHandler;
     private Comparator<RoutingTableContainer> invertedAgeComparator;
 
-    public PseudoGradient(PseudoGradientInit init) {
+    public Routing(RoutingInit init) {
 
         doInit(init);
         subscribe(handleStart, control);
@@ -127,7 +127,7 @@ public final class PseudoGradient extends ComponentDefinition {
     /**
      * Initialize the state of the component.
      */
-    private void doInit(PseudoGradientInit init) {
+    private void doInit(RoutingInit init) {
 
         self = init.getSelf().shallowCopy();
         config = init.getConfiguration();
