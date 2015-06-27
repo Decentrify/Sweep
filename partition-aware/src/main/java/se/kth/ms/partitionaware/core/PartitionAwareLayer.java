@@ -1,10 +1,13 @@
-package se.kth.ms.core;
+package se.kth.ms.partitionaware.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.kth.ms.partitionaware.api.events.PALUpdate;
+import se.kth.ms.partitionaware.api.port.PALPort;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.Timer;
+import se.sics.ms.types.SearchDescriptor;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
@@ -28,16 +31,18 @@ public class PartitionAwareLayer extends ComponentDefinition{
     Negative<Network> networkNegative = provides(Network.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Negative<CroupierPort> croupierPortNegative = provides(CroupierPort.class);
-
+    Negative<PALPort> palPortNegative = provides(PALPort.class);
     
 //  Local Variables.
     private Logger logger = LoggerFactory.getLogger(PartitionAwareLayer.class);
     private BasicAddress selfBase;
+    private SearchDescriptor selfDescriptor;
     
     public PartitionAwareLayer(PALInit init){
 
         doInit(init);
         subscribe(startHandler, control);
+        subscribe(palUpdateHandler, palPortNegative);
         
         subscribe(handleOutgoingShuffleRequest, networkNegative);
         subscribe(handleIncomingShuffleRequest, networkPositive);
@@ -51,20 +56,38 @@ public class PartitionAwareLayer extends ComponentDefinition{
     
     /**
      * Initialization Method.
-     * @param init
+     * @param init init
      */
     private void doInit(PALInit init) {
         selfBase = init.selfBase;
     }
 
-    
 
+    /**
+     * Handler indicating that the component
+     * has been initialized and ready.
+     */
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
+            
             logger.info("Partition Aware Layer booted up.");
         }
     };
+    
+    
+//  Application Interaction
+//  --------------------------------------------------------------------------------------------------------------------
+    Handler<PALUpdate> palUpdateHandler = new Handler<PALUpdate>() {
+        @Override
+        public void handle(PALUpdate event) {
+            
+            logger.info("Received Update from Application");
+            selfDescriptor = event.getSelfView();
+        }
+    };
+    
+    
 
 //  Gradient Interaction Interception.
 //  --------------------------------------------------------------------------------------------------------------------
@@ -74,7 +97,10 @@ public class PartitionAwareLayer extends ComponentDefinition{
 
         @Override
         public void handle(GradientShuffle.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, GradientShuffle.Request> context) {
+            
             logger.info("Handle outgoing gradient shuffle request");
+            System.exit(-1);
+            trigger(context, networkPositive);
         }
     };
     

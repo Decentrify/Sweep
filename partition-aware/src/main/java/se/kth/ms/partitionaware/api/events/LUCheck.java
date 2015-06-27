@@ -1,4 +1,4 @@
-package se.kth.ms.api.events;
+package se.kth.ms.partitionaware.api.events;
 
 import se.sics.kompics.KompicsEvent;
 

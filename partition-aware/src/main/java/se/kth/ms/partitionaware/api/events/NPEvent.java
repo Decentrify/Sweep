@@ -1,4 +1,4 @@
-package se.kth.ms.api.events;
+package se.kth.ms.partitionaware.api.events;
 
 import se.sics.kompics.KompicsEvent;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;

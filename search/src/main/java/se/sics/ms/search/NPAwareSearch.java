@@ -10,6 +10,7 @@ import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.kth.ms.partitionaware.api.port.PALPort;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.*;
@@ -81,7 +82,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
-    Positive<PAGPort> pagPort = requires(PAGPort.class);
+    Positive<PALPort> pagPort = requires(PALPort.class);
 
     // ======== LOCAL VARIABLES.
 
@@ -265,9 +266,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(preShardTimeoutHandler, timerPort);
         
-        // PAG Handlers.
-        subscribe(leaderUnitCheckHandler, pagPort);
-        subscribe(npTimeoutHandler, timerPort);
+//      PAL Handlers
+        
+//        subscribe(leaderUnitCheckHandler, pagPort);
+//        subscribe(npTimeoutHandler, timerPort);
     }
 
     /**

@@ -16,6 +16,13 @@
     <url>http://maven.apache.org</url>
 
     <dependencies>
+
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>partition-aware</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        
         <dependency>
             <groupId>se.sics.p2ptoolbox.croupier</groupId>
             <artifactId>croupier-core</artifactId>

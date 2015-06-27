@@ -1,5 +1,4 @@
-package se.kth.ms.core;
-
+package se.kth.ms.partitionaware.core;
 import se.sics.kompics.Init;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
@@ -12,11 +11,13 @@ public class PALInit extends Init<PartitionAwareLayer> {
     
     public BasicAddress selfBase;
     public int bufferedHistorySize;
+    public int overlayId;
     
-    public PALInit(BasicAddress selfBase, int bufferedHistorySize){
+    public PALInit(BasicAddress selfBase, int bufferedHistorySize, int overlayId){
         
         this.selfBase = selfBase;
         this.bufferedHistorySize = bufferedHistorySize;
+        this.overlayId = overlayId;
     }
     
 }

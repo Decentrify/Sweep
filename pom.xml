@@ -17,6 +17,7 @@
         <module>simulators</module>
         <module>local-aggregator</module>
         <module>launch</module>
+        <module>partition-aware</module>
     </modules>
     
     <distributionManagement>

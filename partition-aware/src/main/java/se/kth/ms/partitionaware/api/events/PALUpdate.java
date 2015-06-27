@@ -1,4 +1,4 @@
-package se.kth.ms.api.events;
+package se.kth.ms.partitionaware.api.events;
 
 import se.sics.kompics.KompicsEvent;
 import se.sics.ms.types.SearchDescriptor;
@@ -9,11 +9,11 @@ import se.sics.ms.types.SearchDescriptor;
  * 
  * Created by babbarshaer on 2015-06-03.
  */
-public class PAGUpdate implements KompicsEvent {
+public class PALUpdate implements KompicsEvent {
     
     private final SearchDescriptor selfView;
     
-    public PAGUpdate(SearchDescriptor selfView){
+    public PALUpdate(SearchDescriptor selfView){
         this.selfView = selfView;
     }
 

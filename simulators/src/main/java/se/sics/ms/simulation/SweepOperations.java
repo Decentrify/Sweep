@@ -11,6 +11,8 @@ import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplication;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplicationInit;
+import se.sics.ms.search.Peer;
+import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
@@ -173,6 +175,46 @@ public class SweepOperations {
             };
         }
     };
+
+
+    public static Operation1<StartNodeCmd, Long> startPALNodeCmdOperation = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+
+            return new StartNodeCmd<Peer, DecoratedAddress>() {
+
+                long nodeId = SweepOperationsHelper.getStableId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int)nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 2;
+                }
+
+                @Override
+                public Class getNodeComponentDefinition() {
+                    return Peer.class;
+                }
+
+                @Override
+                public PeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.generatePALPeerInit(address, bootstrapNodes, nodeId);
+                }
+
+                @Override
+                public DecoratedAddress  getAddress() {
+                    return SweepOperationsHelper.getBasicAddress(nodeId);
+                }
+            };
+        }
+    };
+    
+    
+    
 
 
     public static Operation2<OperationCmd, Long, Long> generatePartitionNodeMap = new Operation2<OperationCmd, Long, Long>() {

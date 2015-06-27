@@ -11,6 +11,7 @@ import se.sics.gvod.config.VodConfig;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
+import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -166,7 +167,34 @@ public class SweepOperationsHelper {
 
         return init;
     }
-    
+
+
+
+
+
+    /**
+     * Based on the NodeId provided, generate an init configuration for the search peer.
+     * @param id NodeId
+     */
+    public static PeerInit generatePALPeerInit(DecoratedAddress simulatorAddress,Set<DecoratedAddress> bootstrap, long id){
+
+        logger.trace(" Generating address for peer with id: {} ", id);
+
+        BasicAddress basicAddress = new BasicAddress(ip, port , (int)id);
+        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
+        systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
+
+        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
+        PeerInit init  = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
+
+        ringNodes.addNode(id);
+        peersAddressMap.put(id, applicationSelf.getAddress());
+
+        bootstrapNodes = new ArrayList<DecoratedAddress>();
+        bootstrapNodes.add(applicationSelf.getAddress());
+
+        return init;
+    }
     
     
 
