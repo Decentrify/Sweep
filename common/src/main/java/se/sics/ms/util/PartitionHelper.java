@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -44,7 +44,7 @@ public class PartitionHelper {
      * @param bitsToCheck
      * @return
      */
-    public static PartitionId determineSearchDescriptorPartition(SearchDescriptor descriptor, boolean isFirstPartition,
+    public static PartitionId determineSearchDescriptorPartition(PeerDescriptor descriptor, boolean isFirstPartition,
                                                                       int bitsToCheck) {
         if(descriptor == null)
             throw new IllegalArgumentException("descriptor can't be null");

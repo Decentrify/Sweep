@@ -132,19 +132,19 @@ public class ApplicationTypesEncoderFactory {
         writeStringLength65536(buffer, pattern.getDescriptionPattern());
     }
 
-    public static void writeSearchDescriptorSet(ByteBuf buffer, Set<SearchDescriptor> nodeDescriptors) throws MessageEncodingException {
+    public static void writeSearchDescriptorSet(ByteBuf buffer, Set<PeerDescriptor> nodeDescriptors) throws MessageEncodingException {
         if (nodeDescriptors == null) {
             UserTypesEncoderFactory.writeUnsignedintAsTwoBytes(buffer, 0);
             return;
         }
         writeUnsignedintAsTwoBytes(buffer, nodeDescriptors.size());
-        for (SearchDescriptor node : nodeDescriptors) {
+        for (PeerDescriptor node : nodeDescriptors) {
             writeSearchDescriptor(buffer, node);
         }
     }
 
     
-    public static void writeSearchDescriptor(ByteBuf buffer, SearchDescriptor descriptor) throws MessageEncodingException {
+    public static void writeSearchDescriptor(ByteBuf buffer, PeerDescriptor descriptor) throws MessageEncodingException {
         
         UserTypesEncoderFactory.writeVodAddress(buffer, null);
         buffer.writeLong(descriptor.getNumberOfIndexEntries());

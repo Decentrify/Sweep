@@ -23,7 +23,6 @@ import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.gradient.events.PAGUpdate;
 import se.sics.ms.gradient.gradient.*;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -32,7 +31,7 @@ import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.CommonHelper;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
@@ -282,7 +281,7 @@ public final class Peer extends ComponentDefinition {
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
-                new SearchDescriptor(self.getAddress()),
+                new PeerDescriptor(self.getAddress()),
                 systemConfig.seed,
                 electionConfig,
                 publicKey,
@@ -292,7 +291,7 @@ public final class Peer extends ComponentDefinition {
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
-                        new SearchDescriptor(self.getAddress()),
+                        new PeerDescriptor(self.getAddress()),
                         systemConfig.seed,
                         electionConfig,
                         publicKey,
@@ -335,8 +334,8 @@ public final class Peer extends ComponentDefinition {
      */
     private void startPAL(){
         log.debug("Sending initial self update to the PAG ... ");
-        trigger(new PALUpdate(new SearchDescriptor(self.getAddress())), partitionAwareLayer.getPositive(PALPort.class));
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new PALUpdate(new PeerDescriptor(self.getAddress())), partitionAwareLayer.getPositive(PALPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
 
 
@@ -373,7 +372,7 @@ public final class Peer extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
     
     

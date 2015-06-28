@@ -25,7 +25,7 @@ import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.security.*;
 import java.util.*;
@@ -186,7 +186,7 @@ public final class SearchPeerRef extends ComponentDefinition {
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
-                new SearchDescriptor(self.getAddress()),
+                new PeerDescriptor(self.getAddress()),
                 seed,
                 electionConfig,
                 publicKey,
@@ -196,7 +196,7 @@ public final class SearchPeerRef extends ComponentDefinition {
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
-                        new SearchDescriptor(self.getAddress()),
+                        new PeerDescriptor(self.getAddress()),
                         seed,
                         electionConfig,
                         publicKey,
@@ -253,7 +253,7 @@ public final class SearchPeerRef extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
     
     
@@ -283,7 +283,7 @@ public final class SearchPeerRef extends ComponentDefinition {
     private void startCroupier() {
         
         log.debug("Sending update to croupier.");
-        trigger(new CroupierUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
+        trigger(new CroupierUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), croupier.getPositive(CroupierPort.class));
     }
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {

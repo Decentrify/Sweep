@@ -22,7 +22,7 @@ public class SerializerSetup {
 
     public static enum SweepSerializers {
 
-        searchDescriptor(SearchDescriptor.class, "applicationDescriptor"),
+        searchDescriptor(PeerDescriptor.class, "applicationDescriptor"),
         searchPattern(SearchPattern.class, "searchPattern"),
         indexEntry(IndexEntry.class, "indexEntry"),
         partitionInfo(PartitionHelper.PartitionInfo.class, "partitionInfo"),

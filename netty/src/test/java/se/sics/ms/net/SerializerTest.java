@@ -15,9 +15,6 @@ import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
-import se.sics.ms.serializer.ApplicationEntryAddSerializer;
-import se.sics.ms.serializer.ReplicationPrepareCommitSerializer;
-import se.sics.ms.serializer.ShardCommitSerializer;
 import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
@@ -49,8 +46,8 @@ public class SerializerTest {
 
     private static ByteBuf originalBuf, copiedBuf;
     private static DecoratedAddress selfAddress, destinationAddress;
-    private static SearchDescriptor selfDescriptor;
-    private static SearchDescriptor otherDescriptor;
+    private static PeerDescriptor selfDescriptor;
+    private static PeerDescriptor otherDescriptor;
     private static PublicKey publicKey;
     private static PrivateKey privateKey;
     private static IndexEntry randomIndexEntry;
@@ -72,8 +69,8 @@ public class SerializerTest {
 
         selfAddress = new DecoratedAddress(localHost, 54321, 1);
         destinationAddress = new DecoratedAddress(localHost, 54322, 2);
-        selfDescriptor = new SearchDescriptor(selfAddress, 1);
-        otherDescriptor = new SearchDescriptor(destinationAddress, 0);
+        selfDescriptor = new PeerDescriptor(selfAddress, 1);
+        otherDescriptor = new PeerDescriptor(destinationAddress, 0);
 
         originalBuf = Unpooled.buffer();
         copiedBuf = Unpooled.buffer();
@@ -111,11 +108,11 @@ public class SerializerTest {
 
         logger.info("Search Descriptor Serialization Test. ");
 
-        Serializer sdSerializer = Serializers.lookupSerializer(SearchDescriptor.class);
+        Serializer sdSerializer = Serializers.lookupSerializer(PeerDescriptor.class);
         sdSerializer.toBinary(selfDescriptor, originalBuf);
         copiedBuf = Unpooled.wrappedBuffer(originalBuf.array());
 
-        SearchDescriptor cpyDescriptor = (SearchDescriptor) sdSerializer.fromBinary(copiedBuf, Optional.absent());
+        PeerDescriptor cpyDescriptor = (PeerDescriptor) sdSerializer.fromBinary(copiedBuf, Optional.absent());
         Assert.assertEquals(" SearchDescriptor Equality Check ", selfDescriptor, cpyDescriptor);
     }
 
@@ -436,7 +433,7 @@ public class SerializerTest {
     public void leaderLookUpResponseTest(){
         logger.info("Leader Lookup Response Serialization Test");
 
-        List<SearchDescriptor> descList = new ArrayList<SearchDescriptor>();
+        List<PeerDescriptor> descList = new ArrayList<PeerDescriptor>();
         descList.add(selfDescriptor);
         descList.add(otherDescriptor);
 

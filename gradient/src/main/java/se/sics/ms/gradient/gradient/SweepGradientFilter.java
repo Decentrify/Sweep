@@ -1,9 +1,7 @@
 package se.sics.ms.gradient.gradient;
 
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.OverlayAddress;
-import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.gradient.GradientFilter;
 
@@ -12,10 +10,10 @@ import se.sics.p2ptoolbox.gradient.GradientFilter;
  *
  * Created by babbarshaer on 2015-03-06.
  */
-public class SweepGradientFilter implements GradientFilter<SearchDescriptor> {
+public class SweepGradientFilter implements GradientFilter<PeerDescriptor> {
     
     @Override
-    public boolean retainOther(SearchDescriptor selfDescriptor, SearchDescriptor otherDescriptor) {
+    public boolean retainOther(PeerDescriptor selfDescriptor, PeerDescriptor otherDescriptor) {
 
         OverlayAddress selfOverlayAddress = selfDescriptor.getOverlayAddress();
         OverlayAddress otherOverlayAddress = otherDescriptor.getOverlayAddress();
@@ -43,7 +41,7 @@ public class SweepGradientFilter implements GradientFilter<SearchDescriptor> {
     }
 
     @Override
-    public boolean cleanOldView(SearchDescriptor oldDescriptor, SearchDescriptor newDescriptor) {
+    public boolean cleanOldView(PeerDescriptor oldDescriptor, PeerDescriptor newDescriptor) {
         return newDescriptor.getOverlayAddress().getPartitionIdDepth() > oldDescriptor.getOverlayAddress().getPartitionIdDepth();
     }
 }

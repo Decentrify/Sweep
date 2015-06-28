@@ -3,7 +3,7 @@ package se.sics.ms.common;
 import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayAddress;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -122,8 +122,8 @@ public class ApplicationSelf {
      * Construct a descriptor based on the information contained in the object.
      * @return Self Descriptor.
      */
-    public SearchDescriptor getSelfDescriptor(){
-        return new SearchDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember, this.lastLeaderUnit);
+    public PeerDescriptor getSelfDescriptor(){
+        return new PeerDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember, this.lastLeaderUnit);
     }
 
     /**

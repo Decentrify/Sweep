@@ -2,12 +2,15 @@ package se.kth.ms.partitionaware.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.kth.ms.partitionaware.api.events.NPEvent;
+import se.kth.ms.partitionaware.api.events.NPTimeout;
 import se.kth.ms.partitionaware.api.events.PALUpdate;
 import se.kth.ms.partitionaware.api.port.PALPort;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.Timer;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
@@ -17,6 +20,11 @@ import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * The Main Partition Aware Layer.
@@ -37,13 +45,16 @@ public class PartitionAwareLayer extends ComponentDefinition{
 //  Local Variables.
     private Logger logger = LoggerFactory.getLogger(PartitionAwareLayer.class);
     private BasicAddress selfBase;
-    private SearchDescriptor selfDescriptor;
+    private PeerDescriptor selfDescriptor;
+    private Set<DecoratedAddress> pnpNodes;
     
     public PartitionAwareLayer(PALInit init){
 
         doInit(init);
         subscribe(startHandler, control);
         subscribe(palUpdateHandler, palPortNegative);
+        
+        subscribe(npTimeoutHandler, timerPositive);
         
         subscribe(handleOutgoingShuffleRequest, networkNegative);
         subscribe(handleIncomingShuffleRequest, networkPositive);
@@ -60,8 +71,10 @@ public class PartitionAwareLayer extends ComponentDefinition{
      * @param init init
      */
     private void doInit(PALInit init) {
+        
         selfBase = init.selfBase;
         prefix = String.valueOf(selfBase.getId());
+        pnpNodes = new HashSet<DecoratedAddress>();
     }
 
 
@@ -72,13 +85,20 @@ public class PartitionAwareLayer extends ComponentDefinition{
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start event) {
+            
             logger.info("{}: Partition Aware Layer booted up.", prefix);
+
+            SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(3000, 3000);
+            NPTimeout npTimeout = new NPTimeout(spt);
+            trigger(npTimeout, timerPositive);
+            
         }
     };
     
     
 //  Application Interaction
 //  --------------------------------------------------------------------------------------------------------------------
+    
     Handler<PALUpdate> palUpdateHandler = new Handler<PALUpdate>() {
         @Override
         public void handle(PALUpdate event) {
@@ -87,6 +107,28 @@ public class PartitionAwareLayer extends ComponentDefinition{
             selfDescriptor = event.getSelfView();
         }
     };
+
+    /**
+     *
+     * Network Partition timeout handler. Push to the application a list
+     * of the potential network partitioned nodes in the system.
+     */
+    Handler<NPTimeout> npTimeoutHandler = new Handler<NPTimeout>() {
+
+        @Override
+        public void handle(NPTimeout event) {
+
+            logger.debug("{}: Timeout for handing over the potential network partitioned nodes to the application", prefix);
+            
+            Collection<DecoratedAddress> npNodes = new ArrayList<DecoratedAddress>(pnpNodes);
+
+            NPEvent npEvent = new NPEvent(npNodes);
+            trigger(npEvent, palPortNegative);
+
+            pnpNodes.clear();
+        }
+    };
+    
     
     
 

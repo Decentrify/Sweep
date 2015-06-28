@@ -11,7 +11,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescriptor>, Serializable, LCPeerView{
+public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView{
 
 //    private int age;
     private transient boolean connected;
@@ -20,19 +20,19 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
     private final boolean isLGMember;
     private LeaderUnit lastLeaderUnit;
 
-    public SearchDescriptor(DecoratedAddress address) {
+    public PeerDescriptor(DecoratedAddress address) {
         this(new OverlayAddress(address, 0), false, 0, false, null);
     }
 
-    public SearchDescriptor(DecoratedAddress address, int overlayId){
+    public PeerDescriptor(DecoratedAddress address, int overlayId){
         this(new OverlayAddress(address, overlayId), false, 0, false, null);
     }
 
-    public SearchDescriptor(SearchDescriptor descriptor){
+    public PeerDescriptor(PeerDescriptor descriptor){
         this(new OverlayAddress(descriptor.getOverlayAddress().getAddress(), descriptor.getOverlayId().getId()), descriptor.isConnected(), descriptor.getNumberOfIndexEntries(), descriptor.isLeaderGroupMember(), descriptor.getLastLeaderUnit());
     }
 
-    public SearchDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember, LeaderUnit lastLeaderUnit){
+    public PeerDescriptor(OverlayAddress overlayAddress, boolean connected, long numberOfIndexEntries, boolean isLGMember, LeaderUnit lastLeaderUnit){
         this.overlayAddress = overlayAddress;
         this.connected = connected;
         this.numberOfIndexEntries = numberOfIndexEntries;
@@ -70,7 +70,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
 
     @Override
-    public int compareTo(SearchDescriptor that) {
+    public int compareTo(PeerDescriptor that) {
 
         if(that == null){
             throw new RuntimeException("Can't compare to a null descriptor.");
@@ -147,7 +147,7 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
         if (getClass() != obj.getClass()) {
             return false;
         }
-        SearchDescriptor other = (SearchDescriptor) obj;
+        PeerDescriptor other = (PeerDescriptor) obj;
 
         if (this.overlayAddress == null) {
             if (other.getOverlayAddress() != null) {
@@ -198,11 +198,11 @@ public class SearchDescriptor implements DescriptorBase, Comparable<SearchDescri
 
     @Override
     public LCPeerView enableLGMembership() {
-        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true, this.lastLeaderUnit);
+        return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true, this.lastLeaderUnit);
     }
 
     @Override
     public LCPeerView disableLGMembership() {
-        return new SearchDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false, this.lastLeaderUnit);
+        return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false, this.lastLeaderUnit);
     }
 }

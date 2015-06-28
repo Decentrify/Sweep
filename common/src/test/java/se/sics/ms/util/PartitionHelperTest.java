@@ -1,16 +1,14 @@
 package se.sics.ms.util;
 
 import junit.framework.Assert;
-import org.javatuples.*;
 import org.javatuples.Pair;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import se.sics.gvod.address.Address;
 import se.sics.gvod.net.VodAddress;
-import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
@@ -58,7 +56,7 @@ public class PartitionHelperTest {
     /**
      * Initialize Method.
      */
-    private Map<Integer, Pair<Integer, HashSet<SearchDescriptor>>> init() {
+    private Map<Integer, Pair<Integer, HashSet<PeerDescriptor>>> init() {
 
         int  ovid1 = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 1, 0);
         int  ovid2 = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE, 1, 0, 0);
@@ -67,17 +65,17 @@ public class PartitionHelperTest {
         VodAddress vod1 = new VodAddress(ad1, ovid1);
 
         DecoratedAddress da1 = new DecoratedAddress(ipAddress, 54321, 1);
-        SearchDescriptor sd1 = new SearchDescriptor(da1);
-        HashSet<SearchDescriptor> hs1 = new HashSet<SearchDescriptor>();
+        PeerDescriptor sd1 = new PeerDescriptor(da1);
+        HashSet<PeerDescriptor> hs1 = new HashSet<PeerDescriptor>();
         hs1.add(sd1);
         
         Address ad2 = new Address(ipAddress, 10000, 110000);
         DecoratedAddress da2 = new DecoratedAddress(ipAddress, 54322, 2);
-        SearchDescriptor sd2 = new SearchDescriptor(da2);
-        HashSet<SearchDescriptor> hs2 = new HashSet<SearchDescriptor>();
+        PeerDescriptor sd2 = new PeerDescriptor(da2);
+        HashSet<PeerDescriptor> hs2 = new HashSet<PeerDescriptor>();
         hs2.add(sd2);
         
-        Map<Integer, org.javatuples.Pair<Integer, HashSet<SearchDescriptor>>> categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashSet<SearchDescriptor>>>();
+        Map<Integer, org.javatuples.Pair<Integer, HashSet<PeerDescriptor>>> categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashSet<PeerDescriptor>>>();
         categoryRoutingMap.put(new Integer(1), Pair.with(1,hs1));
         
         categoryRoutingMap.put(0, Pair.with(1, hs2));

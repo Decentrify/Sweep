@@ -3,10 +3,9 @@ package se.sics.ms.common;
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.PartitionHelper;
@@ -54,7 +53,7 @@ public class RoutingTableHandler {
             CroupierContainer croupierContainer = (CroupierContainer) container;
 
             //TODO: Temp fix Alex Fix Container Data.
-            SearchDescriptor descriptor = (SearchDescriptor)((GradientLocalView)croupierContainer.getContent()).appView;
+            PeerDescriptor descriptor = (PeerDescriptor)((GradientLocalView)croupierContainer.getContent()).appView;
             MsConfig.Categories category = categoryFromCategoryId(descriptor.getOverlayId().getCategoryId());
 
             PartitionId partitionInfo = new PartitionId(descriptor.getOverlayAddress().getPartitioningType(),
@@ -111,7 +110,7 @@ public class RoutingTableHandler {
                 return;
         }
 
-        selfContainer = new RoutingTableContainer(croupierContainer.getAge(), croupierContainer.getSource(), (SearchDescriptor)((GradientLocalView)croupierContainer.getContent()).appView);
+        selfContainer = new RoutingTableContainer(croupierContainer.getAge(), croupierContainer.getSource(), (PeerDescriptor)((GradientLocalView)croupierContainer.getContent()).appView);
         partitionBucket.getValue1().put(receivedBaseAddress, selfContainer);
 
         if (partitionBucket.getValue1().size() > maxRoutingEntries) {

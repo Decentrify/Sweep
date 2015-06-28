@@ -7,6 +7,7 @@ import org.junit.Test;
  * Created by babbarshaer on 2015-02-04.
  */
 
+import se.sics.ms.scenarios.general.PartitionAwareBootupScenario;
 import se.sics.ms.scenarios.general.SimpleBootupScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
 import java.net.UnknownHostException;
@@ -22,7 +23,7 @@ public class MainTest {
     @Test
     public void myTest() throws UnknownHostException {
 
-        SimpleBootupScenario.boot(seed).simulate(LauncherComp.class);
+        PartitionAwareBootupScenario.boot(seed).simulate(LauncherComp.class);
     }
 
 }

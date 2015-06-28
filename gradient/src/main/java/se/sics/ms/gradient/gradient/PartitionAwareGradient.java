@@ -1,7 +1,6 @@
 package se.sics.ms.gradient.gradient;
 
 import org.javatuples.Pair;
-import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.network.Transport;
@@ -17,13 +16,12 @@ import se.sics.ms.gradient.misc.GradientShuffleWrapper;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.types.LeaderUnit;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
 import se.sics.p2ptoolbox.croupier.msg.CroupierUpdate;
-import se.sics.p2ptoolbox.croupier.util.CroupierContainer;
 import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
@@ -51,7 +49,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private Logger logger = LoggerFactory.getLogger(PartitionAwareGradient.class);
     private Component gradient;
     private SystemConfig systemConfig;
-    private SearchDescriptor selfDescriptor;
+    private PeerDescriptor selfDescriptor;
     private String prefix;
     private LeaderUnit lastLeaderUnit;
     private Queue<Pair<Long, Integer>> verifiedSet;
@@ -145,14 +143,14 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
     /**
      *
-     * Network Partition timeout handler. Push to the application a list 
+     * Network Partition timeout handler. Push to the application a list
      * of the potential network partitioned nodes in the system.
      */
     Handler<NPTimeout> npTimeoutHandler = new Handler<NPTimeout>() {
-        
+
         @Override
         public void handle(NPTimeout event) {
-            
+
             logger.debug("{}: Timeout for handing over the potential network partitioned nodes to the application", prefix);
             Collection<DecoratedAddress> npNodes = new ArrayList<DecoratedAddress>(pnpNodes);
 
@@ -254,7 +252,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         for(Container<DecoratedAddress, GradientLocalView> suspect : suspects){
             
             GradientLocalView glv = suspect.getContent();
-            SearchDescriptor sd = (SearchDescriptor) glv.appView;
+            PeerDescriptor sd = (PeerDescriptor) glv.appView;
             
             LeaderUnit unit = sd.getLastLeaderUnit();
             initiateLUCheckRequest(unit, suspect.getSource(), new CroupierContainerWrapper(suspect, overlayId));
@@ -502,7 +500,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
         while(itr.hasNext()) {
             
             Container<DecoratedAddress, GradientLocalView> next = itr.next();
-            LeaderUnit lastUnit = ((SearchDescriptor)next.getContent().appView)
+            LeaderUnit lastUnit = ((PeerDescriptor)next.getContent().appView)
                     .getLastLeaderUnit();
 
             if(lastUnit != null) {
@@ -536,7 +534,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
             Container<DecoratedAddress, GradientLocalView> next = itr.next();
             
-            SearchDescriptor descriptor = (SearchDescriptor)next.getContent().appView;
+            PeerDescriptor descriptor = (PeerDescriptor)next.getContent().appView;
             LeaderUnit lastUnit = descriptor
                     .getLastLeaderUnit();
             
@@ -625,11 +623,11 @@ public class PartitionAwareGradient extends ComponentDefinition {
 
             GradientContainer container = content.selfGC;
 
-            if(! (container.getContent() instanceof SearchDescriptor)){
+            if(! (container.getContent() instanceof PeerDescriptor)){
                 throw new IllegalStateException(" Gradient Shuffle state corrupted. ");
             }
 
-            SearchDescriptor descriptor = (SearchDescriptor)container.getContent();
+            PeerDescriptor descriptor = (PeerDescriptor)container.getContent();
             LeaderUnit lastUnit = descriptor.getLastLeaderUnit();
 
             if(!verifiedSet.contains(Pair.with(lastUnit.getEpochId(), lastUnit.getLeaderId()))) {

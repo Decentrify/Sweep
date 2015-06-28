@@ -1,12 +1,12 @@
 package se.sics.ms.util;
 
 import se.sics.ms.common.RoutingTableContainer;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.Comparator;
 
 /**
- * Simple Collection for the comparators acting on {@link SearchDescriptor}.
+ * Simple Collection for the comparators acting on {@link se.sics.ms.types.PeerDescriptor}.
  * Created by babbar on 2015-03-24.
  */
 public class ComparatorCollection {
@@ -28,8 +28,8 @@ public class ComparatorCollection {
                 return -1;
             }
 
-            SearchDescriptor sd1 = o1.getContent();
-            SearchDescriptor sd2 = o2.getContent();
+            PeerDescriptor sd1 = o1.getContent();
+            PeerDescriptor sd2 = o2.getContent();
 
             // Comparing on the peer views to break ties.
             return sd1.compareTo(sd2);
@@ -53,8 +53,8 @@ public class ComparatorCollection {
                 return 1;
             }
 
-            SearchDescriptor sd1 = o1.getContent();
-            SearchDescriptor sd2 = o2.getContent();
+            PeerDescriptor sd1 = o1.getContent();
+            PeerDescriptor sd2 = o2.getContent();
 
             // Comparing on the peer views to break ties.
             // Invert the result before sending.

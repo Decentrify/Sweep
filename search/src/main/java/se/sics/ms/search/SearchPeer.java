@@ -24,7 +24,7 @@ import se.sics.ms.gradient.ports.PAGPort;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.UiPort;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.security.*;
 import java.util.*;
@@ -218,7 +218,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
-                new SearchDescriptor(self.getAddress()),
+                new PeerDescriptor(self.getAddress()),
                 seed,
                 electionConfig,
                 publicKey,
@@ -228,7 +228,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
-                        new SearchDescriptor(self.getAddress()),
+                        new PeerDescriptor(self.getAddress()),
                         seed,
                         electionConfig,
                         publicKey,
@@ -271,8 +271,8 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void startPAG(){
         log.debug("Sending initial self update to the PAG ... ");
-        trigger(new PAGUpdate(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(PAGPort.class));
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
+        trigger(new PAGUpdate(new PeerDescriptor(self.getAddress())), partitionAwareGradient.getPositive(PAGPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
     }
 
 
@@ -311,7 +311,7 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<SearchDescriptor>(new SearchDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
     }
     
     

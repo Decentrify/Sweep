@@ -162,11 +162,11 @@ public class ApplicationTypesDecoderFactory {
         return new SearchPattern(fileNamePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, descriptionPattern);
     }
 
-    public static Set<SearchDescriptor> readSearchDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
+    public static Set<PeerDescriptor> readSearchDescriptorSet(ByteBuf buffer) throws MessageDecodingException {
         int len = UserTypesDecoderFactory.readUnsignedIntAsTwoBytes(buffer);
-        Set<SearchDescriptor> addrs = new HashSet<SearchDescriptor>();
+        Set<PeerDescriptor> addrs = new HashSet<PeerDescriptor>();
         for (int i = 0; i < len; i++) {
-            SearchDescriptor currentSearchDescriptor = readSearchDescriptor(buffer);
+            PeerDescriptor currentSearchDescriptor = readSearchDescriptor(buffer);
             addrs.add(currentSearchDescriptor);
         }
         return addrs;
@@ -179,16 +179,16 @@ public class ApplicationTypesDecoderFactory {
      *
      * @throws MessageDecodingException
      */
-    public static SearchDescriptor readSearchDescriptor(ByteBuf byteBuf) throws MessageDecodingException {
+    public static PeerDescriptor readSearchDescriptor(ByteBuf byteBuf) throws MessageDecodingException {
         
-        SearchDescriptor descriptor;
+        PeerDescriptor descriptor;
         
         VodAddress vodAddress = UserTypesDecoderFactory.readVodAddress(byteBuf);
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();
         
         // TODO : FIX this deserializer.
-        descriptor = new SearchDescriptor(new OverlayAddress(null, 0), false, numberOfIndexEntries, isLGMember, null);
+        descriptor = new PeerDescriptor(new OverlayAddress(null, 0), false, numberOfIndexEntries, isLGMember, null);
         return descriptor;
     }
 

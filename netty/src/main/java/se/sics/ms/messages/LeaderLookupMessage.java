@@ -5,13 +5,12 @@ import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.ScheduleTimeout;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.HashSet;
 import java.util.List;
@@ -56,9 +55,9 @@ public class LeaderLookupMessage {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
         private final boolean leader;
-        private final List<SearchDescriptor> searchDescriptors;
+        private final List<PeerDescriptor> searchDescriptors;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, List<SearchDescriptor> searchDescriptors) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, boolean leader, List<PeerDescriptor> searchDescriptors) {
             super(source, destination, timeoutId);
             this.leader = leader;
             this.searchDescriptors = searchDescriptors;
@@ -74,7 +73,7 @@ public class LeaderLookupMessage {
             return leader;
         }
 
-        public List<SearchDescriptor> getSearchDescriptors() {
+        public List<PeerDescriptor> getSearchDescriptors() {
             return searchDescriptors;
         }
 
@@ -88,7 +87,7 @@ public class LeaderLookupMessage {
             ByteBuf buffer = createChannelBufferWithHeader();
             buffer.writeBoolean(leader);
 //            UserTypesEncoderFactory.writeListVodNodeDescriptors(buffer, SearchDescriptor.toVodDescriptorList(searchDescriptors));
-            ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, new HashSet<SearchDescriptor>(searchDescriptors));
+            ApplicationTypesEncoderFactory.writeSearchDescriptorSet(buffer, new HashSet<PeerDescriptor>(searchDescriptors));
             return buffer;
         }
 

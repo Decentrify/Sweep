@@ -28,7 +28,7 @@ public class PartitionAwareBootupScenario {
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startPALNodeCmdOperation, uniform(0, Integer.MAX_VALUE));
+                        raise(2 , SweepOperations.startPALNodeCmdOperation, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 

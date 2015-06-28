@@ -5,10 +5,9 @@ import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -17,9 +16,9 @@ import se.sics.ms.types.SearchDescriptor;
  * Time: 12:26 PM
  */
 public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
-    private final SearchDescriptor betterLeader;
+    private final PeerDescriptor betterLeader;
 
-    public RejectLeaderMessage(VodAddress source, VodAddress destination, SearchDescriptor betterLeader) {
+    public RejectLeaderMessage(VodAddress source, VodAddress destination, PeerDescriptor betterLeader) {
         super(source, destination);
 
         if(betterLeader == null)
@@ -28,7 +27,7 @@ public class RejectLeaderMessage extends DirectMsgNetty.Oneway {
         this.betterLeader = betterLeader;
     }
 
-    public SearchDescriptor getBetterLeader() {
+    public PeerDescriptor getBetterLeader() {
         return betterLeader;
     }
 

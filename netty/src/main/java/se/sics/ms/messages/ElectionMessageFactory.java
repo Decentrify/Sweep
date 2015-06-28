@@ -6,7 +6,7 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.msgs.DirectMsg;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -27,7 +27,7 @@ public class ElectionMessageFactory {
         @Override
         protected DirectMsg process(ByteBuf buffer) throws MessageDecodingException {
             int counter = buffer.readInt();
-            SearchDescriptor searchDescriptor = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
+            PeerDescriptor searchDescriptor = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
             return new ElectionMessage.Request(vodSrc, vodDest, timeoutId, counter, searchDescriptor);
         }
     }
@@ -48,7 +48,7 @@ public class ElectionMessageFactory {
             boolean isConvereged = UserTypesDecoderFactory.readBoolean(buffer);
             boolean vote = UserTypesDecoderFactory.readBoolean(buffer);
 //            SearchDescriptor highest = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
-            SearchDescriptor highest = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
+            PeerDescriptor highest = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
             return new ElectionMessage.Response(vodSrc, vodDest, timeoutId, voteId, isConvereged, vote, highest);
         }
     }

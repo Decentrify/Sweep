@@ -81,14 +81,14 @@ public final class Routing extends ComponentDefinition {
     private PublicKey leaderPublicKey;
     String compName;
 
-    private TreeSet<SearchDescriptor> gradientEntrySet;
+    private TreeSet<PeerDescriptor> gradientEntrySet;
     private SimpleUtilityComparator utilityComparator;
 
     private IndexEntry indexEntryToAdd;
     private UUID addIndexEntryRequestTimeoutId;
-    final private HashSet<SearchDescriptor> queriedNodes = new HashSet<SearchDescriptor>();
+    final private HashSet<PeerDescriptor> queriedNodes = new HashSet<PeerDescriptor>();
 
-    final private HashMap<UUID, SearchDescriptor> openRequests = new HashMap<UUID, SearchDescriptor>();
+    final private HashMap<UUID, PeerDescriptor> openRequests = new HashMap<UUID, PeerDescriptor>();
     final private HashMap<BasicAddress, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<BasicAddress, Pair<DecoratedAddress, Integer>>();
     private List<BasicAddress> leadersAlreadyComunicated = new ArrayList<BasicAddress>();
 
@@ -138,7 +138,7 @@ public final class Routing extends ComponentDefinition {
 
         compName = "(" + self.getId() + ", " + self.getOverlayId() + ") ";
         utilityComparator = new SimpleUtilityComparator();
-        gradientEntrySet = new TreeSet<SearchDescriptor>(utilityComparator);
+        gradientEntrySet = new TreeSet<PeerDescriptor>(utilityComparator);
 
 
         this.routingTableHandler = new RoutingTableHandler(config.getMaxNumRoutingEntries());
@@ -171,13 +171,13 @@ public final class Routing extends ComponentDefinition {
      * @param baseList   List to append entries to.
      * @param sampleList List to iterate over.
      */
-    private void checkInstanceAndAdd(Collection<SearchDescriptor> baseList, Collection<Container> sampleList) {
+    private void checkInstanceAndAdd(Collection<PeerDescriptor> baseList, Collection<Container> sampleList) {
 
         for (Container container : sampleList) {
 
-            if (container.getContent() instanceof SearchDescriptor) {
+            if (container.getContent() instanceof PeerDescriptor) {
 
-                SearchDescriptor currentDescriptor = (SearchDescriptor) container.getContent();
+                PeerDescriptor currentDescriptor = (PeerDescriptor) container.getContent();
                 baseList.add(currentDescriptor);
             }
         }
@@ -241,12 +241,12 @@ public final class Routing extends ComponentDefinition {
                 else {
 
                     logger.debug ("Triggering the entry request to nodes above for finding the leader ... ", leaderAddress);
-                    NavigableSet<SearchDescriptor> startNodes = new TreeSet<SearchDescriptor>(utilityComparator);
+                    NavigableSet<PeerDescriptor> startNodes = new TreeSet<PeerDescriptor>(utilityComparator);
                     startNodes.addAll(getGradientSample());
 
-                    Iterator<SearchDescriptor> iterator = startNodes.descendingIterator();
+                    Iterator<PeerDescriptor> iterator = startNodes.descendingIterator();
                     for (int i = 0; i < LeaderLookup.QueryLimit && iterator.hasNext(); i++) {
-                        SearchDescriptor node = iterator.next();
+                        PeerDescriptor node = iterator.next();
                         sendLeaderLookupRequest(node);
                     }
                 }
@@ -263,18 +263,18 @@ public final class Routing extends ComponentDefinition {
                 ArrayList<Integer> categoryPartitionsIds = new ArrayList<Integer>(partitions.keySet());
                 int categoryPartitionId = (int) (Math.random() * categoryPartitionsIds.size());
                 
-                HashSet<SearchDescriptor> startNodes = getSearchDescriptorSet(partitions.get(categoryPartitionsIds.get(categoryPartitionId)).getValue1().values());
+                HashSet<PeerDescriptor> startNodes = getSearchDescriptorSet(partitions.get(categoryPartitionsIds.get(categoryPartitionId)).getValue1().values());
                 if (startNodes == null || startNodes.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no nodes for partition {} ", self.getAddress(), categoryPartitionsIds.get(categoryPartitionId));
                     return;
                 }
 
                 // Need to sort it every time because values like RTT might have been changed
-                SortedSet<SearchDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
+                SortedSet<PeerDescriptor> sortedStartNodes = sortByConnectivity(startNodes);
                 Iterator iterator = sortedStartNodes.iterator();
 
                 for (int i = 0; i < LeaderLookup.QueryLimit && iterator.hasNext(); i++) {
-                    SearchDescriptor node = (SearchDescriptor) iterator.next();
+                    PeerDescriptor node = (PeerDescriptor) iterator.next();
                     sendLeaderLookupRequest(node);
                 }
             }
@@ -286,9 +286,9 @@ public final class Routing extends ComponentDefinition {
      * @param cpvCollection collection
      * @return Set of Descriptors.
      */
-    private HashSet<SearchDescriptor> getSearchDescriptorSet(Collection<RoutingTableContainer> cpvCollection){
+    private HashSet<PeerDescriptor> getSearchDescriptorSet(Collection<RoutingTableContainer> cpvCollection){
      
-        HashSet<SearchDescriptor> descriptorSet = new HashSet<SearchDescriptor>();
+        HashSet<PeerDescriptor> descriptorSet = new HashSet<PeerDescriptor>();
         for(RoutingTableContainer container : cpvCollection){
             descriptorSet.add(container.getContent());
         }
@@ -306,7 +306,7 @@ public final class Routing extends ComponentDefinition {
         public void handle(LeaderLookup.Timeout timeout) {
             
             logger.debug("{}: Leader lookup timeout triggered.", self.getId());
-            SearchDescriptor descriptor = openRequests.remove(timeout.getTimeoutId());
+            PeerDescriptor descriptor = openRequests.remove(timeout.getTimeoutId());
             
             if(descriptor != null) {
                 logger.debug("{}: Node with Id: {} unresponsive in replying for leader response.", self.getId(), descriptor.getId());
@@ -327,17 +327,17 @@ public final class Routing extends ComponentDefinition {
             
             logger.debug("{}: Received leader lookup request from : {}", self.getId(), event.getSource().getId());
             
-            TreeSet<SearchDescriptor> higherNodes = new TreeSet<SearchDescriptor>(getHigherUtilityNodes());
-            ArrayList<SearchDescriptor> searchDescriptors = new ArrayList<SearchDescriptor>();
+            TreeSet<PeerDescriptor> higherNodes = new TreeSet<PeerDescriptor>(getHigherUtilityNodes());
+            ArrayList<PeerDescriptor> searchDescriptors = new ArrayList<PeerDescriptor>();
 
-            Iterator<SearchDescriptor> iterator = higherNodes.descendingIterator();
+            Iterator<PeerDescriptor> iterator = higherNodes.descendingIterator();
             while (searchDescriptors.size() < LeaderLookup.ResponseLimit && iterator.hasNext()) {
                 searchDescriptors.add(iterator.next());
             }
 
             if (searchDescriptors.size() < LeaderLookup.ResponseLimit) {
 
-                TreeSet<SearchDescriptor> lowerNodes = new TreeSet<SearchDescriptor>(getLowerUtilityNodes());
+                TreeSet<PeerDescriptor> lowerNodes = new TreeSet<PeerDescriptor>(getLowerUtilityNodes());
                 iterator = lowerNodes.iterator();
                 while (searchDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
                     searchDescriptors.add(iterator.next());
@@ -383,7 +383,7 @@ public final class Routing extends ComponentDefinition {
             }
 
             else {
-                List<SearchDescriptor> higherUtilityNodes = response.getSearchDescriptors();
+                List<PeerDescriptor> higherUtilityNodes = response.getSearchDescriptors();
 
                 if (higherUtilityNodes.size() > LeaderLookup.QueryLimit) {
                     Collections.sort(higherUtilityNodes, utilityComparator);
@@ -391,16 +391,16 @@ public final class Routing extends ComponentDefinition {
                 }
 
                 if (higherUtilityNodes.size() > 0) {
-                    SearchDescriptor first = higherUtilityNodes.get(0);
+                    PeerDescriptor first = higherUtilityNodes.get(0);
                     if (locatedLeaders.containsKey(first.getVodAddress())) {
                         Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress().getBase()).getValue1() + 1;
                         locatedLeaders.put(first.getVodAddress().getBase(), Pair.with(first.getVodAddress(),numberOfAnswers));
                     }
                 }
 
-                Iterator<SearchDescriptor> iterator = higherUtilityNodes.iterator();
+                Iterator<PeerDescriptor> iterator = higherUtilityNodes.iterator();
                 for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
-                    SearchDescriptor node = iterator.next();
+                    PeerDescriptor node = iterator.next();
                     // Don't query nodes twice
                     if (queriedNodes.contains(node)) {
                         i--;
@@ -432,7 +432,7 @@ public final class Routing extends ComponentDefinition {
      *
      * @param node Peer
      */
-    private void sendLeaderLookupRequest(SearchDescriptor node) {
+    private void sendLeaderLookupRequest(PeerDescriptor node) {
         
         ScheduleTimeout st = new ScheduleTimeout(config.getLeaderLookupTimeout());
         st.setTimeoutEvent(new LeaderLookup.Timeout(st));
@@ -457,7 +457,7 @@ public final class Routing extends ComponentDefinition {
 
             logger.debug("{}: Request for initiating index hash exchange with round Id: {}", self.getId(), event.getTimeoutId());
 
-            ArrayList<SearchDescriptor> nodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
+            ArrayList<PeerDescriptor> nodes = new ArrayList<PeerDescriptor>(getHigherUtilityNodes());
             if (nodes.isEmpty() || nodes.size() < event.getNumberOfRequests()) {
                 logger.debug(" {}: Not enough nodes to perform Index Hash Exchange.", self.getAddress().getId());
                 return;
@@ -466,7 +466,7 @@ public final class Routing extends ComponentDefinition {
             IndexHashExchange.Request request = new IndexHashExchange.Request(event.getTimeoutId(), event.getLowestMissingIndexEntry(), event.getExistingEntries(), self.getOverlayId());
             for (int i = 0; i < event.getNumberOfRequests(); i++) {
                 int n = random.nextInt(nodes.size());
-                SearchDescriptor node = nodes.get(n);
+                PeerDescriptor node = nodes.get(n);
                 nodes.remove(node);
                 logger.debug("{}: Sending exchange request to :{} with round {}", new Object[]{ self.getId(), node.getId(), event.getTimeoutId()});
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), node.getVodAddress(), Transport.UDP, request), networkPort);
@@ -509,7 +509,7 @@ public final class Routing extends ComponentDefinition {
                 for (int i = 0; i < parallelism && iterator.hasNext(); i++) {
 
                     RoutingTableContainer container = iterator.next();
-                    SearchDescriptor searchDescriptor = container.getContent();
+                    PeerDescriptor searchDescriptor = container.getContent();
 
                     SearchInfo.Request request = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), container.getSource(), Transport.UDP, request), networkPort);
@@ -530,8 +530,8 @@ public final class Routing extends ComponentDefinition {
      * @param searchDescriptors Descriptors
      * @return Sorted Set.
      */
-    private TreeSet<SearchDescriptor> sortByConnectivity(Collection<SearchDescriptor> searchDescriptors) {
-        return new TreeSet<SearchDescriptor>(searchDescriptors);
+    private TreeSet<PeerDescriptor> sortByConnectivity(Collection<PeerDescriptor> searchDescriptors) {
+        return new TreeSet<PeerDescriptor>(searchDescriptors);
     }
 
     /**
@@ -559,7 +559,7 @@ public final class Routing extends ComponentDefinition {
         @Override
         public void handle(GradientRoutingPort.InitiateControlMessageExchangeRound event) {
 
-            ArrayList<SearchDescriptor> preferredNodes = new ArrayList<SearchDescriptor>(getHigherUtilityNodes());
+            ArrayList<PeerDescriptor> preferredNodes = new ArrayList<PeerDescriptor>(getHigherUtilityNodes());
 
             if (preferredNodes.size() < event.getControlMessageExchangeNumber()){
                 logger.debug("{}: Not enough higher nodes to start the control pull mechanism.", self.getId());
@@ -569,7 +569,7 @@ public final class Routing extends ComponentDefinition {
             ControlInformation.Request request = new ControlInformation.Request(event.getRoundId(), new OverlayId(self.getOverlayId()));
 
             Collections.reverse(preferredNodes); // Talking to highest nodes for faster fetch of data.
-            Iterator<SearchDescriptor> iterator = preferredNodes.iterator();
+            Iterator<PeerDescriptor> iterator = preferredNodes.iterator();
             
             for (int i = 0; i < event.getControlMessageExchangeNumber() && iterator.hasNext(); i++) {
                 DecoratedAddress destination = iterator.next().getVodAddress();
@@ -628,9 +628,9 @@ public final class Routing extends ComponentDefinition {
      * Croupier used to supply information regarding the <b>nodes in other partitions</b>,
      * incorporate the sample in the <b>routing table</b>.
      */
-    Handler<CroupierSample<SearchDescriptor>> croupierSampleHandler = new Handler<CroupierSample<SearchDescriptor>>() {
+    Handler<CroupierSample<PeerDescriptor>> croupierSampleHandler = new Handler<CroupierSample<PeerDescriptor>>() {
         @Override
-        public void handle(CroupierSample<SearchDescriptor> event) {
+        public void handle(CroupierSample<PeerDescriptor> event) {
             logger.trace("{}: Pseudo Gradient Received Croupier Sample", self.getId());
 
             if (event.publicSample.isEmpty())
@@ -675,10 +675,10 @@ public final class Routing extends ComponentDefinition {
 
     private void publishSample() {
 
-        Set<SearchDescriptor> nodes = getGradientSample();
+        Set<PeerDescriptor> nodes = getGradientSample();
         StringBuilder sb = new StringBuilder("Neighbours: { ");
         
-        for (SearchDescriptor d : nodes) {
+        for (PeerDescriptor d : nodes) {
             
             sb.append(d.getVodAddress().getId() + ":" 
                     + d.getNumberOfIndexEntries() + ":" 
@@ -696,7 +696,7 @@ public final class Routing extends ComponentDefinition {
      *
      * @return Most Recent Gradient Sample.
      */
-    private SortedSet<SearchDescriptor> getGradientSample() {
+    private SortedSet<PeerDescriptor> getGradientSample() {
         return gradientEntrySet;
     }
 
@@ -705,7 +705,7 @@ public final class Routing extends ComponentDefinition {
      *
      * @return The Sorted Set.
      */
-    private SortedSet<SearchDescriptor> getHigherUtilityNodes() {
+    private SortedSet<PeerDescriptor> getHigherUtilityNodes() {
         return gradientEntrySet.tailSet(self.getSelfDescriptor());
     }
 
@@ -714,7 +714,7 @@ public final class Routing extends ComponentDefinition {
      *
      * @return Lower Utility Nodes.
      */
-    private SortedSet<SearchDescriptor> getLowerUtilityNodes() {
+    private SortedSet<PeerDescriptor> getLowerUtilityNodes() {
         return gradientEntrySet.headSet(self.getSelfDescriptor());
     }
 

@@ -105,7 +105,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private static final long STARTING_EPOCH = 0;
     private long currentEpoch = 0;
     private boolean landingEntryAdded = false;
-    private TreeSet<SearchDescriptor> gradientEntrySet;
+    private TreeSet<PeerDescriptor> gradientEntrySet;
     private DecoratedAddress leaderAddress;
     private PublicKey leaderKey;
 
@@ -159,7 +159,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private TimeLine timeLine;
     private Comparator<LeaderUnit> luComparator = new GenericECComparator();
     private Comparator<ApplicationEntry> entryComparator = new AppEntryComparator();
-    private SearchDescriptor selfDescriptor;
+    private PeerDescriptor selfDescriptor;
     private UUID preShardTimeoutId;
     private List<LeaderUnit> bufferedUnits;
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
@@ -289,7 +289,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
         config = init.getConfiguration();
         publicKey = init.getPublicKey();
         privateKey = init.getPrivateKey();
-        gradientEntrySet = new TreeSet<SearchDescriptor>();
+        gradientEntrySet = new TreeSet<PeerDescriptor>();
 
         replicationRequests = new HashMap<UUID, ReplicationCount>();
         recentRequests = new HashMap<UUID, Long>();
@@ -1942,13 +1942,13 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
     private void informListeningComponentsAboutUpdates(ApplicationSelf self) {
 
-        SearchDescriptor updatedDesc = self.getSelfDescriptor();
+        PeerDescriptor updatedDesc = self.getSelfDescriptor();
         
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
-        trigger(new GradientUpdate<SearchDescriptor>(updatedDesc), gradientPort);
+        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
         trigger(new PAGUpdate(updatedDesc), pagPort);
     }
@@ -1975,8 +1975,8 @@ public final class ShardAwareSearch extends ComponentDefinition {
             Collection<Container> collection = event.gradientSample;
             for (Container container : collection) {
 
-                if (container.getContent() instanceof SearchDescriptor) {
-                    gradientEntrySet.add((SearchDescriptor) container.getContent());
+                if (container.getContent() instanceof PeerDescriptor) {
+                    gradientEntrySet.add((PeerDescriptor) container.getContent());
                 }
             }
 
@@ -1987,11 +1987,11 @@ public final class ShardAwareSearch extends ComponentDefinition {
     };
 
 
-    private void publishSample(Set<SearchDescriptor> samples) {
+    private void publishSample(Set<PeerDescriptor> samples) {
 
-        Set<SearchDescriptor> nodes = samples;
+        Set<PeerDescriptor> nodes = samples;
         StringBuilder sb = new StringBuilder("Neighbours: { ");
-        for (SearchDescriptor d : nodes) {
+        for (PeerDescriptor d : nodes) {
             sb.append(d.getVodAddress().getId() + ":" + d.getNumberOfIndexEntries() + ":" + d.getPartitioningDepth() + ":" + d.isLeaderGroupMember()).append(" , ");
 
         }
@@ -2217,7 +2217,7 @@ public final class ShardAwareSearch extends ComponentDefinition {
      */
     private boolean isLeaderInGradient(DecoratedAddress leaderAddress) {
 
-        for (SearchDescriptor desc : gradientEntrySet) {
+        for (PeerDescriptor desc : gradientEntrySet) {
             if (desc.getVodAddress().getBase().equals(leaderAddress.getBase())) {
                 return true;
             }
@@ -2236,9 +2236,9 @@ public final class ShardAwareSearch extends ComponentDefinition {
     private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
 
         Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
-        NavigableSet<SearchDescriptor> navigableSet = (NavigableSet<SearchDescriptor>) gradientEntrySet.tailSet(self.getSelfDescriptor());
+        NavigableSet<PeerDescriptor> navigableSet = (NavigableSet<PeerDescriptor>) gradientEntrySet.tailSet(self.getSelfDescriptor());
 
-        Iterator<SearchDescriptor> descendingItr = navigableSet.descendingIterator();
+        Iterator<PeerDescriptor> descendingItr = navigableSet.descendingIterator();
 
         int counter = 0;
         while (descendingItr.hasNext() && counter < exchangeNumber) {
