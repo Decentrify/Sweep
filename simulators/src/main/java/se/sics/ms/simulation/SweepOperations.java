@@ -24,7 +24,8 @@ import se.sics.p2ptoolbox.simulator.cmd.impl.ChangeNetworkModelCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
-import se.sics.p2ptoolbox.simulator.core.network.impl.UniformRandomModel;
+import se.sics.p2ptoolbox.simulator.core.network.impl.BasicLossyLinkModel;
+import se.sics.p2ptoolbox.simulator.core.network.impl.agg.UniformRandomModel;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.*;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -34,6 +35,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -67,8 +69,22 @@ public class SweepOperations {
             return new ChangeNetworkModelCmd(new UniformRandomModel(50, 250));
         }
     };
-    
-    
+
+
+    /**
+     * Operation used to generate the basic lossy link model
+     * with a uniform random model to fall back on.
+     */
+    public static Operation1<ChangeNetworkModelCmd, Long> lossyLinkModel = new Operation1<ChangeNetworkModelCmd, Long>() {
+        @Override
+        public ChangeNetworkModelCmd generate(Long lossRate) {
+
+            Random random = new Random(1);
+            UniformRandomModel baseModel = new UniformRandomModel(50, 250, random) ;
+            return new ChangeNetworkModelCmd(new BasicLossyLinkModel(1, baseModel, lossRate.intValue(), random));
+
+        }
+    };
     
     
     public static Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>> startAggregatorNodeCmd =

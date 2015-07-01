@@ -90,7 +90,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
 
             SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(3000, 3000);
             NPTimeout npTimeout = new NPTimeout(spt);
-            trigger(npTimeout, timerPositive);
+            spt.setTimeoutEvent(npTimeout);
+//            trigger(spt, timerPositive);
             
         }
     };

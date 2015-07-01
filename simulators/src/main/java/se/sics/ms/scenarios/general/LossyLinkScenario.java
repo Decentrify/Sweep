@@ -9,7 +9,7 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
  *
  * Created by babbarshaer on 2015-02-04.
  */
-public class PartitionAwareBootupScenario {
+public class LossyLinkScenario {
 
 
     public static SimulationScenario boot(final long seed) {
@@ -24,6 +24,12 @@ public class PartitionAwareBootupScenario {
                         raise(1 , SweepOperations.startAggregatorNodeCmd);
                     }
                 };
+
+                StochasticProcess lossyLinkModel = new StochasticProcess() {{
+
+                    eventInterArrivalTime(constant(1000));
+                    raise(1, SweepOperations.lossyLinkModel, constant(8) );
+                }};
                 
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
@@ -72,7 +78,10 @@ public class PartitionAwareBootupScenario {
                     }
                 };
 
+                lossyLinkModel.start();
                 peerJoin.start();
+//                peerJoin.startAfterTerminationOf(1000, lossyLinkModel);
+
 //                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
             }
         };

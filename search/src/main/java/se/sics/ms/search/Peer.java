@@ -186,7 +186,7 @@ public final class Peer extends ComponentDefinition {
         int gradientOverlayId = 1;
         int treeGradientOverlayId = 2;
         
-        connectCroupier(init.getCroupierConfiguration(), croupierOverlayId); // Connect the Croupier
+        connectCroupier(systemConfig, init.getCroupierConfiguration(), croupierOverlayId); // Connect the Croupier
         connectGradient(systemConfig, init.getGradientConfig(), gradientOverlayId);  // Connect the Gradient
 //        connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig(), treeGradientOverlayId);  // Connect the tree gradient.
         
@@ -348,7 +348,7 @@ public final class Peer extends ComponentDefinition {
         log.info("connecting gradient configuration ...");
         gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, gradientOverlayId , new SimpleUtilityComparator(), new SweepGradientFilter()));
         connect(timer, gradient.getNegative(Timer.class));
-//        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
+        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
     }
 
     /**
@@ -376,7 +376,7 @@ public final class Peer extends ComponentDefinition {
     }
     
     
-    private void connectCroupier( CroupierConfig config, int croupierOverlayId ) {
+    private void connectCroupier( SystemConfig systemConfig, CroupierConfig config, int croupierOverlayId ) {
         log.info("connecting croupier components...");
 
         List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
@@ -399,8 +399,6 @@ public final class Peer extends ComponentDefinition {
         }
 
     };
-
-    
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override

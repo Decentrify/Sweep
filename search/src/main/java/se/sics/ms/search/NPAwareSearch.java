@@ -2072,7 +2072,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        logger.debug(prefix + " " + sb);
+        if(leader)
+            logger.error(prefix + " " + sb);
     }
 
 
