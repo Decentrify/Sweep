@@ -103,13 +103,14 @@ public final class SearchPeer extends ComponentDefinition {
         aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 800));       // FIX ME: Address Set as Null.
 
         // External Components creating and connection to the local components.
+        connectChunkManager(systemConfig, chunkManagerConfig);
         connectCroupier(init.getCroupierConfiguration());
 //		  connectPAG(systemConfig, init.getGradientConfig());     // connect pag with system.
         connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
-//        connectTreeGradient(init.getTGradientConfig(),  init.getGradientConfig());
+        connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
         connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
-        connectChunkManager(systemConfig, chunkManagerConfig);
-        
+
+
         // Internal Component Connections.
         doInternalConnections();
         
@@ -147,11 +148,11 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-        connect(routing.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+//        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
+//        connect(routing.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
 
-//        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
-//        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class));
         connect(routing.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
@@ -238,14 +239,14 @@ public final class SearchPeer extends ComponentDefinition {
                     );
 
         // Election leader connections.
-        connect(network, electionLeader.getNegative(Network.class));
+        connect(chunkManager.getPositive(Network.class), electionLeader.getNegative(Network.class));
         connect(timer, electionLeader.getNegative(Timer.class));
         connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
         connect(electionLeader.getPositive(LeaderElectionPort.class), routing.getNegative(LeaderElectionPort.class));
         
         // Election follower connections.
-        connect(network, electionFollower.getNegative(Network.class));
+        connect(chunkManager.getPositive(Network.class), electionFollower.getNegative(Network.class));
         connect(timer, electionFollower.getNegative(Timer.class));
         connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
         connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
@@ -285,7 +286,7 @@ public final class SearchPeer extends ComponentDefinition {
         
         log.info("connecting gradient configuration ...");
         gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 1 , new SimpleUtilityComparator(), new SweepGradientFilter()));
-        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(1));
+        connect(chunkManager.getPositive(Network.class), gradient.getNegative(Network.class), new IntegerOverlayFilter(1));
         connect(timer, gradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
     }
@@ -298,7 +299,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         log.info("connecting tree gradient configuration ...");
         tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(systemConfig, gradientConfig, tgradientConfig, 2 , new SweepGradientFilter()));
-        connect(network, tgradient.getNegative(Network.class), new IntegerOverlayFilter(2));
+        connect(chunkManager.getPositive(Network.class), tgradient.getNegative(Network.class), new IntegerOverlayFilter(2));
         connect(timer, tgradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
         connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
@@ -311,7 +312,7 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), gradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getPositive(GradientPort.class));
     }
     
     
@@ -323,7 +324,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
+        connect(chunkManager.getPositive(Network.class) , croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
         connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));

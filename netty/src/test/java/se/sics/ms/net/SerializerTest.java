@@ -641,6 +641,24 @@ public class SerializerTest {
     }
 
 
+
+    @Test
+    public void controlPullNullResponseTest() {
+
+        logger.info("Control Pull Null Response Test");
+
+        UUID pullRound = UUID.randomUUID();
+        List<LeaderUnit> leaderUnits = getLeaderUnitCollection(3);
+        int overlayId = 0;
+
+        Serializer serializer= Serializers.lookupSerializer(ControlPull.Response.class);
+        ControlPull.Response response = new ControlPull.Response(pullRound, null, null, leaderUnits, overlayId);
+        ControlPull.Response copiedResponse = (ControlPull.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Control Pull Response Test", response, copiedResponse);
+    }
+
+
     @Test
     public void controlPullResponseTest() {
 

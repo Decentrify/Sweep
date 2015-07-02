@@ -101,7 +101,7 @@ public class ControlPullSerializer {
             if(leaderAddress != null){
                 
                 Serializers.lookupSerializer(DecoratedAddress.class)
-                        .toBinary(response.getLeaderAddress(), buf);
+                        .toBinary(leaderAddress, buf);
             }
             
             PublicKey leaderKey = response.getLeaderKey();
@@ -129,18 +129,18 @@ public class ControlPullSerializer {
             
             UUID pullRound = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
             
-            boolean address = SerializerDecoderHelper.checkNullCommit(buf);
+            boolean addressAbsent = SerializerDecoderHelper.checkNullCommit(buf);
             DecoratedAddress leaderAddress = null;
-            if(address){
+            if( !addressAbsent ){
                 
                 leaderAddress = (DecoratedAddress)Serializers.lookupSerializer(DecoratedAddress.class)
                         .fromBinary(buf, hint);
             }
 
-            boolean key = SerializerDecoderHelper.checkNullCommit(buf);
+            boolean keyAbsent = SerializerDecoderHelper.checkNullCommit(buf);
             PublicKey leaderKey = null;
             
-            if(key){
+            if(!keyAbsent){
                 
                 leaderKey = (PublicKey)Serializers.lookupSerializer(PublicKey.class)
                         .fromBinary(buf, hint);
