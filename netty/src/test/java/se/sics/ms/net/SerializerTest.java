@@ -188,6 +188,16 @@ public class SerializerTest {
         Assert.assertEquals("Search Info Response Serialization", originalSIResponse, copiedSIResponse);
     }
 
+    @Test
+    public void landingEntryTest() {
+        logger.info("Landing Entry Test");
+
+        IndexEntry entry = IndexEntry.DEFAULT_ENTRY;
+        Serializer addEntryRequestSerializer = Serializers.lookupSerializer(IndexEntry.class);
+
+        IndexEntry copiedEntry = (IndexEntry) addObjectAndCreateCopiedObject(addEntryRequestSerializer, originalBuf, entry, copiedBuf);
+        Assert.assertEquals("Add Index Entry Request Serialization", entry, copiedEntry);
+    }
 
     @Test
     public void addIndexEntryRequestTest() {
@@ -512,7 +522,7 @@ public class SerializerTest {
     public void testApplicationEntry() {
         logger.info("Application Entry Test");
 
-        ApplicationEntry entry = getTestApplicationEntry();
+        ApplicationEntry entry  = new ApplicationEntry(getApplicationEntryId(0, 100, 1));
         Serializer serializer = Serializers.lookupSerializer(ApplicationEntry.class);
         ApplicationEntry copiedEntry = (ApplicationEntry)addObjectAndCreateCopiedObject(serializer, originalBuf, entry, copiedBuf);
 
