@@ -41,6 +41,7 @@ public class SerializerSetup {
 
         searchInfoRequest(SearchInfo.Request.class, "searchInfoRequest"),
         searchInfoResponse(SearchInfo.Response.class, "searchInfoResponse"),
+        searchInfoResponseUpdated(SearchInfo.ResponseUpdated.class, "searchInfoResponseUpdated"),
 
         addEntryRequest(AddIndexEntry.Request.class, "addIndexEntryRequest"),
         addEntryResponse(AddIndexEntry.Response.class, "addIndexEntryResponse"),
@@ -168,6 +169,9 @@ public class SerializerSetup {
         Serializers.register(siResponse, SweepSerializers.searchInfoResponse.serializerName);
         Serializers.register(SweepSerializers.searchInfoResponse.serializedClass, SweepSerializers.searchInfoResponse.serializerName);
 
+        SearchInfoSerializer.ResponseUpdated siResponseUpdated = new SearchInfoSerializer.ResponseUpdated(currentId++);
+        Serializers.register(siResponseUpdated, SweepSerializers.searchInfoResponseUpdated.serializerName);
+        Serializers.register(SweepSerializers.searchInfoResponseUpdated.serializedClass, SweepSerializers.searchInfoResponseUpdated.serializerName);
 
         // Add Index Entry Protocol.
         AddIndexEntrySerializer.Request aieRequest = new AddIndexEntrySerializer.Request(currentId++);

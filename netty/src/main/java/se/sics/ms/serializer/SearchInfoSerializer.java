@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.data.SearchInfo;
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 
@@ -119,6 +120,76 @@ public class SearchInfoSerializer {
             return new SearchInfo.Response(uuid, entryCollection, partitionId, responses, responseNumber);
         }
     }
+
+
+
+
+
+    public static class ResponseUpdated implements Serializer{
+
+        private final int id;
+
+        public ResponseUpdated(int id) {
+            this.id = id;
+        }
+
+        @Override
+        public int identifier() {
+            return this.id;
+        }
+
+        @Override
+        public void toBinary(Object o, ByteBuf byteBuf) {
+
+            SearchInfo.ResponseUpdated response = (SearchInfo.ResponseUpdated)o;
+            Serializers.lookupSerializer(UUID.class).toBinary(response.getSearchTimeoutId(), byteBuf);
+            Serializer entrySerializer = Serializers.lookupSerializer(ApplicationEntry.class);
+
+            Collection<ApplicationEntry> entryCollection = response.getResults();
+            if(entryCollection == null){
+                byteBuf.writeInt(0);
+                entryCollection = new ArrayList<ApplicationEntry>();
+            }
+            else{
+                byteBuf.writeInt(entryCollection.size());
+            }
+
+            for(ApplicationEntry entry : entryCollection){
+                entrySerializer.toBinary(entry, byteBuf);
+            }
+
+
+            byteBuf.writeInt(response.getPartitionId());
+            byteBuf.writeInt(response.getNumResponses());
+            byteBuf.writeInt(response.getResponseNumber());
+
+        }
+
+        @Override
+        public Object fromBinary(ByteBuf byteBuf, Optional<Object> optional) {
+
+            UUID uuid = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
+            Serializer entrySerializer = Serializers.lookupSerializer(ApplicationEntry.class);
+
+            Collection<ApplicationEntry> entryCollection = new ArrayList<ApplicationEntry>();
+
+            int len = byteBuf.readInt();
+            while(len > 0){
+
+                ApplicationEntry entry = (ApplicationEntry)entrySerializer.fromBinary(byteBuf, optional);
+                entryCollection.add(entry);
+                len --;
+            }
+
+
+            int partitionId = byteBuf.readInt();
+            int responses = byteBuf.readInt();
+            int responseNumber = byteBuf.readInt();
+
+            return new SearchInfo.ResponseUpdated(uuid, entryCollection, partitionId, responses, responseNumber);
+        }
+    }
+
 
 
 
