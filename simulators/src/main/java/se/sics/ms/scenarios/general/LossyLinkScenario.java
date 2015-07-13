@@ -25,10 +25,12 @@ public class LossyLinkScenario {
                     }
                 };
 
+
+
                 StochasticProcess lossyLinkModel = new StochasticProcess() {{
 
                     eventInterArrivalTime(constant(1000));
-                    raise(1, SweepOperations.lossyLinkModel, constant(8) );
+                    raise(1, SweepOperations.lossyLinkModel, constant(1) );
                 }};
                 
                 StochasticProcess peerJoin = new StochasticProcess() {

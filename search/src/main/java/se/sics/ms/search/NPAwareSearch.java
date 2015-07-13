@@ -856,6 +856,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         // Once the leader unit is updated with the number of entries,
         // try to add entries in the system.
+        logger.error("{}: Call to push Entry in the system, Entry: {}", self.getId(), entry);
         commitEntryLocally(entry);
         
     }
@@ -1588,7 +1589,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     private void addEntryToLucene(ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws LuceneAdaptorException {
 
-        logger.trace("{}: Going to add entry :{} ", prefix, entry.getApplicationEntryId());
+        logger.error("{}: Going to add entry :{} ", prefix, entry.getApplicationEntryId());
         Document doc = new Document();
         doc = ApplicationEntry.ApplicationEntryHelper.createDocumentFromEntry(doc, entry);
         adaptor.addDocumentToLucene(doc);
@@ -2072,8 +2073,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         }
         sb.append("}");
-        if(leader)
-            logger.error(prefix + " " + sb);
+        logger.debug(prefix + " " + sb);
     }
 
 

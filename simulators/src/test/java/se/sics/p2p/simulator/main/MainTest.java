@@ -24,7 +24,7 @@ public class MainTest {
     @Test
     public void myTest() throws UnknownHostException {
 
-        LossyLinkScenario.boot(seed).simulate(LauncherComp.class);
+        SimpleBootupScenario.boot(seed).simulate(LauncherComp.class);
     }
 
 }
