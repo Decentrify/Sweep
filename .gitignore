@@ -66,3 +66,8 @@ lib
 *.log*
 /ms-webservice/target/
 /webapp/target
+*.lst
+*.csv
+
+# Ignore partition aware target files.
+partition-aware/target/

@@ -2,7 +2,9 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
+import se.sics.ms.types.ShardLeaderUnit;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -77,6 +79,93 @@ public class ApplicationSecurity {
         return null;
     }
 
+
+    /**
+     * Generates the SHA-1 Hash Of the partition update and sign with private key.
+     *
+     * @param sec
+     * @param privateKey
+     * @return signed hash
+     */
+    public static String generateShardSignedHash (ShardLeaderUnit sec, PrivateKey privateKey) {
+
+        if (sec.getLeaderKey() == null)
+            return null;
+
+        // generate the byte array from the partitioning data.
+//        ByteBuffer byteBuffer = getByteDataFromPartitionInfo(partitionInfo);
+
+        ByteBuffer byteBuffer = getByteDataFromShardUpdate(sec);
+        
+        // sign the array and return the signed hash value.
+        try {
+            return generateRSASignature(byteBuffer.array(), privateKey);
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return null;
+    }
+
+    
+    public static ByteBuffer getByteDataFromShardUpdate(ShardLeaderUnit sec) {
+
+        ByteBuffer byteBuffer = ByteBuffer.allocate( (8 * 4) + ( 2 * 4));
+        ApplicationEntry.ApplicationEntryId medianId = sec.getMedianId();
+        
+        if(medianId == null){
+            throw new RuntimeException(" Unable to get byte data from null shard update. ");
+        }
+        
+        byteBuffer.putLong(medianId.getEpochId());
+        byteBuffer.putInt(medianId.getLeaderId());
+        byteBuffer.putLong(medianId.getEntryId());
+
+        byteBuffer.putLong(sec.getEpochId());
+        byteBuffer.putInt(sec.getLeaderId());
+        byteBuffer.putLong(sec.getNumEntries());
+        
+        return byteBuffer;
+    }
+
+
+    /**
+     * Is the shard update valid in terms of the
+     * hash verification.
+     *
+     * @param container Shard Container
+     * @return
+     */
+    public static boolean isShardUpdateValid (ShardLeaderUnit container) {
+
+        if (container.getLeaderKey() == null)
+            return false;
+
+        ByteBuffer dataBuffer = getByteDataFromShardUpdate(container);
+
+        try {
+            return verifyRSASignature(dataBuffer.array(), container.getLeaderKey(), container.getHash());
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        } catch (SignatureException e) {
+            logger.error(e.getMessage());
+        } catch (InvalidKeyException e) {
+            logger.error(e.getMessage());
+        }
+
+        return false;
+
+    }
+    
+    
+    
+    
+    
+    
 
     /**
      * Generate the SHA-1 String.

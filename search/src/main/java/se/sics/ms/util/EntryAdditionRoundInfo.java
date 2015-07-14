@@ -1,9 +1,8 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.data.ReplicationPrepareCommit;
-import se.sics.ms.messages.ReplicationPrepareCommitMessage;
+import se.sics.ms.data.EntryAddPrepare;
+import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -22,6 +21,8 @@ public class EntryAdditionRoundInfo {
     private IndexEntry entryToAdd;
     private DecoratedAddress entryAddSourceNode;
     private UUID entryAdditionRoundId;
+    private ApplicationEntry applicationEntry;
+    private LeaderUnit previousEpochUpdate;
     
     public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress> leaderGroupAddress, IndexEntry entry, DecoratedAddress entryAddSourceNode){
 
@@ -32,24 +33,72 @@ public class EntryAdditionRoundInfo {
         this.entryAddSourceNode = entryAddSourceNode;
     }
 
-
-    public void addEntryAddPromiseResponse(ReplicationPrepareCommit.Response response){
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress>leaderGroupAddress, ApplicationEntry applicationEntry, DecoratedAddress entryAddSourceNode, LeaderUnit previousEpochUpdate){
         
-        if(entryAdditionRoundId != null && response.getIndexAdditionRoundId().equals(entryAdditionRoundId)){
+        this.entryAdditionRoundId = entryAdditionRoundId;
+        this.leaderGroupAddress = leaderGroupAddress;
+        this.promiseResponses = 0;
+        this.applicationEntry = applicationEntry;
+        this.entryAddSourceNode = entryAddSourceNode;
+        this.previousEpochUpdate = previousEpochUpdate;
+    }
+
+
+    public void addEntryAddPromiseResponse(EntryAddPrepare.Response response){
+        
+        if(entryAdditionRoundId != null
+                && response.getEntryAdditionRound().equals(entryAdditionRoundId)
+                && promiseResponses < Math.round((float)this.leaderGroupAddress.size()/2)){
+
             promiseResponses +=1;
         }
     }
-    
+
+    /**
+     * In a distributed system, a leader should not wait
+     * for all the response but only wait till majority are
+     * received.
+     *
+     * @deprecated
+     *
+     * @return All Promised.
+     */
     public boolean isPromiseAccepted(){
         return this.promiseResponses >= this.leaderGroupAddress.size();
     }
-    
+
+
+    /**
+     * Used ot calculate the majority vote in the system.
+     * When majority of nodes have replied, then we move to commit phase.
+     * The commit phase simply sends the message to all the higher
+     * nodes the request to commit.
+     *
+     * @return
+     */
+    public boolean isPromiseMajority(){
+
+        boolean result = false;
+
+        if( (promiseResponses >=  Math.round((float)this.leaderGroupAddress.size()/2))
+                && entryAdditionRoundId != null) {
+            result = true;
+        }
+
+        return result;
+    }
+
+
     public Collection<DecoratedAddress> getLeaderGroupAddress() {
         return leaderGroupAddress;
     }
 
     public IndexEntry getEntryToAdd() {
         return entryToAdd;
+    }
+
+    public ApplicationEntry getApplicationEntry(){
+        return this.applicationEntry;
     }
 
     public DecoratedAddress getEntryAddSourceNode() {
@@ -59,7 +108,11 @@ public class EntryAdditionRoundInfo {
     public UUID getEntryAdditionRoundId(){
         return this.entryAdditionRoundId;
     }
-    
+
+    public LeaderUnit getAssociatedEpochUpdate() {
+        return this.previousEpochUpdate;
+    }
+
     @Override
     public String toString(){
         

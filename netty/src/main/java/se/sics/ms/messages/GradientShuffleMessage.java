@@ -10,7 +10,7 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.Set;
 
@@ -24,13 +24,13 @@ public class GradientShuffleMessage {
     public static class Request extends DirectMsgNetty.Request {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final Set<SearchDescriptor> searchDescriptors;
+        private final Set<PeerDescriptor> searchDescriptors;
 
-        public Set<SearchDescriptor> getSearchDescriptors() {
+        public Set<PeerDescriptor> getSearchDescriptors() {
             return searchDescriptors;
         }
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<SearchDescriptor> searchDescriptors) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<PeerDescriptor> searchDescriptors) {
             super(source, destination, timeoutId);
             this.searchDescriptors = searchDescriptors;
         }
@@ -61,13 +61,13 @@ public class GradientShuffleMessage {
     public static class Response extends DirectMsgNetty.Response {
         public static final int MAX_RESULTS_STR_LEN = 1400;
 
-        private final Set<SearchDescriptor> searchDescriptors;
+        private final Set<PeerDescriptor> searchDescriptors;
 
-        public Set<SearchDescriptor> getSearchDescriptors() {
+        public Set<PeerDescriptor> getSearchDescriptors() {
             return searchDescriptors;
         }
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<SearchDescriptor> searchDescriptors) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, Set<PeerDescriptor> searchDescriptors) {
             super(source, destination, timeoutId);
             this.searchDescriptors = searchDescriptors;
         }

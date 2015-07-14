@@ -9,7 +9,7 @@ import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -20,9 +20,9 @@ import se.sics.ms.types.SearchDescriptor;
 public class ElectionMessage {
     public static class Request extends DirectMsgNetty.Request {
         private final int voteID;
-        private final SearchDescriptor leaderCandicateDescriptor;
+        private final PeerDescriptor leaderCandicateDescriptor;
 
-        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID, SearchDescriptor leaderCandidateDescriptor) {
+        public Request(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteID, PeerDescriptor leaderCandidateDescriptor) {
             super(source, destination, timeoutId);
 
             this.voteID = voteID;
@@ -33,7 +33,7 @@ public class ElectionMessage {
             return voteID;
         }
 
-        public SearchDescriptor getLeaderCandidateDescriptor() {
+        public PeerDescriptor getLeaderCandidateDescriptor() {
             return leaderCandicateDescriptor;
         }
 
@@ -67,9 +67,9 @@ public class ElectionMessage {
         private final int voteId;
         private final boolean isConvereged;
         private final boolean vote;
-        private final SearchDescriptor highestUtilityNode;
+        private final PeerDescriptor highestUtilityNode;
 
-        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteId, boolean converged, boolean vote, SearchDescriptor highestUtilityNode) {
+        public Response(VodAddress source, VodAddress destination, TimeoutId timeoutId, int voteId, boolean converged, boolean vote, PeerDescriptor highestUtilityNode) {
             super(source, destination, timeoutId);
             this.voteId = voteId;
             isConvereged = converged;
@@ -89,7 +89,7 @@ public class ElectionMessage {
             return vote;
         }
 
-        public SearchDescriptor getHighestUtilityNode() {
+        public PeerDescriptor getHighestUtilityNode() {
             return highestUtilityNode;
         }
 

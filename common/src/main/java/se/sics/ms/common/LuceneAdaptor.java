@@ -73,27 +73,6 @@ public interface LuceneAdaptor {
      */
     public void initialEmptyWriterCommit() throws LuceneAdaptorException;
 
-    /**
-     * Search for Index Entries in Lucene, based on the provided query and the collector instance.
-     *
-     * @param searchQuery query used to search.
-     * @param collector Collector supplied for query.
-     * @return List of Index Entries
-     * @throws LuceneAdaptorException
-     */
-    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException;
-
-
-    /**
-     * Search for Index Entries in Lucene, based on the provided query and the collector instance.
-     *
-     * @param searchQuery query used to search.
-     * @param sort Sort defined for search
-     * @param maxEntries maximum entries returned by Lucene.
-     * @return List of Index Entries
-     * @throws LuceneAdaptorException
-     */
-    public List<IndexEntry> searchIndexEntriesInLucene(Query searchQuery, Sort sort , int maxEntries) throws LuceneAdaptorException;
 
     /**
      * Clean all the data inside the Lucene Instance.

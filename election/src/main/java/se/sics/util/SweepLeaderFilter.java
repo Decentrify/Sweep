@@ -1,6 +1,6 @@
 package se.sics.util;
 
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
 
@@ -14,15 +14,15 @@ public class SweepLeaderFilter implements LeaderFilter{
     @Override
     public boolean terminateLeader(LCPeerView old, LCPeerView updated) {
 
-        SearchDescriptor previous;
-        SearchDescriptor current;
+        PeerDescriptor previous;
+        PeerDescriptor current;
 
-        if( !(old instanceof SearchDescriptor) || !(updated instanceof SearchDescriptor)){
+        if( !(old instanceof PeerDescriptor) || !(updated instanceof PeerDescriptor)){
             throw new IllegalArgumentException("Unknown types of arguments.");
         }
         
-        previous = (SearchDescriptor)old;
-        current = (SearchDescriptor)updated;
+        previous = (PeerDescriptor)old;
+        current = (PeerDescriptor)updated;
         
         // Return true in event of increase in partitioning depth.
         return (current.getPartitioningDepth() > previous.getPartitioningDepth());

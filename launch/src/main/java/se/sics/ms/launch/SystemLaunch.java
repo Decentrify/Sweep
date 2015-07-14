@@ -27,11 +27,11 @@ import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  *
@@ -57,6 +57,7 @@ public class SystemLaunch extends ComponentDefinition{
         CroupierConfig croupierConfig = new CroupierConfig(config);
         ElectionConfig electionConfig = new ElectionConfig(config);
         ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
+        TreeGradientConfig treeGradientConfig = new TreeGradientConfig(config);
         
         logger.debug(" Loaded the configurations ... ");
         ApplicationSelf applicationSelf = new ApplicationSelf(systemConfig.self);
@@ -66,7 +67,7 @@ public class SystemLaunch extends ComponentDefinition{
         network = create(NettyNetwork.class, new NettyInit(systemConfig.self));
         searchPeer = create(SearchPeer.class, new SearchPeerInit(applicationSelf, systemConfig, croupierConfig,
                 SearchConfiguration.build(), GradientConfiguration.build(),
-                ElectionConfiguration.build(), chunkManagerConfig, gradientConfig, electionConfig ));
+                ElectionConfiguration.build(), chunkManagerConfig, gradientConfig, electionConfig, treeGradientConfig ));
 
         connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class));
         connect(network.getPositive(Network.class), searchPeer.getNegative(Network.class));

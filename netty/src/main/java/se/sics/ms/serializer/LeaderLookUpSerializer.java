@@ -5,7 +5,7 @@ import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.data.LeaderLookup;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,14 +64,14 @@ public class LeaderLookUpSerializer {
         public void toBinary(Object o, ByteBuf byteBuf) {
             LeaderLookup.Response response = (LeaderLookup.Response)o;
 
-            Serializer descriptorSerializer = Serializers.lookupSerializer(SearchDescriptor.class);
+            Serializer descriptorSerializer = Serializers.lookupSerializer(PeerDescriptor.class);
             Serializers.lookupSerializer(UUID.class).toBinary(response.getLeaderLookupRound(), byteBuf);
             byteBuf.writeBoolean(response.isLeader());
 
-            List<SearchDescriptor> descriptorList = response.getSearchDescriptors();
+            List<PeerDescriptor> descriptorList = response.getSearchDescriptors();
             byteBuf.writeInt(descriptorList.size());
 
-            for(SearchDescriptor desc : descriptorList){
+            for(PeerDescriptor desc : descriptorList){
                 descriptorSerializer.toBinary(desc, byteBuf);
             }
         }
@@ -79,16 +79,16 @@ public class LeaderLookUpSerializer {
         @Override
         public Object fromBinary(ByteBuf byteBuf, Optional<Object> optional) {
 
-            Serializer descriptorSerializer = Serializers.lookupSerializer(SearchDescriptor.class);
+            Serializer descriptorSerializer = Serializers.lookupSerializer(PeerDescriptor.class);
 
             UUID leaderLookUpRound = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
             boolean isLeader = byteBuf.readBoolean();
 
             int descriptorLen = byteBuf.readInt();
-            List<SearchDescriptor> descriptorList = new ArrayList<SearchDescriptor>();
+            List<PeerDescriptor> descriptorList = new ArrayList<PeerDescriptor>();
 
             while(descriptorLen > 0){
-                descriptorList.add((SearchDescriptor) descriptorSerializer.fromBinary(byteBuf, optional));
+                descriptorList.add((PeerDescriptor) descriptorSerializer.fromBinary(byteBuf, optional));
                 descriptorLen --;
             }
 

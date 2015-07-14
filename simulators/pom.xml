@@ -14,7 +14,7 @@
 
 
     <properties>
-        <simulator.version>1.3-SNAPSHOT</simulator.version>
+        <simulator.version>1.4-SNAPSHOT</simulator.version>
     </properties>
 
     <dependencies>
@@ -69,4 +69,28 @@
         </dependency>
         
     </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <artifactId>
+                    maven-assembly-plugin
+                </artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>se.sics.ms.main.ChurnMainTest</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            
+        </plugins>
+
+    </build>
+
 </project>

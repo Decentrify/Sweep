@@ -7,7 +7,6 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
-import se.sics.gvod.net.Transport;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.gvod.net.util.UserTypesEncoderFactory;
@@ -18,7 +17,7 @@ import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
 import se.sics.ms.timeout.IndividualTimeout;
 import se.sics.ms.types.IndexEntry;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.types.SearchPattern;
 
 import java.util.Collection;
@@ -176,18 +175,18 @@ public class SearchMessage {
      * Timeout for active {@link se.sics.ms.messages.SearchMessage.Request}s.
      */
     public static class RequestTimeout extends IndividualTimeout {
-        private final SearchDescriptor searchDescriptor;
+        private final PeerDescriptor searchDescriptor;
 
         /**
          * @param request
          *            the ScheduleTimeout that holds the Timeout
          */
-        public RequestTimeout(ScheduleTimeout request, int id, SearchDescriptor searchDescriptor) {
+        public RequestTimeout(ScheduleTimeout request, int id, PeerDescriptor searchDescriptor) {
             super(request, id);
             this.searchDescriptor = searchDescriptor;
         }
 
-        public SearchDescriptor getSearchDescriptor() {
+        public PeerDescriptor getSearchDescriptor() {
             return searchDescriptor;
         }
     }

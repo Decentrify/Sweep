@@ -1,6 +1,6 @@
 package se.sics.ms.gradient.misc;
 
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.Comparator;
 
@@ -10,10 +10,10 @@ import java.util.Comparator;
  *
  * @author: Steffen Grohsschmiedt
  */
-public class UtilityComparator implements Comparator<SearchDescriptor> {
+public class UtilityComparator implements Comparator<PeerDescriptor> {
 
     @Override
-    public int compare(SearchDescriptor o1, SearchDescriptor o2) {
+    public int compare(PeerDescriptor o1, PeerDescriptor o2) {
 
 //        // NAT TYPE.
 //        if (o1.getVodAddress().isOpen() != o2.getVodAddress().isOpen()) {

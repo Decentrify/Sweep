@@ -32,7 +32,7 @@ public class LuceneComponent extends ComponentDefinition {
     private void doInit(LuceneComponentInit luceneComponentInit) {
         this.directory = luceneComponentInit.getDirectory();
         this.config = luceneComponentInit.getConfig();
-        this.luceneAdaptor = new LuceneAdaptorImpl(directory,config);
+        this.luceneAdaptor = new IndexEntryLuceneAdaptorImpl(directory,config);
     }
 
     /**

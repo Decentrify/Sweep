@@ -29,6 +29,7 @@ import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -48,6 +49,7 @@ public final class SearchSimulator extends ComponentDefinition {
     private GradientConfig gradientConfig;
     private ElectionConfig electionConfig;
     private SystemConfig systemConfig;
+    private TreeGradientConfig treeGradientConfig;
 
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
@@ -76,7 +78,8 @@ public final class SearchSimulator extends ComponentDefinition {
         electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         electionConfig = init.getElectionConfig();
-
+        treeGradientConfig = init.getTreeGradientConfig();
+        
         identifierSpaceSize = (long) 3000;
         ipGenerator = AsIpGenerator.getInstance(init.getGradientConfiguration().getSeed());
         
@@ -130,7 +133,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
 
-            IndexEntry index = new IndexEntry("test url", randomText(), new Date(), MsConfig.Categories.Video, "", "Test Desc", "");
+            IndexEntry index = new IndexEntry("","test url", randomText(),0, new Date(),"english", MsConfig.Categories.Video, "test desc");;
             index.setLeaderId(null);
             trigger(new AddIndexSimulated(index), peer.getNegative(SimulationEventsPort.class));
         }
@@ -215,7 +218,7 @@ public final class SearchSimulator extends ComponentDefinition {
             Long successor = ringNodes.getNode(event.getId());
             Component peer = peers.get(successor);
             SearchPattern searchPattern = new SearchPattern("abhi", 0, 0, null, null, null, MsConfig.Categories.Video, null);
-            trigger(new SimulationEventsPort.SearchSimulated(searchPattern), peer.getNegative(SimulationEventsPort.class));
+            trigger(new SimulationEventsPort.SearchSimulated.Request(searchPattern, null, null), peer.getNegative(SimulationEventsPort.class));
         }
     };
 
@@ -233,7 +236,7 @@ public final class SearchSimulator extends ComponentDefinition {
         self = new ApplicationSelf(new DecoratedAddress(address));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig));
+                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
         connect(network, peer.getNegative(Network.class));

@@ -22,14 +22,18 @@ public class SerializerSetup {
 
     public static enum SweepSerializers {
 
-        searchDescriptor(SearchDescriptor.class, "applicationDescriptor"),
+        searchDescriptor(PeerDescriptor.class, "applicationDescriptor"),
         searchPattern(SearchPattern.class, "searchPattern"),
         indexEntry(IndexEntry.class, "indexEntry"),
         partitionInfo(PartitionHelper.PartitionInfo.class, "partitionInfo"),
         idInfo(Id.class, "idInfo"),
         indexHash(IndexHash.class, "indexHash"),
         partitionInfoHash(PartitionHelper.PartitionInfoHash.class, "partitionInfoHash"),
-
+        entryHash(EntryHash.class, "entryHash"),
+        overlayId(OverlayId.class, "overlayId"),
+        baseLeaderUnit(BaseLeaderUnit.class, "baseLeaderUnit"),
+        leaderUnitUpdate(LeaderUnitUpdate.class, "leaderUnitUpdate"),
+        
         // aggregators
         searchComponentUpdate(SearchComponentUpdate.class, "searchComponentUpdate"),
         leaderComponentUpdate(ElectionLeaderComponentUpdate.class, "leaderComponentUpdate"),
@@ -37,6 +41,7 @@ public class SerializerSetup {
 
         searchInfoRequest(SearchInfo.Request.class, "searchInfoRequest"),
         searchInfoResponse(SearchInfo.Response.class, "searchInfoResponse"),
+        searchInfoResponseUpdated(SearchInfo.ResponseUpdated.class, "searchInfoResponseUpdated"),
 
         addEntryRequest(AddIndexEntry.Request.class, "addIndexEntryRequest"),
         addEntryResponse(AddIndexEntry.Response.class, "addIndexEntryResponse"),
@@ -61,8 +66,30 @@ public class SerializerSetup {
         repairResponse(Repair.Response.class, "repairResponse"),
 
         leaderLookupRequest(LeaderLookup.Request.class, "leaderLookupRequest"),
-        leaderLookupResponse(LeaderLookup.Response.class, "leaderLookupResponse");
+        leaderLookupResponse(LeaderLookup.Response.class, "leaderLookupResponse"),
 
+        applicationEntryId(ApplicationEntry.ApplicationEntryId.class, "applicationEntryId"),
+        applicationEntry(ApplicationEntry.class, "applicationEntry"),
+        leaderPullEntryRequest(LeaderPullEntry.Request.class, "leaderPullEntryRequest"),
+        leaderPullEntryResponse(LeaderPullEntry.Response.class, "leaderPullEntryResponse"),
+        entryHashExchangeRequest(EntryHashExchange.Request.class, "entryHashExchangeRequest"),
+        entryHashExchangeResponse(EntryHashExchange.Response.class, "entryHashExchangeResponse"),
+        entryExchangeRequest(EntryExchange.Request.class, "entryExchangeRequest"),
+        entryExchangeResponse(EntryExchange.Response.class, "entryExchangeResponse"),
+
+        controlPullRequest(ControlPull.Request.class, "controlPullRequest"),
+        controlPullResponse(ControlPull.Response.class, "controlPullResponse"),
+        shardingPrepareRequest(ShardingPrepare.Request.class, "shardingPrepareRequest"),
+        shardingPrepareResponse(ShardingPrepare.Response.class, "shardingPrepareResponse"),
+        shardingCommitRequest(ShardingCommit.Request.class, "shardingCommitRequest"),
+        shardingCommitResponse(ShardingCommit.Response.class, "shardingCommitResponse"),
+
+        landingEntryAddPrepareRequest(LandingEntryAddPrepare.Request.class, "landingEntryAddPrepareRequest"),
+        landingEntryAddPrepareResponse(LandingEntryAddPrepare.Response.class, "landingEntryAddPrepareResponse"),
+        applicationEntryAddPrepareRequest(ApplicationEntryAddPrepare.Request.class, "applicationEntryAddPrepareRequest"),
+        applicationEntryAddPrepareResponse(ApplicationEntryAddPrepare.Response.class, "applicationEntryAddPrepareResponse"),
+
+        entryAddCommitRequest(EntryAddCommit.Request.class, "entryAddCommitRequest");
 
         private final Class serializedClass;
         private final String serializerName;
@@ -142,6 +169,9 @@ public class SerializerSetup {
         Serializers.register(siResponse, SweepSerializers.searchInfoResponse.serializerName);
         Serializers.register(SweepSerializers.searchInfoResponse.serializedClass, SweepSerializers.searchInfoResponse.serializerName);
 
+        SearchInfoSerializer.ResponseUpdated siResponseUpdated = new SearchInfoSerializer.ResponseUpdated(currentId++);
+        Serializers.register(siResponseUpdated, SweepSerializers.searchInfoResponseUpdated.serializerName);
+        Serializers.register(SweepSerializers.searchInfoResponseUpdated.serializedClass, SweepSerializers.searchInfoResponseUpdated.serializerName);
 
         // Add Index Entry Protocol.
         AddIndexEntrySerializer.Request aieRequest = new AddIndexEntrySerializer.Request(currentId++);
@@ -239,6 +269,111 @@ public class SerializerSetup {
         Serializers.register(llResponse, SweepSerializers.leaderLookupResponse.serializerName);
         Serializers.register(SweepSerializers.leaderLookupResponse.serializedClass, SweepSerializers.leaderLookupResponse.serializerName);
 
+
+        // Epoch Update Serializers.
+        ApplicationEntryIdSerializer entryIdSerializer = new ApplicationEntryIdSerializer(currentId++);
+        Serializers.register(entryIdSerializer, SweepSerializers.applicationEntryId.serializerName);
+        Serializers.register(SweepSerializers.applicationEntryId.serializedClass, SweepSerializers.applicationEntryId.serializerName);
+
+
+        // Epoch Update Serializers.
+        ApplicationEntrySerializer applicationEntrySerializer = new ApplicationEntrySerializer(currentId++);
+        Serializers.register(applicationEntrySerializer, SweepSerializers.applicationEntry.serializerName);
+        Serializers.register(SweepSerializers.applicationEntry.serializedClass, SweepSerializers.applicationEntry.serializerName);
+
+
+        LeaderPullEntrySerializer.Request leaderPullEntryRequestSerializer = new LeaderPullEntrySerializer.Request(currentId++);
+        Serializers.register(leaderPullEntryRequestSerializer, SweepSerializers.leaderPullEntryRequest.serializerName);
+        Serializers.register(SweepSerializers.leaderPullEntryRequest.serializedClass, SweepSerializers.leaderPullEntryRequest.serializerName);
+
+
+        LeaderPullEntrySerializer.Response leaderPullEntryResponseSerializer = new LeaderPullEntrySerializer.Response(currentId++);
+        Serializers.register(leaderPullEntryResponseSerializer, SweepSerializers.leaderPullEntryResponse.serializerName);
+        Serializers.register(SweepSerializers.leaderPullEntryResponse.serializedClass, SweepSerializers.leaderPullEntryResponse.serializerName);
+
+        EntryHashExchangeSerializer.Request hashExchangeRequestSerializer = new EntryHashExchangeSerializer.Request(currentId++);
+        Serializers.register(hashExchangeRequestSerializer, SweepSerializers.entryHashExchangeRequest.serializerName);
+        Serializers.register(SweepSerializers.entryHashExchangeRequest.serializedClass, SweepSerializers.entryHashExchangeRequest.serializerName);
+
+        EntryHashExchangeSerializer.Response hashExchangeResponseSerializer = new EntryHashExchangeSerializer.Response(currentId++);
+        Serializers.register(hashExchangeResponseSerializer, SweepSerializers.entryHashExchangeResponse.serializerName);
+        Serializers.register(SweepSerializers.entryHashExchangeResponse.serializedClass, SweepSerializers.entryHashExchangeResponse.serializerName);
+
+        EntryHashSerializer hashSerializer = new EntryHashSerializer(currentId++);
+        Serializers.register(hashSerializer, SweepSerializers.entryHash.serializerName);
+        Serializers.register(SweepSerializers.entryHash.serializedClass, SweepSerializers.entryHash.serializerName);
+
+
+        EntryExchangeSerializer.Request entryExchangeRequestSerializer = new EntryExchangeSerializer.Request(currentId++);
+        Serializers.register(entryExchangeRequestSerializer, SweepSerializers.entryExchangeRequest.serializerName);
+        Serializers.register(SweepSerializers.entryExchangeRequest.serializedClass, SweepSerializers.entryExchangeRequest.serializerName);
+
+
+        EntryExchangeSerializer.Response entryExchangeResponseSerializer = new EntryExchangeSerializer.Response(currentId++);
+        Serializers.register(entryExchangeResponseSerializer, SweepSerializers.entryExchangeResponse.serializerName);
+        Serializers.register(SweepSerializers.entryExchangeResponse.serializedClass, SweepSerializers.entryExchangeResponse.serializerName);
+
+
+        OverlayIdSerializer overlayIdSerializer = new OverlayIdSerializer(currentId++);
+        Serializers.register(overlayIdSerializer, SweepSerializers.overlayId.serializerName);
+        Serializers.register(SweepSerializers.overlayId.serializedClass, SweepSerializers.overlayId.serializerName);
+
+        ControlPullSerializer.Request controlPullRequestSerializer = new ControlPullSerializer.Request(currentId++);
+        Serializers.register(controlPullRequestSerializer, SweepSerializers.controlPullRequest.serializerName);
+        Serializers.register(SweepSerializers.controlPullRequest.serializedClass, SweepSerializers.controlPullRequest.serializerName);
+
+        ControlPullSerializer.Response controlPullResponseSerializer = new ControlPullSerializer.Response(currentId++);
+        Serializers.register(controlPullResponseSerializer, SweepSerializers.controlPullResponse.serializerName);
+        Serializers.register(SweepSerializers.controlPullResponse.serializedClass, SweepSerializers.controlPullResponse.serializerName);
+
+
+        BaseLeaderUnitSerializer baseLeaderUnitSerializer = new BaseLeaderUnitSerializer(currentId++);
+        Serializers.register(baseLeaderUnitSerializer, SweepSerializers.baseLeaderUnit.serializerName);
+        Serializers.register(SweepSerializers.baseLeaderUnit.serializedClass, SweepSerializers.baseLeaderUnit.serializerName);
+
+        LeaderUnitUpdateSerializer luUpdateSerializer = new LeaderUnitUpdateSerializer(currentId++);
+        Serializers.register(luUpdateSerializer, SweepSerializers.leaderUnitUpdate.serializerName);
+        Serializers.register(SweepSerializers.leaderUnitUpdate.serializedClass, SweepSerializers.leaderUnitUpdate.serializerName);
+        
+        ShardPrepareSerializer.Request shardPrepareRequestSerializer = new ShardPrepareSerializer.Request(currentId++);
+        Serializers.register(shardPrepareRequestSerializer, SweepSerializers.shardingPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.shardingPrepareRequest.serializedClass, SweepSerializers.shardingPrepareRequest.serializerName);
+
+        ShardPrepareSerializer.Response shardPrepareResponseSerializer = new ShardPrepareSerializer.Response(currentId++);
+        Serializers.register(shardPrepareResponseSerializer, SweepSerializers.shardingPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.shardingPrepareResponse.serializedClass, SweepSerializers.shardingPrepareResponse.serializerName);
+
+
+        ShardCommitSerializer.Request shardCommitRequestSerializer = new ShardCommitSerializer.Request(currentId++);
+        Serializers.register(shardCommitRequestSerializer, SweepSerializers.shardingCommitRequest.serializerName);
+        Serializers.register(SweepSerializers.shardingCommitRequest.serializedClass, SweepSerializers.shardingCommitRequest.serializerName);
+        
+        ShardCommitSerializer.Response shardCommitResponseSerializer = new ShardCommitSerializer.Response(currentId++);
+        Serializers.register(shardCommitResponseSerializer, SweepSerializers.shardingCommitResponse.serializerName);
+        Serializers.register(SweepSerializers.shardingCommitResponse.serializedClass, SweepSerializers.shardingCommitResponse.serializerName);
+        
+        
+        LandingEntryAddSerializer.Request landingEntryAddRequestSerializer = new LandingEntryAddSerializer.Request(currentId++);
+        Serializers.register(landingEntryAddRequestSerializer, SweepSerializers.landingEntryAddPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.landingEntryAddPrepareRequest.serializedClass, SweepSerializers.landingEntryAddPrepareRequest.serializerName);
+
+        LandingEntryAddSerializer.Response landingEntryAddResponseSerializer = new LandingEntryAddSerializer.Response(currentId++);
+        Serializers.register(landingEntryAddResponseSerializer, SweepSerializers.landingEntryAddPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.landingEntryAddPrepareResponse.serializedClass, SweepSerializers.landingEntryAddPrepareResponse.serializerName);
+
+        ApplicationEntryAddSerializer.Request applicationEntryAddPrepareRequestSerializer = new ApplicationEntryAddSerializer.Request(currentId++);
+        Serializers.register(applicationEntryAddPrepareRequestSerializer, SweepSerializers.applicationEntryAddPrepareRequest.serializerName);
+        Serializers.register(SweepSerializers.applicationEntryAddPrepareRequest.serializedClass, SweepSerializers.applicationEntryAddPrepareRequest.serializerName);
+
+        ApplicationEntryAddSerializer.Response applicationEntryAddPrepareResponseSerializer = new ApplicationEntryAddSerializer.Response(currentId++);
+        Serializers.register(applicationEntryAddPrepareResponseSerializer, SweepSerializers.applicationEntryAddPrepareResponse.serializerName);
+        Serializers.register(SweepSerializers.applicationEntryAddPrepareResponse.serializedClass, SweepSerializers.applicationEntryAddPrepareResponse.serializerName);
+        
+        
+        EntryAddCommitSerializer entryAddCommitSerializer = new EntryAddCommitSerializer(currentId++);
+        Serializers.register(entryAddCommitSerializer, SweepSerializers.entryAddCommitRequest.serializerName);
+        Serializers.register(SweepSerializers.entryAddCommitRequest.serializedClass, SweepSerializers.entryAddCommitRequest.serializerName);
+        
         return currentId;
     }
 

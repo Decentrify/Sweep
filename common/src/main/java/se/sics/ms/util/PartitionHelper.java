@@ -3,8 +3,9 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.security.PublicKey;
 import java.util.*;
@@ -43,7 +44,7 @@ public class PartitionHelper {
      * @param bitsToCheck
      * @return
      */
-    public static PartitionId determineSearchDescriptorPartition(SearchDescriptor descriptor, boolean isFirstPartition,
+    public static PartitionId determineSearchDescriptorPartition(PeerDescriptor descriptor, boolean isFirstPartition,
                                                                       int bitsToCheck) {
         if(descriptor == null)
             throw new IllegalArgumentException("descriptor can't be null");
@@ -58,6 +59,48 @@ public class PartitionHelper {
 
         return new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, bitsToCheck, partitionId);
     }
+
+
+    /**
+     * Check if the received overlay is a logical extension of the base self overlay
+     * id information.
+     *
+     * @param receivedId receivedId
+     * @param selfId selfId
+     * @param nodeId nodeId
+     * @return Extension
+     */
+    public static boolean isOverlayExtension(int receivedId, int selfId, int nodeId){
+
+        boolean result = false;
+
+        // If they are same level, Overlay Id's should be same.
+        if(selfId == receivedId){   
+            result = true;
+        }
+
+        OverlayId selfOverlay = new OverlayId( selfId );
+        OverlayId receivedOverlay = new OverlayId( receivedId );
+
+        // TO DO : Below Condition looks fishy.
+        if(receivedOverlay.getPartitionIdDepth() > selfOverlay.getPartitionIdDepth()){
+
+            int bitsToCheck = selfOverlay.getPartitionIdDepth();
+            int partitionId = 0;
+
+            for(int i=0; i<bitsToCheck; i++)
+                partitionId = partitionId | (nodeId & (1<<i));
+
+            if(partitionId == selfOverlay.getPartitionId())     // Bring node to self level and then check.
+                result = true;
+        }
+
+        return result;
+
+
+
+    }
+
 
 
 

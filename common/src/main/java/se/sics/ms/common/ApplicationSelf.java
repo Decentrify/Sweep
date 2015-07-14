@@ -1,8 +1,9 @@
 package se.sics.ms.common;
 
 import se.sics.gvod.net.VodAddress;
+import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayAddress;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -19,21 +20,59 @@ public class ApplicationSelf {
     private int overlayId;
     private boolean isLGMember;
     private long numberOfEntries;
-
-    public ApplicationSelf(DecoratedAddress address){
+    private long epochContainerEntries;
+    private long actualEntries;     // Entries excluding landing entries.
+    private LeaderUnit lastLeaderUnit;
+    
+    public ApplicationSelf (DecoratedAddress address){
 
         this.address = address;
         this.overlayId = 0;
         this.isLGMember = false;
         this.numberOfEntries = 0;
+        this.epochContainerEntries = 0;
+        this.actualEntries = 0;
     }
 
-    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries){
+    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries, LeaderUnit lastLeaderUnit){
 
         this.address = address;
         this.overlayId = overlayId;
         this.isLGMember = isLGMember;
         this.numberOfEntries = numberOfEntries;
+        this.epochContainerEntries = epochContainerEntries;
+        this.actualEntries = actualEntries;
+        this.lastLeaderUnit = lastLeaderUnit;
+    }
+
+    @Override
+    public String toString() {
+        return "ApplicationSelf{" +
+                "address=" + address +
+                ", overlayId=" + overlayId +
+                ", isLGMember=" + isLGMember +
+                ", numberOfEntries=" + numberOfEntries +
+                ", epochContainerEntries=" + epochContainerEntries +
+                ", actualEntries=" + actualEntries +
+                ", lastLeaderUnit=" + lastLeaderUnit +
+                '}';
+    }
+
+
+    public boolean isLGMember() {
+        return isLGMember;
+    }
+
+    public void incrementECEntries(){
+        this.epochContainerEntries ++;
+    }
+
+    public void resetContainerEntries(){
+        this.epochContainerEntries = 0;
+    }
+
+    public long getEpochContainerEntries() {
+        return epochContainerEntries;
     }
 
     public void setIsLGMember(boolean isLGMember){
@@ -52,6 +91,9 @@ public class ApplicationSelf {
         return this.address;
     }
 
+    public long getNumberOfEntries(){
+        return this.numberOfEntries;
+    }
 
     public int getId(){
         return this.address.getId();
@@ -80,8 +122,8 @@ public class ApplicationSelf {
      * Construct a descriptor based on the information contained in the object.
      * @return Self Descriptor.
      */
-    public SearchDescriptor getSelfDescriptor(){
-        return new SearchDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember);
+    public PeerDescriptor getSelfDescriptor(){
+        return new PeerDescriptor(new OverlayAddress(this.address, this.overlayId), false, this.numberOfEntries, this.isLGMember, this.lastLeaderUnit);
     }
 
     /**
@@ -89,16 +131,26 @@ public class ApplicationSelf {
      * @return Copy of Self.
      */
     public ApplicationSelf shallowCopy(){
-        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries);
+        return new ApplicationSelf(this.address, this.overlayId, this.isLGMember, this.numberOfEntries, this.epochContainerEntries, this.actualEntries, this.lastLeaderUnit);
     }
-
 
     public void setNumberOfEntries(long entries){
         this.numberOfEntries = entries;
     }
 
+    public void incrementActualEntries(){
+        this.actualEntries ++;
+    }
+    
+    public long getActualEntries() {
+        return actualEntries;
+    }
 
-    public void incrementNumberOfIndexEntries() {
-        this.numberOfEntries ++;
+    public void setActualEntries(long actualEntries) {
+        this.actualEntries = actualEntries;
+    }
+
+    public void setLastLeaderUnit(LeaderUnit lastLeaderUnit) {
+        this.lastLeaderUnit = lastLeaderUnit;
     }
 }

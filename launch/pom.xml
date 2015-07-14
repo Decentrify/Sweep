@@ -115,7 +115,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>se.sics.ms.launch.SystemMain</mainClass>
+                            <mainClass>se.sics.ms.launch.SystemLaunch</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

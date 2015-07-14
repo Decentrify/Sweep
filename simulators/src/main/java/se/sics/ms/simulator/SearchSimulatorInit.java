@@ -8,6 +8,7 @@ import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 
 public final class SearchSimulatorInit extends Init<SearchSimulator> {
 	private final CroupierConfig croupierConfiguration;
@@ -18,9 +19,11 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
     private final ElectionConfig electionConfig;
 
     private final GradientConfig gradientConfig;
+    private final TreeGradientConfig treeGradientConfig;
+    
 	public SearchSimulatorInit(CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
                                SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration,
-                               ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig, ElectionConfig electionConfig) {
+                               ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig, ElectionConfig electionConfig, TreeGradientConfig treeGradientConfig) {
 		super();
 		this.croupierConfiguration = croupierConfiguration;
 		this.gradientConfiguration = gradientConfiguration;
@@ -29,9 +32,14 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig = gradientConfig;
         this.electionConfig = electionConfig;
+        this.treeGradientConfig = treeGradientConfig;
 	}
 
-	public SearchConfiguration getSearchConfiguration() {
+    public TreeGradientConfig getTreeGradientConfig() {
+        return treeGradientConfig;
+    }
+
+    public SearchConfiguration getSearchConfiguration() {
 		return searchConfiguration;
 	}
 

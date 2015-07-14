@@ -1,10 +1,12 @@
 package se.sics.ms.types;
 
-import org.apache.lucene.document.Document;
+import org.apache.lucene.document.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.codec.binary.Base64;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.util.ApplicationConst;
+import sun.misc.BASE64Encoder;
 
 import java.io.Serializable;
 import java.security.KeyFactory;
@@ -13,11 +15,14 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Representation of one entry in the search database.
  */
 public class IndexEntry implements Serializable {
+
+    public static final IndexEntry DEFAULT_ENTRY = new IndexEntry("globalid", ApplicationConst.LANDING_ENTRY_ID, "landing-entry", "none", 0, new Date(0), "none", MsConfig.Categories.Default, "none", "none", null);
 	private static final long serialVersionUID = -1043774025075199568L;
 
     public static final String GLOBAL_ID = "gid";
@@ -154,27 +159,8 @@ public class IndexEntry implements Serializable {
         this.leaderId = leaderId;
     }
 
-    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
-
-        this(null, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, null, null);
-    }
-
-    public IndexEntry(String url, String fileName, long fileSize, Date uploaded, String language,
-                      MsConfig.Categories category, String description, String globalId) {
-
+    public IndexEntry(String globalId, String url, String fileName, long fileSize, Date uploaded, String language, MsConfig.Categories category, String description) {
         this(globalId, Long.MIN_VALUE, url, fileName, fileSize, uploaded, language, category, description, null, null);
-    }
-
-    public IndexEntry(String url, String fileName, Date uploaded, MsConfig.Categories category, String language,
-                      String description, String hash) {
-
-        this(null, Long.MIN_VALUE, url, fileName, 0, uploaded, language, category, description, hash, null);
-    }
-
-    public IndexEntry(String globalId, long indexId, String url, String fileName, MsConfig.Categories category,
-                      String description, String hash, PublicKey leaderId) {
-
-        this(globalId, indexId, url, fileName, 0, null, "", category, description, hash, leaderId);
     }
 
 
@@ -194,7 +180,7 @@ public class IndexEntry implements Serializable {
         if (id != null ? !id.equals(that.id) : that.id != null) return false;
         if (!language.equals(that.language)) return false;
         if (leaderId != null ? !leaderId.equals(that.leaderId) : that.leaderId != null) return false;
-        if (!uploaded.equals(that.uploaded)) return false;
+        if (uploaded!= null ? !uploaded.equals(that.uploaded): that.uploaded != null) return false;
         if (!url.equals(that.url)) return false;
 
         return true;
@@ -222,6 +208,46 @@ public class IndexEntry implements Serializable {
     public static class IndexEntryHelper{
         
         private static Logger logger = LoggerFactory.getLogger(IndexEntryHelper.class);
+
+
+        /**
+         *
+         * @param entry
+         * @return
+         */
+        public static Document addIndexEntryToDocument(Document doc , IndexEntry entry){
+
+            doc.add(new StringField(IndexEntry.GLOBAL_ID, entry.getGlobalId(), Field.Store.YES));
+            doc.add(new LongField(IndexEntry.ID, entry.getId(), Field.Store.YES));
+            doc.add(new StoredField(IndexEntry.URL, entry.getUrl()));
+            doc.add(new TextField(IndexEntry.FILE_NAME, entry.getFileName(), Field.Store.YES));
+            doc.add(new IntField(IndexEntry.CATEGORY, entry.getCategory().ordinal(), Field.Store.YES));
+            doc.add(new TextField(IndexEntry.DESCRIPTION, entry.getDescription(), Field.Store.YES));
+            doc.add(new StoredField(IndexEntry.HASH, entry.getHash()));
+            doc.add(new LongField(IndexEntry.FILE_SIZE, entry.getFileSize(), Field.Store.YES));
+            
+            if (entry.getLeaderId() == null)
+                doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
+            else
+                doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
+
+            if (entry.getUploaded() != null) {
+                doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(), Field.Store.YES));
+            }
+            else {
+                doc.add(new LongField(IndexEntry.UPLOADED, (new Date()).getTime(), Field.Store.YES));
+            }
+
+            if (entry.getLanguage() != null) {
+                doc.add(new StringField(IndexEntry.LANGUAGE, entry.getLanguage(), Field.Store.YES));
+            }
+            else{
+                doc.add(new StringField(IndexEntry.LANGUAGE, "english", Field.Store.YES));
+            }
+
+            return doc;
+        }
+
 
 
         /**
@@ -257,26 +283,21 @@ public class IndexEntry implements Serializable {
          * @param pub instance of public key.
          * @return IndexEntry.
          */
-        private static IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
-            IndexEntry indexEntry = new IndexEntry(d.get(IndexEntry.GLOBAL_ID),
-                    Long.valueOf(d.get(IndexEntry.ID)),
-                    d.get(IndexEntry.URL), d.get(IndexEntry.FILE_NAME),
-                    MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))],
-                    d.get(IndexEntry.DESCRIPTION), d.get(IndexEntry.HASH), pub);
+        public static IndexEntry createIndexEntryInternal(Document d, PublicKey pub) {
 
-            String fileSize = d.get(IndexEntry.FILE_SIZE);
-            if(fileSize != null)
-                indexEntry.setFileSize(Long.valueOf(fileSize));
 
-            String uploadedDate = d.get(IndexEntry.UPLOADED);
-            if(uploadedDate != null)
-                indexEntry.setUploaded(new Date(Long.valueOf(uploadedDate)));
+            String globalId = d.get(IndexEntry.GLOBAL_ID) != null ? d.get(IndexEntry.GLOBAL_ID) : "" ;
+            long id = d.get(IndexEntry.ID) != null ? Long.valueOf(d.get(IndexEntry.ID)) : Long.MIN_VALUE;
+            String url = d.get(IndexEntry.URL) != null ? d.get(IndexEntry.URL) : "";
+            String fileName = d.get(IndexEntry.FILE_NAME) != null ? d.get(IndexEntry.FILE_NAME) : "";
+            MsConfig.Categories category = d.get(IndexEntry.CATEGORY) != null ? MsConfig.Categories.values()[Integer.valueOf(d.get(IndexEntry.CATEGORY))] : MsConfig.Categories.Default;
+            String description = d.get(IndexEntry.DESCRIPTION) != null ? d.get(IndexEntry.DESCRIPTION) : "";
+            String hash = d.get(IndexEntry.HASH) != null ? d.get(IndexEntry.HASH) : "";
+            long fileSize = d.get(IndexEntry.FILE_SIZE) != null ? Long.valueOf(d.get(IndexEntry.FILE_SIZE)) : 0;
+            Date uploadedDate = d.get(IndexEntry.UPLOADED) != null ? new Date(Long.valueOf(d.get(IndexEntry.UPLOADED))) : new Date();
+            String language = d.get(IndexEntry.LANGUAGE) != null ? d.get(IndexEntry.LANGUAGE) : "";
 
-            String language = d.get(IndexEntry.LANGUAGE);
-            if(language != null)
-                indexEntry.setLanguage(language);
-
-            return indexEntry;
+            return new IndexEntry(globalId, id, url, fileName, fileSize, uploadedDate, language, category, description, hash, pub);
         }
 
     }

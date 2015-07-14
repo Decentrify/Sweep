@@ -2,7 +2,7 @@ package se.sics.ms.data.aggregator;
 
 
 import se.sics.ms.aggregator.data.ComponentUpdate;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Search Component Update to the local aggregator.
@@ -16,7 +16,7 @@ public class SearchComponentUpdate implements ComponentUpdate{
     private final long numberOfEntries;
     private final int componentOverlayId;
     
-    public SearchComponentUpdate(SearchDescriptor desc, int componentOverlayId){
+    public SearchComponentUpdate(PeerDescriptor desc, int componentOverlayId){
         
         this.nodeId = desc.getId();
         this.partitionId = desc.getOverlayId().getPartitionId();

@@ -15,7 +15,7 @@ import java.io.IOException;
 public class MsConfig extends VodConfig {
 
     public static enum Categories {
-        Video, Music, Books
+        Video, Music, Books, Default
     }
 
     public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;
@@ -31,7 +31,7 @@ public class MsConfig extends VodConfig {
     public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
     public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
-    public static final int SEARCH_MAX_EXCHANGE_COUNT = 10;
+    public static final int SEARCH_MAX_EXCHANGE_COUNT = 25;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;
     public static final int SEARCH_REPLICATION_TIMEOUT = 30*1000;
@@ -44,7 +44,7 @@ public class MsConfig extends VodConfig {
     // Index hash exchange
     public static final int SEARCH_INDEX_EXCHANGE_TIMEOUT = 5 * 1000;
     public static final int SEARCH_INDEX_EXCHANGE_REQUEST_NUMBER = 3;
-    public static final int INDEX_EXCHANGE_PERIOD = 10 * 1000;
+    public static final int INDEX_EXCHANGE_PERIOD = 4 * 1000;
 
     public static final int GRADIENT_MAX_NUM_ROUTING_ENTRIES = 20;
     public static final int GRADIENT_LEADER_LOOKUP_TIMEOUT = 30 * 1000;
@@ -52,13 +52,13 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_LATEST_RTT_STORE_LIMIT = 10;
     public static final double GRADIENT_RTT_ANOMALY_TOLERANCE = 2.0;
 
-    public static final long MAX_ENTRIES_ON_PEER = 1000;
+    public static final long MAX_ENTRIES_ON_PEER = 10000;
     public static final int MAX_PARTITION_HISTORY_SIZE = 5;
     public static final int MAX_PARTITION_ID_LENGTH = 16;
 
     // Generic control exchange message.
-    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 30*1000;
-    public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5*1000;
+    public static final int CONTROL_MESSAGE_EXCHANGE_PERIOD = 3 * 1000;
+    public static final int DELAYED_PARTITIONING_REQUEST_TIMEOUT = 5 * 1000;
     public static final int CONTROL_MESSAGE_ENUM_SIZE = 2;
 
     // Two phase commit timeout.
@@ -73,6 +73,11 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_CONVERGENCE_TEST_ROUNDS = 8;
     public static final int GRADIENT_SHUFFLE_PERIOD = 3000;
     public static final double GRADIENT_CONVERGENCE_TEST = 0.8d;
+    
+    
+    // Epoch Mechanism.
+    public static final int MAX_EPOCH_UPDATES = 10;
+    public static final int MAX_EPOCH_CONTAINER_ENTRIES = 10;            // EPOCH CONTAINER SIZE.
     
     protected MsConfig(String[] args) throws IOException {
         super(args);

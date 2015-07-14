@@ -2,11 +2,9 @@ package se.sics.ms.gradient.ports;
 
 import se.sics.kompics.Event;
 import se.sics.kompics.PortType;
-import se.sics.ms.gradient.misc.SimpleUtilityComparator;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.SortedSet;
-import java.util.TreeSet;
 
 /**
  * This class is a port created for the purpose of broadcasting gradient's view
@@ -22,7 +20,7 @@ public class GradientViewChangePort extends PortType {
 	public static class GradientViewChanged extends Event {
         
 		private final boolean isConverged;
-		private final SortedSet<SearchDescriptor> gradientView;
+		private final SortedSet<PeerDescriptor> gradientView;
 
 		/**
 		 * Default constructor
@@ -32,7 +30,7 @@ public class GradientViewChangePort extends PortType {
 		 * @param gradientView
 		 *            the current view of the gradient
 		 */
-		public GradientViewChanged(boolean isConverged, SortedSet<SearchDescriptor> gradientView) {
+		public GradientViewChanged(boolean isConverged, SortedSet<PeerDescriptor> gradientView) {
 			super();
 			this.isConverged = isConverged;
 			this.gradientView = gradientView;
@@ -52,7 +50,7 @@ public class GradientViewChangePort extends PortType {
          *
          * @return all nodes in the view
          */
-        public SortedSet<SearchDescriptor> getGradientView() {
+        public SortedSet<PeerDescriptor> getGradientView() {
             return gradientView;
         }
 	}

@@ -5,7 +5,7 @@ import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.types.OverlayAddress;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
@@ -29,7 +29,7 @@ public class SearchDescriptorSerializer implements Serializer{
     @Override
     public void toBinary(Object o, ByteBuf byteBuf) {
 
-        SearchDescriptor  sd = (SearchDescriptor)o;
+        PeerDescriptor sd = (PeerDescriptor)o;
         Serializers.lookupSerializer(DecoratedAddress.class).toBinary(sd.getVodAddress(), byteBuf);
         byteBuf.writeInt(sd.getOverlayId().getId());
         byteBuf.writeLong(sd.getNumberOfIndexEntries());
@@ -45,6 +45,6 @@ public class SearchDescriptorSerializer implements Serializer{
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();
 
-        return new SearchDescriptor(new OverlayAddress(decoratedAddress, overlayId), false, numberOfIndexEntries, isLGMember);
+        return new PeerDescriptor(new OverlayAddress(decoratedAddress, overlayId), false, numberOfIndexEntries, isLGMember, null);
     }
 }

@@ -1,6 +1,7 @@
 package se.sics.ms.data;
 
 import se.sics.ms.exceptions.IllegalSearchString;
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 
@@ -150,4 +151,83 @@ public class SearchInfo {
         }
 
     }
+ 
+    
+    public static class ResponseUpdated {
+
+        private final Collection<ApplicationEntry> results;
+        private final int numResponses;
+        private final int responseNumber;
+        private final UUID searchTimeoutId;
+        private final int partitionId;
+
+        public ResponseUpdated ( UUID searchTimeoutId, Collection<ApplicationEntry> results, int partitionId , int numResponses, int responseNumber ) {
+
+            this.partitionId = partitionId;
+            this.numResponses = numResponses;
+            this.responseNumber = responseNumber;
+            this.results = results;
+            this.searchTimeoutId = searchTimeoutId;
+        }
+
+        
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            ResponseUpdated that = (ResponseUpdated) o;
+
+            if (numResponses != that.numResponses) return false;
+            if (partitionId != that.partitionId) return false;
+            if (responseNumber != that.responseNumber) return false;
+            if (results != null ? !results.equals(that.results) : that.results != null) return false;
+            if (searchTimeoutId != null ? !searchTimeoutId.equals(that.searchTimeoutId) : that.searchTimeoutId != null)
+                return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = results != null ? results.hashCode() : 0;
+            result = 31 * result + numResponses;
+            result = 31 * result + responseNumber;
+            result = 31 * result + (searchTimeoutId != null ? searchTimeoutId.hashCode() : 0);
+            result = 31 * result + partitionId;
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "ResponseUpdated{" +
+                    "results=" + results +
+                    ", numResponses=" + numResponses +
+                    ", responseNumber=" + responseNumber +
+                    ", searchTimeoutId=" + searchTimeoutId +
+                    ", partitionId=" + partitionId +
+                    '}';
+        }
+
+        public Collection<ApplicationEntry> getResults() {
+            return results;
+        }
+
+        public int getNumResponses() {
+            return numResponses;
+        }
+
+        public int getResponseNumber() {
+            return responseNumber;
+        }
+
+        public UUID getSearchTimeoutId() {
+            return searchTimeoutId;
+        }
+
+        public int getPartitionId() {
+            return partitionId;
+        }
+    }
+    
 }

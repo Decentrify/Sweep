@@ -5,10 +5,9 @@ import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -17,7 +16,7 @@ import se.sics.ms.types.SearchDescriptor;
  * Time: 12:32 PM
  */
 public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
-    private final SearchDescriptor leader;
+    private final PeerDescriptor leader;
 
     /**
      * Creates a new LeaderAnnouncementMsg
@@ -25,7 +24,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
      * @param destination
      * @param leader SearchDescriptor of the leader
      */
-    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, SearchDescriptor leader) {
+    public LeaderDeathAnnouncementMessage(VodAddress source, VodAddress destination, PeerDescriptor leader) {
         super(source, destination);
 
         if(leader == null)
@@ -38,7 +37,7 @@ public class LeaderDeathAnnouncementMessage extends DirectMsgNetty.Oneway {
      * Returns the leader
      * @return leader's VodAddress
      */
-    public SearchDescriptor getLeader() {
+    public PeerDescriptor getLeader() {
         return leader;
     }
 

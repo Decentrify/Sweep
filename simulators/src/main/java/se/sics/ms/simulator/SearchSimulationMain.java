@@ -21,6 +21,7 @@ import se.sics.p2ptoolbox.simulator.core.P2pSimulator;
 import se.sics.p2ptoolbox.simulator.core.P2pSimulatorInit;
 import se.sics.p2ptoolbox.simulator.core.network.impl.UniformRandomModel;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
+import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 
 public final class SearchSimulationMain extends ComponentDefinition {
 
@@ -59,6 +60,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
         GradientConfig gradientConfig = new GradientConfig(config);
         ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
         ElectionConfig electionConfig = new ElectionConfig(config);
+        TreeGradientConfig treeGradientConfig = new TreeGradientConfig(config);
 
         Component simulator = create(SearchSimulator.class, new SearchSimulatorInit(
                 newCroupierConfig,
@@ -67,7 +69,8 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 ElectionConfiguration.build(),
                 chunkManagerConfig,
                 gradientConfig,
-                electionConfig));
+                electionConfig,
+                treeGradientConfig));
 
         // connections
         connect(simulator.getNegative(Network.class), p2pSimulator.getPositive(Network.class));

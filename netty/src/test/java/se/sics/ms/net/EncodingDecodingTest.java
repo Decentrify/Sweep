@@ -22,8 +22,6 @@ import se.sics.ms.messages.*;
 import se.sics.ms.types.*;
 import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -51,8 +49,8 @@ public class EncodingDecodingTest {
     private static HPMechanism hpMechanism = HPMechanism.PRP_PRC;
     private static HPRole hpRole = HPRole.PRC_RESPONDER;
     private static Nat nat;
-    private static SearchDescriptor nodeDescriptor;
-    private static List<SearchDescriptor> descriptors = new ArrayList<SearchDescriptor>();
+    private static PeerDescriptor nodeDescriptor;
+    private static List<PeerDescriptor> descriptors = new ArrayList<PeerDescriptor>();
     private static byte[] availableChunks = new byte[2031];
     private static byte[][] availablePieces = new byte[52][19];
     private PublicKey publicKey;
@@ -170,7 +168,7 @@ public class EncodingDecodingTest {
             Date time = new Date();
             String language = "language";
             String description = "description";
-            IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+            IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
             TimeoutId timeoutId = UUID.nextUUID();
             Collection<IndexEntry> indexEntries = new ArrayList<IndexEntry>();
             int partitionId = 1;
@@ -207,7 +205,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         AddIndexEntryMessage.Request msg = new AddIndexEntryMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();
@@ -278,7 +276,7 @@ public class EncodingDecodingTest {
         String language = "language";
         String description = "description";
         IndexEntry entry;
-        entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         Collection<IndexEntry> items = new ArrayList<IndexEntry>();
         items.add(entry);
         int numResponses=1;
@@ -306,7 +304,7 @@ public class EncodingDecodingTest {
     @Test
     public void ElectionRequest() {
         int counter = 1;
-        SearchDescriptor self =  null;
+        PeerDescriptor self =  null;
 //        SearchDescriptor self = new SearchDescriptor(new Decnew BasicAddress(null, 0 , 0));
         ElectionMessage.Request msg = new ElectionMessage.Request(gSrc, gDest, UUID.nextUUID(), counter, self);
         try {
@@ -339,7 +337,7 @@ public class EncodingDecodingTest {
             e.printStackTrace();
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = null;
+        PeerDescriptor searchDescriptor = null;
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
         ElectionMessage.Response msg = new ElectionMessage.Response(gSrc, gDest, UUID.nextUUID(), voteId, converged, vote, searchDescriptor);
         try {
@@ -372,8 +370,8 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
-        SearchDescriptor searchDescriptor = null;
-        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        PeerDescriptor searchDescriptor = null;
+        Set<PeerDescriptor> set = new HashSet<PeerDescriptor>();
         set.add(searchDescriptor);
 
         GradientShuffleMessage.Request msg = new GradientShuffleMessage.Request(gSrc, gDest, UUID.nextUUID(), set);
@@ -403,8 +401,8 @@ public class EncodingDecodingTest {
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
-        SearchDescriptor searchDescriptor = null;
-        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        PeerDescriptor searchDescriptor = null;
+        Set<PeerDescriptor> set = new HashSet<PeerDescriptor>();
         set.add(searchDescriptor);
 
         GradientShuffleMessage.Response msg = new GradientShuffleMessage.Response(gSrc, gDest, UUID.nextUUID(), set);
@@ -434,7 +432,7 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
-        SearchDescriptor searchDescriptor = null;
+        PeerDescriptor searchDescriptor = null;
 
         LeaderDeathAnnouncementMessage msg = new LeaderDeathAnnouncementMessage(gSrc, gDest, searchDescriptor);
         try {
@@ -525,12 +523,12 @@ public class EncodingDecodingTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
-        SearchDescriptor leaderSearchDescriptor = null;
+        PeerDescriptor leaderSearchDescriptor = null;
 //        SearchDescriptor leaderSearchDescriptor = new SearchDescriptor(gSrc);
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1), VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = null;
+        PeerDescriptor searchDescriptor = null;
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
-        Set<SearchDescriptor> set = new HashSet<SearchDescriptor>();
+        Set<PeerDescriptor> set = new HashSet<PeerDescriptor>();
         set.add(searchDescriptor);
 
         LeaderViewMessage msg = new LeaderViewMessage(gSrc, gDest, leaderSearchDescriptor, set, null);
@@ -608,7 +606,7 @@ public class EncodingDecodingTest {
         }
         VodAddress vodAddress1 = new VodAddress(new Address(address1, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = null;
+        PeerDescriptor searchDescriptor = null;
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress1);
 
         RejectLeaderMessage msg = new RejectLeaderMessage(gSrc, gDest, searchDescriptor);
@@ -658,10 +656,10 @@ public class EncodingDecodingTest {
         boolean terminated = false;
         VodAddress vodAddress = new VodAddress(new Address(address, 8081, 1),
                 VodConfig.SYSTEM_OVERLAY_ID, nat);
-        SearchDescriptor searchDescriptor = null;
+        PeerDescriptor searchDescriptor = null;
 //        SearchDescriptor searchDescriptor = new SearchDescriptor(vodAddress);
 
-        List<SearchDescriptor> items = new ArrayList<SearchDescriptor>();
+        List<PeerDescriptor> items = new ArrayList<PeerDescriptor>();
         items.add(searchDescriptor);
         LeaderLookupMessage.Response msg = new LeaderLookupMessage.Response(gSrc, gDest, UUID.nextUUID(), terminated, items);
         try {
@@ -751,7 +749,7 @@ public class EncodingDecodingTest {
         Date time = new Date();
         String language = "language";
         String description = "description";
-        IndexEntry entry = new IndexEntry(url, fileName, size, time, language, MsConfig.Categories.Music, description);
+        IndexEntry entry = new IndexEntry(java.util.UUID.randomUUID().toString(), url, fileName, size, time, language, MsConfig.Categories.Music, description);
         ReplicationPrepareCommitMessage.Request msg = new ReplicationPrepareCommitMessage.Request(gSrc, gDest, UUID.nextUUID(), entry);
         try {
             ByteBuf buffer = msg.toByteArray();

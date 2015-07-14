@@ -1,8 +1,7 @@
 package se.sics.ms.data;
 
 import se.sics.kompics.timer.ScheduleTimeout;
-import se.sics.kompics.timer.Timeout;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.util.List;
 import java.util.UUID;
@@ -62,9 +61,9 @@ public class LeaderLookup {
         
         private final UUID leaderLookupRound;
         private final boolean leader;
-        private final List<SearchDescriptor> searchDescriptors;
+        private final List<PeerDescriptor> searchDescriptors;
         
-        public Response (UUID leaderLookupRound, boolean leader, List<SearchDescriptor> searchDescriptors){
+        public Response (UUID leaderLookupRound, boolean leader, List<PeerDescriptor> searchDescriptors){
             
             this.leaderLookupRound = leaderLookupRound;
             this.leader = leader;
@@ -114,7 +113,7 @@ public class LeaderLookup {
             return leader;
         }
 
-        public List<SearchDescriptor> getSearchDescriptors() {
+        public List<PeerDescriptor> getSearchDescriptors() {
             return searchDescriptors;
         }
     }

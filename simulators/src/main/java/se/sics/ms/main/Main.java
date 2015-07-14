@@ -2,15 +2,9 @@ package se.sics.ms.main;
 
 import se.sics.gvod.config.Configuration;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.net.SerializerSetup;
-import se.sics.ms.scenarios.*;
+import se.sics.ms.scenarios.general.GradualPartitioningScenario;
+import se.sics.ms.scenarios.general.Scenario;
 import se.sics.ms.simulator.SearchSimulationMain;
-import se.sics.p2ptoolbox.aggregator.network.AggregatorSerializerSetup;
-import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
-import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
-import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
-import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
-import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.io.IOException;
 

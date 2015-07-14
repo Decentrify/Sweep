@@ -85,6 +85,10 @@ public class PartitionId {
 
     @Override
     public String toString() {
-        return getAsLinkedList().toString();
+        return "PartitionId{" +
+                "partitioningType=" + partitioningType +
+                ", partitionIdDepth=" + partitionIdDepth +
+                ", partitionId=" + partitionId +
+                '}';
     }
 }

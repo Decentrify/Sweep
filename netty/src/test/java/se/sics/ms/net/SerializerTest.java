@@ -15,7 +15,6 @@ import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
-import se.sics.ms.serializer.ReplicationPrepareCommitSerializer;
 import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
@@ -47,17 +46,19 @@ public class SerializerTest {
 
     private static ByteBuf originalBuf, copiedBuf;
     private static DecoratedAddress selfAddress, destinationAddress;
-    private static SearchDescriptor selfDescriptor;
-    private static SearchDescriptor otherDescriptor;
+    private static PeerDescriptor selfDescriptor;
+    private static PeerDescriptor otherDescriptor;
     private static PublicKey publicKey;
     private static PrivateKey privateKey;
     private static IndexEntry randomIndexEntry;
+    private static IndexEntry specialIndexEntry;
 
     @BeforeClass
     public static void oneTimeSetup() throws NoSuchAlgorithmException {
 
         logger.info("Executing the one time setup.");
         int currentId = 128;
+        int seed = 100;
         BasicSerializerSetup.registerBasicSerializers(currentId);
         currentId = currentId + BasicSerializerSetup.serializerIds;
         currentId = SerializerSetup.registerSerializers(currentId);
@@ -68,13 +69,15 @@ public class SerializerTest {
 
         selfAddress = new DecoratedAddress(localHost, 54321, 1);
         destinationAddress = new DecoratedAddress(localHost, 54322, 2);
-        selfDescriptor = new SearchDescriptor(selfAddress, 1);
-        otherDescriptor = new SearchDescriptor(destinationAddress, 0);
+        selfDescriptor = new PeerDescriptor(selfAddress, 1);
+        otherDescriptor = new PeerDescriptor(destinationAddress, 0);
 
         originalBuf = Unpooled.buffer();
         copiedBuf = Unpooled.buffer();
         randomIndexEntry = new IndexEntry("globalId", 0, "url", "Avengers: Age of Ultron", 10189, new Date(),   "English", MsConfig.Categories.Video, "Description", "Hash", publicKey);
-        random = new Random();
+        specialIndexEntry = new IndexEntry(" ", 0, "url", "Avengers: Age of Ultron", 10189, new Date(),   "English", MsConfig.Categories.Video, "Description", "Hash", publicKey);
+
+        random = new Random(seed);
         generateKeys();
     }
 
@@ -105,11 +108,11 @@ public class SerializerTest {
 
         logger.info("Search Descriptor Serialization Test. ");
 
-        Serializer sdSerializer = Serializers.lookupSerializer(SearchDescriptor.class);
+        Serializer sdSerializer = Serializers.lookupSerializer(PeerDescriptor.class);
         sdSerializer.toBinary(selfDescriptor, originalBuf);
         copiedBuf = Unpooled.wrappedBuffer(originalBuf.array());
 
-        SearchDescriptor cpyDescriptor = (SearchDescriptor) sdSerializer.fromBinary(copiedBuf, Optional.absent());
+        PeerDescriptor cpyDescriptor = (PeerDescriptor) sdSerializer.fromBinary(copiedBuf, Optional.absent());
         Assert.assertEquals(" SearchDescriptor Equality Check ", selfDescriptor, cpyDescriptor);
     }
 
@@ -185,6 +188,16 @@ public class SerializerTest {
         Assert.assertEquals("Search Info Response Serialization", originalSIResponse, copiedSIResponse);
     }
 
+    @Test
+    public void landingEntryTest() {
+        logger.info("Landing Entry Test");
+
+        IndexEntry entry = IndexEntry.DEFAULT_ENTRY;
+        Serializer addEntryRequestSerializer = Serializers.lookupSerializer(IndexEntry.class);
+
+        IndexEntry copiedEntry = (IndexEntry) addObjectAndCreateCopiedObject(addEntryRequestSerializer, originalBuf, entry, copiedBuf);
+        Assert.assertEquals("Add Index Entry Request Serialization", entry, copiedEntry);
+    }
 
     @Test
     public void addIndexEntryRequestTest() {
@@ -366,7 +379,7 @@ public class SerializerTest {
         ids.add(new Id(11, publicKey));
 
 
-        IndexExchange.Request originalExchangeRequest  = new IndexExchange.Request(UUID.randomUUID(), ids);
+        IndexExchange.Request originalExchangeRequest  = new IndexExchange.Request(UUID.randomUUID(), ids, 0);
         Serializer exchangeSerializer = Serializers.lookupSerializer(IndexExchange.Request.class);
 
         IndexExchange.Request copiedExchangeRequest = (IndexExchange.Request)addObjectAndCreateCopiedObject(exchangeSerializer, originalBuf, originalExchangeRequest, copiedBuf);
@@ -378,7 +391,7 @@ public class SerializerTest {
     public void addIndexExchangeResponseTest(){
         logger.info("Add Index Exchange Response Serialization Test.");
 
-        IndexExchange.Response originalExchangeResponse  = new IndexExchange.Response(UUID.randomUUID(), getIndexEntryCollection(10), 10, 0);
+        IndexExchange.Response originalExchangeResponse  = new IndexExchange.Response(UUID.randomUUID(), getIndexEntryCollection(10), 10, 0, 0);
         Serializer exchangeSerializer = Serializers.lookupSerializer(IndexExchange.Response.class);
 
         IndexExchange.Response copiedExchangeResponse = (IndexExchange.Response)addObjectAndCreateCopiedObject(exchangeSerializer, originalBuf, originalExchangeResponse, copiedBuf);
@@ -430,7 +443,7 @@ public class SerializerTest {
     public void leaderLookUpResponseTest(){
         logger.info("Leader Lookup Response Serialization Test");
 
-        List<SearchDescriptor> descList = new ArrayList<SearchDescriptor>();
+        List<PeerDescriptor> descList = new ArrayList<PeerDescriptor>();
         descList.add(selfDescriptor);
         descList.add(otherDescriptor);
 
@@ -442,11 +455,23 @@ public class SerializerTest {
 
     }
 
+    
+    @Test
+    public void indexEntryTest(){
+        logger.info("Index Entry Test");
+        
+        Serializer serializer = Serializers.lookupSerializer(IndexEntry.class);
+        IndexEntry entry = (IndexEntry)addObjectAndCreateCopiedObject(serializer, originalBuf, specialIndexEntry, copiedBuf);
+
+        org.junit.Assert.assertEquals("Index Entry Test", specialIndexEntry, entry);
+    }
+    
+    
     @Test
     public void indexHashRequestTest(){
         logger.info("Index Hash Exchange Request Test");
 
-        IndexHashExchange.Request request = new IndexHashExchange.Request(UUID.randomUUID(), 10, new Long[]{(long)10, (long)11, (long)12});
+        IndexHashExchange.Request request = new IndexHashExchange.Request(UUID.randomUUID(), 10, new Long[]{(long)10, (long)11, (long)12},0);
         Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Request.class);
 
         IndexHashExchange.Request copiedRequest = (IndexHashExchange.Request) addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
@@ -459,7 +484,7 @@ public class SerializerTest {
     public void indexHashExchangeResponseTest(){
         logger.info("Index Hash Exchange Response Test");
 
-        IndexHashExchange.Response originalResponse = new IndexHashExchange.Response(UUID.randomUUID(), getIndexHashCollection(5));
+        IndexHashExchange.Response originalResponse = new IndexHashExchange.Response(UUID.randomUUID(), getIndexHashCollection(5), 0);
         Serializer serializer = Serializers.lookupSerializer(IndexHashExchange.Response.class);
 
         IndexHashExchange.Response copiedResponse = (IndexHashExchange.Response) addObjectAndCreateCopiedObject(serializer, originalBuf, originalResponse, copiedBuf);
@@ -479,6 +504,340 @@ public class SerializerTest {
     }
     
 
+
+
+    @Test
+    public void testEntryId(){
+        logger.info("Application Entry Id Test.");
+
+        ApplicationEntry.ApplicationEntryId entryId = testApplicationEntryId();
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class);
+
+        ApplicationEntry.ApplicationEntryId copiedEntryId = (ApplicationEntry.ApplicationEntryId)addObjectAndCreateCopiedObject(serializer, originalBuf, entryId, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Id Test", entryId, copiedEntryId);
+    }
+
+
+    @Test
+    public void testApplicationEntry() {
+        logger.info("Application Entry Test");
+
+        ApplicationEntry entry  = new ApplicationEntry(getApplicationEntryId(0, 100, 1));
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntry.class);
+        ApplicationEntry copiedEntry = (ApplicationEntry)addObjectAndCreateCopiedObject(serializer, originalBuf, entry, copiedBuf);
+
+        org.junit.Assert.assertEquals("Application Entry Test", entry, copiedEntry);
+    }
+
+
+
+    @Test
+    public void leaderPullEntryRequestTest(){
+
+        logger.info("Leader Pull Entry Test");
+
+        UUID pullRoundId = UUID.randomUUID();
+        LeaderPullEntry.Request request = new LeaderPullEntry.Request(pullRoundId, getApplicationEntryId(1,100,0));
+        Serializer serializer = Serializers.lookupSerializer(LeaderPullEntry.Request.class);
+        LeaderPullEntry.Request copiedRequest = (LeaderPullEntry.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Leader Pull Entry Request Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void leaderPullEntryResponseTest(){
+
+        logger.info("Leader Pull Entry Response Test");
+        Collection<ApplicationEntry> entries = getApplicationEntryCollection(2);
+        UUID pullRoundId = UUID.randomUUID();
+        int overlayId = 0;
+
+        LeaderPullEntry.Response response = new LeaderPullEntry.Response(pullRoundId, entries, overlayId);
+        Serializer serializer = Serializers.lookupSerializer(LeaderPullEntry.Response.class);
+        LeaderPullEntry.Response copiedResponse = (LeaderPullEntry.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Leader Pull Entry Response Test", response, copiedResponse);
+    }
+
+
+    @Test
+    public void entryHashExchangeRequestTest(){
+
+        logger.info("Entry Hash Exchange Request Test");
+
+        UUID exchangeRound = UUID.randomUUID();
+        ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, Integer.MIN_VALUE, 0);
+        EntryHashExchange.Request request = new EntryHashExchange.Request(exchangeRound, entryId);
+
+        Serializer serializer = Serializers.lookupSerializer(EntryHashExchange.Request.class);
+        EntryHashExchange.Request copiedRequest = (EntryHashExchange.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Entry Hash Exchange Request Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void entryHashExchangeResponseTest(){
+
+        logger.info("Entry Hash Exchange Response Test");
+
+        Collection<EntryHash> entryHashCollection = getEntryHashCollection(3);
+        UUID exchangeRound = UUID.randomUUID();
+
+        EntryHashExchange.Response response = new EntryHashExchange.Response(exchangeRound, entryHashCollection);
+        Serializer serializer = Serializers.lookupSerializer(EntryHashExchange.Response.class);
+        EntryHashExchange.Response copiedResponse = (EntryHashExchange.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Hash Exchange Response Test", response, copiedResponse);
+    }
+
+    @Test
+    public void entryExchangeRequestTest(){
+
+        logger.info("Entry Exchange Response Test");
+        Collection<ApplicationEntry.ApplicationEntryId> entryIds = entryIdCollection(3);
+        UUID exchangeId = UUID.randomUUID();
+
+        EntryExchange.Request request = new EntryExchange.Request(exchangeId, entryIds);
+        Serializer serializer = Serializers.lookupSerializer(EntryExchange.Request.class);
+
+        EntryExchange.Request copiedRequest = (EntryExchange.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Exchange Response Test", request, copiedRequest);
+    }
+
+
+    @Test
+    public void entryExchangeResponseTest(){
+
+        logger.info("Entry Exchange Request Test");
+        Collection<ApplicationEntry> entries= getApplicationEntryCollection(3);
+        UUID exchangeId = UUID.randomUUID();
+
+        EntryExchange.Response response = new EntryExchange.Response(exchangeId, entries, 0);
+        Serializer serializer = Serializers.lookupSerializer(EntryExchange.Response.class);
+
+        EntryExchange.Response copiedResponse = (EntryExchange.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Exchange Request Test", response, copiedResponse);
+    }
+
+
+
+
+
+    @Test
+    public void controlPullNullRequestTest() {
+
+        logger.info("Control Pull Null Unit Request Test.");
+
+        UUID pullRound = UUID.randomUUID();
+        ControlPull.Request request = new ControlPull.Request (pullRound, new OverlayId(0), null);
+        Serializer serializer = Serializers.lookupSerializer(ControlPull.Request.class);
+        ControlPull.Request copiedRequest = (ControlPull.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Control Pull Null Unit Request Test", request, copiedRequest);
+
+    }
+
+    @Test
+    public void controlPullRequestTest(){
+
+        logger.info("Control Pull Request Test");
+        UUID pullRound = UUID.randomUUID();
+        OverlayId overlayId = new OverlayId(0);
+        BaseLeaderUnit unit = new BaseLeaderUnit(0l, 100, 10l, LeaderUnit.LUStatus.ONGOING);
+        Serializer serializer = Serializers.lookupSerializer(ControlPull.Request.class);
+        ControlPull.Request request = new ControlPull.Request(pullRound, overlayId, unit);
+        ControlPull.Request copiedRequest = (ControlPull.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Control Pull Request Test", request, copiedRequest);
+    }
+
+
+
+    @Test
+    public void controlPullNullResponseTest() {
+
+        logger.info("Control Pull Null Response Test");
+
+        UUID pullRound = UUID.randomUUID();
+        List<LeaderUnit> leaderUnits = getLeaderUnitCollection(3);
+        int overlayId = 0;
+
+        Serializer serializer= Serializers.lookupSerializer(ControlPull.Response.class);
+        ControlPull.Response response = new ControlPull.Response(pullRound, null, null, leaderUnits, overlayId);
+        ControlPull.Response copiedResponse = (ControlPull.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Control Pull Response Test", response, copiedResponse);
+    }
+
+
+    @Test
+    public void controlPullResponseTest() {
+
+        logger.info("Control Pull Response Test");
+
+        UUID pullRound = UUID.randomUUID();
+        List<LeaderUnit> leaderUnits = getLeaderUnitCollection(3);
+        int overlayId = 0;
+
+        Serializer serializer= Serializers.lookupSerializer(ControlPull.Response.class);
+        ControlPull.Response response = new ControlPull.Response(pullRound, selfAddress, publicKey, leaderUnits, overlayId);
+        ControlPull.Response copiedResponse = (ControlPull.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Control Pull Response Test", response, copiedResponse);
+    }
+
+
+
+    @Test
+    public void shardPrepareRequestTest(){
+        
+        logger.info("Sharding Prepare Request Test");
+        
+        UUID shardRoundId = UUID.randomUUID();
+        OverlayId id = new OverlayId(0);
+        LeaderUnitUpdate unitUpdate = new LeaderUnitUpdate(null, new BaseLeaderUnit(1, 100));
+        ShardingPrepare.Request request = new ShardingPrepare.Request(shardRoundId, unitUpdate, id);
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingPrepare.Request.class);
+        ShardingPrepare.Request copiedRequest = (ShardingPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        
+        org.junit.Assert.assertEquals("Sharding Prepare Request Test", request, copiedRequest);
+    }
+
+
+
+    @Test
+    public void shardingPrepareResponseTest(){
+
+        logger.info("Sharding Prepare Response Test");
+
+        UUID shardRoundId = UUID.randomUUID();
+        ShardingPrepare.Response response = new ShardingPrepare.Response(shardRoundId);
+
+        Serializer serializer = Serializers.lookupSerializer(ShardingPrepare.Response.class);
+        ShardingPrepare.Response copiedResponse = (ShardingPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Prepare Response Test", response, copiedResponse);
+    }
+
+    
+    
+    @Test
+    public void shardCommitRequestTest(){
+        
+        logger.info("Shard Commit Request Test");
+        
+        UUID shardCommitRoundId = UUID.randomUUID();
+        ShardingCommit.Request request = new ShardingCommit.Request(shardCommitRoundId);
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingCommit.Request.class);
+        ShardingCommit.Request copiedRequest = (ShardingCommit.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Commit Request Test", request, copiedRequest);
+    }
+    
+    
+    @Test
+    public void shardCommitResponseTest(){
+        
+        logger.info("Shard Commit Response Test");
+        
+        UUID shardCommitRoundId = UUID.randomUUID();
+        ShardingCommit.Response response = new ShardingCommit.Response(shardCommitRoundId);
+        
+        
+        Serializer serializer = Serializers.lookupSerializer(ShardingCommit.Response.class);
+        ShardingCommit.Response copiedResponse = (ShardingCommit.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        org.junit.Assert.assertEquals("Sharding Commit Response Test", response, copiedResponse);
+    }
+
+    
+    
+    
+    @Test
+    public void applicationEntryAddPrepareTest(){
+        
+        logger.info("Application Entry Add Prepare Request Test");
+        
+        ApplicationEntry applicationEntry = getTestApplicationEntry();
+        UUID entryAddRoundId = UUID.randomUUID();
+        
+        ApplicationEntryAddPrepare.Request request = new ApplicationEntryAddPrepare.Request(entryAddRoundId, applicationEntry);
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntryAddPrepare.Request.class);
+        
+        ApplicationEntryAddPrepare.Request copiedRequest = (ApplicationEntryAddPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Add Prepare Request Test", request, copiedRequest);
+    }
+    
+    
+    
+    @Test
+    public void landingEntryAddPrepareTest(){
+        
+        logger.info("Landing Entry Add Prepare Request Test");
+
+        ApplicationEntry.ApplicationEntryId entryId =  getApplicationEntryId(0, 100, 0);
+        ApplicationEntry applicationEntry = new ApplicationEntry(entryId);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+        
+        LandingEntryAddPrepare.Request request = new LandingEntryAddPrepare.Request(entryAdditionRoundId, applicationEntry, null);
+        Serializer serializer = Serializers.lookupSerializer(LandingEntryAddPrepare.Request.class);
+        
+        LandingEntryAddPrepare.Request copiedRequest = (LandingEntryAddPrepare.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Landing Entry Add Prepare Request Test", request, copiedRequest);
+        
+    }
+    
+    
+    @Test
+    public void applicationEntryAddPrepareResponseTest(){
+        
+        logger.info("Application Entry Add Prepare Response Test");
+
+        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(0, 100, 0);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+        
+        ApplicationEntryAddPrepare.Response response = new ApplicationEntryAddPrepare.Response(entryAdditionRoundId, entryId);
+        Serializer serializer = Serializers.lookupSerializer(ApplicationEntryAddPrepare.Response.class);
+        
+        ApplicationEntryAddPrepare.Response copiedResponse = (ApplicationEntryAddPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Application Entry Add Prepare Response Test", response, copiedResponse);
+    }
+    
+    
+    @Test
+    public void landingEntryAddPrepareResponseTest(){
+        
+        logger.info("Landing Entry Add Prepare Response Test");
+
+        ApplicationEntry.ApplicationEntryId entryId = new ApplicationEntry.ApplicationEntryId(0, 100, 0);
+        UUID entryAdditionRoundId = UUID.randomUUID();
+
+        LandingEntryAddPrepare.Response response = new LandingEntryAddPrepare.Response(entryAdditionRoundId, entryId);
+        Serializer serializer = Serializers.lookupSerializer(LandingEntryAddPrepare.Response.class);
+
+        LandingEntryAddPrepare.Response copiedResponse = (LandingEntryAddPrepare.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        org.junit.Assert.assertEquals("Landing Entry Add Prepare Response Test", response, copiedResponse);
+    }
+    
+    
+    @Test
+    public void entryAddCommitTest(){
+        
+        logger.info("Entry Add Commit Test");
+
+        ApplicationEntry.ApplicationEntryId entryId= getApplicationEntryId(0, 100, 0);
+        UUID commitRoundId = UUID.randomUUID();
+        String signature = "signature";
+        
+        EntryAddCommit.Request request = new EntryAddCommit.Request(commitRoundId, entryId, signature);
+        Serializer serializer = Serializers.lookupSerializer(EntryAddCommit.Request.class);
+        
+        EntryAddCommit.Request copiedRequest = (EntryAddCommit.Request)addObjectAndCreateCopiedObject(serializer,originalBuf, request, copiedBuf);
+        org.junit.Assert.assertEquals("Entry Add Commit Test", request, copiedRequest);
+    }
+    
+
     /**
      * Helper method to take the object and then add it to the buffer and then
      * copy the buffer to another
@@ -495,6 +854,25 @@ public class SerializerTest {
 
         return serializer.fromBinary(copiedBuf, Optional.absent());
     }
+
+
+    /**
+     * Helper method to take the object and then add it to the buffer and then
+     * copy the buffer to another
+     * @param originalBuf original buffer
+     * @param originalObject original object
+     * @param copiedBuf copied object.
+     *
+     * @return Copied Object
+     */
+    private Object addObjectAndCreateCopiedObject(ByteBuf originalBuf, Object originalObject, ByteBuf copiedBuf){
+
+        Serializers.toBinary(originalObject , originalBuf);
+        copiedBuf = Unpooled.wrappedBuffer(originalBuf.array());
+
+        return Serializers.fromBinary(copiedBuf, Optional.absent());
+    }
+
 
 
     public static void generateKeys() throws NoSuchAlgorithmException {
@@ -567,5 +945,99 @@ public class SerializerTest {
         IndexEntry entry = new IndexEntry(null, -9223372036854775808l,  "220", "messi.mp4", 1, new Date(), "english", MsConfig.Categories.Video, "Something", null, null);
         return entry;
     }
+
+
+
+    public ApplicationEntry getTestApplicationEntry (){
+
+        ApplicationEntry.ApplicationEntryId entryId = testApplicationEntryId();
+        IndexEntry entry = getRandomIndexEntry();
+
+        return new ApplicationEntry(entryId, entry);
+    }
+
+
+    /**
+     * Simply construct an application entryid.
+     * @return
+     */
+    public ApplicationEntry.ApplicationEntryId testApplicationEntryId(){
+        return getApplicationEntryId(0,100,0);
+    }
+
+
+    public ApplicationEntry.ApplicationEntryId getApplicationEntryId(long epochId, int leaderId, long entryId){
+        return new ApplicationEntry.ApplicationEntryId(epochId, leaderId, entryId);
+    }
+
+
+
+
+    public Collection<ApplicationEntry> getApplicationEntryCollection(int size) {
+
+        Collection<IndexEntry> entryCollection = getIndexEntryCollection(10);
+        Collection<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
+
+        for(IndexEntry entry : entryCollection){
+            ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, 100, entry.getId());
+            applicationEntries.add(new ApplicationEntry(entryId, entry));
+        }
+
+        return applicationEntries;
+    }
+
+
+
+    public Collection<EntryHash> getEntryHashCollection(int size) {
+
+        Collection<EntryHash> collection = new ArrayList<EntryHash>();
+        Collection<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
+
+        for(ApplicationEntry entry : entryCollection){
+            collection.add(new EntryHash(entry));
+        }
+
+        return collection;
+    }
+
+
+    public Collection<ApplicationEntry.ApplicationEntryId> entryIdCollection(int size) {
+
+        Collection<ApplicationEntry.ApplicationEntryId> entryIdCollection = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+        Collection<ApplicationEntry> entryCollection  = getApplicationEntryCollection(size);
+
+        for(ApplicationEntry entry : entryCollection) {
+            entryIdCollection.add(entry.getApplicationEntryId());
+        }
+
+        return entryIdCollection;
+    }
+
+
+    /**
+     * Generate a random leader unit collection in the system.
+     * All leader units returned as part of this collection has closed leader units.
+     * @param size
+     * @return
+     */
+    public List<LeaderUnit> getLeaderUnitCollection(int size) {
+
+        List<LeaderUnit> luCollection = new ArrayList<LeaderUnit>();
+
+        long epoch = 0;
+        int leaderId = 100;
+
+        while(size > 0 ){
+
+            LeaderUnit lu = new BaseLeaderUnit( epoch, leaderId, size );
+            luCollection.add(lu);
+
+            size --;
+        }
+
+        return luCollection;
+    }
+
+
 
 }

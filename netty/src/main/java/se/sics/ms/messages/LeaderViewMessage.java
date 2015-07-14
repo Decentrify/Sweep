@@ -5,10 +5,9 @@ import se.sics.gvod.common.msgs.DirectMsgNetty;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.msgs.RewriteableMsg;
-import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.ms.net.ApplicationTypesEncoderFactory;
 import se.sics.ms.net.MessageFrameDecoder;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 import java.security.PublicKey;
 import java.util.Set;
@@ -20,22 +19,22 @@ import java.util.Set;
  * Time: 10:48 AM
  */
 public class LeaderViewMessage extends DirectMsgNetty.Oneway {
-    private final SearchDescriptor leaderSearchDescriptor;
-    private final Set<SearchDescriptor> searchDescriptors;
+    private final PeerDescriptor leaderSearchDescriptor;
+    private final Set<PeerDescriptor> searchDescriptors;
     private final PublicKey leaderPublicKey;
 
-    public LeaderViewMessage(VodAddress source, VodAddress destination, SearchDescriptor leaderSearchDescriptor, Set<SearchDescriptor> searchDescriptors, PublicKey leaderPublicKey) {
+    public LeaderViewMessage(VodAddress source, VodAddress destination, PeerDescriptor leaderSearchDescriptor, Set<PeerDescriptor> searchDescriptors, PublicKey leaderPublicKey) {
         super(source, destination);
         this.searchDescriptors = searchDescriptors;
         this.leaderSearchDescriptor = leaderSearchDescriptor;
         this.leaderPublicKey = leaderPublicKey;
     }
 
-    public SearchDescriptor getLeaderSearchDescriptor() {
+    public PeerDescriptor getLeaderSearchDescriptor() {
         return leaderSearchDescriptor;
     }
 
-    public Set<SearchDescriptor> getSearchDescriptors() {
+    public Set<PeerDescriptor> getSearchDescriptors() {
         return searchDescriptors;
     }
 

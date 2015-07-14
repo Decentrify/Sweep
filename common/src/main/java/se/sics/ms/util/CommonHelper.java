@@ -2,6 +2,7 @@ package se.sics.ms.util;
 
 import se.sics.kompics.network.Transport;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
+import se.sics.p2ptoolbox.util.network.impl.BasicHeader;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
@@ -48,6 +49,25 @@ public class CommonHelper {
         DecoratedHeader<DecoratedAddress> decoratedHeader = new DecoratedHeader<DecoratedAddress>(sourceAddress, destination,  transport);
         return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(decoratedHeader, content);
         
+    }
+
+    /**
+     * Convenience Constructor for the basic content message
+     * having additional overlay id information.
+     *  
+     * @param sourceAddress addr
+     * @param dest destination
+     * @param transport UDP/ TCP/ UDT
+     * @param overlayId overlay
+     * @param content container
+     * @param <E> type
+     * @return Basic Network Message
+     */
+    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedMsgWithOverlay (DecoratedAddress sourceAddress, DecoratedAddress dest, Transport transport, int overlayId, E content){
+
+        BasicHeader<DecoratedAddress> basicHeader = new BasicHeader<DecoratedAddress>(sourceAddress, dest,  transport);
+        DecoratedHeader<DecoratedAddress> decoratedHeader = new DecoratedHeader<DecoratedAddress>(basicHeader, null, overlayId);
+        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(decoratedHeader, content);
     }
 
 

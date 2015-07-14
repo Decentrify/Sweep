@@ -51,6 +51,8 @@ public class IndexHashExchangeSerializer {
             for(long entry : entries){
                 byteBuf.writeLong(entry);
             }
+
+            byteBuf.writeInt(request.getOverlayId());
         }
 
         @Override
@@ -64,11 +66,12 @@ public class IndexHashExchangeSerializer {
 
             while(size > 0){
                 entries.add(byteBuf.readLong());
-                size --;
+                size--;
             }
 
             Long[] entriesArray = entries.toArray(new Long[0]);
-            return new IndexHashExchange.Request(exchangeRoundId, lowestMissingEntry, entriesArray);
+            int overlayId = byteBuf.readInt();
+            return new IndexHashExchange.Request(exchangeRoundId, lowestMissingEntry, entriesArray, overlayId);
         }
     }
 
@@ -109,6 +112,7 @@ public class IndexHashExchangeSerializer {
                 indexHashS.toBinary(hash, byteBuf);
             }
 
+            byteBuf.writeInt(response.getOverlayId());
             Serializers.lookupSerializer(UUID.class).toBinary(response.getExchangeRoundId(), byteBuf);
         }
 
@@ -126,7 +130,8 @@ public class IndexHashExchangeSerializer {
             }
 
             UUID exchangeRoundId = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
-            return new IndexHashExchange.Response(exchangeRoundId, indexHashCollection);
+            int overlayId = byteBuf.readInt();
+            return new IndexHashExchange.Response(exchangeRoundId, indexHashCollection, overlayId);
         }
     }
 

@@ -3,9 +3,8 @@ package se.sics.ms.messages;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.net.util.UserTypesDecoderFactory;
 import se.sics.ms.net.ApplicationTypesDecoderFactory;
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -23,7 +22,7 @@ public class LeaderDeathAnnouncementMessageFactory extends DirectMsgNettyFactory
     @Override
     protected LeaderDeathAnnouncementMessage process(ByteBuf buffer) throws MessageDecodingException {
 //        SearchDescriptor leader = new SearchDescriptor(UserTypesDecoderFactory.readVodNodeDescriptor(buffer));
-        SearchDescriptor leader = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
+        PeerDescriptor leader = ApplicationTypesDecoderFactory.readSearchDescriptor(buffer);
         return new LeaderDeathAnnouncementMessage(vodSrc, vodDest, leader);
     }
 }

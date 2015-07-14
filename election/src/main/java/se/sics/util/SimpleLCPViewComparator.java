@@ -1,6 +1,6 @@
 package se.sics.util;
 
-import se.sics.ms.types.SearchDescriptor;
+import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 import java.util.Comparator;
@@ -12,15 +12,15 @@ import java.util.Comparator;
  */
 public class SimpleLCPViewComparator implements Comparator<LCPeerView>{
 
-    SearchDescriptor s1;
-    SearchDescriptor s2;
+    PeerDescriptor s1;
+    PeerDescriptor s2;
     @Override
     public int compare(LCPeerView o1, LCPeerView o2) {
 
-        if(o1 instanceof SearchDescriptor && o2 instanceof SearchDescriptor){
+        if(o1 instanceof PeerDescriptor && o2 instanceof PeerDescriptor){
 
-            s1 = (SearchDescriptor)o1;
-            s2 = (SearchDescriptor)o2;
+            s1 = (PeerDescriptor)o1;
+            s2 = (PeerDescriptor)o2;
 
 
             // LEADER GROUP MEMBERSHIP.

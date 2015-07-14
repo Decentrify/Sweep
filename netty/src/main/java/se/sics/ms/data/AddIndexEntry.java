@@ -13,8 +13,8 @@ public class AddIndexEntry {
     
     public static class Request {
         
-        private final UUID entryAdditionRound;
-        private final IndexEntry entry;
+        protected final UUID entryAdditionRound;
+        protected final IndexEntry entry;
         
         public Request(UUID entryAdditionRound, IndexEntry entry){
             this.entryAdditionRound = entryAdditionRound;
@@ -61,7 +61,7 @@ public class AddIndexEntry {
     
     public static class Response {
         
-        private final UUID entryAdditionRound;
+        protected final UUID entryAdditionRound;
         
         public Response(UUID entryAdditionRound){
             this.entryAdditionRound = entryAdditionRound;
