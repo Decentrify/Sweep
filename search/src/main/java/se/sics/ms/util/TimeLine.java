@@ -161,16 +161,24 @@ public class TimeLine {
         while (result != null && count < limit) {
 
             LeaderUnit copy = result.shallowCopy();
-            result.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);
-            units.add(result);
+            copy.setEntryPullStatus(LeaderUnit.EntryPullStatus.PENDING);
+            units.add(copy);
 
-            result = getNextUnitInOrder(copy, false);
+            result = getNextUnitInOrder(result, false);
             count++;
         }
 
         return units;
     }
 
+    /**
+     * Fetch all the next leader units.
+     * @param baseUnit base unit
+     * @return next units
+     */
+    public List<LeaderUnit> getNextLeaderUnits(LeaderUnit baseUnit) {
+        return getNextLeaderUnits(baseUnit, Integer.MAX_VALUE);
+    }
 
     /**
      * Once the application has fetched all the entries in the leader unit container,
@@ -357,7 +365,6 @@ public class TimeLine {
                 result = leaderUnits.get(0);        // Assuming that the Leader Units are always sorted.
             } else {
 
-//                leaderUnit = epoch.getLooseLeaderUnit(leaderUnit);
                 int index = leaderUnits.indexOf(leaderUnit);
 
                 if (index == -1) {

@@ -1799,7 +1799,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         if (lastLeaderUnit == null || (lastLeaderUnit.getEpochId() >= shardContainer.getEpochId()
                 && lastLeaderUnit.getLeaderId() >= shardContainer.getLeaderId())) {
 
-            logger.warn("{}: Last Unit -> {} ",prefix , lastLeaderUnit);
             throw new IllegalStateException("Sharding State Corrupted ..  " + prefix);
         }
 
@@ -1814,9 +1813,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         // Calculate the next in line leader units.
-        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits (
-                container,
-                Integer.MAX_VALUE);
+        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits (container);
 
         // ( In case leader pushes the update to node and it is not in order, just buffer it for the time being. )
         // No updates could be buffered at this point as updates are added in order
@@ -1866,8 +1863,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         return pendingUnits;
     }
-    
-    
+
+
     /**
      * Apply the main sharding update to the application in terms of
      * removing the entries that are not needed and are lying around in the
