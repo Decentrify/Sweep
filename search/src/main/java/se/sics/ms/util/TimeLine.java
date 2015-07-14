@@ -413,29 +413,14 @@ public class TimeLine {
         for (LeaderUnit unit : skipList) {
 
             Epoch epoch = epochMap.get(unit.getEpochId());
+
             if (epoch != null) {
-
-                List<LeaderUnit> leaderUnits = epoch.getLeaderUnits();
-
-                int index = -1;
-
-                for (int i = 0; i < leaderUnits.size(); i++) {
-                    LeaderUnit lu = leaderUnits.get(i);
-                    if (lu.getLeaderId() == unit.getLeaderId()) {
-                        index = i;
-                        break;
-                    }
-                }
-
-                if (index == -1) {
+                LeaderUnit looseUnit = epoch.getLooseLeaderUnit(unit);
+                if(looseUnit == null){
                     throw new IllegalStateException("Unable to locate leader unit from skip list in local.");
                 }
 
-                LeaderUnit update = leaderUnits.get(index);
-                update.setEntryPullStatus(LeaderUnit.EntryPullStatus.SKIP);
-
-                leaderUnits.set(index, update);
-
+                looseUnit.setEntryPullStatus( LeaderUnit.EntryPullStatus.SKIP );
             }
         }
 

@@ -28,7 +28,7 @@ public class SimpleBootupScenario {
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(12 , SweepOperations.startNodeCmdOperation, uniform(0, Integer.MAX_VALUE));
+                        raise( 30 , SweepOperations.startNodeCmdOperation, uniform(0, Integer.MAX_VALUE) );
                     }
                 };
 
@@ -53,7 +53,7 @@ public class SimpleBootupScenario {
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(10, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(35, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 
@@ -67,20 +67,20 @@ public class SimpleBootupScenario {
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(3000), constant(3));
+                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(5000), constant(3));
 
                     }
                 };
 
 //                startAggregatorNode.start();
-                specialPeerJoin.start();
-                peerJoin.startAfterTerminationOf(10000, specialPeerJoin);
+//                specialPeerJoin.start();
+                peerJoin.start();
 //                largestPeerJoin.startAfterTerminationOf(1000, peerJoin);
-//                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
+                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
 //                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
 //                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
                 
-//                searchIndexEntry.startAfterTerminationOf(50000, addIndexEntryCommand);
+                searchIndexEntry.startAfterTerminationOf(50000, addIndexEntryCommand);
                 // === Add a termination event.
             }
         };

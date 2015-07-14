@@ -856,7 +856,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         // Once the leader unit is updated with the number of entries,
         // try to add entries in the system.
-        logger.error("{}: Call to push Entry in the system, Entry: {}", self.getId(), entry);
+        logger.warn("{}: Call to push Entry in the system, Entry: {}", self.getId(), entry);
         commitEntryLocally(entry);
         
     }
@@ -1589,7 +1589,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     private void addEntryToLucene(ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws LuceneAdaptorException {
 
-        logger.error("{}: Going to add entry :{} ", prefix, entry.getApplicationEntryId());
+        logger.warn("{}: Going to add entry :{} ", prefix, entry.getApplicationEntryId());
         Document doc = new Document();
         doc = ApplicationEntry.ApplicationEntryHelper.createDocumentFromEntry(doc, entry);
         adaptor.addDocumentToLucene(doc);
@@ -1645,8 +1645,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 return;
             }
 
-            logger.warn("{}: Sharding Median ID: {} ", prefix, entryId);
-
+            logger.error("{}: Sharding Median ID: {} ", prefix, entryId);
             partitionInProgress = true;
             
             ScheduleTimeout st1 = new ScheduleTimeout(12000);
@@ -2003,7 +2002,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 
         self.setOverlayId(newOverlayId);
-        logger.warn("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
+        logger.error("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
 
         return partitionSubId;
     }
