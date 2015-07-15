@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.MarkerEntry;
+import se.sics.ms.util.IdScorePair;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -158,6 +159,43 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
         numberOfEntries = totalHitCountCollector.getTotalHits();
 
         return numberOfEntries;
+    }
+
+    @Override
+    public List<IdScorePair> getIdScoreCollection(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException {
+
+
+        IndexReader reader = null;
+        List<IdScorePair> idScorePairList = new ArrayList<IdScorePair>();
+
+        try{
+            reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            searcher.search(searchQuery, collector);
+            ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+            for (ScoreDoc hit : hits) {
+
+                int docId = hit.doc;
+                Document d = searcher.doc(docId);
+                ApplicationEntry entry = ApplicationEntry.ApplicationEntryHelper.createApplicationEntryFromDocument(d);
+                IdScorePair idScorePair = new IdScorePair(entry.getApplicationEntryId(), hit.score);
+                if (idScorePairList.contains(idScorePair))
+                    continue;
+                idScorePairList.add(idScorePair);
+            }
+            return idScorePairList;
+        }
+
+        catch (IOException e) {
+
+            logger.warn("Unable to search for application entries in Lucene.");
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally{
+            silentlyCloseReader(reader);
+        }
     }
 
 }

@@ -8,6 +8,7 @@ import org.apache.lucene.store.Directory;
 import se.sics.ms.common.LuceneAdaptorBasic;
 import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.util.IdScorePair;
 
 import java.util.List;
 
@@ -75,5 +76,15 @@ public abstract class ApplicationLuceneAdaptor extends LuceneAdaptorBasic {
      * @throws LuceneAdaptorException
      */
     public abstract int getApplicationEntrySize() throws LuceneAdaptorException;
+
+
+    /**
+     * Based on the query, search for the documents. In addition to this construct the
+     * collection of the document identifier and the score of the match.
+     *
+     * @return IdScorePair Collection.
+     * @throws LuceneAdaptorException
+     */
+    public abstract List<IdScorePair> getIdScoreCollection(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException;
 
 }
