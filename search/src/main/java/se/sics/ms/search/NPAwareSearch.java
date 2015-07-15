@@ -39,6 +39,7 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
+import se.sics.ms.util.Pair;
 import se.sics.p2ptoolbox.election.api.msg.*;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
@@ -137,6 +138,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
+    private SearchResponseCache searchResponseCache;
 
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
@@ -269,6 +271,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         
 //        subscribe(leaderUnitCheckHandler, pagPort);
 //        subscribe(npTimeoutHandler, timerPort);
+
+        // PAGINATION.
+        subscribe(searchResponseCache.cacheTimeoutHandler, timerPort);
+
     }
 
     /**
@@ -311,6 +317,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         controlPullTracker = new ControlPullTracker();
         shardTracker = new ShardTracker();
         timeLine = new TimeLine();
+        searchResponseCache = new SearchResponseCache(5000);       // Cache for holding search responses.
 
     }
 
@@ -1293,10 +1300,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void handle(NumberOfPartitions numberOfPartitions) {
             
             searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), 
-                    numberOfPartitions.getNumberOfPartitions());
+                    numberOfPartitions.getNumberOfShards());
             
             searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
-                    numberOfPartitions.getNumberOfPartitions()));
+                    numberOfPartitions.getNumberOfShards()));
         }
     };
 
@@ -1325,10 +1332,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         logger.error("Search Timeout from Application: {}", searchTimeout);
         ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
-        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
+        searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getTimeoutId(),
+        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
                 config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
@@ -1382,6 +1389,84 @@ public final class NPAwareSearch extends ComponentDefinition {
             };
 
 
+    // ======================================== CHANGES FOR THE PAGINATION FIX
+
+
+    /**
+     * Send a search request for a given search pattern to one node in each
+     * shard except the local partition.
+     *
+     * @param pattern the search pattern
+     */
+    private void initiateSearch(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter) {
+
+        // TO DO: Add check for the same request but a different page ( Implement Pagination ).
+        searchRequest = new LocalSearchRequest(pattern);
+        closeIndex(searchIndex);
+
+        searchIndex = new RAMDirectory();
+        searchEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(searchIndex, indexWriterConfig);
+
+        try {
+            searchEntryLuceneAdaptor.initialEmptyWriterCommit();
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Unable to open search index", e);
+        }
+
+        logger.error("Search Timeout from Application: {}", searchTimeout);
+        ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
+        rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
+        searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
+
+        trigger(rst, timerPort);
+        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
+                config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Based on the query pattern and the limit of the responses, execute the
+     * query and construct the collection to be returned sorted on the score of the
+     * matching documents.
+     *
+     * @param adaptor Adaptor
+     * @param pattern search pattern
+     * @param limit limit for responses.
+     *
+     * @return Collection.
+     * @throws LuceneAdaptorException
+     */
+    private List<IdScorePair> getIdScoreCollection(ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+
+        TopDocsCollector collector = TopScoreDocCollector.create(limit, true);
+        return adaptor.getIdScoreCollection(pattern.getQuery(), collector);
+    }
+
+
+
+
+
+
+
+    // ==========================================
+
+
+
     /**
      * Query the given index store with a given search pattern.
      *
@@ -1410,7 +1495,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         @Override
         public void handle(SearchInfo.ResponseUpdated response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated> event) {
 
-            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
+            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getSearchRoundId())) {
                 return;
             }
             addSearchResponse( response.getResults(), 
@@ -1444,7 +1529,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
 
                 logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-                CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+                CancelTimeout ct = new CancelTimeout(searchRequest.getSearchRoundId());
                 trigger(ct, timerPort);
                 answerSearchRequestBase();
             }
@@ -2396,8 +2481,279 @@ public final class NPAwareSearch extends ComponentDefinition {
 //            throw new IllegalStateException("Unhandled functionality");
         }
     };
-    
-    
+
+
+
+    /**
+     * ****************************
+     * Simple Response Cache.
+     * ****************************
+     *
+     * Cache used to store the search responses
+     * for a query based on a specific search pattern.
+     *
+     * Cache the last queried search pattern.
+     */
+
+
+    private class SearchResponseCache {
+
+        long timeoutPeriod;   // time after which the cache is invalidated.
+        UUID timeout;
+        org.javatuples.Pair<String, Collection<ApplicationEntry>> cache;
+
+
+        public SearchResponseCache(long timeout) {
+            this.timeoutPeriod = timeout;
+        }
+
+        /**
+         * Store the search responses in the cache.
+         * The search responses currently are being stored for current search request.
+         * On a new search request the previous one gets invalidated.
+         *
+         * @param pattern search pattern
+         * @param searchResponses search responses.
+         */
+        public void cacheSearchResponse(String pattern, Collection<ApplicationEntry> searchResponses) {
+
+            cache = org.javatuples.Pair.with(pattern, searchResponses);
+            cancelTimeout(timeout);
+
+            ScheduleTimeout st = new ScheduleTimeout(timeoutPeriod);
+            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st);
+            st.setTimeoutEvent(ct);
+
+            timeout = st.getTimeoutEvent().getTimeoutId();
+            trigger(st, timerPort);
+        }
+
+        /**
+         * Handler for the cache timeout.
+         * Once timeout gets triggered, the cache needs to be invalidated.
+         * We invalidate the cache because better data might be added in mean time and therefore
+         * system needs to invalidate the previously searched data and switch to the new one.
+         *
+         */
+        public Handler<TimeoutCollection.CacheTimeout> cacheTimeoutHandler = new Handler<TimeoutCollection.CacheTimeout>() {
+
+            @Override
+            public void handle(TimeoutCollection.CacheTimeout event) {
+
+                logger.info("{}: Cache Timeout Invoked.", prefix);
+
+                if(timeout.equals(event.getTimeoutId())){
+
+                    logger.info("Time to invalidate the cache.");
+                    cache = null;
+                    timeout = null;
+                }
+            }
+        };
+
+
+    }
+
+
+    /**
+     * Convenient wrapper for canceling a particular
+     * timeout.
+     *
+     * @param timeoutId id for timeout
+     */
+    private void cancelTimeout(UUID timeoutId){
+
+        if(timeoutId != null ) {
+
+            CancelTimeout ct = new CancelTimeout(timeoutId);
+            trigger(ct, timerPort);
+        }
+
+    }
+
+
+    /**
+     * ****************************
+     * SEARCH REQUEST HANDLING
+     * ****************************
+     * <p/>
+     * Inner class used to track the different stages / phases as a part of the
+     * search request protocol.
+     *
+     * The tracker also encapsulates the
+     */
+
+    private class SearchProtocolTracker {
+
+
+        public SearchProtocolTracker (){
+
+        }
+
+
+        /**
+         * Initiate the search protocol by fanning out the search
+         * to multiple shards.
+         *
+         * @param pattern search pattern
+         * @param searchTimeout timeout for search
+         * @param fanoutParameter search parallelism
+         */
+        private void initiateShardSearch(SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
+
+
+//          Close the index for the previous search request.
+            closeIndex(searchIndex);
+            searchIndex = new RAMDirectory();
+            searchEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(searchIndex, indexWriterConfig);
+
+            try {
+                searchEntryLuceneAdaptor.initialEmptyWriterCommit();
+            }
+            catch (LuceneAdaptorException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Unable to open search index", e);
+            }
+
+            logger.error("Search Timeout from Application: {}", searchTimeout);
+            ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
+            rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
+
+            UUID searchRoundId  = rst.getTimeoutEvent().getTimeoutId();
+            searchRequest.startSearch(pattern, paginateInfo, searchRoundId);
+
+            trigger(rst, timerPort);
+            trigger(new GradientRoutingPort.SearchRequest(searchRequest.getSearchPattern(),
+                    rst.getTimeoutEvent().getTimeoutId(),
+                    searchTimeout, fanoutParameter), gradientRoutingPort);
+        }
+
+        /**
+         * Handler for information about the number of shards in the system.
+         * This information is used by the application to check if all the shards have replied
+         * to the search query.
+         */
+        Handler<NumberOfPartitions> numPartitionsHandler = new Handler<NumberOfPartitions>() {
+            @Override
+            public void handle(NumberOfPartitions event) {
+
+                logger.debug("{}: Received number of partitions information from the routing component.");
+                if(searchRequest.getSearchRoundId() != null
+                        && searchRequest.getSearchRoundId().equals(event.getTimeoutId())){
+
+                    // As this message just before the requests are sent out to the
+                    // peers in different shards it might happen that the response lags due to large message queue
+                    // between the components. Therefore
+                    searchRequest.setNumberOfShards(event.getNumberOfShards());
+                }
+                else {
+                    logger.warn("{}: Received information about the partitions for an old request.");
+                }
+            }
+        };
+
+        /**
+         * Timeout for the main search protocol phase.
+         * The node now looks at the responses that are being collected until this point
+         * and then sends the response back.
+         *
+         */
+        Handler<TimeoutCollection.SearchTimeout> searchProtocolTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
+            @Override
+            public void handle(TimeoutCollection.SearchTimeout event) {
+                logger.debug("Search Request Timed out.");
+            }
+        };
+
+
+        /**
+         * Handler for the search request received. The search request contains query to be searched in the local write lucene index.
+         * The node as part of the query phase simply returns the score and the identifier of the entry matched.
+         * The reason behind this process is to help with the pagination.
+         *
+         */
+        ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>> handleSearchQueryRequest =
+
+                new ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>>() {
+
+            @Override
+            public void handle(SearchQuery.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request> event) {
+
+                logger.debug("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
+
+                try {
+                    List<IdScorePair> idScoreCollection = getIdScoreCollection(writeEntryLuceneAdaptor,
+                            request.getPattern(), config.getHitsPerQuery());
+
+                    SearchQuery.Response queryResponse = new SearchQuery.Response(request.getRequestId(), request.getPartitionId(), idScoreCollection);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, queryResponse), networkPort);
+
+                } catch (LuceneAdaptorException e) {
+
+                    logger.warn("{} : Unable to query phase of the search request", self.getId());
+                    e.printStackTrace();
+                }
+            }
+
+
+        };
+
+
+        /**
+         * Handler for the search query response from the nodes in different shards.
+         * The node simply checks for the partition id from which the response is received and rejects
+         * if already received.
+         * <br/>
+         * The initiating node waits for the responses selcted nodes from all shards.
+         *
+         */
+        ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>> handleSearchQueryResponse =
+                new ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>>() {
+
+            @Override
+            public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
+
+                logger.debug("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
+                UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
+                    logger.warn("{}: Received a search query response for an expired round");
+                    return;
+                }
+
+                if( searchRequest.isSafeToAdd(content.getPartitionId())) {
+
+                    searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
+//                  Once all the shards have responded with the information about the matched ids.
+
+                    if(searchRequest.haveAllShardsResponded()) {
+                        logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
+//                        initiateInternalSorting();
+//                        initiateFetchPhase();
+                    }
+                }
+            }
+        };
+
+        /**
+         * Once the query phase gets over, the application now initiates
+         * the internal sorting of the data collected and decide final list of the
+         * sorted items.
+         */
+        private void initiateInternalSorting(){
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+
+
+        /**
+         * Based on the sorted identifiers and the pagination information,
+         * initiate the fetch phase.
+         */
+        private void initiateFetchPhase(){
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
+
+    }
 
     /**
      * ********************************

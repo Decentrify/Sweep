@@ -196,7 +196,16 @@ public class TimeoutCollection {
             this.medianId = entryId;
         }
     }
-    
+
+    /**
+     * Timeout after which the cache will be invalidated.
+     */
+    public static class CacheTimeout extends Timeout{
+
+        public CacheTimeout(ScheduleTimeout request) {
+            super(request);
+        }
+    }
     
                 
 }

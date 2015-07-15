@@ -74,7 +74,10 @@ public class MsConfig extends VodConfig {
     public static final int GRADIENT_SHUFFLE_PERIOD = 3000;
     public static final double GRADIENT_CONVERGENCE_TEST = 0.8d;
     
-    
+
+    // PAGINATION.
+    public static final int MAX_ENTRIES_PER_RESPONSE = 1500;
+
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;
     public static final int MAX_EPOCH_CONTAINER_ENTRIES = 10;            // EPOCH CONTAINER SIZE.

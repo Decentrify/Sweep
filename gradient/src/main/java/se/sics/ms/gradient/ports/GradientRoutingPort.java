@@ -88,6 +88,28 @@ public class GradientRoutingPort extends PortType {
     }
 
 
+    public static class NumberOfShardsRequest implements KompicsEvent {
+
+        public UUID requestId;
+
+        public NumberOfShardsRequest(UUID requestId){
+            this.requestId = requestId;
+        }
+    }
+
+
+    public static class NumberOfShardsResponse implements KompicsEvent {
+
+        public UUID requestId;
+        public int numShards;
+
+        public NumberOfShardsResponse(UUID requestId, int numShards){
+            this.requestId = requestId;
+            this.numShards = numShards;
+        }
+    }
+
+
     public static class AddIndexEntryRequest extends Event {
         private final IndexEntry entry;
         private final UUID timeoutId;
@@ -150,7 +172,7 @@ public class GradientRoutingPort extends PortType {
         }
     }
 
-    public static class SearchRequest extends Event {
+    public static class SearchRequest implements KompicsEvent {
         
         private final SearchPattern pattern;
         private final UUID timeoutId;

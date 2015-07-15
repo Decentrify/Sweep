@@ -1576,9 +1576,9 @@ public final class Search extends ComponentDefinition {
     final Handler<NumberOfPartitions> handleNumberOfPartitions = new Handler<NumberOfPartitions>() {
         @Override
         public void handle(NumberOfPartitions numberOfPartitions) {
-            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfPartitions());
+            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), numberOfPartitions.getNumberOfShards());
             searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
-                    numberOfPartitions.getNumberOfPartitions()));
+                    numberOfPartitions.getNumberOfShards()));
         }
     };
 
@@ -1607,10 +1607,10 @@ public final class Search extends ComponentDefinition {
         logger.error("Search Timeout from Application: {}", searchTimeout);
         ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
-        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
+        searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getTimeoutId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getSearchRoundId(), config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
 
@@ -1682,7 +1682,7 @@ public final class Search extends ComponentDefinition {
         @Override
         public void handle(SearchInfo.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Response> event) {
 
-            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
+            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getSearchRoundId())) {
                 return;
             }
             addSearchResponse(response.getResults(), response.getPartitionId(), response.getSearchTimeoutId());
@@ -1715,7 +1715,7 @@ public final class Search extends ComponentDefinition {
 
         if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
             logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-            CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+            CancelTimeout ct = new CancelTimeout(searchRequest.getSearchRoundId());
             trigger(ct, timerPort);
             answerSearchRequest();
         }
