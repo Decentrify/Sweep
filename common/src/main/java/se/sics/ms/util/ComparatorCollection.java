@@ -63,4 +63,25 @@ public class ComparatorCollection {
     }
 
 
+    /**
+     * Comparator used to sort a collection
+     * of the IdScorePair Object types.  
+     */
+    public static class IdScorePairComparator implements Comparator<IdScorePair>{
+
+        @Override
+        public int compare(IdScorePair o1, IdScorePair o2) {
+            
+            int result = 0;
+            result = Float.compare(o1.getScore(), o2.getScore());
+            
+            if(result == 0){
+                result = o1.getEntryId().compareTo(o2.getEntryId());
+            }
+            
+            return result;
+        }
+    }
+
+
 }
