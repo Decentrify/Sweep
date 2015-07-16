@@ -88,6 +88,9 @@ public class LocalSearchRequest {
     }
 
 
+    public Map<DecoratedAddress, Collection<IdScorePair>> getIdScoreMap() {
+        return idScoreMap;
+    }
 
     public SearchPattern getSearchPattern() {
         return pattern;

@@ -8,7 +8,7 @@ import se.sics.ms.types.ApplicationEntry;
  *
  * Created by babbar on 2015-07-15.
  */
-public class IdScorePair {
+public class IdScorePair implements Comparable<IdScorePair>{
 
     private ApplicationEntry.ApplicationEntryId entryId;
     private float score;
@@ -56,4 +56,13 @@ public class IdScorePair {
     public float getScore() {
         return score;
     }
+
+
+    @Override
+    public int compareTo(IdScorePair o) {
+
+        int result = Float.compare(this.score, o.score);
+        return (result==0) ? this.entryId.compareTo(o.entryId) : result;    // Act as a tie breaker.
+    }
+
 }

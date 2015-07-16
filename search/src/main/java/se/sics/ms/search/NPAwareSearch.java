@@ -2442,7 +2442,21 @@ public final class NPAwareSearch extends ComponentDefinition {
         return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
     }
 
-    
+
+    /**
+     * Convenient wrapper for canceling a particular
+     * timeout.
+     *
+     * @param timeoutId id for timeout
+     */
+    private void cancelTimeout(UUID timeoutId){
+
+        if(timeoutId != null ) {
+
+            CancelTimeout ct = new CancelTimeout(timeoutId);
+            trigger(ct, timerPort);
+        }
+    }
     
     /**
      * *****************************
@@ -2554,22 +2568,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     }
 
-
-    /**
-     * Convenient wrapper for canceling a particular
-     * timeout.
-     *
-     * @param timeoutId id for timeout
-     */
-    private void cancelTimeout(UUID timeoutId){
-
-        if(timeoutId != null ) {
-
-            CancelTimeout ct = new CancelTimeout(timeoutId);
-            trigger(ct, timerPort);
-        }
-
-    }
 
 
     /**
@@ -2724,12 +2722,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                 if( searchRequest.isSafeToAdd(content.getPartitionId())) {
 
                     searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
-//                  Once all the shards have responded with the information about the matched ids.
-
                     if(searchRequest.haveAllShardsResponded()) {
+
+//                      Once all the shards have responded with the information about the matched ids.
                         logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
-//                        initiateInternalSorting();
-//                        initiateFetchPhase();
+                        Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = initiateInternalSorting();
+                        initiateFetchPhase(result);
                     }
                 }
             }
@@ -2740,18 +2738,119 @@ public final class NPAwareSearch extends ComponentDefinition {
          * the internal sorting of the data collected and decide final list of the
          * sorted items.
          */
-        private void initiateInternalSorting(){
-            throw new UnsupportedOperationException("Operation not supported yet.");
+        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> initiateInternalSorting(){
+
+            List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
+            Map<DecoratedAddress, Collection<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
+
+            for(Collection<IdScorePair> collection : scorePairMap.values()){
+                scorePairList.addAll(collection);
+            }
+
+            logger.debug("{}: Internally sorted the score pair set. Size: {}", prefix, scorePairList.size());
+            logger.debug("{}: Paginate Information : {}", prefix, searchRequest.getPaginateInfo());
+
+//          Limit the set size to max entries searchable.
+            if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
+                scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
+            }
+            PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
+
+            int from  = paginateInfo.getFrom();
+            int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
+            List<IdScorePair> paginateList = scorePairList.subList(from, from + (size-1));
+
+//          Now Identify the node ids for the IdScorePair List Identified.
+            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
+
+            for(Map.Entry<DecoratedAddress, Collection<IdScorePair>> entry : scorePairMap.entrySet()) {
+
+                Collection<IdScorePair> collection = entry.getValue();
+                DecoratedAddress nodeAddress = entry.getKey();
+
+//              Start populating the data structure for the fetch phase.
+                for(IdScorePair scorePair : paginateList) {
+                    if(collection.contains(scorePair)) {
+
+//                      Construct entry identifier list for each node address that replied in the query phase.
+                        List<ApplicationEntry.ApplicationEntryId> fetchPhaseEntryList = fetchPhaseInput.get(nodeAddress);
+                        if(fetchPhaseEntryList == null) {
+                            fetchPhaseEntryList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+                            fetchPhaseInput.put(nodeAddress, fetchPhaseEntryList);
+                        }
+                        fetchPhaseEntryList.add(scorePair.getEntryId());
+                    }
+                }
+            }
+
+            return fetchPhaseInput;
         }
 
 
         /**
          * Based on the sorted identifiers and the pagination information,
-         * initiate the fetch phase.
+         * initiate the fetch phase for the application entries.
          */
-        private void initiateFetchPhase(){
-            throw new UnsupportedOperationException("Operation not supported yet.");
+        private void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput) {
+
+
+            for(Map.Entry<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> entry : fetchPhaseInput.entrySet()) {
+
+                SearchFetch.Request fetchRequest = new SearchFetch.Request( searchRequest.getSearchRoundId(), entry.getValue() );
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), entry.getKey(),
+                        Transport.UDP, fetchRequest), networkPort);
+            }
         }
+
+
+        /**
+         * Handler for the search fetch request generated by the node once
+         * receives meta information concerning the entries that matched the query.
+         */
+        ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>> handleSearchFetchRequest =
+                new ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>>() {
+
+            @Override
+            public void handle(SearchFetch.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request> event) {
+
+                try {
+                    logger.debug("{}: Received search fetch request.", prefix);
+                    Collection<ApplicationEntry.ApplicationEntryId> entryIds = content.getEntryIds();
+                    List<ApplicationEntry> entries = writeEntryLuceneAdaptor.getApplicationEntries(entryIds);
+
+                    SearchFetch.Response response = new SearchFetch.Response(content.getFetchRequestId(), entries);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
+                } catch (LuceneAdaptorException e) {
+                    e.printStackTrace();
+                    logger.error("{}: Unable to fetch the entries from the data store during the fetch phase.");
+                }
+            }
+        };
+
+
+        /**
+         * Handler for the search fetch response which involves handling of the responses containing the
+         * application entries.
+         */
+        ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>> handleSearchFetchResponse =
+                new ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>>() {
+            @Override
+            public void handle(SearchFetch.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response> event) {
+
+                logger.debug("{}: Received search fetch response from :{}", prefix, event.getSource());
+                UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                if(searchRoundId == null || !searchRoundId.equals(content.getFetchRequestId())) {
+                    logger.warn("{}: Received Search Fetch Respnse for an expired response.");
+                }
+
+//              MAIN HANDLING OF RESPONSE.
+
+            }
+        };
+
+
 
     }
 

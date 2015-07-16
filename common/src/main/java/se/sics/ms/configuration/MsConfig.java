@@ -76,7 +76,8 @@ public class MsConfig extends VodConfig {
     
 
     // PAGINATION.
-    public static final int MAX_ENTRIES_PER_RESPONSE = 1500;
+    public static final int MAX_SEARCH_ENTRIES = 1000;
+    public static final int DEFAULT_ENTRIES_PER_PAGE = 10;
 
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;
