@@ -1,5 +1,6 @@
 package se.sics.ms.model;
 
+import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PaginateInfo;
@@ -135,8 +136,40 @@ public class LocalSearchRequest {
         this.paginateInfo = null;
         this.pattern = null;
         this.numberOfShards = 0;
+        this.idScoreMap = null;
     }
 
+
+
+    private class FetchPhaseTracker {
+
+        private int fetchedResponses;
+        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap;
+        private Map<DecoratedAddress, List<ApplicationEntry>> fetchPhaseResponseMap;
+
+        public FetchPhaseTracker(int fetchedResponses, Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
+
+            this.fetchedResponses = fetchedResponses;
+            this.fetchPhaseRequestMap = fetchPhaseRequestMap;
+        }
+
+        public int getFetchedResponses() {
+            return this.fetchedResponses;
+        }
+
+        public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> getFetchPhaseMap() {
+            return this.fetchPhaseRequestMap;
+        }
+
+
+        public void addFetchPhaseResponse(DecoratedAddress source, List<ApplicationEntry>entries){
+
+        }
+
+        public boolean isSafeToReply() {
+            return (fetchPhaseResponseMap.size() >= fetchPhaseRequestMap.size());
+        }
+    }
 
 
 

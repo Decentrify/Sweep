@@ -2659,6 +2659,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         Handler<TimeoutCollection.SearchTimeout> searchProtocolTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
             @Override
             public void handle(TimeoutCollection.SearchTimeout event) {
+
                 logger.debug("Search Request Timed out.");
             }
         };
@@ -2727,6 +2728,12 @@ public final class NPAwareSearch extends ComponentDefinition {
 //                      Once all the shards have responded with the information about the matched ids.
                         logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
                         Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = initiateInternalSorting();
+
+                        if(result.isEmpty()) {
+//                          Directly Move to Reply Phase in case the response is empty.
+                            sendResponse(new ArrayList<ApplicationEntry>());
+                        }
+
                         initiateFetchPhase(result);
                     }
                 }
@@ -2742,6 +2749,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
             Map<DecoratedAddress, Collection<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
+            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
 
             for(Collection<IdScorePair> collection : scorePairMap.values()){
                 scorePairList.addAll(collection);
@@ -2758,11 +2766,18 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             int from  = paginateInfo.getFrom();
             int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
-            List<IdScorePair> paginateList = scorePairList.subList(from, from + (size-1));
+
+
+            if(from > scorePairList.size()) {
+//              As from identifier lies outside the list, remove it.
+                return fetchPhaseInput;
+            }
+
+            int to = from + (size-1);
+            to = to > scorePairList.size() ? scorePairList.size() -1 : to;
+            List<IdScorePair> paginateList = scorePairList.subList (from, to);
 
 //          Now Identify the node ids for the IdScorePair List Identified.
-            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
-
             for(Map.Entry<DecoratedAddress, Collection<IdScorePair>> entry : scorePairMap.entrySet()) {
 
                 Collection<IdScorePair> collection = entry.getValue();
@@ -2851,6 +2866,15 @@ public final class NPAwareSearch extends ComponentDefinition {
         };
 
 
+        /**
+         * Once the application entries for the request have been identified, then
+         * the response needs to be sent back to the requesting client.
+         *
+         * @param entries
+         */
+        private void sendResponse(List<ApplicationEntry> entries){
+            throw new UnsupportedOperationException("Operation not supported yet.");
+        }
 
     }
 
