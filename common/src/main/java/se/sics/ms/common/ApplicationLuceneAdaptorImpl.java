@@ -229,7 +229,7 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
 
                 if(scoreDocs.length > 0) {
 
-                    Document doc = searcher.doc(scoreDocs[1].doc);
+                    Document doc = searcher.doc(scoreDocs[0].doc);
                     ApplicationEntry entry = ApplicationEntry.ApplicationEntryHelper.createApplicationEntryFromDocument(doc);
                     entryList.add(entry);
                 }

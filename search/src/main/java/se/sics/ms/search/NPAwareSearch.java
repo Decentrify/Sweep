@@ -303,6 +303,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         existingEntries = new TreeSet<Long>();
         bufferedUnits = new ArrayList<LeaderUnit>();
 
+        searchRequest = new LocalSearchRequest();
         cache = new SearchCache();
         // Trackers.
         initializeTrackers();
@@ -457,7 +458,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     final Handler<SimulationEventsPort.SearchSimulated.Request> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated.Request>() {
         @Override
         public void handle(SimulationEventsPort.SearchSimulated.Request event) {
-            startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
+
+            PaginateInfo defaultPaginateInfo = new PaginateInfo(0, 5);
+            searchProtocolTracker.initiateShardSearch(event.getSearchPattern(), defaultPaginateInfo, event.getSearchTimeout(), event.getSearchParallelism());
+//            startSearch(event.getSearchPattern(), event.getSearchTimeout(), event.getSearchParallelism()); // Update it to get the params from the simulator.
         }
     };
 
@@ -2356,7 +2360,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
-            logger.debug("{}: Self is being removed from the leadership position.", self.getId());
+            logger.error("{}: Self is being removed from the leadership position.", self.getId());
             leader = false;
             informListeningComponentsAboutUpdates(self);
         }
@@ -2532,7 +2536,6 @@ public final class NPAwareSearch extends ComponentDefinition {
          */
         private void initiateShardSearch(SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
 
-            logger.error("Search Timeout from Application: {}", searchTimeout);
             ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
             rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
 
@@ -2543,14 +2546,21 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 //          CHECK FOR PATTERN IN CACHE.
             Map<DecoratedAddress, List<IdScorePair>> cachedScoreMap= cache.getScorePairCollection(pattern);
-            List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
-            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
-                    maxHitList, paginateInfo);
 
-            if(paginateEntryIdMap  != null){
-                initiateFetchPhase(paginateEntryIdMap);
-                return;
+            if(cachedScoreMap != null){
+
+                logger.debug("{}: Started the search with the cached entries.");
+                List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
+                Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
+                        maxHitList, paginateInfo);
+
+                if(paginateEntryIdMap  != null){
+                    initiateFetchPhase(paginateEntryIdMap);
+                    return;
+                }
             }
+
+            logger.error("{}: Going to start default search query phase with pattern:{} ", prefix, searchRequest.getSearchPattern());
 
             trigger(new GradientRoutingPort.SearchRequest(searchRequest.getSearchPattern(),
                     rst.getTimeoutEvent().getTimeoutId(),
@@ -2617,7 +2627,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             @Override
             public void handle(SearchQuery.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request> event) {
 
-                logger.debug("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
+                logger.error("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
 
                 try {
                     List<IdScorePair> idScoreCollection = getIdScoreCollection(writeEntryLuceneAdaptor,
@@ -2651,7 +2661,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                     @Override
                     public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
 
-                        logger.debug("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
+                        logger.error("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
                         UUID searchRoundId = searchRequest.getSearchRoundId();
 
                         if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
@@ -2659,17 +2669,23 @@ public final class NPAwareSearch extends ComponentDefinition {
                             return;
                         }
 
+                        logger.error("{}: Before safety check ....", prefix);
+
                         if( searchRequest.isSafeToAdd(content.getPartitionId())) {
 
                             searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
                             if(searchRequest.haveAllShardsResponded()) {
 
 //                               Once all the shards have responded with the information about the matched ids.
-                                logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
+                                logger.error("{}: Query phase over, moving to the fetch phase.", self.getId());
 
 //                              COMPUTE THE ORDERED LIST CONTAINING MAX POSSIBLE HITS FOR QUERY.
                                 Map<DecoratedAddress, List<IdScorePair>> completeScoreMap = searchRequest.getIdScoreMap();
                                 List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
+
+//                              STORE THE METADATA AND UPDATE THE CACHE.
+                                searchRequest.storeNumHits(maxHitList.size());
+                                cacheScoreMetaData(searchRequest.getSearchPattern(), completeScoreMap, maxHitList);
 
 //                              BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
                                 PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
@@ -2739,8 +2755,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                 return null;
             }
 
-            int to = from + (size-1);
-            to = to >= maxHitList.size() ? maxHitList.size() -1 : to;
+            int to = from + (size);
+            to = to > maxHitList.size() ? maxHitList.size() : to;
 
             List<IdScorePair> paginateList = maxHitList.subList (from, to);
             Map<DecoratedAddress, List<IdScorePair>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
@@ -2756,66 +2772,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             return result;
         }
-
-        /**
-         * Once the query phase gets over, the application now initiates
-         * the internal sorting of the data collected and decide final list of the
-         * sorted items.
-         */
-        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> initiateInternalSorting(){
-
-            List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
-            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
-
-            Map<DecoratedAddress, List<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
-            for(Collection<IdScorePair> collection : scorePairMap.values()){
-                scorePairList.addAll(collection);
-            }
-
-//          SORT THE LIST TO CREATE DETERMINISTIC ORDER.
-            Collections.sort(scorePairList);
-
-            logger.debug("{}: Internally sorted the score pair set. Size: {}", prefix, scorePairList.size());
-            logger.debug("{}: Paginate Information : {}", prefix, searchRequest.getPaginateInfo());
-
-//          LIMIT FINAL SIZE TO MAX SEARCHABLE SIZE.
-            if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
-                scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
-            }
-
-//          CALCULATE THE METADATA FOR THE RESPONSE AND CACHE THE SCORE DATA.
-            searchRequest.storeNumHits(scorePairList.size());
-            cacheScoreMetaData(searchRequest.getSearchPattern(), scorePairMap, scorePairList);
-
-
-//          MOVE ON TO THE FETCH PHASE.
-            PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
-            int from  = paginateInfo.getFrom();
-            int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
-
-
-            if(from > scorePairList.size()) {
-//              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
-                return fetchPhaseInput;
-            }
-
-            int to = from + (size-1);
-            to = to >= scorePairList.size() ? scorePairList.size() -1 : to;
-            List<IdScorePair> paginateList = scorePairList.subList (from, to);
-
-            Map<DecoratedAddress, List<IdScorePair>> paginateResult =  createRetainedMap(scorePairMap, paginateList);
-            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateResult.entrySet()){
-
-                List<ApplicationEntry.ApplicationEntryId> entryIdList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
-                for(IdScorePair pair : entry.getValue()){
-                    entryIdList.add(pair.getEntryId());
-                }
-                fetchPhaseInput.put(entry.getKey(), entryIdList);
-            }
-
-            return fetchPhaseInput;
-        }
-
 
         /**
          * Before the initiation of the fetch phase,
@@ -2977,6 +2933,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern,  List<ApplicationEntry> entries){
 
             SearchResponse response = new SearchResponse(entries, numHits, paginateInfo, pattern);
+
+            logger.error("{}: Search Response generated . {}", prefix , response);
+            System.exit(-1);
             logger.warn("{}: final response sent back to the application: {}", prefix, response);
             trigger(response, uiPort);
         }

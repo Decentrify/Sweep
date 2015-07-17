@@ -19,6 +19,12 @@ public class LocalSearchRequest {
     private FetchPhaseTracker fetchPhaseTracker;
     private ClientResponseTracker clientResponseTracker;
 
+
+    public LocalSearchRequest(){
+        super();
+    }
+
+
     /**
      * Create a new instance for the given request and query.
      *
@@ -39,6 +45,17 @@ public class LocalSearchRequest {
 
     }
 
+
+    @Override
+    public String toString() {
+        return "LocalSearchRequest{" +
+                "respondedPartitions=" + respondedPartitions +
+                ", searchRoundId=" + searchRoundId +
+                ", queryPhaseTracker=" + queryPhaseTracker +
+                ", fetchPhaseTracker=" + fetchPhaseTracker +
+                ", clientResponseTracker=" + clientResponseTracker +
+                '}';
+    }
 
     /**
      * Check if it is safe to add the partition to the
@@ -217,7 +234,7 @@ public class LocalSearchRequest {
 
     public int getNumHits() {
 
-        int result = 0;
+        int result = -2;
 
         if(this.clientResponseTracker != null){
             result = clientResponseTracker.numHits;
@@ -246,6 +263,15 @@ public class LocalSearchRequest {
 
         }
 
+
+        @Override
+        public String toString() {
+            return "QueryPhaseTracker{" +
+                    "numberOfShards=" + numberOfShards +
+                    ", respondedPartitions=" + respondedPartitions +
+                    ", idScoreMap=" + idScoreMap +
+                    '}';
+        }
 
         /**
          * The application needs to check that whether all the shards have responded
@@ -321,6 +347,15 @@ public class LocalSearchRequest {
             this.fetchPhaseRequestMap = fetchPhaseRequestMap;
         }
 
+
+        @Override
+        public String toString() {
+            return "FetchPhaseTracker{" +
+                    "fetchPhaseRequestMap=" + fetchPhaseRequestMap +
+                    ", fetchedPhaseResponseMap=" + fetchedPhaseResponseMap +
+                    '}';
+        }
+
         /**
          * Initiate the fetch the phase for the entries in the
          * system.
@@ -377,6 +412,16 @@ public class LocalSearchRequest {
             this.paginateInfo = paginateInfo;
             this.numHits = 0;
             this.applicationEntries = new ArrayList<ApplicationEntry>();
+        }
+
+        @Override
+        public String toString() {
+            return "ClientResponseTracker{" +
+                    "numHits=" + numHits +
+                    ", applicationEntries=" + applicationEntries +
+                    ", pattern=" + pattern +
+                    ", paginateInfo=" + paginateInfo +
+                    '}';
         }
 
         public SearchPattern getPattern(){
