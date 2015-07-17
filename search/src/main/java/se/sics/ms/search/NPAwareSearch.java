@@ -139,6 +139,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
     private SearchResponseCache searchResponseCache;
+    private SearchProtocolTracker searchProtocolTracker;
 
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
@@ -274,7 +275,12 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         // PAGINATION.
         subscribe(searchResponseCache.cacheTimeoutHandler, timerPort);
-
+        subscribe(searchProtocolTracker.numPartitionsHandler, gradientRoutingPort);
+        subscribe(searchProtocolTracker.handleSearchQueryRequest, networkPort);
+        subscribe(searchProtocolTracker.handleSearchQueryResponse, networkPort);
+        subscribe(searchProtocolTracker.handleSearchFetchRequest, networkPort);
+        subscribe(searchProtocolTracker.handleSearchFetchResponse, networkPort);
+        subscribe(searchProtocolTracker.searchProtocolTimeout, timerPort);
     }
 
     /**
@@ -318,6 +324,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         shardTracker = new ShardTracker();
         timeLine = new TimeLine();
         searchResponseCache = new SearchResponseCache(5000);       // Cache for holding search responses.
+        searchProtocolTracker = new SearchProtocolTracker();
 
     }
 
@@ -2585,7 +2592,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 
         public SearchProtocolTracker (){
-
+            logger.debug("Search Protocol Tracker Booted up.");
         }
 
 
@@ -2777,7 +2784,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
             }
 
-//          TO-DO: CALCULATE THE METADATA FOR THE RESPONSE ??
+//          CALCULATE THE METADATA FOR THE RESPONSE.
             searchRequest.storeNumHits(scorePairList.size());
 
             PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
