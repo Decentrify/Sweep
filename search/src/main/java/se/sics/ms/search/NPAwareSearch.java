@@ -158,7 +158,8 @@ public final class NPAwareSearch extends ComponentDefinition {
     private List<LeaderUnit> bufferedUnits;
 
 
-
+    // Pagination
+    SearchCache cache;
 
 
 
@@ -302,7 +303,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         lowestMissingIndexValue = 0;
         existingEntries = new TreeSet<Long>();
         bufferedUnits = new ArrayList<LeaderUnit>();
-        
+
+        cache = new SearchCache();
         // Trackers.
         initializeTrackers();
         index = new RAMDirectory();
@@ -2585,7 +2587,6 @@ public final class NPAwareSearch extends ComponentDefinition {
      * Inner class used to track the different stages / phases as a part of the
      * search request protocol.
      *
-     * The tracker also encapsulates the
      */
 
     private class SearchProtocolTracker {
@@ -2605,20 +2606,6 @@ public final class NPAwareSearch extends ComponentDefinition {
          * @param fanoutParameter search parallelism
          */
         private void initiateShardSearch(SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
-
-
-//          Close the index for the previous search request.
-            closeIndex(searchIndex);
-            searchIndex = new RAMDirectory();
-            searchEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(searchIndex, indexWriterConfig);
-
-            try {
-                searchEntryLuceneAdaptor.initialEmptyWriterCommit();
-            }
-            catch (LuceneAdaptorException e) {
-                e.printStackTrace();
-                throw new RuntimeException("Unable to open search index", e);
-            }
 
             logger.error("Search Timeout from Application: {}", searchTimeout);
             ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
@@ -2768,7 +2755,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
             Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
 
-            Map<DecoratedAddress, Collection<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
+            Map<DecoratedAddress, List<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
             for(Collection<IdScorePair> collection : scorePairMap.values()){
                 scorePairList.addAll(collection);
             }
@@ -2784,9 +2771,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                 scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
             }
 
-//          CALCULATE THE METADATA FOR THE RESPONSE.
+//          CALCULATE THE METADATA FOR THE RESPONSE AND CACHE THE SCORE DATA.
             searchRequest.storeNumHits(scorePairList.size());
+            cacheScoreMetaData(searchRequest.getSearchPattern(), scorePairMap, scorePairList);
 
+
+//          MOVE ON TO THE FETCH PHASE.
             PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
             int from  = paginateInfo.getFrom();
             int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
@@ -2801,28 +2791,55 @@ public final class NPAwareSearch extends ComponentDefinition {
             to = to >= scorePairList.size() ? scorePairList.size() -1 : to;
             List<IdScorePair> paginateList = scorePairList.subList (from, to);
 
-//          Now Identify the node ids for the IdScorePair List Identified.
-            for(Map.Entry<DecoratedAddress, Collection<IdScorePair>> entry : scorePairMap.entrySet()) {
+            Map<DecoratedAddress, List<IdScorePair>> paginateResult =  createRetainedMap(scorePairMap, paginateList);
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateResult.entrySet()){
 
-                Collection<IdScorePair> collection = entry.getValue();
-                DecoratedAddress nodeAddress = entry.getKey();
-
-//              START POPULATING DATA STRUCTURE FOR FETCH PHASE.
-                for(IdScorePair scorePair : paginateList) {
-                    if(collection.contains(scorePair)) {
-
-//                      Construct entry identifier list for each node address that replied in the query phase.
-                        List<ApplicationEntry.ApplicationEntryId> fetchPhaseEntryList = fetchPhaseInput.get(nodeAddress);
-                        if(fetchPhaseEntryList == null) {
-                            fetchPhaseEntryList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
-                            fetchPhaseInput.put(nodeAddress, fetchPhaseEntryList);
-                        }
-                        fetchPhaseEntryList.add(scorePair.getEntryId());
-                    }
+                List<ApplicationEntry.ApplicationEntryId> entryIdList = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+                for(IdScorePair pair : entry.getValue()){
+                    entryIdList.add(pair.getEntryId());
                 }
+                fetchPhaseInput.put(entry.getKey(), entryIdList);
             }
 
             return fetchPhaseInput;
+        }
+
+
+        /**
+         * Before the initiation of the fetch phase,
+         * the data pulled during the query phase needs to be cached, to be used on subsequent
+         * requests.
+         */
+        private void cacheScoreMetaData(SearchPattern pattern, Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> baseList){
+
+            Map<DecoratedAddress, List<IdScorePair>> retainedMap = createRetainedMap(baseMap, baseList);
+            cache.cachePattern(pattern.getFileNamePattern(), retainedMap);
+        }
+
+
+
+        /**
+         * Helper method to create a retained collection from the
+         * values supplied.
+         *
+         * @param baseMap baseMap
+         * @param referenceList referenceList
+         * @return  collection
+         */
+        private Map<DecoratedAddress, List<IdScorePair>> createRetainedMap (Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> referenceList){
+
+            Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
+
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : baseMap.entrySet()) {
+                List<IdScorePair> retainedValue = new ArrayList<IdScorePair>(entry.getValue());
+
+                retainedValue.retainAll(referenceList);
+                if(!retainedValue.isEmpty()){
+                    result.put(entry.getKey(), retainedValue);
+                }
+            }
+
+            return result;
         }
 
 

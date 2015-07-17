@@ -70,7 +70,7 @@ public class LocalSearchRequest {
      * @param address address
      * @param idScorePairs id score collection
      */
-    public void storeIdScoreCollection(DecoratedAddress address, Collection<IdScorePair> idScorePairs){
+    public void storeIdScoreCollection(DecoratedAddress address, List<IdScorePair> idScorePairs){
 
         if(this.queryPhaseTracker != null){
             this.queryPhaseTracker.storeIdScoreCollection(address, idScorePairs);
@@ -131,7 +131,7 @@ public class LocalSearchRequest {
         return result;
     }
 
-    public Map<DecoratedAddress, Collection<IdScorePair>> getIdScoreMap() {
+    public Map<DecoratedAddress, List<IdScorePair>> getIdScoreMap() {
         return this.queryPhaseTracker != null ? this.queryPhaseTracker.idScoreMap : null;
     }
 
@@ -236,12 +236,12 @@ public class LocalSearchRequest {
 
         private int numberOfShards;
         private Set<Integer> respondedPartitions;
-        private Map<DecoratedAddress, Collection<IdScorePair>> idScoreMap;
+        private Map<DecoratedAddress, List<IdScorePair>> idScoreMap;
 
         public QueryPhaseTracker(){
 
             this.numberOfShards = 0;
-            this.idScoreMap = new HashMap<DecoratedAddress, Collection<IdScorePair>>();
+            this.idScoreMap = new HashMap<DecoratedAddress, List<IdScorePair>>();
             this.respondedPartitions = new HashSet<Integer>();
 
         }
@@ -294,7 +294,7 @@ public class LocalSearchRequest {
          * @param address address
          * @param idScorePairs id score collection
          */
-        public void storeIdScoreCollection(DecoratedAddress address, Collection<IdScorePair> idScorePairs){
+        public void storeIdScoreCollection(DecoratedAddress address, List<IdScorePair> idScorePairs){
             idScoreMap.put(address, idScorePairs);
         }
     }

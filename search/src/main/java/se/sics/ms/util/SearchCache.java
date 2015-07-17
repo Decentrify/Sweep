@@ -1,0 +1,61 @@
+package se.sics.ms.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Cache encapsulation for the Search protocol.
+ * This class holds and serves the search patterns
+ * and the hits for the search query.
+ *
+ * Created by babbar on 2015-07-17.
+ */
+public class SearchCache {
+
+    private Logger logger = LoggerFactory.getLogger(SearchCache.class);
+    private Map<String, Map<DecoratedAddress, List<IdScorePair>>> queryResponseCache;
+
+    public SearchCache(){
+        this.logger.trace("Search Cache Created.");
+        this.queryResponseCache = new HashMap<String, Map<DecoratedAddress, List<IdScorePair>>>();
+    }
+
+    /**
+     * For a particular query consisting of a specific pattern,
+     * store the matched and sorted documents.
+     *
+     * @param filePattern
+     * @param scorePairCollection
+     */
+    public void cachePattern(String filePattern, Map<DecoratedAddress, List<IdScorePair>> scorePairCollection){
+        queryResponseCache.put(filePattern, scorePairCollection);
+    }
+
+    /**
+     * Fetch the score id collection based on the search pattern
+     * provided by the client.
+     *
+     * @param pattern search pattern
+     * @return hit - score/id collection.
+     */
+    public Map<DecoratedAddress, List<IdScorePair>> getScorePairCollection(String pattern){
+        return this.queryResponseCache.get(pattern);
+    }
+
+    /**
+     * Each pattern is cached for a specific time by the application.
+     * Remove the cached pattern when application informs
+     * about cache time being over.
+     *
+     * @param pattern file pattern
+     */
+    public void removeCachedPattern(String pattern){
+        this.queryResponseCache.remove(pattern);
+    }
+
+}

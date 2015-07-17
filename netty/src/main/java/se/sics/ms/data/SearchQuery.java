@@ -5,6 +5,7 @@ import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.IdScorePair;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -86,10 +87,10 @@ public class SearchQuery {
 
         private final UUID searchTimeoutId;
         private final int partitionId;
-        private final Collection<IdScorePair> idScorePairCollection;
+        private final List<IdScorePair> idScorePairCollection;
 
 
-        public Response(UUID searchTimeoutId, int partitionId, Collection<IdScorePair> idScorePairCollection) {
+        public Response(UUID searchTimeoutId, int partitionId, List<IdScorePair> idScorePairCollection) {
 
             this.searchTimeoutId = searchTimeoutId;
             this.partitionId = partitionId;
@@ -138,7 +139,7 @@ public class SearchQuery {
             return partitionId;
         }
 
-        public Collection<IdScorePair> getIdScorePairCollection() {
+        public List<IdScorePair> getIdScorePairCollection() {
             return idScorePairCollection;
         }
     }
