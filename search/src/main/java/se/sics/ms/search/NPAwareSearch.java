@@ -2633,42 +2633,117 @@ public final class NPAwareSearch extends ComponentDefinition {
          * The initiating node waits for the responses selcted nodes from all shards.
          *
          */
-        ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>> handleSearchQueryResponse =
+        ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>> handleSearchQueryResponse=
                 new ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>>() {
 
-            @Override
-            public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
+                    @Override
+                    public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
 
-                logger.debug("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
-                UUID searchRoundId = searchRequest.getSearchRoundId();
+                        logger.debug("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
+                        UUID searchRoundId = searchRequest.getSearchRoundId();
 
-                if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
-                    logger.warn("{}: Received a search query response for an expired round");
-                    return;
-                }
-
-                if( searchRequest.isSafeToAdd(content.getPartitionId())) {
-
-                    searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
-                    if(searchRequest.haveAllShardsResponded()) {
-
-//                      Once all the shards have responded with the information about the matched ids.
-                        logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
-                        Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = initiateInternalSorting();
-
-                        if(result.isEmpty()) {
-
-//                          Directly Move to Reply Phase in case the response is empty.
-                            searchRequest.addClientResponse(new ArrayList<ApplicationEntry>());
-                            sendResponse();
+                        if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
+                            logger.warn("{}: Received a search query response for an expired round");
                             return;
                         }
 
-                        initiateFetchPhase(result);
+                        if( searchRequest.isSafeToAdd(content.getPartitionId())) {
+
+                            searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
+                            if(searchRequest.haveAllShardsResponded()) {
+
+//                               Once all the shards have responded with the information about the matched ids.
+                                logger.warn("{}: Query phase over, moving to the fetch phase.", self.getId());
+
+//                              COMPUTE THE ORDERED LIST CONTAINING MAX POSSIBLE HITS FOR QUERY.
+                                Map<DecoratedAddress, List<IdScorePair>> completeScoreMap = searchRequest.getIdScoreMap();
+                                List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
+
+//                              BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
+                                PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
+                                Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
+                                        maxHitList, paginateInfo);
+
+                                if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
+                                    logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
+                                    return;
+                                }
+
+                                initiateFetchPhase(paginateEntryIdMap);
+                            }
+                        }
                     }
-                }
+                };
+
+
+
+        /**
+         * Based on the responses of the query phase, create
+         * a deterministic order on the entries. In addition to this,
+         * bound the number of entries.
+         *
+         * @param baseMap baseMap
+         * @return filteredList
+         */
+        private List<IdScorePair> createOrderedMaxHitList( Map<DecoratedAddress, List<IdScorePair>> baseMap){
+
+            List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
+            for(Collection<IdScorePair> collection : baseMap.values()){
+                scorePairList.addAll(collection);
             }
-        };
+
+//          SORT THE LIST TO CREATE DETERMINISTIC ORDER.
+            Collections.sort(scorePairList);
+
+//          LIMIT FINAL SIZE TO MAX SEARCHABLE SIZE.
+            if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
+                scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
+            }
+
+            return scorePairList;
+        }
+
+
+
+        /**
+         * Filter and convert the paginate id score pair map to the structure which is required by
+         * the fetch phase of the search protocol.
+         *
+         * @param maxHitList sorted list
+         * @param baseMap base score id map.
+         * @return fetch phase data structure.
+         */
+        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> prepareFetchPhaseInput ( Map<DecoratedAddress,List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
+
+            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
+
+            int from  = paginateInfo.getFrom();
+            int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
+
+            if(from > maxHitList.size()) {
+
+//              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
+                logger.warn("{}: Unable to search as range not lying in current range.", prefix);
+                return null;
+            }
+
+            int to = from + (size-1);
+            to = to >= maxHitList.size() ? maxHitList.size() -1 : to;
+
+            List<IdScorePair> paginateList = maxHitList.subList (from, to);
+            Map<DecoratedAddress, List<IdScorePair>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
+
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateScoreMap.entrySet()){
+
+                List<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList();
+                for(IdScorePair pair : entry.getValue()){
+                    entryIds.add(pair.getEntryId());
+                }
+                result.put(entry.getKey(), entryIds);
+            }
+
+            return result;
+        }
 
         /**
          * Once the query phase gets over, the application now initiates
