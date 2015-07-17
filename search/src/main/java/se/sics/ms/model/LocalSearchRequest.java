@@ -13,12 +13,9 @@ import java.util.*;
  */
 public class LocalSearchRequest {
 
-    private SearchPattern pattern;
     private Set<Integer> respondedPartitions;
     private UUID searchRoundId;
-    private PaginateInfo paginateInfo;
-    private int numberOfShards;
-    private Map<DecoratedAddress, Collection<IdScorePair>> idScoreMap;
+    private QueryPhaseTracker queryPhaseTracker;
     private FetchPhaseTracker fetchPhaseTracker;
     private ClientResponseTracker clientResponseTracker;
 
@@ -30,20 +27,15 @@ public class LocalSearchRequest {
      */
     public LocalSearchRequest(SearchPattern pattern) {
         super();
-        this.pattern = pattern;
         this.respondedPartitions = new HashSet<Integer>();
     }
 
     public void startSearch (SearchPattern pattern, PaginateInfo paginateInfo, UUID searchRoundId) {
 
         this.searchRoundId = searchRoundId;
-        this.pattern = pattern;
-        this.paginateInfo = paginateInfo;
-        this.respondedPartitions = new HashSet<Integer>();
-        this.idScoreMap = new HashMap<DecoratedAddress, Collection<IdScorePair>>();
-        this.numberOfShards = 0;
+        this.queryPhaseTracker = new QueryPhaseTracker();
         this.fetchPhaseTracker = new FetchPhaseTracker();
-        this.clientResponseTracker = new ClientResponseTracker(pattern);
+        this.clientResponseTracker = new ClientResponseTracker(pattern, paginateInfo);
 
     }
 
@@ -56,19 +48,7 @@ public class LocalSearchRequest {
      * @return
      */
     public boolean isSafeToAdd(int partition){
-
-        boolean safety = false;
-        if(numberOfShards != 0
-                && numberOfShards > respondedPartitions.size()){
-
-            if(!respondedPartitions.contains(partition)) {
-
-                respondedPartitions.add(partition);
-                safety = true;
-            }
-        }
-
-        return safety;
+        return (this.queryPhaseTracker != null) && this.queryPhaseTracker.isSafeToAdd(partition);
     }
 
 
@@ -79,7 +59,7 @@ public class LocalSearchRequest {
      * @return all shards replied
      */
     public boolean haveAllShardsResponded(){
-        return (numberOfShards  !=0 && respondedPartitions.size() >= numberOfShards);
+        return this.queryPhaseTracker != null && this.queryPhaseTracker.haveAllShardsResponded();
     }
 
 
@@ -91,7 +71,10 @@ public class LocalSearchRequest {
      * @param idScorePairs id score collection
      */
     public void storeIdScoreCollection(DecoratedAddress address, Collection<IdScorePair> idScorePairs){
-        idScoreMap.put(address, idScorePairs);
+
+        if(this.queryPhaseTracker != null){
+            this.queryPhaseTracker.storeIdScoreCollection(address, idScorePairs);
+        }
     }
 
 
@@ -127,14 +110,7 @@ public class LocalSearchRequest {
      * @return safety
      */
     public boolean isSafeToRespond(){
-
-        boolean result = false;
-
-        if(this.fetchPhaseTracker != null ){
-            result= this.fetchPhaseTracker.isSafeToReply();
-        }
-
-        return result;
+        return this.fetchPhaseTracker != null && this.fetchPhaseTracker.isSafeToReply();
     }
 
     /**
@@ -156,7 +132,7 @@ public class LocalSearchRequest {
     }
 
     public Map<DecoratedAddress, Collection<IdScorePair>> getIdScoreMap() {
-        return idScoreMap;
+        return this.queryPhaseTracker != null ? this.queryPhaseTracker.idScoreMap : null;
     }
 
 
@@ -193,13 +169,7 @@ public class LocalSearchRequest {
      * @return
      */
     public SearchPattern getSearchPattern() {
-
-        SearchPattern result = null;
-
-        if(this.clientResponseTracker != null){
-            result = clientResponseTracker.getPattern();
-        }
-        return result;
+        return this.clientResponseTracker != null ? this.clientResponseTracker.getPattern() : null;
     }
 
     public void addRespondedPartition(int partition) {
@@ -219,7 +189,7 @@ public class LocalSearchRequest {
     }
 
     public PaginateInfo getPaginateInfo() {
-        return paginateInfo;
+        return this.clientResponseTracker != null ? clientResponseTracker.paginateInfo : null;
     }
 
     public java.util.UUID getSearchRoundId() {
@@ -227,21 +197,22 @@ public class LocalSearchRequest {
     }
 
     public int getNumberOfShards(){
-        return this.numberOfShards;
+        return this.queryPhaseTracker != null ? this.queryPhaseTracker.numberOfShards : 0;
     }
 
     public void setNumberOfShards(int numberOfShards){
-        this.numberOfShards = numberOfShards;
+
+        if(this.queryPhaseTracker != null ){
+            this.queryPhaseTracker.setNumberOfShards(numberOfShards);
+        }
     }
 
     public void wipeExistingRequest(){
 
         this.searchRoundId = null;
-        this.respondedPartitions = null;
-        this.pattern = null;
-        this.numberOfShards = 0;
-        this.idScoreMap = null;
         this.fetchPhaseTracker = null;
+        this.queryPhaseTracker = null;
+        this.clientResponseTracker = null;
     }
 
     public int getNumHits() {
@@ -256,6 +227,85 @@ public class LocalSearchRequest {
     }
 
 
+    /**
+     * ************
+     * QUERY PHASE TRACKER
+     * ************
+     */
+    private class QueryPhaseTracker{
+
+        private int numberOfShards;
+        private Set<Integer> respondedPartitions;
+        private Map<DecoratedAddress, Collection<IdScorePair>> idScoreMap;
+
+        public QueryPhaseTracker(){
+
+            this.numberOfShards = 0;
+            this.idScoreMap = new HashMap<DecoratedAddress, Collection<IdScorePair>>();
+            this.respondedPartitions = new HashSet<Integer>();
+
+        }
+
+
+        /**
+         * The application needs to check that whether all the shards have responded
+         * and that the application is safe to continue forward.
+         *
+         * @return all shards replied
+         */
+        public boolean haveAllShardsResponded(){
+            return (numberOfShards  !=0 && respondedPartitions.size() >= numberOfShards);
+        }
+
+
+        /**
+         * Set the number of shards in the system.
+         * @param numberOfShards number of shards.
+         */
+        public void setNumberOfShards(int numberOfShards){
+            this.numberOfShards = numberOfShards;
+        }
+
+        /**
+         * Check if it is safe to add the partition to the
+         * partitions that have already responded. Never incorporate the
+         * responses from the
+         *
+         * @return true - if safe
+         */
+        public boolean isSafeToAdd(int partition){
+
+            boolean safety = false;
+            if(numberOfShards != 0
+                    && numberOfShards > respondedPartitions.size()){
+
+                if(!respondedPartitions.contains(partition)) {
+                    respondedPartitions.add(partition);
+                    safety = true;
+                }
+            }
+            return safety;
+        }
+
+        /**
+         * Update the map with the information about the
+         * id score pairs in the system.
+         *
+         * @param address address
+         * @param idScorePairs id score collection
+         */
+        public void storeIdScoreCollection(DecoratedAddress address, Collection<IdScorePair> idScorePairs){
+            idScoreMap.put(address, idScorePairs);
+        }
+    }
+
+
+
+    /**
+     * ************
+     * FETCH PHASE TRACKER
+     * ************
+     */
     private class FetchPhaseTracker {
 
 
@@ -309,15 +359,22 @@ public class LocalSearchRequest {
     }
 
 
+    /**
+     * ************
+     * CLIENT RESPONSE TRACKER
+     * ************
+     */
     private class ClientResponseTracker {
 
         public int numHits;
         public List<ApplicationEntry> applicationEntries;
         public SearchPattern pattern;
+        public PaginateInfo paginateInfo;
 
-        public ClientResponseTracker(SearchPattern pattern){
+        public ClientResponseTracker(SearchPattern pattern, PaginateInfo paginateInfo){
 
             this.pattern = pattern;
+            this.paginateInfo = paginateInfo;
             this.numHits = 0;
             this.applicationEntries = new ArrayList<ApplicationEntry>();
         }
