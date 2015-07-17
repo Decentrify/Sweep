@@ -202,8 +202,10 @@ public class TimeoutCollection {
      */
     public static class CacheTimeout extends Timeout{
 
-        public CacheTimeout(ScheduleTimeout request) {
+        public String fileNamePattern;
+        public CacheTimeout(ScheduleTimeout request, String fileNamePattern) {
             super(request);
+            this.fileNamePattern = fileNamePattern;
         }
     }
     

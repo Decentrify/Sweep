@@ -78,6 +78,7 @@ public class MsConfig extends VodConfig {
     // PAGINATION.
     public static final int MAX_SEARCH_ENTRIES = 1000;
     public static final int DEFAULT_ENTRIES_PER_PAGE = 10;
+    public static final long SCORE_DATA_CACHE_TIMEOUT = 25000;
 
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;

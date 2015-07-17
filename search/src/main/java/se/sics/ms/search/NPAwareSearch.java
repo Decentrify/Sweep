@@ -138,7 +138,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
-    private SearchResponseCache searchResponseCache;
     private SearchProtocolTracker searchProtocolTracker;
 
     // Leader Election Protocol.
@@ -275,13 +274,13 @@ public final class NPAwareSearch extends ComponentDefinition {
 //        subscribe(npTimeoutHandler, timerPort);
 
         // PAGINATION.
-        subscribe(searchResponseCache.cacheTimeoutHandler, timerPort);
         subscribe(searchProtocolTracker.numPartitionsHandler, gradientRoutingPort);
         subscribe(searchProtocolTracker.handleSearchQueryRequest, networkPort);
         subscribe(searchProtocolTracker.handleSearchQueryResponse, networkPort);
         subscribe(searchProtocolTracker.handleSearchFetchRequest, networkPort);
         subscribe(searchProtocolTracker.handleSearchFetchResponse, networkPort);
         subscribe(searchProtocolTracker.searchProtocolTimeout, timerPort);
+        subscribe(searchProtocolTracker.cacheTimeoutHandler, timerPort);
     }
 
     /**
@@ -325,7 +324,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         controlPullTracker = new ControlPullTracker();
         shardTracker = new ShardTracker();
         timeLine = new TimeLine();
-        searchResponseCache = new SearchResponseCache(5000);       // Cache for holding search responses.
         searchProtocolTracker = new SearchProtocolTracker();
 
     }
@@ -2506,79 +2504,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
 
-
-    /**
-     * ****************************
-     * Simple Response Cache.
-     * ****************************
-     *
-     * Cache used to store the search responses
-     * for a query based on a specific search pattern.
-     *
-     * Cache the last queried search pattern.
-     */
-
-
-    private class SearchResponseCache {
-
-        long timeoutPeriod;   // time after which the cache is invalidated.
-        UUID timeout;
-        org.javatuples.Pair<String, Collection<ApplicationEntry>> cache;
-
-
-        public SearchResponseCache(long timeout) {
-            this.timeoutPeriod = timeout;
-        }
-
-        /**
-         * Store the search responses in the cache.
-         * The search responses currently are being stored for current search request.
-         * On a new search request the previous one gets invalidated.
-         *
-         * @param pattern search pattern
-         * @param searchResponses search responses.
-         */
-        public void cacheSearchResponse(String pattern, Collection<ApplicationEntry> searchResponses) {
-
-            cache = org.javatuples.Pair.with(pattern, searchResponses);
-            cancelTimeout(timeout);
-
-            ScheduleTimeout st = new ScheduleTimeout(timeoutPeriod);
-            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st);
-            st.setTimeoutEvent(ct);
-
-            timeout = st.getTimeoutEvent().getTimeoutId();
-            trigger(st, timerPort);
-        }
-
-        /**
-         * Handler for the cache timeout.
-         * Once timeout gets triggered, the cache needs to be invalidated.
-         * We invalidate the cache because better data might be added in mean time and therefore
-         * system needs to invalidate the previously searched data and switch to the new one.
-         *
-         */
-        public Handler<TimeoutCollection.CacheTimeout> cacheTimeoutHandler = new Handler<TimeoutCollection.CacheTimeout>() {
-
-            @Override
-            public void handle(TimeoutCollection.CacheTimeout event) {
-
-                logger.info("{}: Cache Timeout Invoked.", prefix);
-
-                if(timeout.equals(event.getTimeoutId())){
-
-                    logger.info("Time to invalidate the cache.");
-                    cache = null;
-                    timeout = null;
-                }
-            }
-        };
-
-
-    }
-
-
-
     /**
      * ****************************
      * SEARCH REQUEST HANDLING
@@ -2814,8 +2739,28 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             Map<DecoratedAddress, List<IdScorePair>> retainedMap = createRetainedMap(baseMap, baseList);
             cache.cachePattern(pattern.getFileNamePattern(), retainedMap);
+
+            ScheduleTimeout st = new ScheduleTimeout(MsConfig.SCORE_DATA_CACHE_TIMEOUT);
+            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st, pattern.getFileNamePattern());
+            st.setTimeoutEvent(ct);
+
+            trigger(st, timerPort);
         }
 
+
+        /**
+         * Application needs to remove the cached search request as
+         * more entries could have been added in the mean time and therefore
+         * in order to make them searchable, older cached ones needs to be deleted.
+         */
+        Handler<TimeoutCollection.CacheTimeout> cacheTimeoutHandler = new Handler<TimeoutCollection.CacheTimeout>() {
+            @Override
+            public void handle(TimeoutCollection.CacheTimeout event) {
+
+                logger.debug("{}: Cache timeout handler invoked for file pattern: {}", prefix, event.fileNamePattern);
+                cache.removeCachedPattern(event.fileNamePattern);
+            }
+        };
 
 
         /**
