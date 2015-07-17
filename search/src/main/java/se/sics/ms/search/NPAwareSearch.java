@@ -2661,6 +2661,14 @@ public final class NPAwareSearch extends ComponentDefinition {
             public void handle(TimeoutCollection.SearchTimeout event) {
 
                 logger.debug("Search Request Timed out.");
+                UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                if(searchRoundId == null || !searchRoundId.equals(event.getTimeoutId())) {
+                    logger.warn("{}: Timeout happened after the round already finished.");
+                    return;
+                }
+
+                searchRequest.wipeExistingRequest();
             }
         };
 
@@ -2730,8 +2738,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                         Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = initiateInternalSorting();
 
                         if(result.isEmpty()) {
+
 //                          Directly Move to Reply Phase in case the response is empty.
-                            sendResponse(new ArrayList<ApplicationEntry>());
+                            searchRequest.addClientResponse(new ArrayList<ApplicationEntry>());
+                            sendResponse();
+                            return;
                         }
 
                         initiateFetchPhase(result);
@@ -2748,33 +2759,39 @@ public final class NPAwareSearch extends ComponentDefinition {
         private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> initiateInternalSorting(){
 
             List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
-            Map<DecoratedAddress, Collection<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
             Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseInput = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
 
+            Map<DecoratedAddress, Collection<IdScorePair>> scorePairMap = searchRequest.getIdScoreMap();
             for(Collection<IdScorePair> collection : scorePairMap.values()){
                 scorePairList.addAll(collection);
             }
 
+//          SORT THE LIST TO CREATE DETERMINISTIC ORDER.
+            Collections.sort(scorePairList);
+
             logger.debug("{}: Internally sorted the score pair set. Size: {}", prefix, scorePairList.size());
             logger.debug("{}: Paginate Information : {}", prefix, searchRequest.getPaginateInfo());
 
-//          Limit the set size to max entries searchable.
+//          LIMIT FINAL SIZE TO MAX SEARCHABLE SIZE.
             if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
                 scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
             }
-            PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
 
+//          TO-DO: CALCULATE THE METADATA FOR THE RESPONSE ??
+            searchRequest.storeNumHits(scorePairList.size());
+
+            PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
             int from  = paginateInfo.getFrom();
             int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
 
 
             if(from > scorePairList.size()) {
-//              As from identifier lies outside the list, remove it.
+//              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
                 return fetchPhaseInput;
             }
 
             int to = from + (size-1);
-            to = to > scorePairList.size() ? scorePairList.size() -1 : to;
+            to = to >= scorePairList.size() ? scorePairList.size() -1 : to;
             List<IdScorePair> paginateList = scorePairList.subList (from, to);
 
 //          Now Identify the node ids for the IdScorePair List Identified.
@@ -2783,7 +2800,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 Collection<IdScorePair> collection = entry.getValue();
                 DecoratedAddress nodeAddress = entry.getKey();
 
-//              Start populating the data structure for the fetch phase.
+//              START POPULATING DATA STRUCTURE FOR FETCH PHASE.
                 for(IdScorePair scorePair : paginateList) {
                     if(collection.contains(scorePair)) {
 
@@ -2867,12 +2884,32 @@ public final class NPAwareSearch extends ComponentDefinition {
                 searchRequest.addFetchPhaseResponse(event.getSource(), content.getApplicationEntries());
                 if(searchRequest.isSafeToRespond()) {
 
-//                  Pack the data together and send back the response.
-                    sendResponse(searchRequest.getFetchedEntries());
-                    searchRequest.wipeExistingRequest();    // Clear the metadata for the existing request.
+//                  PACK DATA TOGETHER AND SEND BACK RESPONSE.
+                    sendResponse();
+
+//                  CANCEL TIMEOUT AND CLEAR ROUND INFORMATION.
+                    cancelTimeout(searchRequest.getSearchRoundId());
+                    searchRequest.wipeExistingRequest();
                 }
             }
         };
+
+
+        /**
+         * Wrapper over the main response dispatch method.
+         */
+        private void sendResponse(){
+
+            List<ApplicationEntry> entries = searchRequest.getFetchedEntries();
+            int numHits = searchRequest.getNumHits();
+            SearchPattern pattern = searchRequest.getSearchPattern();
+
+            if(entries == null){
+                entries = new ArrayList<ApplicationEntry>();
+            }
+
+            sendResponse(numHits, searchRequest.getPaginateInfo(),  pattern, entries);
+        }
 
 
         /**
@@ -2881,8 +2918,11 @@ public final class NPAwareSearch extends ComponentDefinition {
          *
          * @param entries
          */
-        private void sendResponse(List<ApplicationEntry> entries){
-            throw new UnsupportedOperationException("Operation not supported yet.");
+        private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern,  List<ApplicationEntry> entries){
+
+            SearchResponse response = new SearchResponse(entries, numHits, paginateInfo, pattern);
+            logger.warn("{}: final response sent back to the application: {}", prefix, response);
+            trigger(response, uiPort);
         }
 
     }

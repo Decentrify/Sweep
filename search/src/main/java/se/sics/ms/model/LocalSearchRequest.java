@@ -20,7 +20,7 @@ public class LocalSearchRequest {
     private int numberOfShards;
     private Map<DecoratedAddress, Collection<IdScorePair>> idScoreMap;
     private FetchPhaseTracker fetchPhaseTracker;
-
+    private ClientResponseTracker clientResponseTracker;
 
     /**
      * Create a new instance for the given request and query.
@@ -42,6 +42,9 @@ public class LocalSearchRequest {
         this.respondedPartitions = new HashSet<Integer>();
         this.idScoreMap = new HashMap<DecoratedAddress, Collection<IdScorePair>>();
         this.numberOfShards = 0;
+        this.fetchPhaseTracker = new FetchPhaseTracker();
+        this.clientResponseTracker = new ClientResponseTracker(pattern);
+
     }
 
 
@@ -98,7 +101,10 @@ public class LocalSearchRequest {
      * @param fetchMap fetch phase map.
      */
     public void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchMap) {
-        this.fetchPhaseTracker = new FetchPhaseTracker(fetchMap);
+
+        if(this.fetchPhaseTracker != null){
+            this.fetchPhaseTracker.initiateFetchPhase(fetchMap);
+        }
     }
 
 
@@ -153,8 +159,47 @@ public class LocalSearchRequest {
         return idScoreMap;
     }
 
+
+    /**
+     * Store the number of hits for the search query that was sent by the
+     * client to the application.
+     *
+     * @param numHits
+     */
+    public void storeNumHits(int numHits) {
+
+        if(this.clientResponseTracker != null){
+            this.clientResponseTracker.addNumHits(numHits);
+        }
+    }
+
+    /**
+     * Store the response which needs to be sent to the client back.
+     *
+     * @param entries
+     */
+    public void addClientResponse(List<ApplicationEntry> entries){
+
+        if(this.clientResponseTracker != null){
+            this.clientResponseTracker.addResponse(entries);
+        }
+    }
+
+
+    /**
+     * Accessor for the search pattern sent by the client to the
+     * application for the search to be performed.
+     *
+     * @return
+     */
     public SearchPattern getSearchPattern() {
-        return pattern;
+
+        SearchPattern result = null;
+
+        if(this.clientResponseTracker != null){
+            result = clientResponseTracker.getPattern();
+        }
+        return result;
     }
 
     public void addRespondedPartition(int partition) {
@@ -193,11 +238,21 @@ public class LocalSearchRequest {
 
         this.searchRoundId = null;
         this.respondedPartitions = null;
-        this.paginateInfo = null;
         this.pattern = null;
         this.numberOfShards = 0;
         this.idScoreMap = null;
         this.fetchPhaseTracker = null;
+    }
+
+    public int getNumHits() {
+
+        int result = 0;
+
+        if(this.clientResponseTracker != null){
+            result = clientResponseTracker.numHits;
+        }
+
+        return result;
     }
 
 
@@ -207,9 +262,13 @@ public class LocalSearchRequest {
         public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap;
         public Map<DecoratedAddress, Collection<ApplicationEntry>> fetchedPhaseResponseMap;
 
-        public FetchPhaseTracker(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
-            this.fetchPhaseRequestMap = fetchPhaseRequestMap;
+        public FetchPhaseTracker(){
+            this.fetchPhaseRequestMap = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
             this.fetchedPhaseResponseMap = new HashMap<DecoratedAddress, Collection<ApplicationEntry>>();
+        }
+
+        public void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
+            this.fetchPhaseRequestMap = fetchPhaseRequestMap;
         }
 
         /**
@@ -250,6 +309,32 @@ public class LocalSearchRequest {
     }
 
 
+    private class ClientResponseTracker {
+
+        public int numHits;
+        public List<ApplicationEntry> applicationEntries;
+        public SearchPattern pattern;
+
+        public ClientResponseTracker(SearchPattern pattern){
+
+            this.pattern = pattern;
+            this.numHits = 0;
+            this.applicationEntries = new ArrayList<ApplicationEntry>();
+        }
+
+        public SearchPattern getPattern(){
+            return this.pattern;
+        }
+
+        public void addNumHits(int hits){
+            this.numHits = hits;
+        }
+
+        public void addResponse(List<ApplicationEntry> entries){
+            this.applicationEntries = entries;
+        }
+
+    }
 
 
 }

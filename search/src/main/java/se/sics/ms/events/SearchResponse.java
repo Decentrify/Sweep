@@ -2,9 +2,10 @@ package se.sics.ms.events;
 
 import se.sics.kompics.KompicsEvent;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.PaginateInfo;
 
-import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -14,17 +15,35 @@ import java.util.ArrayList;
  */
 public class SearchResponse implements KompicsEvent {
 
-    private ArrayList<ApplicationEntry> results;
+    private List<ApplicationEntry> results;
     private int totalHits;
     private PaginateInfo paginateInfo;
+    private SearchPattern pattern;
 
-    public SearchResponse (ArrayList<ApplicationEntry> result, int totalHits, PaginateInfo paginateInfo){
+    public SearchResponse (List<ApplicationEntry> result, int totalHits, PaginateInfo paginateInfo, SearchPattern pattern){
+
+        this.pattern = pattern;
         this.results = result;
         this.totalHits = totalHits;
         this.paginateInfo = paginateInfo;
     }
 
-    public ArrayList<ApplicationEntry> getResults() {
+
+    @Override
+    public String toString() {
+        return "SearchResponse{" +
+                "results=" + results +
+                ", totalHits=" + totalHits +
+                ", paginateInfo=" + paginateInfo +
+                ", pattern=" + pattern +
+                '}';
+    }
+
+    public SearchPattern getPattern() {
+        return pattern;
+    }
+
+    public List<ApplicationEntry> getResults() {
         return results;
     }
 
