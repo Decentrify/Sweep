@@ -2815,6 +2815,9 @@ public final class NPAwareSearch extends ComponentDefinition {
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), entry.getKey(),
                         Transport.UDP, fetchRequest), networkPort);
             }
+
+//          Inform the tracker about the fetch phase.
+            searchRequest.initiateFetchPhase(fetchPhaseInput);
         }
 
 
@@ -2861,7 +2864,13 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
 
 //              MAIN HANDLING OF RESPONSE.
+                searchRequest.addFetchPhaseResponse(event.getSource(), content.getApplicationEntries());
+                if(searchRequest.isSafeToRespond()) {
 
+//                  Pack the data together and send back the response.
+                    sendResponse(searchRequest.getFetchedEntries());
+                    searchRequest.wipeExistingRequest();    // Clear the metadata for the existing request.
+                }
             }
         };
 

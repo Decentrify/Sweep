@@ -19,6 +19,9 @@ public class LocalSearchRequest {
     private PaginateInfo paginateInfo;
     private int numberOfShards;
     private Map<DecoratedAddress, Collection<IdScorePair>> idScoreMap;
+    private FetchPhaseTracker fetchPhaseTracker;
+
+
     /**
      * Create a new instance for the given request and query.
      *
@@ -89,6 +92,63 @@ public class LocalSearchRequest {
     }
 
 
+    /**
+     * Initiate the tracker for the fetch phase to keep track of the
+     * responses.
+     * @param fetchMap fetch phase map.
+     */
+    public void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchMap) {
+        this.fetchPhaseTracker = new FetchPhaseTracker(fetchMap);
+    }
+
+
+    /**
+     * Capture and store the response during the fetch phase.
+     * @param source source
+     * @param entries entries
+     */
+    public void addFetchPhaseResponse(DecoratedAddress source, Collection<ApplicationEntry> entries){
+
+        if(this.fetchPhaseTracker != null){
+            this.fetchPhaseTracker.addFetchPhaseResponse(source, entries);
+        }
+    }
+
+    /**
+     * Wrapper over the fetch tracker indicating the safety
+     * for the application to respond back to the client.
+     *
+     * @return safety
+     */
+    public boolean isSafeToRespond(){
+
+        boolean result = false;
+
+        if(this.fetchPhaseTracker != null ){
+            result= this.fetchPhaseTracker.isSafeToReply();
+        }
+
+        return result;
+    }
+
+    /**
+     * Getter for the collection of the entries that are replied back
+     * by nodes during the search fetch phase.
+     *
+     * @return Fetched Entries.
+     */
+    public List<ApplicationEntry> getFetchedEntries(){
+
+        List<ApplicationEntry> result = new ArrayList<ApplicationEntry>();
+        if(this.fetchPhaseTracker != null) {
+            for(Collection<ApplicationEntry> entries : this.fetchPhaseTracker.fetchedPhaseResponseMap.values()){
+                result.addAll(entries);
+            }
+        }
+
+        return result;
+    }
+
     public Map<DecoratedAddress, Collection<IdScorePair>> getIdScoreMap() {
         return idScoreMap;
     }
@@ -137,37 +197,55 @@ public class LocalSearchRequest {
         this.pattern = null;
         this.numberOfShards = 0;
         this.idScoreMap = null;
+        this.fetchPhaseTracker = null;
     }
-
 
 
     private class FetchPhaseTracker {
 
-        private int fetchedResponses;
-        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap;
-        private Map<DecoratedAddress, List<ApplicationEntry>> fetchPhaseResponseMap;
 
-        public FetchPhaseTracker(int fetchedResponses, Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
+        public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap;
+        public Map<DecoratedAddress, Collection<ApplicationEntry>> fetchedPhaseResponseMap;
 
-            this.fetchedResponses = fetchedResponses;
+        public FetchPhaseTracker(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
             this.fetchPhaseRequestMap = fetchPhaseRequestMap;
+            this.fetchedPhaseResponseMap = new HashMap<DecoratedAddress, Collection<ApplicationEntry>>();
         }
 
-        public int getFetchedResponses() {
-            return this.fetchedResponses;
-        }
-
+        /**
+         * Initiate the fetch the phase for the entries in the
+         * system.
+         *
+         * @return Map.
+         */
         public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> getFetchPhaseMap() {
             return this.fetchPhaseRequestMap;
         }
 
+        /**
+         * Store the fetch phase response from a particular node.
+         * Check for the address from which the response is received and it should be
+         * contained in the original map using which the request was made.
+         *
+         * @param source source
+         * @param entries application entries
+         */
+        public void addFetchPhaseResponse(DecoratedAddress source, Collection<ApplicationEntry>entries){
 
-        public void addFetchPhaseResponse(DecoratedAddress source, List<ApplicationEntry>entries){
-
+            if(fetchPhaseRequestMap.containsKey(source)) {
+                fetchedPhaseResponseMap.put(source, entries);
+            }
         }
 
+        /**
+         * Before a node can move ahead with final response to the Clinet, on every
+         * response from the node belonging to the fetch phase, it has to check for the
+         * completeness of the responses.
+         *
+         * @return true - if safe to reply.
+         */
         public boolean isSafeToReply() {
-            return (fetchPhaseResponseMap.size() >= fetchPhaseRequestMap.size());
+            return (fetchedPhaseResponseMap.size() >= fetchPhaseRequestMap.size());
         }
     }
 
