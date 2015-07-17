@@ -6,6 +6,7 @@ import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.LeaderUnit;
+import se.sics.ms.types.SearchPattern;
 
 import java.util.UUID;
 
@@ -202,8 +203,8 @@ public class TimeoutCollection {
      */
     public static class CacheTimeout extends Timeout{
 
-        public String fileNamePattern;
-        public CacheTimeout(ScheduleTimeout request, String fileNamePattern) {
+        public SearchPattern fileNamePattern;
+        public CacheTimeout(ScheduleTimeout request, SearchPattern fileNamePattern) {
             super(request);
             this.fileNamePattern = fileNamePattern;
         }

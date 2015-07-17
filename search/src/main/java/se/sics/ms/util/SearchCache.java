@@ -2,6 +2,7 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.HashMap;
@@ -18,21 +19,21 @@ import java.util.Map;
 public class SearchCache {
 
     private Logger logger = LoggerFactory.getLogger(SearchCache.class);
-    private Map<String, Map<DecoratedAddress, List<IdScorePair>>> queryResponseCache;
+    private Map<SearchPattern, Map<DecoratedAddress, List<IdScorePair>>> queryResponseCache;
 
     public SearchCache(){
         this.logger.trace("Search Cache Created.");
-        this.queryResponseCache = new HashMap<String, Map<DecoratedAddress, List<IdScorePair>>>();
+        this.queryResponseCache = new HashMap<SearchPattern, Map<DecoratedAddress, List<IdScorePair>>>();
     }
 
     /**
      * For a particular query consisting of a specific pattern,
      * store the matched and sorted documents.
      *
-     * @param filePattern
-     * @param scorePairCollection
+     * @param filePattern pattern
+     * @param scorePairCollection collection
      */
-    public void cachePattern(String filePattern, Map<DecoratedAddress, List<IdScorePair>> scorePairCollection){
+    public void cachePattern(SearchPattern filePattern, Map<DecoratedAddress, List<IdScorePair>> scorePairCollection){
         queryResponseCache.put(filePattern, scorePairCollection);
     }
 
@@ -43,7 +44,7 @@ public class SearchCache {
      * @param pattern search pattern
      * @return hit - score/id collection.
      */
-    public Map<DecoratedAddress, List<IdScorePair>> getScorePairCollection(String pattern){
+    public Map<DecoratedAddress, List<IdScorePair>> getScorePairCollection(SearchPattern pattern){
         return this.queryResponseCache.get(pattern);
     }
 
@@ -54,7 +55,7 @@ public class SearchCache {
      *
      * @param pattern file pattern
      */
-    public void removeCachedPattern(String pattern){
+    public void removeCachedPattern(SearchPattern pattern){
         this.queryResponseCache.remove(pattern);
     }
 

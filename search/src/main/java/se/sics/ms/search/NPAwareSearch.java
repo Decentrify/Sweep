@@ -2540,6 +2540,18 @@ public final class NPAwareSearch extends ComponentDefinition {
             searchRequest.startSearch(pattern, paginateInfo, searchRoundId);
 
             trigger(rst, timerPort);
+
+//          CHECK FOR PATTERN IN CACHE.
+            Map<DecoratedAddress, List<IdScorePair>> cachedScoreMap= cache.getScorePairCollection(pattern);
+            List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
+            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
+                    maxHitList, paginateInfo);
+
+            if(paginateEntryIdMap  != null){
+                initiateFetchPhase(paginateEntryIdMap);
+                return;
+            }
+
             trigger(new GradientRoutingPort.SearchRequest(searchRequest.getSearchPattern(),
                     rst.getTimeoutEvent().getTimeoutId(),
                     searchTimeout, fanoutParameter), gradientRoutingPort);
@@ -2813,10 +2825,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         private void cacheScoreMetaData(SearchPattern pattern, Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> baseList){
 
             Map<DecoratedAddress, List<IdScorePair>> retainedMap = createRetainedMap(baseMap, baseList);
-            cache.cachePattern(pattern.getFileNamePattern(), retainedMap);
+            cache.cachePattern(pattern, retainedMap);
 
             ScheduleTimeout st = new ScheduleTimeout(MsConfig.SCORE_DATA_CACHE_TIMEOUT);
-            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st, pattern.getFileNamePattern());
+            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st, pattern);
             st.setTimeoutEvent(ct);
 
             trigger(st, timerPort);
