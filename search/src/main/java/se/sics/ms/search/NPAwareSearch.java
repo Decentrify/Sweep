@@ -2549,14 +2549,20 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             if(cachedScoreMap != null){
 
-                logger.debug("{}: Started the search with the cached entries.");
+                logger.debug("{}: Started the search with the cached entries.", prefix);
+                
                 List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
                 Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
                         maxHitList, paginateInfo);
 
                 if(paginateEntryIdMap  != null){
+                    searchRequest.storeNumHits(maxHitList.size());
                     initiateFetchPhase(paginateEntryIdMap);
                     return;
+                }
+                
+                else{
+                    throw new IllegalStateException("Unable to paginate the cached data.");
                 }
             }
 
@@ -2934,9 +2940,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             SearchResponse response = new SearchResponse(entries, numHits, paginateInfo, pattern);
 
-            logger.error("{}: Search Response generated . {}", prefix , response);
-            System.exit(-1);
-            logger.warn("{}: final response sent back to the application: {}", prefix, response);
+            logger.debug("{}: Search Response generated . {}", prefix , response);
             trigger(response, uiPort);
         }
 
