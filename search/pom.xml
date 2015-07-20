@@ -9,7 +9,6 @@
 
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-search</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>ms-search</name>
@@ -22,22 +21,7 @@
             <artifactId>partition-aware</artifactId>
             <version>${project.version}</version>
         </dependency>
-        
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.croupier</groupId>
-            <artifactId>croupier-core</artifactId>
-            <version>${croupier.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.gradient</groupId>
-            <artifactId>gradient-core</artifactId>
-            <version>${gradient.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.gradient</groupId>
-            <artifactId>tree-gradient-core</artifactId>
-            <version>${gradient.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-json</artifactId>
@@ -97,20 +81,20 @@
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-gradient</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-election</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         
     </dependencies>
