@@ -10,27 +10,17 @@
 
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-gradient</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>ms-gradient</name>
     <url>http://maven.apache.org</url>
 
     <dependencies>
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.croupier</groupId>
-            <artifactId>croupier-api</artifactId>
-            <version>${croupier.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.gradient</groupId>
-            <artifactId>gradient-api</artifactId>
-            <version>${gradient.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-common</artifactId>
-            <version>1.0-SNAPSHOT</version>            
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>se.sics</groupId>
@@ -59,7 +49,7 @@
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         
     </dependencies>

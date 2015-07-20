@@ -6,9 +6,9 @@
         <artifactId>mediasearch-parent</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
+
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-common</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>ms-common</name>
 
@@ -30,22 +30,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
         <dependency>
             <groupId>se.sics.timer.java</groupId> 
             <artifactId>java-timer</artifactId>
             <version>${nattraverser.version}</version>
-        </dependency>    
-        <dependency>
-            <groupId>se.sics.kompics</groupId>
-            <artifactId>kompics-core</artifactId>
-            <version>${new.kompics.version}</version>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <artifactId>log4j</artifactId>
-                    <groupId>log4j</groupId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -60,87 +49,106 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
         <dependency>
             <groupId>se.sics</groupId>
             <artifactId>ip-as-distances</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math</artifactId>
             <version>2.2</version>
         </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.10</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
             <version>1.2</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-memory</artifactId>
             <version>${lucene.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-core</artifactId>
             <version>${lucene.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queries</artifactId>
             <version>${lucene.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queryparser</artifactId>
             <version>${lucene.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analyzers-common</artifactId>
             <version>${lucene.version}</version>
         </dependency>
+
+        <!-- Overlay Network Dependencies.-->
+
         <dependency>
-            <groupId>se.sics.p2ptoolbox.croupier</groupId>
+            <groupId>se.sics.ktoolbox.croupier</groupId>
             <artifactId>croupier-api</artifactId>
             <version>${croupier.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>se.sics.p2ptoolbox.gradient</groupId>
+            <groupId>se.sics.ktoolbox.gradient</groupId>
             <artifactId>gradient-core</artifactId>
             <version>${gradient.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>se.sics.p2ptoolbox.aggregator</groupId>
+            <groupId>se.sics.ktoolbox.gradient</groupId>
+            <artifactId>tree-gradient-core</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator</groupId>
             <artifactId>aggregator-api</artifactId>
             <version>${global.aggregator.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>se.sics.p2ptoolbox.aggregator</groupId>
+            <groupId>se.sics.ktoolbox.aggregator</groupId>
             <artifactId>aggregator-core</artifactId>
             <version>${global.aggregator.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>se.sics.p2ptoolbox.election</groupId>
+            <groupId>se.sics.ktoolbox.election</groupId>
             <artifactId>election-core</artifactId>
             <version>${election.version}</version>
         </dependency>
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.gradient</groupId>
-            <artifactId>gradient-core</artifactId>
-            <version>${gradient.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>se.sics.p2ptoolbox</groupId>
             <artifactId>serialization-util</artifactId>
             <version>${serialization.util.version}</version>
         </dependency>
+
         <dependency>
             <groupId>se.sics.p2ptoolbox</groupId>
             <artifactId>util-serializer</artifactId>
