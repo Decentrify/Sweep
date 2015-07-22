@@ -1,12 +1,11 @@
 package se.sics.ms.types;
 
+import com.google.common.io.BaseEncoding;
 import org.apache.lucene.document.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.commons.codec.binary.Base64;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.util.ApplicationConst;
-import sun.misc.BASE64Encoder;
 
 import java.io.Serializable;
 import java.security.KeyFactory;
@@ -15,7 +14,6 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
-import java.util.UUID;
 
 /**
  * Representation of one entry in the search database.
@@ -229,7 +227,7 @@ public class IndexEntry implements Serializable {
             if (entry.getLeaderId() == null)
                 doc.add(new StringField(IndexEntry.LEADER_ID, new String(), Field.Store.YES));
             else
-                doc.add(new StringField(IndexEntry.LEADER_ID, new BASE64Encoder().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
+                doc.add(new StringField(IndexEntry.LEADER_ID, BaseEncoding.base64().encode(entry.getLeaderId().getEncoded()), Field.Store.YES));
 
             if (entry.getUploaded() != null) {
                 doc.add(new LongField(IndexEntry.UPLOADED, entry.getUploaded().getTime(), Field.Store.YES));
@@ -265,7 +263,7 @@ public class IndexEntry implements Serializable {
             PublicKey pub = null;
             try {
                 keyFactory = KeyFactory.getInstance("RSA");
-                byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+                byte[] decode = BaseEncoding.base64().decode(leaderId);
                 X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
                 pub = keyFactory.generatePublic(publicKeySpec);
             } catch (NoSuchAlgorithmException e) {

@@ -48,7 +48,8 @@ public class PublicKeyMessage extends DirectMsgNetty.Oneway {
     @Override
     public ByteBuf toByteArray() throws MessageEncodingException {
         ByteBuf buffer = createChannelBufferWithHeader();
-        writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
+//        FILE SHALL BE REMOVED ON THE CLEAN UP.
+//        writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
         return buffer;
     }
 

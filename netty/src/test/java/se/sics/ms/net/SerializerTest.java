@@ -118,6 +118,18 @@ public class SerializerTest {
 
 
     @Test
+    public void publicKeySerializerTest(){
+
+        logger.info("Public Key Serializer Test");
+
+        Serializer pubKeySerializer = Serializers.lookupSerializer(PublicKey.class);
+        PublicKey copiedPubKey = (PublicKey) addObjectAndCreateCopiedObject(pubKeySerializer, originalBuf, publicKey, copiedBuf);
+
+        Assert.assertEquals("Public Key Comparison", publicKey, copiedPubKey);
+    }
+
+
+    @Test
     public void searchPatternSerializationTest(){
         logger.info("Search pattern serialization test");
 

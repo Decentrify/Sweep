@@ -1,8 +1,8 @@
 package se.sics.ms.search;
 
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -2245,7 +2245,7 @@ public final class Search extends ComponentDefinition {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(leaderId);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
