@@ -41,7 +41,7 @@ public class SearchQuerySerializer {
             
             Serializers.lookupSerializer(UUID.class).toBinary(request.getRequestId(), buf);
             buf.writeInt(request.getPartitionId());
-            Serializers.lookupSerializer(SearchPattern.class).toBinary(request.getRequestId(), buf);
+            Serializers.lookupSerializer(SearchPattern.class).toBinary(request.getPattern(), buf);
         }
 
         @Override
