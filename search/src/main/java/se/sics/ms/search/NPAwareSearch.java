@@ -27,6 +27,9 @@ import se.sics.ms.data.aggregator.ElectionLeaderUpdateEvent;
 import se.sics.ms.data.aggregator.SearchComponentUpdate;
 import se.sics.ms.data.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.events.*;
+import se.sics.ms.events.UiSearchRequest;
+import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.events.paginateAware.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
@@ -281,6 +284,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(searchProtocolTracker.handleSearchFetchResponse, networkPort);
         subscribe(searchProtocolTracker.searchProtocolTimeout, timerPort);
         subscribe(searchProtocolTracker.cacheTimeoutHandler, timerPort);
+
+        subscribe(paginateSearchRequestHandler, uiPort);
     }
 
     /**
@@ -1298,6 +1303,22 @@ public final class NPAwareSearch extends ComponentDefinition {
             startSearch(searchRequest.getPattern(), null, null);
         }
     };
+
+
+    final Handler<se.sics.ms.events.paginateAware.UiSearchRequest> paginateSearchRequestHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchRequest>() {
+        @Override
+        public void handle(se.sics.ms.events.paginateAware.UiSearchRequest uiSearchRequest) {
+
+            logger.error("{}: Received paginate aware search request.");
+
+            searchProtocolTracker.initiateShardSearch(uiSearchRequest.getPattern(),
+                    uiSearchRequest.getPaginateInfo(),
+                    config.getQueryTimeout(),
+                    MsConfig.GRADIENT_SEARCH_PARALLELISM);
+        }
+    };
+
+
 
     final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
@@ -2534,7 +2555,7 @@ public final class NPAwareSearch extends ComponentDefinition {
          * @param searchTimeout timeout for search
          * @param fanoutParameter search parallelism
          */
-        private void initiateShardSearch(SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
+        private void initiateShardSearch( SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
 
             ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
             rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
@@ -2552,18 +2573,20 @@ public final class NPAwareSearch extends ComponentDefinition {
                 logger.debug("{}: Started the search with the cached entries.", prefix);
                 
                 List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
-                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInputUpdated(cachedScoreMap,
+                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
                         maxHitList, paginateInfo);
 
                 if(paginateEntryIdMap  != null){
                     searchRequest.storeNumHits(maxHitList.size());
                     initiateFetchPhase(paginateEntryIdMap);
-                    return;
                 }
-                
-                else{
-                    throw new IllegalStateException("Unable to paginate the cached data.");
+
+                else {
+                    sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
+                            new ArrayList<EntryScorePair>());
                 }
+
+                return;
             }
 
             logger.error("{}: Going to start default search query phase with pattern:{} ", prefix, searchRequest.getSearchPattern());
@@ -2695,11 +2718,12 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 //                              BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
                                 PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
-                                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInputUpdated(completeScoreMap,
+                                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
                                         maxHitList, paginateInfo);
 
                                 if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
                                     logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
+
                                     return;
                                 }
 
@@ -2738,7 +2762,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
 
-
         /**
          * Filter and convert the paginate id score pair map to the structure which is required by
          * the fetch phase of the search protocol.
@@ -2747,48 +2770,7 @@ public final class NPAwareSearch extends ComponentDefinition {
          * @param baseMap base score id map.
          * @return fetch phase data structure.
          */
-        private Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> prepareFetchPhaseInput ( Map<DecoratedAddress,List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
-
-            Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> result = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
-
-            int from  = paginateInfo.getFrom();
-            int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
-
-            if(from > maxHitList.size()) {
-
-//              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
-                logger.warn("{}: Unable to search as range not lying in current range.", prefix);
-                return null;
-            }
-
-            int to = from + (size);
-            to = to > maxHitList.size() ? maxHitList.size() : to;
-
-            List<IdScorePair> paginateList = maxHitList.subList (from, to);
-            Map<DecoratedAddress, List<IdScorePair>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
-
-            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateScoreMap.entrySet()){
-
-                List<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList();
-                for(IdScorePair pair : entry.getValue()){
-                    entryIds.add(pair.getEntryId());
-                }
-                result.put(entry.getKey(), entryIds);
-            }
-
-            return result;
-        }
-
-
-        /**
-         * Filter and convert the paginate id score pair map to the structure which is required by
-         * the fetch phase of the search protocol.
-         *
-         * @param maxHitList sorted list
-         * @param baseMap base score id map.
-         * @return fetch phase data structure.
-         */
-        private Map<DecoratedAddress, List<IdScorePair>> prepareFetchPhaseInputUpdated ( Map<DecoratedAddress,List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
+        private Map<DecoratedAddress, List<IdScorePair>> prepareFetchPhaseInput(Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
 
             Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
 
@@ -2819,13 +2801,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             return result;
         }
-        
-        
-        
-        
-        
-        
-        
+
         /**
          * Before the initiation of the fetch phase,
          * the data pulled during the query phase needs to be cached, to be used on subsequent
