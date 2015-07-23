@@ -8,6 +8,7 @@ import org.apache.lucene.store.Directory;
 import se.sics.ms.common.LuceneAdaptorBasic;
 import se.sics.ms.common.LuceneAdaptorException;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 
 import java.util.Collection;
@@ -109,5 +110,16 @@ public abstract class ApplicationLuceneAdaptor extends LuceneAdaptorBasic {
      * @throws LuceneAdaptorException
      */
     public abstract List<ApplicationEntry> getApplicationEntries(Collection<ApplicationEntry.ApplicationEntryId> entryIds) throws LuceneAdaptorException;
+
+
+    /**
+     * Based on the collection of the id score pairs passed to the application,
+     * application will fetch the entries from data store.
+     *
+     * @param scorePairs
+     * @return
+     * @throws LuceneAdaptorException
+     */
+    public abstract List<EntryScorePair> getEntryScorePairs(Collection<IdScorePair> scorePairs) throws LuceneAdaptorException;
 
 }

@@ -2,6 +2,7 @@ package se.sics.ms.model;
 
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PaginateInfo;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -100,7 +101,7 @@ public class LocalSearchRequest {
      * responses.
      * @param fetchMap fetch phase map.
      */
-    public void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchMap) {
+    public void initiateFetchPhase(Map<DecoratedAddress, List<IdScorePair>> fetchMap) {
 
         if(this.fetchPhaseTracker != null){
             this.fetchPhaseTracker.initiateFetchPhase(fetchMap);
@@ -113,7 +114,7 @@ public class LocalSearchRequest {
      * @param source source
      * @param entries entries
      */
-    public void addFetchPhaseResponse(DecoratedAddress source, Collection<ApplicationEntry> entries){
+    public void addFetchPhaseResponse(DecoratedAddress source, Collection<EntryScorePair> entries){
 
         if(this.fetchPhaseTracker != null){
             this.fetchPhaseTracker.addFetchPhaseResponse(source, entries);
@@ -136,11 +137,11 @@ public class LocalSearchRequest {
      *
      * @return Fetched Entries.
      */
-    public List<ApplicationEntry> getFetchedEntries(){
+    public List<EntryScorePair> getFetchedEntries(){
 
-        List<ApplicationEntry> result = new ArrayList<ApplicationEntry>();
+        List<EntryScorePair> result = new ArrayList<EntryScorePair>();
         if(this.fetchPhaseTracker != null) {
-            for(Collection<ApplicationEntry> entries : this.fetchPhaseTracker.fetchedPhaseResponseMap.values()){
+            for(Collection<EntryScorePair> entries : this.fetchPhaseTracker.fetchedPhaseResponseMap.values()){
                 result.addAll(entries);
             }
         }
@@ -335,15 +336,15 @@ public class LocalSearchRequest {
     private class FetchPhaseTracker {
 
 
-        public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap;
-        public Map<DecoratedAddress, Collection<ApplicationEntry>> fetchedPhaseResponseMap;
+        public Map<DecoratedAddress, List<IdScorePair>> fetchPhaseRequestMap;
+        public Map<DecoratedAddress, Collection<EntryScorePair>> fetchedPhaseResponseMap;
 
         public FetchPhaseTracker(){
-            this.fetchPhaseRequestMap = new HashMap<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>>();
-            this.fetchedPhaseResponseMap = new HashMap<DecoratedAddress, Collection<ApplicationEntry>>();
+            this.fetchPhaseRequestMap = new HashMap<DecoratedAddress, List<IdScorePair>>();
+            this.fetchedPhaseResponseMap = new HashMap<DecoratedAddress, Collection<EntryScorePair>>();
         }
 
-        public void initiateFetchPhase(Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> fetchPhaseRequestMap){
+        public void initiateFetchPhase(Map<DecoratedAddress, List<IdScorePair>> fetchPhaseRequestMap){
             this.fetchPhaseRequestMap = fetchPhaseRequestMap;
         }
 
@@ -362,7 +363,7 @@ public class LocalSearchRequest {
          *
          * @return Map.
          */
-        public Map<DecoratedAddress, List<ApplicationEntry.ApplicationEntryId>> getFetchPhaseMap() {
+        public Map<DecoratedAddress, List<IdScorePair>> getFetchPhaseMap() {
             return this.fetchPhaseRequestMap;
         }
 
@@ -374,7 +375,7 @@ public class LocalSearchRequest {
          * @param source source
          * @param entries application entries
          */
-        public void addFetchPhaseResponse(DecoratedAddress source, Collection<ApplicationEntry>entries){
+        public void addFetchPhaseResponse(DecoratedAddress source, Collection<EntryScorePair>entries){
 
             if(fetchPhaseRequestMap.containsKey(source)) {
                 fetchedPhaseResponseMap.put(source, entries);

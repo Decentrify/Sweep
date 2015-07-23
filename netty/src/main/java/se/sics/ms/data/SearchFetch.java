@@ -1,6 +1,8 @@
 package se.sics.ms.data;
 
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.ms.util.EntryScorePair;
+import se.sics.ms.util.IdScorePair;
 
 import java.util.Collection;
 import java.util.UUID;
@@ -18,10 +20,10 @@ public class SearchFetch {
     public static class Request {
 
         private UUID fetchRequestId;
-        private Collection<ApplicationEntry.ApplicationEntryId> entryIds;
+        private Collection<IdScorePair> entryIds;
 
 
-        public Request(UUID fetchRequestId, Collection<ApplicationEntry.ApplicationEntryId> entryIds) {
+        public Request(UUID fetchRequestId, Collection<IdScorePair> entryIds) {
 
             this.fetchRequestId = fetchRequestId;
             this.entryIds = entryIds;
@@ -61,7 +63,7 @@ public class SearchFetch {
             return fetchRequestId;
         }
 
-        public Collection<ApplicationEntry.ApplicationEntryId> getEntryIds() {
+        public Collection<IdScorePair> getEntryIds() {
             return entryIds;
         }
     }
@@ -73,12 +75,12 @@ public class SearchFetch {
 
 
         private UUID fetchRequestId;
-        private Collection<ApplicationEntry> applicationEntries;
+        private Collection<EntryScorePair> entryScorePairs;
 
-        public Response(UUID fetchRequestId, Collection<ApplicationEntry> applicationEntries){
+        public Response(UUID fetchRequestId, Collection<EntryScorePair> entryScorePairs){
 
             this.fetchRequestId = fetchRequestId;
-            this.applicationEntries = applicationEntries;
+            this.entryScorePairs = entryScorePairs;
 
         }
 
@@ -86,7 +88,7 @@ public class SearchFetch {
         public String toString() {
             return "Response{" +
                     "fetchRequestId=" + fetchRequestId +
-                    ", applicationEntries=" + applicationEntries +
+                    ", applicationEntries=" + entryScorePairs +
                     '}';
         }
 
@@ -97,7 +99,7 @@ public class SearchFetch {
 
             Response response = (Response) o;
 
-            if (applicationEntries != null ? !applicationEntries.equals(response.applicationEntries) : response.applicationEntries != null)
+            if (entryScorePairs != null ? !entryScorePairs.equals(response.entryScorePairs) : response.entryScorePairs != null)
                 return false;
             if (fetchRequestId != null ? !fetchRequestId.equals(response.fetchRequestId) : response.fetchRequestId != null)
                 return false;
@@ -108,7 +110,7 @@ public class SearchFetch {
         @Override
         public int hashCode() {
             int result = fetchRequestId != null ? fetchRequestId.hashCode() : 0;
-            result = 31 * result + (applicationEntries != null ? applicationEntries.hashCode() : 0);
+            result = 31 * result + (entryScorePairs != null ? entryScorePairs.hashCode() : 0);
             return result;
         }
 
@@ -116,8 +118,8 @@ public class SearchFetch {
             return fetchRequestId;
         }
 
-        public Collection<ApplicationEntry> getApplicationEntries() {
-            return applicationEntries;
+        public Collection<EntryScorePair> getEntryScorePairs() {
+            return entryScorePairs;
         }
     }
 

@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import junit.framework.Assert;
-import org.apache.lucene.analysis.util.CharArrayMap;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -17,6 +16,7 @@ import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
 import se.sics.ms.types.*;
+import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
@@ -885,14 +885,28 @@ public class SerializerTest {
         Assert.assertEquals("SearchQuery Response Test", response, copiedResponse);
     }
 
+    
+    @Test
+    public void entryScorePairTest(){
+        logger.info("Entry Score Pair Test");
+        EntryScorePair esp = new EntryScorePair(getTestApplicationEntry(), new Float(1.112));
+        
+        Serializer serializer = Serializers.lookupSerializer(EntryScorePair.class);
+        EntryScorePair copiedPair = (EntryScorePair)addObjectAndCreateCopiedObject(serializer, originalBuf, esp, copiedBuf);
+        
+        Assert.assertEquals("entry score pair test", esp, copiedPair);
+    }
+    
+    
+    
     @Test
     public void searchFetchRequestTest(){
         logger.info("Search Fetch Request Test");
 
-        Collection<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList<ApplicationEntry.ApplicationEntryId>();
+        Collection<IdScorePair> entryIds = new ArrayList<IdScorePair>();
 
-        entryIds.add(new ApplicationEntry.ApplicationEntryId(0, 100, 100));
-        entryIds.add(new ApplicationEntry.ApplicationEntryId(1, 100, 100));
+        entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(0, 100, 100), new Float(1.32)));
+        entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(1, 100, 100), new Float(1.22)));
 
         SearchFetch.Request fetchRequest = new SearchFetch.Request(UUID.randomUUID(), entryIds);
         Serializer serializer = Serializers.lookupSerializer(SearchFetch.Request.class);
@@ -906,7 +920,12 @@ public class SerializerTest {
 
         logger.info("Search Fetch Response Test");
         Collection<ApplicationEntry> collection = getApplicationEntryCollection(3);
-        SearchFetch.Response response =  new SearchFetch.Response(UUID.randomUUID(), collection);
+        Collection<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
+        
+        for(ApplicationEntry entry : collection){
+            entryScorePairs.add(new EntryScorePair(entry, new Float(1.0)));
+        }
+        SearchFetch.Response response =  new SearchFetch.Response(UUID.randomUUID(), entryScorePairs);
 
         Serializer serializer = Serializers.lookupSerializer(SearchFetch.Response.class);
         SearchFetch.Response copiedResponse = (SearchFetch.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);

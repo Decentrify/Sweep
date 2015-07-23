@@ -10,6 +10,7 @@ import se.sics.ms.data.aggregator.SearchComponentUpdate;
 import se.sics.ms.data.aggregator.SearchComponentUpdateSerializer;
 import se.sics.ms.serializer.*;
 import se.sics.ms.types.*;
+import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
@@ -95,7 +96,7 @@ public class SerializerSetup {
 //      PAGINATE
         
         idScorePair(IdScorePair.class, "idScorePair"),
-        
+        entryScorePair(EntryScorePair.class, "entryScorePair"),
         searchQueryRequest(SearchQuery.Request.class, "searchQueryRequest"),
         searchQueryResponse(SearchQuery.Response.class, "searchQueryResponse"),
         
@@ -409,6 +410,10 @@ public class SerializerSetup {
         IdScorePairSerializer scorePairSerializer = new IdScorePairSerializer(currentId++);
         Serializers.register(scorePairSerializer, SweepSerializers.idScorePair.serializerName);
         Serializers.register(SweepSerializers.idScorePair.serializedClass, SweepSerializers.idScorePair.serializerName);
+
+        EntryScorePairSerializer entryScorePairSerializer = new EntryScorePairSerializer(currentId++);
+        Serializers.register(entryScorePairSerializer, SweepSerializers.entryScorePair.serializerName);
+        Serializers.register(SweepSerializers.entryScorePair.serializedClass, SweepSerializers.entryScorePair.serializerName);
 
         return currentId;
     }
