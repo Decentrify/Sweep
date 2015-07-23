@@ -2989,6 +2989,7 @@ public final class NPAwareSearch extends ComponentDefinition {
          */
         private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern,  List<EntryScorePair> entryScorePairs){
 
+            Collections.sort(entryScorePairs);      // Sort the entry score pairs before sending.
             List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
             
             for(EntryScorePair scorePair : entryScorePairs){
