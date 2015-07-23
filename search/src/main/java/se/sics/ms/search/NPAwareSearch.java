@@ -1311,10 +1311,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             logger.error("{}: Received paginate aware search request.");
 
-            searchProtocolTracker.initiateShardSearch(uiSearchRequest.getPattern(),
+            searchProtocolTracker.initiateShardSearch( uiSearchRequest.getPattern(),
                     uiSearchRequest.getPaginateInfo(),
                     config.getQueryTimeout(),
-                    MsConfig.GRADIENT_SEARCH_PARALLELISM);
+                    MsConfig.GRADIENT_SEARCH_PARALLELISM );
         }
     };
 
@@ -2582,8 +2582,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
 
                 else {
-                    sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
-                            new ArrayList<EntryScorePair>());
+                    sendEmptyResponse();
                 }
 
                 return;
@@ -2594,6 +2593,18 @@ public final class NPAwareSearch extends ComponentDefinition {
             trigger(new GradientRoutingPort.SearchRequest(searchRequest.getSearchPattern(),
                     rst.getTimeoutEvent().getTimeoutId(),
                     searchTimeout, fanoutParameter), gradientRoutingPort);
+        }
+
+
+        /**
+         * In case an internal error or there is no hit for the 
+         * search string, the application will reply with an empty list of 
+         * matched entries.
+         */
+        private void sendEmptyResponse(){
+            
+            sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
+                    new ArrayList<EntryScorePair>());
         }
 
         /**
@@ -2710,24 +2721,38 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 //                              COMPUTE THE ORDERED LIST CONTAINING MAX POSSIBLE HITS FOR QUERY.
                                 Map<DecoratedAddress, List<IdScorePair>> completeScoreMap = searchRequest.getIdScoreMap();
-                                List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
+                                
+                                if(completeScoreMap.size() > 0){
+                                    
+                                    List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
 
-//                              STORE THE METADATA AND UPDATE THE CACHE.
-                                searchRequest.storeNumHits(maxHitList.size());
-                                cacheScoreMetaData(searchRequest.getSearchPattern(), completeScoreMap, maxHitList);
+//                                  STORE THE METADATA AND UPDATE THE CACHE.
+                                    searchRequest.storeNumHits(maxHitList.size());
+                                    cacheScoreMetaData(searchRequest.getSearchPattern(), completeScoreMap, maxHitList);
 
-//                              BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
-                                PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
-                                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
-                                        maxHitList, paginateInfo);
+//                                  BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
+                                    PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
+                                    Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
+                                            maxHitList, paginateInfo);
 
-                                if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
-                                    logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
+                                    if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
 
-                                    return;
+                                        logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
+                                        sendEmptyResponse();
+                                        return;
+                                    }
+
+                                    initiateFetchPhase(paginateEntryIdMap);    
                                 }
-
-                                initiateFetchPhase(paginateEntryIdMap);
+                                
+                                
+                                else {
+                                    
+                                    logger.debug(" No matching entry found for the corresponding search pattern");
+                                    sendEmptyResponse();
+                                }
+                                
+                                
                             }
                         }
                     }
