@@ -1,7 +1,7 @@
 package se.sics.ms.net;
 
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
-import org.apache.commons.codec.binary.Base64;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
@@ -47,7 +47,7 @@ public class ApplicationTypesDecoderFactory {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(leaderId);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
@@ -94,7 +94,7 @@ public class ApplicationTypesDecoderFactory {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(leaderId);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
@@ -253,7 +253,7 @@ public class ApplicationTypesDecoderFactory {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(stringKey.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(stringKey);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
@@ -309,7 +309,7 @@ public class ApplicationTypesDecoderFactory {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(key.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(key);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {

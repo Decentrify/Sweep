@@ -1,7 +1,7 @@
 package se.sics.ms.messages;
 
 import io.netty.buffer.ByteBuf;
-import org.apache.commons.codec.binary.Base64;
+//import org.apache.commons.codec.binary.Base64;
 import se.sics.gvod.common.msgs.DirectMsgNettyFactory;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.util.UserTypesDecoderFactory;
@@ -34,7 +34,8 @@ public class PublicKeyMessageFactory extends DirectMsgNettyFactory.Oneway {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(key.getBytes());
+            byte[] decode = null;
+//            byte[] decode = Base64.decodeBase64(key.getBytes());
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {

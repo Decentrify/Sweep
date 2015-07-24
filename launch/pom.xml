@@ -7,27 +7,17 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.1-SNAPSHOT</version>
     </parent>
-
     <groupId>se.kth.ms</groupId>
     <artifactId>launch</artifactId>
 
-    
-    
-    <properties>
-        <netty.version>1.0-SNAPSHOT</netty.version>
-    </properties>
-    
-
     <dependencies>
-
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-search</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
@@ -35,63 +25,43 @@
         </dependency>
 
         <dependency>
-            <groupId>se.sics.ms</groupId>
-            <artifactId>netty</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-            <version>1.2.1</version>
-        </dependency>
-
-        <dependency>
             <groupId>se.sics.kompics.basic</groupId>
             <artifactId>kompics-component-java-timer</artifactId>
-            <version>${new.kompics.version}</version>
+            <version>${kompics.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.kompics.basic</groupId>
             <artifactId>kompics-component-netty-network</artifactId>
-            <version>${new.kompics.version}</version>
+            <version>${kompics.version}</version>
         </dependency>
 
         <!-- Network Registrations. -->
-
         <dependency>
             <groupId>se.sics.ktoolbox.croupier</groupId>
             <artifactId>croupier-network</artifactId>
             <version>${croupier.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.ktoolbox.gradient</groupId>
             <artifactId>gradient-network</artifactId>
             <version>${gradient.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.ktoolbox.election</groupId>
             <artifactId>election-network</artifactId>
             <version>${election.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.ktoolbox.aggregator</groupId>
             <artifactId>aggregator-network</artifactId>
-            <version>${global.aggregator.version}</version>
+            <version>${aggregator.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.ktoolbox.cm</groupId>
             <artifactId>cm-network</artifactId>
-            <version>${chunk.manager.version}</version>
+            <version>${chunkmanager.version}</version>
         </dependency>
-
     </dependencies>
-
 
     <build>
         <plugins>
@@ -111,11 +81,6 @@
                     </archive>
                 </configuration>
             </plugin>
-            
         </plugins>
-        
     </build>
-    
-    
-    
 </project>

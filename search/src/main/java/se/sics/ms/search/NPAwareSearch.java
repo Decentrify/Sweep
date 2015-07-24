@@ -1235,7 +1235,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                     CancelTimeout ct = new CancelTimeout(response.getEntryAdditionRound());
                     trigger(ct, timerPort);
 
-                    checkForLandingEntryAdd(response.getEntryAdditionRound());
+                    if(checkForLandingEntryAdd(response.getEntryAdditionRound()))
+                        return;
 
                     timeStoringMap.remove(response.getEntryAdditionRound());
                     trigger(new UiAddIndexEntryResponse(true), uiPort);
@@ -1248,15 +1249,20 @@ public final class NPAwareSearch extends ComponentDefinition {
      * In special case in which the entry might be a landing entry, check based on the round id and
      * reset the landing entry addition meta data and update the current epochId with which the leader will be adding the entry in the system.
      */
-    private void checkForLandingEntryAdd(UUID roundId) {
+    private boolean checkForLandingEntryAdd(UUID roundId) {
+
+        boolean result = false;
 
         logger.debug("{}: Checking for response for landing entry addition", prefix);
         if (landingEntryTracker.getLandingEntryRoundId() != null && roundId.equals(landingEntryTracker.getLandingEntryRoundId())) {
 
+            result = true;
             currentEpoch = landingEntryTracker.getEpochId();
             markerEntryAdded = true;
             landingEntryTracker.resetTracker();
         }
+
+        return result;
     }
 
 

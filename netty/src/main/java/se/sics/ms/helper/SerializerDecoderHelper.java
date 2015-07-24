@@ -1,8 +1,8 @@
 package se.sics.ms.helper;
 
 import com.google.common.base.Optional;
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
-import org.apache.commons.codec.binary.Base64;
 import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.configuration.MsConfig;
@@ -16,8 +16,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Collection;
 import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -49,7 +47,7 @@ public class SerializerDecoderHelper {
         PublicKey pub = null;
         try {
             keyFactory = KeyFactory.getInstance("RSA");
-            byte[] decode = Base64.decodeBase64(leaderId.getBytes());
+            byte[] decode = BaseEncoding.base64().decode(leaderId);
             X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decode);
             pub = keyFactory.generatePublic(publicKeySpec);
         } catch (NoSuchAlgorithmException e) {
