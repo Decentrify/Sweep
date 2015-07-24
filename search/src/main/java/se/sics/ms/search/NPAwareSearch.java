@@ -2742,10 +2742,9 @@ public final class NPAwareSearch extends ComponentDefinition {
                                         return;
                                     }
 
-                                    initiateFetchPhase(paginateEntryIdMap);    
+                                    initiateFetchPhase(paginateEntryIdMap);
                                 }
-                                
-                                
+
                                 else {
                                     
                                     logger.debug(" No matching entry found for the corresponding search pattern");
@@ -2997,7 +2996,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 entries.add(scorePair.getEntry());
             }
             
-            SearchResponse response = new SearchResponse(entries, numHits, paginateInfo, pattern);
+            se.sics.ms.events.paginateAware.UiSearchResponse response = new se.sics.ms.events.paginateAware.UiSearchResponse(pattern, paginateInfo, numHits, entries);
             logger.debug("{}: Search Response generated . {}", prefix , response);
             trigger(response, uiPort);
         }
