@@ -220,7 +220,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, networkPort);
-        subscribe(handleSearchTimeout, timerPort);
 
         subscribe(landingEntryAddTimeout, timerPort);
         subscribe(handleAddRequestTimeout, timerPort);
@@ -1601,19 +1600,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         searchRequestStarted.remove(requestId);
     }
 
-    /**
-     * Answer a search request if the timeout occurred before all answers were
-     * collected.
-     */
-    final Handler<TimeoutCollection.SearchTimeout> handleSearchTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
-        @Override
-        public void handle(TimeoutCollection.SearchTimeout event) {
-            logSearchTimeResults(event.getTimeoutId(), System.currentTimeMillis(),
-                    searchRequest.getNumberOfRespondedPartitions());
-            answerSearchRequestBase();
-        }
-    };
-
 
     /**
      * Based on the median entry and the boolean check, determine
@@ -2655,6 +2641,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                     return;
                 }
 
+                sendEmptyResponse();
                 searchRequest.wipeExistingRequest();
             }
         };

@@ -55,4 +55,21 @@ public class UiSearchResponse implements KompicsEvent{
     public Collection<ApplicationEntry> getEntries() {
         return entries;
     }
+
+
+    public void setSearchPattern(SearchPattern searchPattern) {
+        this.searchPattern = searchPattern;
+    }
+
+    public void setPaginateInfo(PaginateInfo paginateInfo) {
+        this.paginateInfo = paginateInfo;
+    }
+
+    public void setNumHits(int numHits) {
+        this.numHits = numHits;
+    }
+
+    public void setEntries(Collection<ApplicationEntry> entries) {
+        this.entries = entries;
+    }
 }
