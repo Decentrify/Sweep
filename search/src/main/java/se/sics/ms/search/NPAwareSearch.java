@@ -2594,7 +2594,9 @@ public final class NPAwareSearch extends ComponentDefinition {
          * matched entries.
          */
         private void sendEmptyResponse(){
-            
+
+            cancelTimeout(searchRequest.getSearchRoundId());
+
             sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
                     new ArrayList<EntryScorePair>());
         }
