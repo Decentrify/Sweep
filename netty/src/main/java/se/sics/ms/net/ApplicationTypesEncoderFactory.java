@@ -4,6 +4,7 @@
  */
 package se.sics.ms.net;
 
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
@@ -11,7 +12,6 @@ import se.sics.gvod.net.util.UserTypesEncoderFactory;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.types.*;
 import se.sics.ms.util.PartitionHelper;
-import sun.misc.BASE64Encoder;
 
 import java.security.PublicKey;
 import java.util.Collection;
@@ -42,7 +42,7 @@ public class ApplicationTypesEncoderFactory {
         if(indexEntry.getLeaderId() == null)
             writeStringLength65536(buffer, new String());
         else
-            writeStringLength65536(buffer, new BASE64Encoder().encode(indexEntry.getLeaderId().getEncoded()));
+            writeStringLength65536(buffer, BaseEncoding.base64().encode(indexEntry.getLeaderId().getEncoded()));
     }
 
     public static void writeIndexEntryCollection(ByteBuf buffer, Collection<IndexEntry> items) throws MessageEncodingException {
@@ -77,7 +77,7 @@ public class ApplicationTypesEncoderFactory {
         if(id.getLeaderId() == null)
             writeStringLength65536(buffer, new String());
         else
-            writeStringLength65536(buffer, new BASE64Encoder().encode(id.getLeaderId().getEncoded()));
+            writeStringLength65536(buffer, BaseEncoding.base64().encode(id.getLeaderId().getEncoded()));
     }
 
     public static void writeIdCollection(ByteBuf buffer, Collection<Id> ids) throws MessageEncodingException {
@@ -188,7 +188,7 @@ public class ApplicationTypesEncoderFactory {
         if(partitionUpdate.getKey() == null)
             writeStringLength65536(buffer, new String());
         else
-            writeStringLength65536(buffer, new BASE64Encoder().encode(partitionUpdate.getKey().getEncoded()));
+            writeStringLength65536(buffer, BaseEncoding.base64().encode(partitionUpdate.getKey().getEncoded()));
     }
 
 
@@ -241,7 +241,7 @@ public class ApplicationTypesEncoderFactory {
 
     public static void writePublicKey(ByteBuf buffer, PublicKey publicKey) throws MessageEncodingException {
         if(publicKey != null)
-            writeStringLength65536(buffer, new BASE64Encoder().encode(publicKey.getEncoded()));
+            writeStringLength65536(buffer, BaseEncoding.base64().encode(publicKey.getEncoded()));
         else
             writeStringLength65536(buffer,new String());
     }

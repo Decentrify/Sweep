@@ -12,7 +12,6 @@ import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.gvod.net.BaseMsgFrameDecoder;
 import se.sics.gvod.net.msgs.RewriteableMsg;
 import se.sics.ms.messages.*;
-import se.sics.p2ptoolbox.serialization.serializer.SerializerAdapter;
 
 /**
  *
@@ -188,36 +187,37 @@ public class MessageFrameDecoder extends BaseMsgFrameDecoder {
             //Chunked message to fragment big messages
 //            case CHUNKED_MESSAGE:
 //                return ChunkedMessageFactory.fromBuffer(buffer);
-            case CROUPIER_REQUEST:
-                SerializerAdapter.Request requestS = new SerializerAdapter.Request();
-                return requestS.decodeMsg(buffer);
-            case CROUPIER_RESPONSE:
-                SerializerAdapter.Response responseS = new SerializerAdapter.Response();
-                return responseS.decodeMsg(buffer);
-            case GRADIENT_REQUEST:
-                SerializerAdapter.Request gReqS = new SerializerAdapter.Request();
-                return gReqS.decodeMsg(buffer);
-            case GRADIENT_RESPONSE:
-                SerializerAdapter.Response gRespS = new SerializerAdapter.Response();
-                return gRespS.decodeMsg(buffer);
-            case AGGREGATOR_ONE_WAY:
-                SerializerAdapter.OneWay oneWay = new SerializerAdapter.OneWay();
-                return oneWay.decodeMsg(buffer);
-            case LEADER_PROMISE_REQUEST:
-                SerializerAdapter.Request request = new SerializerAdapter.Request();
-                return request.decodeMsg(buffer);
-            case LEADER_PROMISE_RESPONSE:
-                SerializerAdapter.Response response = new SerializerAdapter.Response();
-                return response.decodeMsg(buffer);
-            case LEADER_EXTENSION_ONEWAY:
-                SerializerAdapter.OneWay extension_oneWay = new SerializerAdapter.OneWay();
-                return extension_oneWay.decodeMsg(buffer);
-            case LEASE_COMMIT_REQUEST:
-                SerializerAdapter.Request lease_request = new SerializerAdapter.Request();
-                return lease_request.decodeMsg(buffer);
-            case LEASE_COMMIT_RESPONSE:
-                SerializerAdapter.Response laese_response = new SerializerAdapter.Response();
-                return laese_response.decodeMsg(buffer);
+              //TODO Alex - removed for dependency removal - this should be unused code anyway
+//            case CROUPIER_REQUEST:
+//                SerializerAdapter.Request requestS = new SerializerAdapter.Request();
+//                return requestS.decodeMsg(buffer);
+//            case CROUPIER_RESPONSE:
+//                SerializerAdapter.Response responseS = new SerializerAdapter.Response();
+//                return responseS.decodeMsg(buffer);
+//            case GRADIENT_REQUEST:
+//                SerializerAdapter.Request gReqS = new SerializerAdapter.Request();
+//                return gReqS.decodeMsg(buffer);
+//            case GRADIENT_RESPONSE:
+//                SerializerAdapter.Response gRespS = new SerializerAdapter.Response();
+//                return gRespS.decodeMsg(buffer);
+//            case AGGREGATOR_ONE_WAY:
+//                SerializerAdapter.OneWay oneWay = new SerializerAdapter.OneWay();
+//                return oneWay.decodeMsg(buffer);
+//            case LEADER_PROMISE_REQUEST:
+//                SerializerAdapter.Request request = new SerializerAdapter.Request();
+//                return request.decodeMsg(buffer);
+//            case LEADER_PROMISE_RESPONSE:
+//                SerializerAdapter.Response response = new SerializerAdapter.Response();
+//                return response.decodeMsg(buffer);
+//            case LEADER_EXTENSION_ONEWAY:
+//                SerializerAdapter.OneWay extension_oneWay = new SerializerAdapter.OneWay();
+//                return extension_oneWay.decodeMsg(buffer);
+//            case LEASE_COMMIT_REQUEST:
+//                SerializerAdapter.Request lease_request = new SerializerAdapter.Request();
+//                return lease_request.decodeMsg(buffer);
+//            case LEASE_COMMIT_RESPONSE:
+//                SerializerAdapter.Response laese_response = new SerializerAdapter.Response();
+//                return laese_response.decodeMsg(buffer);
 
             default:
                 break;

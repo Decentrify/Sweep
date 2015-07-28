@@ -2,12 +2,10 @@ package se.sics.ms.aggregator.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import org.javatuples.Pair;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.aggregator.data.ComponentUpdate;
 import se.sics.ms.aggregator.data.SweepAggregatedPacket;
-import se.sics.p2ptoolbox.serialization.SerializationContext;
 
 
 import java.util.HashMap;

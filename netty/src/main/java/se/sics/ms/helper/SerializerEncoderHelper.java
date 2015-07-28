@@ -1,5 +1,6 @@
 package se.sics.ms.helper;
 
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
@@ -31,7 +32,7 @@ public class SerializerEncoderHelper {
         if(indexEntry.getLeaderId() == null)
             writeStringLength65536(buffer, new String());
         else
-            writeStringLength65536(buffer, new BASE64Encoder().encode(indexEntry.getLeaderId().getEncoded()));
+            writeStringLength65536(buffer, BaseEncoding.base64().encode(indexEntry.getLeaderId().getEncoded()));
     }
 
 

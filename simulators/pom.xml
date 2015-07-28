@@ -5,92 +5,57 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.1-SNAPSHOT</version>
     </parent>
     <groupId>se.sics.ms</groupId>
     <artifactId>ms-simulators</artifactId>
     <name>ms-simulators</name>
     <url>http://maven.apache.org</url>
 
-
-    <properties>
-        <simulator.version>1.4-SNAPSHOT</simulator.version>
-    </properties>
-
     <dependencies>
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>ms-search</artifactId>
+            <version>${project.version}</version>        
+        </dependency>
+        <dependency>
+            <groupId>se.kth.ms</groupId>
+            <artifactId>launch</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         
         <dependency>
             <groupId>se.sics.p2ptoolbox.simulator</groupId>
             <artifactId>simulator-core</artifactId>
             <version>${simulator.version}</version>
         </dependency>
-
         <dependency>
             <groupId>se.sics.p2ptoolbox.simulator</groupId>
             <artifactId>simulator-dsl</artifactId>
             <version>${simulator.version}</version>
         </dependency>
-        
         <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>ms-search</artifactId>
-            <version>${project.version}</version>        
+            <groupId>se.sics.net</groupId>
+            <artifactId>distributed-orchestrator</artifactId>
+            <version>${nattraverser.version}</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>log4j</artifactId>
+                    <groupId>log4j</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        
-        <dependency>
-                <groupId>log4j</groupId>
-                <artifactId>log4j</artifactId>
-                <version>1.2.17</version>
-        </dependency>
-        
-        <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-                <version>1.5.6</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.croupier</groupId>
-            <artifactId>croupier-core</artifactId>
-            <version>${croupier.version}</version>
-            <type>jar</type>
-        </dependency>
-        
-        <dependency>
-            <groupId>se.sics.p2ptoolbox.election</groupId>
-            <artifactId>election-core</artifactId>
-            <version>${election.version}</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>launch</artifactId>
+         <dependency>
+            <groupId>se.sics</groupId>
+            <artifactId>ip-as-distances</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
         
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-
-            <plugin>
-                <artifactId>
-                    maven-assembly-plugin
-                </artifactId>
-                <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                    <archive>
-                        <manifest>
-                            <mainClass>se.sics.ms.main.ChurnMainTest</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>
-            
-        </plugins>
-
-    </build>
-
 </project>
