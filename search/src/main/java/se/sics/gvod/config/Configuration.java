@@ -14,7 +14,6 @@ public class Configuration extends CompositeConfiguration {
     CroupierConfiguration croupierConfiguration;
     GradientConfiguration gradientConfiguration;
     SearchConfiguration searchConfiguration;
-    ElectionConfiguration electionConfiguration;
 
     public Configuration() throws IOException {
         croupierConfiguration = CroupierConfiguration.build()
@@ -22,7 +21,6 @@ public class Configuration extends CompositeConfiguration {
                 .setRtoRetries(2)
                 .setRtoScale(1.0d);
         gradientConfiguration = GradientConfiguration.build();
-        electionConfiguration = ElectionConfiguration.build();
         searchConfiguration = SearchConfiguration.build();
     }
 }

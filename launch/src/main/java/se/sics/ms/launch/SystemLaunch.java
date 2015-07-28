@@ -4,7 +4,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.*;
@@ -67,7 +66,7 @@ public class SystemLaunch extends ComponentDefinition{
         network = create(NettyNetwork.class, new NettyInit(systemConfig.self));
         searchPeer = create(SearchPeer.class, new SearchPeerInit(applicationSelf, systemConfig, croupierConfig,
                 SearchConfiguration.build(), GradientConfiguration.build(),
-                ElectionConfiguration.build(), chunkManagerConfig, gradientConfig, electionConfig, treeGradientConfig ));
+                chunkManagerConfig, gradientConfig, electionConfig, treeGradientConfig ));
 
         connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class));
         connect(network.getPositive(Network.class), searchPeer.getNegative(Network.class));

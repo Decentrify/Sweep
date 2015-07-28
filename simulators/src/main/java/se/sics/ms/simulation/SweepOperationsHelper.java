@@ -4,7 +4,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.gvod.config.VodConfig;
@@ -49,7 +48,6 @@ public class SweepOperationsHelper {
     private final static CroupierConfig croupierConfiguration;
     private final static SearchConfiguration searchConfiguration;
     private final static GradientConfiguration gradientConfiguration;
-    private final static ElectionConfiguration electionConfiguration;
     private final static ChunkManagerConfig chunkManagerConfiguration;
     private final static GradientConfig gradientConfig;
     private final static ElectionConfig electionConfig;
@@ -108,7 +106,6 @@ public class SweepOperationsHelper {
         croupierConfiguration = new CroupierConfig(config);
         searchConfiguration = SearchConfiguration.build();
         gradientConfiguration = GradientConfiguration.build();
-        electionConfiguration = ElectionConfiguration.build();
         chunkManagerConfiguration = new ChunkManagerConfig(config);
         gradientConfig= new GradientConfig(config);
         electionConfig = new ElectionConfig(config);
@@ -157,7 +154,7 @@ public class SweepOperationsHelper {
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
+        SearchPeerInit init  = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());
@@ -185,7 +182,7 @@ public class SweepOperationsHelper {
         systemConfig= new SystemConfig(gradientConfiguration.getSeed() + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        PeerInit init  = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
+        PeerInit init  = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());

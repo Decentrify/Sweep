@@ -44,7 +44,6 @@ public final class SearchSimulator extends ComponentDefinition {
     private CroupierConfig croupierConfiguration;
     private SearchConfiguration searchConfiguration;
     private GradientConfiguration gradientConfiguration;
-    private ElectionConfiguration electionConfiguration;
     private ChunkManagerConfig chunkManagerConfiguration;
     private GradientConfig gradientConfig;
     private ElectionConfig electionConfig;
@@ -75,7 +74,6 @@ public final class SearchSimulator extends ComponentDefinition {
         searchConfiguration = init.getSearchConfiguration();
         gradientConfiguration = init.getGradientConfiguration();
         gradientConfig = init.getGradientConfig();
-        electionConfiguration = init.getElectionConfiguration();
         chunkManagerConfiguration = init.getChunkManagerConfiguration();
         electionConfig = init.getElectionConfig();
         treeGradientConfig = init.getTreeGradientConfig();
@@ -236,7 +234,7 @@ public final class SearchSimulator extends ComponentDefinition {
         self = new ApplicationSelf(new DecoratedAddress(address));
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
-                gradientConfiguration, electionConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
+                gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
         Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
         connect(network, peer.getNegative(Network.class));
