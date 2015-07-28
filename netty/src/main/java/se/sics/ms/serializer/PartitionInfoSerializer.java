@@ -9,7 +9,6 @@ import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
-import se.sics.ms.messages.PublicKeyMessage;
 import se.sics.ms.util.PartitionHelper;
 
 import java.security.PublicKey;
