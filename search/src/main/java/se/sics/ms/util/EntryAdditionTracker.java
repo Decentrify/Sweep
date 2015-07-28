@@ -5,12 +5,11 @@ import org.slf4j.LoggerFactory;
 import se.sics.gvod.net.VodAddress;
 import se.sics.gvod.timer.TimeoutId;
 import se.sics.ms.messages.ReplicationPrepareCommitMessage;
-import se.sics.ms.search.Search;
+import se.sics.ms.search.NPAwareSearch;
 import se.sics.ms.types.IndexEntry;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.UUID;
 
 /**
  * Tracker class for the add index entry mechanism.
@@ -27,7 +26,7 @@ public class EntryAdditionTracker {
 
     private TimeoutId roundTrackerId;
     private Collection<VodAddress> leaderGroupNodes;
-    private Logger logger = LoggerFactory.getLogger(Search.class);
+    private Logger logger = LoggerFactory.getLogger(NPAwareSearch.class);
     private int responses;
     private IndexEntry entryToAdd;
     private VodAddress entryAddSourceNode;

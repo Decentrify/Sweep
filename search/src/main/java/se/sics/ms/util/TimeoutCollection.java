@@ -59,7 +59,7 @@ public class TimeoutCollection {
 
     /**
      * Periodic scheduled timeout event to garbage collect the recent request
-     * data structure of {@link se.sics.ms.search.Search}.
+     * data structure of {@link se.sics.ms.search.NPAwareSearch}.
      */
     public static class RecentRequestsGcTimeout extends Timeout {
 
