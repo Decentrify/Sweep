@@ -10,6 +10,8 @@ import se.sics.ms.data.aggregator.SearchComponentUpdate;
 import se.sics.ms.data.aggregator.SearchComponentUpdateSerializer;
 import se.sics.ms.serializer.*;
 import se.sics.ms.types.*;
+import se.sics.ms.util.EntryScorePair;
+import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
@@ -89,8 +91,18 @@ public class SerializerSetup {
         applicationEntryAddPrepareRequest(ApplicationEntryAddPrepare.Request.class, "applicationEntryAddPrepareRequest"),
         applicationEntryAddPrepareResponse(ApplicationEntryAddPrepare.Response.class, "applicationEntryAddPrepareResponse"),
 
-        entryAddCommitRequest(EntryAddCommit.Request.class, "entryAddCommitRequest");
+        entryAddCommitRequest(EntryAddCommit.Request.class, "entryAddCommitRequest"),
 
+//      PAGINATE
+        
+        idScorePair(IdScorePair.class, "idScorePair"),
+        entryScorePair(EntryScorePair.class, "entryScorePair"),
+        searchQueryRequest(SearchQuery.Request.class, "searchQueryRequest"),
+        searchQueryResponse(SearchQuery.Response.class, "searchQueryResponse"),
+        
+        searchFetchRequest(SearchFetch.Request.class, "searchFetchRequest"),
+        searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse");
+        
         private final Class serializedClass;
         private final String serializerName;
 
@@ -374,6 +386,35 @@ public class SerializerSetup {
         Serializers.register(entryAddCommitSerializer, SweepSerializers.entryAddCommitRequest.serializerName);
         Serializers.register(SweepSerializers.entryAddCommitRequest.serializedClass, SweepSerializers.entryAddCommitRequest.serializerName);
         
+        
+//      PAGINATE.
+        
+        SearchQuerySerializer.Request searchQueryRequestSerializer = new SearchQuerySerializer.Request(currentId++);
+        Serializers.register(searchQueryRequestSerializer, SweepSerializers.searchQueryRequest.serializerName);
+        Serializers.register(SweepSerializers.searchQueryRequest.serializedClass, SweepSerializers.searchQueryRequest.serializerName);
+
+        SearchQuerySerializer.Response searchQueryResponseSerializer = new SearchQuerySerializer.Response(currentId++);
+        Serializers.register(searchQueryResponseSerializer, SweepSerializers.searchQueryResponse.serializerName);
+        Serializers.register(SweepSerializers.searchQueryResponse.serializedClass, SweepSerializers.searchQueryResponse.serializerName);
+
+
+        SearchFetchSerializer.Request searchFetchRequestSerializer = new SearchFetchSerializer.Request(currentId++);
+        Serializers.register(searchFetchRequestSerializer, SweepSerializers.searchFetchRequest.serializerName);
+        Serializers.register(SweepSerializers.searchFetchRequest.serializedClass, SweepSerializers.searchFetchRequest.serializerName);
+
+        SearchFetchSerializer.Response searchFetchResponseSerializer = new SearchFetchSerializer.Response(currentId++);
+        Serializers.register(searchFetchResponseSerializer, SweepSerializers.searchFetchResponse.serializerName);
+        Serializers.register(SweepSerializers.searchFetchResponse.serializedClass, SweepSerializers.searchFetchResponse.serializerName);
+        
+        
+        IdScorePairSerializer scorePairSerializer = new IdScorePairSerializer(currentId++);
+        Serializers.register(scorePairSerializer, SweepSerializers.idScorePair.serializerName);
+        Serializers.register(SweepSerializers.idScorePair.serializedClass, SweepSerializers.idScorePair.serializerName);
+
+        EntryScorePairSerializer entryScorePairSerializer = new EntryScorePairSerializer(currentId++);
+        Serializers.register(entryScorePairSerializer, SweepSerializers.entryScorePair.serializerName);
+        Serializers.register(SweepSerializers.entryScorePair.serializedClass, SweepSerializers.entryScorePair.serializerName);
+
         return currentId;
     }
 

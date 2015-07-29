@@ -53,7 +53,7 @@ public class SimpleBootupScenario {
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(35, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(10, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 
@@ -66,8 +66,8 @@ public class SimpleBootupScenario {
 
                 StochasticProcess searchIndexEntry = new StochasticProcess() {
                     {
-                        eventInterArrivalTime(constant(3000));
-                        raise(1, SweepOperations.searchIndexEntry, uniform(0, Integer.MAX_VALUE), constant(5000), constant(3));
+                        eventInterArrivalTime(constant(8000));
+                        raise(2, SweepOperations.searchIndexEntry, constant(56871960), constant(6000), constant(3));
 
                     }
                 };

@@ -68,9 +68,13 @@ public class MarkerEntryLuceneTest {
             if (writer != null) {
                 writer.commit();
                 writer.close();
-                directory.close();
             }
         }
+    }
+    
+    @AfterClass
+    public static void afterClass() throws IOException {
+        directory.close();
     }
 
     

@@ -13,6 +13,9 @@ import se.sics.ms.aggregator.core.StatusAggregatorInit;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.events.*;
+import se.sics.ms.events.UiSearchRequest;
+import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.events.paginateAware.*;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.gradient.events.PAGUpdate;
@@ -118,7 +121,10 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(searchRequestHandler, externalUiPort);
         subscribe(addIndexEntryRequestHandler, externalUiPort);
-        
+
+        subscribe(paginateSearchRequestHandler, externalUiPort);
+        subscribe(paginateSearchResponseHandler, search.getPositive(UiPort.class));
+
     }
 
         // Gradient Port Connections.
@@ -364,6 +370,27 @@ public final class SearchPeer extends ComponentDefinition {
             trigger(addIndexEntryUiResponse, externalUiPort);
         }
     };
+
+
+    final Handler<se.sics.ms.events.paginateAware.UiSearchRequest> paginateSearchRequestHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchRequest>() {
+        @Override
+        public void handle(se.sics.ms.events.paginateAware.UiSearchRequest uiSearchRequest) {
+
+            log.debug("Received search request from application.");
+            trigger(uiSearchRequest, search.getPositive(UiPort.class));
+        }
+    };
+
+
+    final Handler<se.sics.ms.events.paginateAware.UiSearchResponse> paginateSearchResponseHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchResponse>() {
+        @Override
+        public void handle(se.sics.ms.events.paginateAware.UiSearchResponse uiSearchResponse) {
+
+            log.debug("Received search response from the application.");
+            trigger(uiSearchResponse, externalUiPort);
+        }
+    };
+
 
 
     // =====
