@@ -1,6 +1,5 @@
 package se.sics.ms.gradient.events;
 
-import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 
 import java.util.UUID;
@@ -12,19 +11,21 @@ import java.util.UUID;
  * Time: 8:18 PM
  */
 public class NumberOfPartitions extends Event {
-    private final UUID timeoutId;
-    private final int numberOfPartitions;
 
-    public NumberOfPartitions(UUID timeoutId, int numberOfPartitions) {
+    private final UUID timeoutId;
+    private final int numberOfShards;
+
+    public NumberOfPartitions(UUID timeoutId, int numberOfShards) {
+
         this.timeoutId = timeoutId;
-        this.numberOfPartitions = numberOfPartitions;
+        this.numberOfShards = numberOfShards;
     }
 
     public UUID getTimeoutId() {
         return timeoutId;
     }
 
-    public int getNumberOfPartitions() {
-        return numberOfPartitions;
+    public int getNumberOfShards() {
+        return numberOfShards;
     }
 }

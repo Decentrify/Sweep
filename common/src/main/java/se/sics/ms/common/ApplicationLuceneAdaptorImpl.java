@@ -10,9 +10,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.MarkerEntry;
+import se.sics.ms.util.EntryScorePair;
+import se.sics.ms.util.IdScorePair;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -158,6 +161,129 @@ public class ApplicationLuceneAdaptorImpl extends ApplicationLuceneAdaptor {
         numberOfEntries = totalHitCountCollector.getTotalHits();
 
         return numberOfEntries;
+    }
+
+    @Override
+    public List<IdScorePair> getIdScoreCollection(Query searchQuery, TopDocsCollector collector) throws LuceneAdaptorException {
+
+
+        IndexReader reader = null;
+        List<IdScorePair> idScorePairList = new ArrayList<IdScorePair>();
+
+        try{
+            reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            searcher.search(searchQuery, collector);
+            ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+            for (ScoreDoc hit : hits) {
+
+                int docId = hit.doc;
+                Document d = searcher.doc(docId);
+                ApplicationEntry entry = ApplicationEntry.ApplicationEntryHelper.createApplicationEntryFromDocument(d);
+                IdScorePair idScorePair = new IdScorePair(entry.getApplicationEntryId(), hit.score);
+                if (idScorePairList.contains(idScorePair))
+                    continue;
+                idScorePairList.add(idScorePair);
+            }
+            return idScorePairList;
+        }
+
+        catch (IOException e) {
+
+            logger.warn("Unable to search for application entries in Lucene.");
+            e.printStackTrace();
+            throw new LuceneAdaptorException(e.getMessage());
+        }
+        finally{
+            silentlyCloseReader(reader);
+        }
+    }
+
+    @Override
+    public ApplicationEntry getApplicationEntry(ApplicationEntry.ApplicationEntryId entryId) throws LuceneAdaptorException {
+        throw new UnsupportedOperationException("Operation Not Supported.");
+    }
+
+    @Override
+    public List<ApplicationEntry> getApplicationEntries(Collection<ApplicationEntry.ApplicationEntryId> entryIds) throws LuceneAdaptorException {
+
+        List<ApplicationEntry> entryList = new ArrayList<ApplicationEntry>();
+        try {
+            IndexReader reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            for(ApplicationEntry.ApplicationEntryId entryId : entryIds) {
+
+                BooleanQuery query = new BooleanQuery();
+                Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID,  entryId.getEpochId(), entryId.getEpochId(), true, true);
+                query.add(epochQuery, BooleanClause.Occur.MUST);
+
+                Query leaderIdQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, entryId.getLeaderId(), entryId.getLeaderId(), true, true);
+                query.add(leaderIdQuery, BooleanClause.Occur.MUST);
+
+                Query entryIdQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, entryId.getEntryId(), entryId.getEntryId(), true, true);
+                query.add(entryIdQuery, BooleanClause.Occur.MUST);
+
+                TopDocs topDocs = searcher.search(query, 1);
+                ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+
+                if(scoreDocs.length > 0) {
+
+                    Document doc = searcher.doc(scoreDocs[0].doc);
+                    ApplicationEntry entry = ApplicationEntry.ApplicationEntryHelper.createApplicationEntryFromDocument(doc);
+                    entryList.add(entry);
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return entryList;
+    }
+
+    @Override
+    public List<EntryScorePair> getEntryScorePairs(Collection<IdScorePair> scorePairs) throws LuceneAdaptorException {
+        
+        
+        List<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
+        try{
+
+            IndexReader reader = DirectoryReader.open(directory);
+            IndexSearcher searcher = new IndexSearcher(reader);
+
+            for(IdScorePair scorePair : scorePairs) {
+
+                ApplicationEntry.ApplicationEntryId entryId = scorePair.getEntryId();
+                
+                BooleanQuery query = new BooleanQuery();
+                Query epochQuery = NumericRangeQuery.newLongRange(ApplicationEntry.EPOCH_ID,  entryId.getEpochId(), entryId.getEpochId(), true, true);
+                query.add(epochQuery, BooleanClause.Occur.MUST);
+
+                Query leaderIdQuery = NumericRangeQuery.newIntRange(ApplicationEntry.LEADER_ID, entryId.getLeaderId(), entryId.getLeaderId(), true, true);
+                query.add(leaderIdQuery, BooleanClause.Occur.MUST);
+
+                Query entryIdQuery = NumericRangeQuery.newLongRange(ApplicationEntry.ENTRY_ID, entryId.getEntryId(), entryId.getEntryId(), true, true);
+                query.add(entryIdQuery, BooleanClause.Occur.MUST);
+
+                TopDocs topDocs = searcher.search(query, 1);
+                ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+
+                if(scoreDocs.length > 0) {
+
+                    Document doc = searcher.doc(scoreDocs[0].doc);
+                    ApplicationEntry entry = ApplicationEntry.ApplicationEntryHelper.createApplicationEntryFromDocument(doc);
+                    entryScorePairs.add(new EntryScorePair(entry, scorePair.getScore()));
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        return entryScorePairs;
     }
 
 }

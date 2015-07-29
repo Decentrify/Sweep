@@ -16,6 +16,8 @@ import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
 import se.sics.ms.types.*;
+import se.sics.ms.util.EntryScorePair;
+import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
@@ -849,6 +851,100 @@ public class SerializerTest {
         org.junit.Assert.assertEquals("Entry Add Commit Test", request, copiedRequest);
     }
     
+
+
+    @Test
+    public void idScorePairTest(){
+
+        logger.info("Id Score Pair Test");
+
+        IdScorePair originalScorePair = new IdScorePair(getApplicationEntryId(0, 100, 100), new Float(1.343));
+        Serializer serializer = Serializers.lookupSerializer(IdScorePair.class);
+
+        IdScorePair copiedScorePair = (IdScorePair)addObjectAndCreateCopiedObject(serializer, originalBuf, originalScorePair, copiedBuf);
+        Assert.assertEquals("Id Score Pair Test", originalScorePair, copiedScorePair);
+    }
+
+    @Test
+    public void searchQueryRequestTest(){
+        logger.info("Search Query Request Test");
+
+        SearchPattern searchPattern = new SearchPattern("sweep", 1, 1, null, null, "English", MsConfig.Categories.Video, "Description");
+        SearchQuery.Request request = new SearchQuery.Request(UUID.randomUUID(), 0, searchPattern);
+
+        Serializer serializer = Serializers.lookupSerializer(SearchQuery.Request.class);
+        SearchQuery.Request copiedRequest = (SearchQuery.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, request, copiedBuf);
+
+        Assert.assertEquals("Search query request test", request, copiedRequest);
+    }
+
+    @Test
+    public void searchQueryResponseTest(){
+        logger.info("Search Query Response Test");
+
+        List<IdScorePair> scorePairs = new ArrayList<IdScorePair>();
+        IdScorePair idsp1 = new IdScorePair(new ApplicationEntry.ApplicationEntryId(0,100,100), new Float(1.22));
+        IdScorePair idsp2 = new IdScorePair(new ApplicationEntry.ApplicationEntryId(1,100,100), new Float(1.32));
+
+        scorePairs.add(idsp1);
+        scorePairs.add(idsp2);
+
+        SearchQuery.Response response  = new SearchQuery.Response(UUID.randomUUID(), 0, scorePairs);
+        Serializer serializer = Serializers.lookupSerializer(SearchQuery.Response.class);
+
+
+        SearchQuery.Response copiedResponse = (SearchQuery.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+        Assert.assertEquals("SearchQuery Response Test", response, copiedResponse);
+    }
+
+    
+    @Test
+    public void entryScorePairTest(){
+        logger.info("Entry Score Pair Test");
+        EntryScorePair esp = new EntryScorePair(getTestApplicationEntry(), new Float(1.112));
+        
+        Serializer serializer = Serializers.lookupSerializer(EntryScorePair.class);
+        EntryScorePair copiedPair = (EntryScorePair)addObjectAndCreateCopiedObject(serializer, originalBuf, esp, copiedBuf);
+        
+        Assert.assertEquals("entry score pair test", esp, copiedPair);
+    }
+    
+    
+    
+    @Test
+    public void searchFetchRequestTest(){
+        logger.info("Search Fetch Request Test");
+
+        Collection<IdScorePair> entryIds = new ArrayList<IdScorePair>();
+
+        entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(0, 100, 100), new Float(1.32)));
+        entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(1, 100, 100), new Float(1.22)));
+
+        SearchFetch.Request fetchRequest = new SearchFetch.Request(UUID.randomUUID(), entryIds);
+        Serializer serializer = Serializers.lookupSerializer(SearchFetch.Request.class);
+
+        SearchFetch.Request copiedFetchRequest = (SearchFetch.Request)addObjectAndCreateCopiedObject(serializer, originalBuf, fetchRequest, copiedBuf);
+        Assert.assertEquals("search fetch request", fetchRequest, copiedFetchRequest);
+    }
+
+    @Test
+    public void searchFetchResponseTest(){
+
+        logger.info("Search Fetch Response Test");
+        Collection<ApplicationEntry> collection = getApplicationEntryCollection(3);
+        Collection<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
+        
+        for(ApplicationEntry entry : collection){
+            entryScorePairs.add(new EntryScorePair(entry, new Float(1.0)));
+        }
+        SearchFetch.Response response =  new SearchFetch.Response(UUID.randomUUID(), entryScorePairs);
+
+        Serializer serializer = Serializers.lookupSerializer(SearchFetch.Response.class);
+        SearchFetch.Response copiedResponse = (SearchFetch.Response)addObjectAndCreateCopiedObject(serializer, originalBuf, response, copiedBuf);
+
+        Assert.assertEquals("Search fetch response", response, copiedResponse);
+    }
+
 
     /**
      * Helper method to take the object and then add it to the buffer and then

@@ -14,6 +14,13 @@ import se.sics.ms.events.UiSearchResponse;
  */
 public class UiPort extends PortType {
     {
+
+        positive(se.sics.ms.events.paginateAware.UiSearchRequest.class);
+        positive(se.sics.ms.events.paginateAware.UiSearchResponse.class);
+
+        negative(se.sics.ms.events.paginateAware.UiSearchRequest.class);
+        negative(se.sics.ms.events.paginateAware.UiSearchResponse.class);
+
         positive(UiSearchResponse.class);
         negative(UiSearchResponse.class);
         negative(UiSearchRequest.class);

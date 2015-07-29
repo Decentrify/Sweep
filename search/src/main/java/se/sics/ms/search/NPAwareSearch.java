@@ -27,6 +27,9 @@ import se.sics.ms.data.aggregator.ElectionLeaderUpdateEvent;
 import se.sics.ms.data.aggregator.SearchComponentUpdate;
 import se.sics.ms.data.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.events.*;
+import se.sics.ms.events.UiSearchRequest;
+import se.sics.ms.events.UiSearchResponse;
+import se.sics.ms.events.paginateAware.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
@@ -39,6 +42,7 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
+import se.sics.ms.util.Pair;
 import se.sics.p2ptoolbox.election.api.msg.*;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
@@ -137,6 +141,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private ApplicationLuceneAdaptor writeEntryLuceneAdaptor;
     private MarkerEntryLuceneAdaptor markerEntryLuceneAdaptor;
     private LowestMissingEntryTracker lowestMissingEntryTracker;
+    private SearchProtocolTracker searchProtocolTracker;
 
     // Leader Election Protocol.
     private Collection<DecoratedAddress> leaderGroupInformation;
@@ -155,7 +160,8 @@ public final class NPAwareSearch extends ComponentDefinition {
     private List<LeaderUnit> bufferedUnits;
 
 
-
+    // Pagination
+    SearchCache cache;
 
 
 
@@ -214,7 +220,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(handleAddIndexEntryResponse, networkPort);
         subscribe(handleSearchRequest, networkPort);
         subscribe(handleSearchResponse, networkPort);
-        subscribe(handleSearchTimeout, timerPort);
 
         subscribe(landingEntryAddTimeout, timerPort);
         subscribe(handleAddRequestTimeout, timerPort);
@@ -269,6 +274,17 @@ public final class NPAwareSearch extends ComponentDefinition {
         
 //        subscribe(leaderUnitCheckHandler, pagPort);
 //        subscribe(npTimeoutHandler, timerPort);
+
+        // PAGINATION.
+        subscribe(searchProtocolTracker.numPartitionsHandler, gradientRoutingPort);
+        subscribe(searchProtocolTracker.handleSearchQueryRequest, networkPort);
+        subscribe(searchProtocolTracker.handleSearchQueryResponse, networkPort);
+        subscribe(searchProtocolTracker.handleSearchFetchRequest, networkPort);
+        subscribe(searchProtocolTracker.handleSearchFetchResponse, networkPort);
+        subscribe(searchProtocolTracker.searchProtocolTimeout, timerPort);
+        subscribe(searchProtocolTracker.cacheTimeoutHandler, timerPort);
+
+        subscribe(paginateSearchRequestHandler, uiPort);
     }
 
     /**
@@ -290,7 +306,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         lowestMissingIndexValue = 0;
         existingEntries = new TreeSet<Long>();
         bufferedUnits = new ArrayList<LeaderUnit>();
-        
+
+        searchRequest = new LocalSearchRequest();
+        cache = new SearchCache();
         // Trackers.
         initializeTrackers();
         index = new RAMDirectory();
@@ -311,6 +329,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         controlPullTracker = new ControlPullTracker();
         shardTracker = new ShardTracker();
         timeLine = new TimeLine();
+        searchProtocolTracker = new SearchProtocolTracker();
 
     }
 
@@ -443,7 +462,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     final Handler<SimulationEventsPort.SearchSimulated.Request> handleSearchSimulated = new Handler<SimulationEventsPort.SearchSimulated.Request>() {
         @Override
         public void handle(SimulationEventsPort.SearchSimulated.Request event) {
-            startSearch( event.getSearchPattern() , event.getSearchTimeout() , event.getSearchParallelism() ); // Update it to get the params from the simulator.
+
+            PaginateInfo defaultPaginateInfo = new PaginateInfo(0, 5);
+            searchProtocolTracker.initiateShardSearch(event.getSearchPattern(), defaultPaginateInfo, event.getSearchTimeout(), event.getSearchParallelism());
+//            startSearch(event.getSearchPattern(), event.getSearchTimeout(), event.getSearchParallelism()); // Update it to get the params from the simulator.
         }
     };
 
@@ -1287,6 +1309,22 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
+
+    final Handler<se.sics.ms.events.paginateAware.UiSearchRequest> paginateSearchRequestHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchRequest>() {
+        @Override
+        public void handle(se.sics.ms.events.paginateAware.UiSearchRequest uiSearchRequest) {
+
+            logger.error("{}: Received paginate aware search request.");
+
+            searchProtocolTracker.initiateShardSearch( uiSearchRequest.getPattern(),
+                    uiSearchRequest.getPaginateInfo(),
+                    config.getQueryTimeout(),
+                    MsConfig.GRADIENT_SEARCH_PARALLELISM );
+        }
+    };
+
+
+
     final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
         public void handle(UiAddIndexEntryRequest addIndexEntryRequest) {
@@ -1299,10 +1337,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void handle(NumberOfPartitions numberOfPartitions) {
             
             searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), 
-                    numberOfPartitions.getNumberOfPartitions());
+                    numberOfPartitions.getNumberOfShards());
             
             searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
-                    numberOfPartitions.getNumberOfPartitions()));
+                    numberOfPartitions.getNumberOfShards()));
         }
     };
 
@@ -1331,10 +1369,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         logger.error("Search Timeout from Application: {}", searchTimeout);
         ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
         rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
-        searchRequest.setTimeoutId(rst.getTimeoutEvent().getTimeoutId());
+        searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getTimeoutId(),
+        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
                 config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
@@ -1388,6 +1426,84 @@ public final class NPAwareSearch extends ComponentDefinition {
             };
 
 
+    // ======================================== CHANGES FOR THE PAGINATION FIX
+
+
+    /**
+     * Send a search request for a given search pattern to one node in each
+     * shard except the local partition.
+     *
+     * @param pattern the search pattern
+     */
+    private void initiateSearch(SearchPattern pattern, Integer searchTimeout, Integer fanoutParameter) {
+
+        // TO DO: Add check for the same request but a different page ( Implement Pagination ).
+        searchRequest = new LocalSearchRequest(pattern);
+        closeIndex(searchIndex);
+
+        searchIndex = new RAMDirectory();
+        searchEntryLuceneAdaptor = new ApplicationLuceneAdaptorImpl(searchIndex, indexWriterConfig);
+
+        try {
+            searchEntryLuceneAdaptor.initialEmptyWriterCommit();
+        } catch (LuceneAdaptorException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Unable to open search index", e);
+        }
+
+        logger.error("Search Timeout from Application: {}", searchTimeout);
+        ScheduleTimeout rst = new ScheduleTimeout(searchTimeout != null ? searchTimeout : config.getQueryTimeout());
+        rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
+        searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
+
+        trigger(rst, timerPort);
+        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
+                config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Based on the query pattern and the limit of the responses, execute the
+     * query and construct the collection to be returned sorted on the score of the
+     * matching documents.
+     *
+     * @param adaptor Adaptor
+     * @param pattern search pattern
+     * @param limit limit for responses.
+     *
+     * @return Collection.
+     * @throws LuceneAdaptorException
+     */
+    private List<IdScorePair> getIdScoreCollection(ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+
+        TopDocsCollector collector = TopScoreDocCollector.create(limit, true);
+        return adaptor.getIdScoreCollection(pattern.getQuery(), collector);
+    }
+
+
+
+
+
+
+
+    // ==========================================
+
+
+
     /**
      * Query the given index store with a given search pattern.
      *
@@ -1416,7 +1532,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         @Override
         public void handle(SearchInfo.ResponseUpdated response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated> event) {
 
-            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getTimeoutId())) {
+            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getSearchRoundId())) {
                 return;
             }
             addSearchResponse( response.getResults(), 
@@ -1450,7 +1566,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             if (searchRequest.getNumberOfRespondedPartitions() == numOfPartitions) {
 
                 logSearchTimeResults(requestId, System.currentTimeMillis(), numOfPartitions);
-                CancelTimeout ct = new CancelTimeout(searchRequest.getTimeoutId());
+                CancelTimeout ct = new CancelTimeout(searchRequest.getSearchRoundId());
                 trigger(ct, timerPort);
                 answerSearchRequestBase();
             }
@@ -1483,19 +1599,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         searchRequestStarted.remove(requestId);
     }
-
-    /**
-     * Answer a search request if the timeout occurred before all answers were
-     * collected.
-     */
-    final Handler<TimeoutCollection.SearchTimeout> handleSearchTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
-        @Override
-        public void handle(TimeoutCollection.SearchTimeout event) {
-            logSearchTimeResults(event.getTimeoutId(), System.currentTimeMillis(),
-                    searchRequest.getNumberOfRespondedPartitions());
-            answerSearchRequestBase();
-        }
-    };
 
 
     /**
@@ -2270,7 +2373,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
         public void handle(LeaderState.TerminateBeingLeader event) {
-            logger.debug("{}: Self is being removed from the leadership position.", self.getId());
+            logger.error("{}: Self is being removed from the leadership position.", self.getId());
             leader = false;
             informListeningComponentsAboutUpdates(self);
         }
@@ -2363,7 +2466,21 @@ public final class NPAwareSearch extends ComponentDefinition {
         return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
     }
 
-    
+
+    /**
+     * Convenient wrapper for canceling a particular
+     * timeout.
+     *
+     * @param timeoutId id for timeout
+     */
+    private void cancelTimeout(UUID timeoutId){
+
+        if(timeoutId != null ) {
+
+            CancelTimeout ct = new CancelTimeout(timeoutId);
+            trigger(ct, timerPort);
+        }
+    }
     
     /**
      * *****************************
@@ -2402,8 +2519,484 @@ public final class NPAwareSearch extends ComponentDefinition {
 //            throw new IllegalStateException("Unhandled functionality");
         }
     };
-    
-    
+
+
+    /**
+     * ****************************
+     * SEARCH REQUEST HANDLING
+     * ****************************
+     * <p/>
+     * Inner class used to track the different stages / phases as a part of the
+     * search request protocol.
+     *
+     */
+
+    private class SearchProtocolTracker {
+
+
+        public SearchProtocolTracker (){
+            logger.debug("Search Protocol Tracker Booted up.");
+        }
+
+
+        /**
+         * Initiate the search protocol by fanning out the search
+         * to multiple shards.
+         *
+         * @param pattern search pattern
+         * @param searchTimeout timeout for search
+         * @param fanoutParameter search parallelism
+         */
+        private void initiateShardSearch( SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
+
+            ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
+            rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
+
+            UUID searchRoundId  = rst.getTimeoutEvent().getTimeoutId();
+            searchRequest.startSearch(pattern, paginateInfo, searchRoundId);
+
+            trigger(rst, timerPort);
+
+//          CHECK FOR PATTERN IN CACHE.
+            Map<DecoratedAddress, List<IdScorePair>> cachedScoreMap= cache.getScorePairCollection(pattern);
+
+            if(cachedScoreMap != null){
+
+                logger.debug("{}: Started the search with the cached entries.", prefix);
+                
+                List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
+                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
+                        maxHitList, paginateInfo);
+
+                if(paginateEntryIdMap  != null){
+                    searchRequest.storeNumHits(maxHitList.size());
+                    initiateFetchPhase(paginateEntryIdMap);
+                }
+
+                else {
+                    sendEmptyResponse();
+                }
+
+                return;
+            }
+
+            logger.error("{}: Going to start default search query phase with pattern:{} ", prefix, searchRequest.getSearchPattern());
+
+            trigger(new GradientRoutingPort.SearchRequest(searchRequest.getSearchPattern(),
+                    rst.getTimeoutEvent().getTimeoutId(),
+                    searchTimeout, fanoutParameter), gradientRoutingPort);
+        }
+
+
+        /**
+         * In case an internal error or there is no hit for the 
+         * search string, the application will reply with an empty list of 
+         * matched entries.
+         */
+        private void sendEmptyResponse(){
+
+            cancelTimeout(searchRequest.getSearchRoundId());
+
+            sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
+                    new ArrayList<EntryScorePair>());
+        }
+
+        /**
+         * Handler for information about the number of shards in the system.
+         * This information is used by the application to check if all the shards have replied
+         * to the search query.
+         */
+        Handler<NumberOfPartitions> numPartitionsHandler = new Handler<NumberOfPartitions>() {
+            @Override
+            public void handle(NumberOfPartitions event) {
+
+                logger.debug("{}: Received number of partitions information from the routing component.");
+                if(searchRequest.getSearchRoundId() != null
+                        && searchRequest.getSearchRoundId().equals(event.getTimeoutId())){
+
+                    // As this message just before the requests are sent out to the
+                    // peers in different shards it might happen that the response lags due to large message queue
+                    // between the components. Therefore
+                    searchRequest.setNumberOfShards(event.getNumberOfShards());
+                }
+                else {
+                    logger.warn("{}: Received information about the partitions for an old request.");
+                }
+            }
+        };
+
+        /**
+         * Timeout for the main search protocol phase.
+         * The node now looks at the responses that are being collected until this point
+         * and then sends the response back.
+         *
+         */
+        Handler<TimeoutCollection.SearchTimeout> searchProtocolTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
+            @Override
+            public void handle(TimeoutCollection.SearchTimeout event) {
+
+                logger.debug("Search Request Timed out.");
+                UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                if(searchRoundId == null || !searchRoundId.equals(event.getTimeoutId())) {
+                    logger.warn("{}: Timeout happened after the round already finished.");
+                    return;
+                }
+
+                sendEmptyResponse();
+                searchRequest.wipeExistingRequest();
+            }
+        };
+
+
+        /**
+         * Handler for the search request received. The search request contains query to be searched in the local write lucene index.
+         * The node as part of the query phase simply returns the score and the identifier of the entry matched.
+         * The reason behind this process is to help with the pagination.
+         *
+         */
+        ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>> handleSearchQueryRequest =
+
+                new ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>>() {
+
+            @Override
+            public void handle(SearchQuery.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request> event) {
+
+                logger.error("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
+
+                try {
+                    List<IdScorePair> idScoreCollection = getIdScoreCollection(writeEntryLuceneAdaptor,
+                            request.getPattern(), config.getHitsPerQuery());
+
+                    SearchQuery.Response queryResponse = new SearchQuery.Response(request.getRequestId(), request.getPartitionId(), idScoreCollection);
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, queryResponse), networkPort);
+
+                } catch (LuceneAdaptorException e) {
+
+                    logger.warn("{} : Unable to query phase of the search request", self.getId());
+                    e.printStackTrace();
+                }
+            }
+
+
+        };
+
+
+        /**
+         * Handler for the search query response from the nodes in different shards.
+         * The node simply checks for the partition id from which the response is received and rejects
+         * if already received.
+         * <br/>
+         * The initiating node waits for the responses selcted nodes from all shards.
+         *
+         */
+        ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>> handleSearchQueryResponse=
+                new ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>>() {
+
+                    @Override
+                    public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
+
+                        logger.error("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
+                        UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                        if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
+                            logger.warn("{}: Received a search query response for an expired round");
+                            return;
+                        }
+
+                        logger.error("{}: Before safety check ....", prefix);
+
+                        if( searchRequest.isSafeToAdd(content.getPartitionId())) {
+
+                            searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
+                            if(searchRequest.haveAllShardsResponded()) {
+
+//                               Once all the shards have responded with the information about the matched ids.
+                                logger.error("{}: Query phase over, moving to the fetch phase.", self.getId());
+
+//                              COMPUTE THE ORDERED LIST CONTAINING MAX POSSIBLE HITS FOR QUERY.
+                                Map<DecoratedAddress, List<IdScorePair>> completeScoreMap = searchRequest.getIdScoreMap();
+                                
+                                if(completeScoreMap.size() > 0){
+                                    
+                                    List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
+
+//                                  STORE THE METADATA AND UPDATE THE CACHE.
+                                    searchRequest.storeNumHits(maxHitList.size());
+                                    cacheScoreMetaData(searchRequest.getSearchPattern(), completeScoreMap, maxHitList);
+
+//                                  BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
+                                    PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
+                                    Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
+                                            maxHitList, paginateInfo);
+
+                                    if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
+
+                                        logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
+                                        sendEmptyResponse();
+                                        return;
+                                    }
+
+                                    initiateFetchPhase(paginateEntryIdMap);
+                                }
+
+                                else {
+                                    
+                                    logger.debug(" No matching entry found for the corresponding search pattern");
+                                    sendEmptyResponse();
+                                }
+                                
+                                
+                            }
+                        }
+                    }
+                };
+
+
+
+        /**
+         * Based on the responses of the query phase, create
+         * a deterministic order on the entries. In addition to this,
+         * bound the number of entries.
+         *
+         * @param baseMap baseMap
+         * @return filteredList
+         */
+        private List<IdScorePair> createOrderedMaxHitList( Map<DecoratedAddress, List<IdScorePair>> baseMap){
+
+            List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
+            for(Collection<IdScorePair> collection : baseMap.values()){
+                scorePairList.addAll(collection);
+            }
+
+//          SORT THE LIST TO CREATE DETERMINISTIC ORDER.
+            Collections.sort(scorePairList);
+
+//          LIMIT FINAL SIZE TO MAX SEARCHABLE SIZE.
+            if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
+                scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
+            }
+
+            return scorePairList;
+        }
+
+
+        /**
+         * Filter and convert the paginate id score pair map to the structure which is required by
+         * the fetch phase of the search protocol.
+         *
+         * @param maxHitList sorted list
+         * @param baseMap base score id map.
+         * @return fetch phase data structure.
+         */
+        private Map<DecoratedAddress, List<IdScorePair>> prepareFetchPhaseInput(Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
+
+            Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
+
+            int from  = paginateInfo.getFrom();
+            int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
+
+            if(from > maxHitList.size()) {
+
+//              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
+                logger.warn("{}: Unable to search as range not lying in current range.", prefix);
+                return null;
+            }
+
+            int to = from + (size);
+            to = to > maxHitList.size() ? maxHitList.size() : to;
+
+            List<IdScorePair> paginateList = maxHitList.subList (from, to);
+            Map<DecoratedAddress, List<IdScorePair>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
+
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateScoreMap.entrySet()){
+
+                List<IdScorePair> entryIds = new ArrayList();
+                for(IdScorePair pair : entry.getValue()){
+                    entryIds.add(pair);
+                }
+                result.put(entry.getKey(), entryIds);
+            }
+
+            return result;
+        }
+
+        /**
+         * Before the initiation of the fetch phase,
+         * the data pulled during the query phase needs to be cached, to be used on subsequent
+         * requests.
+         */
+        private void cacheScoreMetaData(SearchPattern pattern, Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> baseList){
+
+            Map<DecoratedAddress, List<IdScorePair>> retainedMap = createRetainedMap(baseMap, baseList);
+            cache.cachePattern(pattern, retainedMap);
+
+            ScheduleTimeout st = new ScheduleTimeout(MsConfig.SCORE_DATA_CACHE_TIMEOUT);
+            TimeoutCollection.CacheTimeout ct = new TimeoutCollection.CacheTimeout(st, pattern);
+            st.setTimeoutEvent(ct);
+
+            trigger(st, timerPort);
+        }
+
+
+        /**
+         * Application needs to remove the cached search request as
+         * more entries could have been added in the mean time and therefore
+         * in order to make them searchable, older cached ones needs to be deleted.
+         */
+        Handler<TimeoutCollection.CacheTimeout> cacheTimeoutHandler = new Handler<TimeoutCollection.CacheTimeout>() {
+            @Override
+            public void handle(TimeoutCollection.CacheTimeout event) {
+
+                logger.debug("{}: Cache timeout handler invoked for file pattern: {}", prefix, event.fileNamePattern);
+                cache.removeCachedPattern(event.fileNamePattern);
+            }
+        };
+
+
+        /**
+         * Helper method to create a retained collection from the
+         * values supplied.
+         *
+         * @param baseMap baseMap
+         * @param referenceList referenceList
+         * @return  collection
+         */
+        private Map<DecoratedAddress, List<IdScorePair>> createRetainedMap (Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> referenceList){
+
+            Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
+
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : baseMap.entrySet()) {
+                List<IdScorePair> retainedValue = new ArrayList<IdScorePair>(entry.getValue());
+
+                retainedValue.retainAll(referenceList);
+                if(!retainedValue.isEmpty()){
+                    result.put(entry.getKey(), retainedValue);
+                }
+            }
+
+            return result;
+        }
+
+
+        /**
+         * Based on the sorted identifiers and the pagination information,
+         * initiate the fetch phase for the application entries.
+         */
+        private void initiateFetchPhase(Map<DecoratedAddress, List<IdScorePair>> fetchPhaseInput) {
+
+
+            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : fetchPhaseInput.entrySet()) {
+
+                SearchFetch.Request fetchRequest = new SearchFetch.Request( searchRequest.getSearchRoundId(), entry.getValue() );
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), entry.getKey(),
+                        Transport.UDP, fetchRequest), networkPort);
+            }
+
+//          Inform the tracker about the fetch phase.
+            searchRequest.initiateFetchPhase(fetchPhaseInput);
+        }
+
+
+
+        /**
+         * Handler for the search fetch request generated by the node once
+         * receives meta information concerning the entries that matched the query.
+         */
+        ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>> handleSearchFetchRequest =
+                new ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>>() {
+
+                    @Override
+                    public void handle(SearchFetch.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request> event) {
+
+                        try {
+                            logger.debug("{}: Received search fetch request.", prefix);
+                            Collection<IdScorePair> entryIds = content.getEntryIds();
+                            List<EntryScorePair> entries = writeEntryLuceneAdaptor.getEntryScorePairs(entryIds);
+
+                            SearchFetch.Response response = new SearchFetch.Response(content.getFetchRequestId(), entries);
+                            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+
+                        } catch (LuceneAdaptorException e) {
+                            e.printStackTrace();
+                            logger.error("{}: Unable to fetch the entries from the data store during the fetch phase.");
+                        }
+                    }
+                };
+
+
+
+
+
+
+        /**
+         * Handler for the search fetch response which involves handling of the responses containing the
+         * application entries.
+         */
+        ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>> handleSearchFetchResponse =
+                new ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>>() {
+                    @Override
+                    public void handle(SearchFetch.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response> event) {
+
+                        logger.debug("{}: Received search fetch response from :{}", prefix, event.getSource());
+                        UUID searchRoundId = searchRequest.getSearchRoundId();
+
+                        if(searchRoundId == null || !searchRoundId.equals(content.getFetchRequestId())) {
+                            logger.warn("{}: Received Search Fetch Respnse for an expired response.");
+                        }
+
+//              MAIN HANDLING OF RESPONSE.
+                        searchRequest.addFetchPhaseResponse(event.getSource(), content.getEntryScorePairs());
+                        if(searchRequest.isSafeToRespond()) {
+
+//                  PACK DATA TOGETHER AND SEND BACK RESPONSE.
+                            sendResponse();
+
+//                  CANCEL TIMEOUT AND CLEAR ROUND INFORMATION.
+                            cancelTimeout(searchRequest.getSearchRoundId());
+                            searchRequest.wipeExistingRequest();
+                        }
+                    }
+                };
+
+        /**
+         * Wrapper over the main response dispatch method.
+         */
+        private void sendResponse(){
+
+            List<EntryScorePair> entries = searchRequest.getFetchedEntries();
+            int numHits = searchRequest.getNumHits();
+            SearchPattern pattern = searchRequest.getSearchPattern();
+
+            if(entries == null){
+                entries = new ArrayList<EntryScorePair>();
+            }
+
+            sendResponse(numHits, searchRequest.getPaginateInfo(),  pattern, entries);
+        }
+
+
+        /**
+         * Once the application entries for the request have been identified, then
+         * the response needs to be sent back to the requesting client.
+         *
+         * @param entryScorePairs
+         */
+        private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern,  List<EntryScorePair> entryScorePairs){
+
+            Collections.sort(entryScorePairs);      // Sort the entry score pairs before sending.
+            List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
+            
+            for(EntryScorePair scorePair : entryScorePairs){
+                entries.add(scorePair.getEntry());
+            }
+            
+            se.sics.ms.events.paginateAware.UiSearchResponse response = new se.sics.ms.events.paginateAware.UiSearchResponse(pattern, paginateInfo, numHits, entries);
+            logger.debug("{}: Search Response generated . {}", prefix , response);
+            trigger(response, uiPort);
+        }
+
+    }
 
     /**
      * ********************************

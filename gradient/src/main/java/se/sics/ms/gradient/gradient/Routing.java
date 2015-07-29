@@ -488,7 +488,7 @@ public final class Routing extends ComponentDefinition {
 
             int parallelism = event.getFanoutParameter() != null ? event.getFanoutParameter() : config.getSearchParallelism();
             logger.warn("Updated the fanout parameter to: {}", parallelism);
-            
+
             if (categoryRoutingMap == null) {
                 logger.warn("Unable to locate nodes for the category :{}, from the local routing table", category);
                 return;
@@ -498,9 +498,9 @@ public final class Routing extends ComponentDefinition {
             for (Integer partition : categoryRoutingMap.keySet()) {
                 if (partition == self.getPartitionId()
                         && category == categoryFromCategoryId(self.getCategoryId())) {
-                    
-                    SearchInfo.Request searchRequest = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
-                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), self.getAddress(), Transport.UDP, searchRequest), networkPort);
+
+                    SearchQuery.Request searchQuery = new SearchQuery.Request(event.getTimeoutId(), partition, event.getPattern());
+                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), self.getAddress(), Transport.UDP, searchQuery), networkPort);
                     continue;
                 }
 
@@ -511,14 +511,13 @@ public final class Routing extends ComponentDefinition {
                     RoutingTableContainer container = iterator.next();
                     PeerDescriptor searchDescriptor = container.getContent();
 
-                    SearchInfo.Request request = new SearchInfo.Request(event.getTimeoutId(), partition, event.getPattern());
+                    SearchQuery.Request request = new SearchQuery.Request(event.getTimeoutId(), partition, event.getPattern());
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), container.getSource(), Transport.UDP, request), networkPort);
                     searchDescriptor.setConnected(true);
                 }
             }
         }
     };
-
 
     private MsConfig.Categories categoryFromCategoryId(int categoryId) {
         return MsConfig.Categories.values()[categoryId];

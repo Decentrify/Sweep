@@ -6,6 +6,7 @@ import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.LeaderUnit;
+import se.sics.ms.types.SearchPattern;
 
 import java.util.UUID;
 
@@ -196,7 +197,18 @@ public class TimeoutCollection {
             this.medianId = entryId;
         }
     }
-    
+
+    /**
+     * Timeout after which the cache will be invalidated.
+     */
+    public static class CacheTimeout extends Timeout{
+
+        public SearchPattern fileNamePattern;
+        public CacheTimeout(ScheduleTimeout request, SearchPattern fileNamePattern) {
+            super(request);
+            this.fileNamePattern = fileNamePattern;
+        }
+    }
     
                 
 }
