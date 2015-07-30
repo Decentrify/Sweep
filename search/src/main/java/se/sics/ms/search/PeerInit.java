@@ -1,6 +1,5 @@
 package se.sics.ms.search;
 
-import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
@@ -19,7 +18,6 @@ public final class PeerInit extends Init<Peer> {
     private final CroupierConfig croupierConfiguration;
     private final SearchConfiguration applicationConfiguration;
     private final GradientConfiguration pseudoGradientConfiguration;
-    private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfig chunkManagerConfiguration;
     private final GradientConfig gradientConfig;
     private final ElectionConfig electionConfig;
@@ -27,7 +25,7 @@ public final class PeerInit extends Init<Peer> {
 
     public PeerInit(ApplicationSelf self, SystemConfig systemConfig,
                     CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
-                    GradientConfiguration pseudoGradientConfiguration, ElectionConfiguration electionConfiguration,
+                    GradientConfiguration pseudoGradientConfiguration,
                     ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
                     ElectionConfig electionConfig, TreeGradientConfig tGradientConfig) {
         super();
@@ -36,7 +34,6 @@ public final class PeerInit extends Init<Peer> {
         this.croupierConfiguration = croupierConfiguration;
         this.applicationConfiguration = applicationConfiguration;
         this.pseudoGradientConfiguration = pseudoGradientConfiguration;
-        this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig  = gradientConfig;
         this.electionConfig = electionConfig;
@@ -66,11 +63,6 @@ public final class PeerInit extends Init<Peer> {
     public GradientConfiguration getPseudoGradientConfiguration() {
         return this.pseudoGradientConfiguration;
     }
-
-    public ElectionConfiguration getElectionConfiguration() {
-        return this.electionConfiguration;
-    }
-
 
     public GradientConfig getGradientConfig(){
         return this.gradientConfig;

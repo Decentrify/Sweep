@@ -12,7 +12,6 @@ import java.io.IOException;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.simulation.SimulatorScheduler;
 import se.sics.kompics.timer.Timer;
-import se.sics.ms.configuration.MsConfig;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
@@ -66,7 +65,6 @@ public final class SearchSimulationMain extends ComponentDefinition {
                 newCroupierConfig,
                 GradientConfiguration.build(),
                 SearchConfiguration.build(),
-                ElectionConfiguration.build(),
                 chunkManagerConfig,
                 gradientConfig,
                 electionConfig,

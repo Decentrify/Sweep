@@ -1,6 +1,5 @@
 package se.sics.ms.simulator;
 
-import se.sics.gvod.config.ElectionConfiguration;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
@@ -14,7 +13,6 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
 	private final CroupierConfig croupierConfiguration;
 	private final GradientConfiguration gradientConfiguration;
 	private final SearchConfiguration searchConfiguration;
-	private final ElectionConfiguration electionConfiguration;
     private final ChunkManagerConfig chunkManagerConfiguration;
     private final ElectionConfig electionConfig;
 
@@ -22,13 +20,12 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
     private final TreeGradientConfig treeGradientConfig;
     
 	public SearchSimulatorInit(CroupierConfig croupierConfiguration, GradientConfiguration gradientConfiguration,
-                               SearchConfiguration aggregationConfiguration, ElectionConfiguration electionConfiguration,
+                               SearchConfiguration aggregationConfiguration,
                                ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig, ElectionConfig electionConfig, TreeGradientConfig treeGradientConfig) {
 		super();
 		this.croupierConfiguration = croupierConfiguration;
 		this.gradientConfiguration = gradientConfiguration;
 		this.searchConfiguration = aggregationConfiguration;
-		this.electionConfiguration = electionConfiguration;
         this.chunkManagerConfiguration = chunkManagerConfiguration;
         this.gradientConfig = gradientConfig;
         this.electionConfig = electionConfig;
@@ -51,10 +48,6 @@ public final class SearchSimulatorInit extends Init<SearchSimulator> {
 		return this.gradientConfiguration;
 	}
 	
-	public ElectionConfiguration getElectionConfiguration() {
-		return this.electionConfiguration;
-	}
-
     public ChunkManagerConfig getChunkManagerConfiguration() {
         return chunkManagerConfiguration;
     }

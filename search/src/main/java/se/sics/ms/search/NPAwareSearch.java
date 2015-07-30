@@ -166,10 +166,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 
 
-    /**
-     * Timeout for waiting for an {@link se.sics.ms.messages.AddIndexEntryMessage.Response} acknowledgment for an
-     * {@link se.sics.ms.messages.AddIndexEntryMessage.Response} request.
-     */
     private static class AddIndexTimeout extends Timeout {
         private final int retryLimit;
         private int numberOfRetries = 0;
@@ -178,7 +174,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         /**
          * @param request    the ScheduleTimeout that holds the Timeout
          * @param retryLimit the number of retries for the related
-         *                   {@link se.sics.ms.messages.AddIndexEntryMessage.Request}
          * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
          */
         public AddIndexTimeout(ScheduleTimeout request, int retryLimit, IndexEntry entry) {
@@ -500,11 +495,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
-     * and try again. Send a {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request to a number of nodes as
-     * specified in the config file and schedule a timeout to wait for
-     * responses. The adding operation will be acknowledged if either all nodes
-     * responded to the {@link se.sics.ms.messages.ReplicationPrepareCommitMessage} request or the timeout occurred and
-     * enough nodes, as specified in the config, responded.
+     * and try again.
      */
 
     ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>> handleAddIndexEntryRequest =
@@ -652,7 +643,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * No acknowledgment for an issued {@link se.sics.ms.messages.AddIndexEntryMessage.Request} was received
+     * No acknowledgment for an issued Entry Request was received
      * in time. Try to add the entry again or responds with failure to the web client.
      */
     final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
@@ -1267,7 +1258,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     /**
      * Periodically garbage collect the data structure used to identify
-     * duplicated {@link se.sics.ms.messages.AddIndexEntryMessage.Request}.
+     * duplicated
      */
     final Handler<TimeoutCollection.RecentRequestsGcTimeout> handleRecentRequestsGcTimeout = new Handler<TimeoutCollection.RecentRequestsGcTimeout>() {
         @Override
@@ -1542,7 +1533,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Add all entries from a {@link se.sics.ms.messages.SearchMessage.Response} to the search index.
+     * Add entries to search index.
      *
      * @param entries   the entries to be added
      * @param partition the partition from which the entries originate from

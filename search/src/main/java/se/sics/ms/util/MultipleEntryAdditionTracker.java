@@ -2,10 +2,7 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.timer.TimeoutId;
-import se.sics.ms.data.ReplicationPrepareCommit;
-import se.sics.ms.messages.ReplicationPrepareCommitMessage;
-import se.sics.ms.search.Search;
+import se.sics.ms.search.NPAwareSearch;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +18,7 @@ public class MultipleEntryAdditionTracker {
     
     private int maxCount =0;
     private Map<UUID, EntryAdditionRoundInfo> entryAdditionRoundInfoMap;
-    Logger logger  = LoggerFactory.getLogger(Search.class);
+    Logger logger  = LoggerFactory.getLogger(NPAwareSearch.class);
     
     public MultipleEntryAdditionTracker(int maxCount){
         this.maxCount = maxCount;

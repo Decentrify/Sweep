@@ -23,7 +23,6 @@ import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.GradientViewChangePort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
-import se.sics.ms.messages.*;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.types.*;
 import se.sics.ms.types.OverlayId;
@@ -339,7 +338,7 @@ public final class Routing extends ComponentDefinition {
 
                 TreeSet<PeerDescriptor> lowerNodes = new TreeSet<PeerDescriptor>(getLowerUtilityNodes());
                 iterator = lowerNodes.iterator();
-                while (searchDescriptors.size() < LeaderLookupMessage.ResponseLimit && iterator.hasNext()) {
+                while (searchDescriptors.size() < LeaderLookup.ResponseLimit && iterator.hasNext()) {
                     searchDescriptors.add(iterator.next());
                 }
             }
@@ -399,7 +398,7 @@ public final class Routing extends ComponentDefinition {
                 }
 
                 Iterator<PeerDescriptor> iterator = higherUtilityNodes.iterator();
-                for (int i = 0; i < LeaderLookupMessage.QueryLimit && iterator.hasNext(); i++) {
+                for (int i = 0; i < LeaderLookup.QueryLimit && iterator.hasNext(); i++) {
                     PeerDescriptor node = iterator.next();
                     // Don't query nodes twice
                     if (queriedNodes.contains(node)) {
@@ -413,7 +412,7 @@ public final class Routing extends ComponentDefinition {
             // Check it a quorum was reached
             for (BasicAddress locatedLeader : locatedLeaders.keySet()) {
                 
-                if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookupMessage.QueryLimit / 2) {
+                if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookup.QueryLimit / 2) {
                     if (!leadersAlreadyComunicated.contains(locatedLeader)) {
                         
                         AddIndexEntry.Request entryAddRequest = new AddIndexEntry.Request(addIndexEntryRequestTimeoutId, indexEntryToAdd);
