@@ -2,14 +2,15 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.types.IndexEntry;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
+
 import java.security.PublicKey;
 import java.util.Date;
 
@@ -50,7 +51,7 @@ public class IndexEntrySerializer implements Serializer{
             SerializerEncoderHelper.writeStringLength65536(buffer, indexEntry.getHash());
             Serializers.lookupSerializer(PublicKey.class).toBinary(indexEntry.getLeaderId(), buffer);
         }
-        catch (MessageEncodingException e) {
+        catch (EncodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
         }
@@ -76,7 +77,7 @@ public class IndexEntrySerializer implements Serializer{
 
             return new IndexEntry(gId, id, url, fileName, fileSize, uploaded, language, category, description, hash, pub);
 
-        } catch (MessageDecodingException e) {
+        } catch (DecodingException e) {
 
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());

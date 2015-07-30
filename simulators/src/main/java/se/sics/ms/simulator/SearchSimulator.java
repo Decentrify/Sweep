@@ -61,6 +61,8 @@ public final class SearchSimulator extends ComponentDefinition {
     Random r = new Random(System.currentTimeMillis());
     int counter =0;
     Logger logger = LoggerFactory.getLogger(SearchSimulator.class);
+    private int baseSeed = 100;
+
 
     public SearchSimulator(SearchSimulatorInit init) {
 
@@ -79,7 +81,7 @@ public final class SearchSimulator extends ComponentDefinition {
         treeGradientConfig = init.getTreeGradientConfig();
         
         identifierSpaceSize = (long) 3000;
-        ipGenerator = AsIpGenerator.getInstance(init.getGradientConfiguration().getSeed());
+        ipGenerator = AsIpGenerator.getInstance(baseSeed);
         
         subscribe(handleStart, control);
         subscribe(handleGenerateReport, timer);
@@ -243,7 +245,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
         bootstrapNodes.add(self.getAddress());
-        systemConfig = new SystemConfig(gradientConfiguration.getSeed() + id, self.getAddress(), null, bootstrapNodes);
+        systemConfig = new SystemConfig(baseSeed + id, self.getAddress(), null, bootstrapNodes);
 
 
         trigger(Start.event, peer.getControl());

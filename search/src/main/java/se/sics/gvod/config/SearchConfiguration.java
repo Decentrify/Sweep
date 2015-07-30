@@ -11,8 +11,7 @@ import se.sics.ms.configuration.MsConfig;
  *
  * @author jdowling
  */
-public class SearchConfiguration
-        extends AbstractConfiguration<se.sics.gvod.config.SearchConfiguration> {
+public class SearchConfiguration {
 
     int maximumEpochUpdatesPullSize;
     int maxEpochContainerSize;

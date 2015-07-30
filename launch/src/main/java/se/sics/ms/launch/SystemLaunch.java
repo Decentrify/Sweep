@@ -13,7 +13,6 @@ import se.sics.kompics.network.netty.NettyNetwork;
 import se.sics.kompics.timer.Timer;
 import se.sics.kompics.timer.java.JavaTimer;
 import se.sics.ms.common.ApplicationSelf;
-import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
@@ -137,7 +136,7 @@ public class SystemLaunch extends ComponentDefinition{
         int cores = Runtime.getRuntime().availableProcessors();
         int numWorkers = Math.max(1, cores - 1);
 
-        MsConfig.init(args);
+//        MsConfig.init(args);
         System.setProperty("java.net.preferIPv4Stack", "true");
         Kompics.createAndStart(SystemLaunch.class, numWorkers);
     }

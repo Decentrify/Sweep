@@ -3,10 +3,10 @@ package se.sics.ms.helper;
 import com.google.common.base.Optional;
 import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
 
 import java.io.UnsupportedEncodingException;
 import java.security.KeyFactory;
@@ -28,7 +28,7 @@ public class SerializerDecoderHelper {
 
 
     public static IndexEntry readIndexEntry(ByteBuf buffer)
-            throws MessageDecodingException {
+            throws DecodingException {
         String gId = readStringLength256(buffer);
         Long id = buffer.readLong();
         String url = readStringLength256(buffer);
@@ -61,29 +61,29 @@ public class SerializerDecoderHelper {
 
 
 
-    public static String readStringLength256(ByteBuf buffer) throws MessageDecodingException {
+    public static String readStringLength256(ByteBuf buffer) throws DecodingException{
         int len = readIntAsOneByte(buffer);
         return len == 0?null:readString(buffer, len);
     }
 
 
-    public static int readIntAsOneByte(ByteBuf buffer) throws MessageDecodingException {
+    public static int readIntAsOneByte(ByteBuf buffer) {
         return readUnsignedIntAsOneByte(buffer);
     }
 
-    private static String readString(ByteBuf buffer, int len) throws MessageDecodingException {
+    private static String readString(ByteBuf buffer, int len) throws DecodingException {
         byte[] bytes = new byte[len];
         buffer.readBytes(bytes);
 
         try {
             return new String(bytes, "UTF-8");
         } catch (UnsupportedEncodingException var4) {
-            throw new MessageDecodingException(var4.getMessage());
+            throw new DecodingException(var4.getMessage());
         }
     }
 
 
-    public static String readStringLength65536(ByteBuf buffer) throws MessageDecodingException {
+    public static String readStringLength65536(ByteBuf buffer) throws DecodingException {
         int len = readUnsignedIntAsTwoBytes(buffer);
         return len == 0?null:readString(buffer, len);
     }

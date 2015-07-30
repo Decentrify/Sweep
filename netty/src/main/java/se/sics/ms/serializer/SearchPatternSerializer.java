@@ -2,14 +2,13 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
-import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
 
 import java.util.Date;
 
@@ -55,7 +54,7 @@ public class SearchPatternSerializer implements Serializer{
             SerializerEncoderHelper.writeStringLength65536(byteBuf, searchPattern.getDescriptionPattern());
 
 
-        } catch (MessageEncodingException e) {
+        } catch (EncodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
         }
@@ -93,7 +92,7 @@ public class SearchPatternSerializer implements Serializer{
 
             return new SearchPattern(filePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, description);
 
-        } catch (MessageDecodingException e) {
+        } catch (DecodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
         }

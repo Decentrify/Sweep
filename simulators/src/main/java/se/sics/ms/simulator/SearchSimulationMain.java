@@ -46,7 +46,7 @@ public final class SearchSimulationMain extends ComponentDefinition {
     public SearchSimulationMain() throws IOException {
 
         P2pSimulator.setSimulationPortType(SimulatorPort.class);
-        VodConfig.init(new String[0]);
+//        VodConfig.init(new String[0]);
 
         Component p2pSimulator = create(P2pSimulator.class, new P2pSimulatorInit(simulatorScheduler,
                 scenario, new UniformRandomModel(1,10)));

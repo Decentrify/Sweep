@@ -16,8 +16,6 @@ import se.sics.ms.common.RoutingTableContainer;
 import se.sics.ms.common.RoutingTableHandler;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
-import se.sics.ms.gradient.control.CheckLeaderInfoUpdate;
-import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.misc.SimpleUtilityComparator;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
@@ -115,7 +113,6 @@ public final class Routing extends ComponentDefinition {
         subscribe(handleFailureDetector, fdPort);
         subscribe(handlerControlMessageExchangeInitiation, gradientRoutingPort);
 
-        subscribe(handlerControlMessageInternalRequest, gradientRoutingPort);
         subscribe(handlerSelfChanged, selfChangedPort);
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(croupierSampleHandler, croupierPort);
@@ -586,33 +583,6 @@ public final class Routing extends ComponentDefinition {
             leaderPublicKey = leaderInfoUpdate.getLeaderPublicKey();
         }
     };
-
-    /**
-     * Request received as part of control message pull mechanism initiated by the nodes in the system.
-     * The main component requests control message information from this component.
-     * <br/>
-     * <b>NOTE: </b> The component can receive multiple requests asking for different control information.
-     */
-    Handler<ControlMessageInternal.Request> handlerControlMessageInternalRequest = new Handler<ControlMessageInternal.Request>() {
-        @Override
-        public void handle(ControlMessageInternal.Request event) {
-
-            if (event instanceof CheckLeaderInfoUpdate.Request)
-                handleCheckLeaderInfoInternalControlMessage((CheckLeaderInfoUpdate.Request) event);
-        }
-    };
-
-    /**
-     * Check for the leader information that the component contains.
-     * @param event Leader Info Event.
-     */
-    private void handleCheckLeaderInfoInternalControlMessage(CheckLeaderInfoUpdate.Request event) {
-
-        logger.debug("Check Leader Update Received.");
-
-        trigger(new CheckLeaderInfoUpdate.Response(event.getRoundId(), event.getSourceAddress(),
-                leader ? self.getAddress() : leaderAddress, leaderPublicKey), gradientRoutingPort);
-    }
 
     Handler<SelfChangedPort.SelfChangedEvent> handlerSelfChanged = new Handler<SelfChangedPort.SelfChangedEvent>() {
         @Override

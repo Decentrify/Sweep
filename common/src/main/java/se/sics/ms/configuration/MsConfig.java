@@ -4,15 +4,11 @@
  */
 package se.sics.ms.configuration;
 
-import se.sics.gvod.config.VodConfig;
-
-import java.io.IOException;
-
 /**
  *
  * @author jdowling
  */
-public class MsConfig extends VodConfig {
+public class MsConfig {
 
     public static enum Categories {
         Video, Music, Books, Default
@@ -83,16 +79,28 @@ public class MsConfig extends VodConfig {
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;
     public static final int MAX_EPOCH_CONTAINER_ENTRIES = 100;            // EPOCH CONTAINER SIZE.
-    
-    protected MsConfig(String[] args) throws IOException {
-        super(args);
-    }
 
-    public static synchronized MsConfig init(String[] args) throws IOException {
-        if (singleton != null) {
-            return (MsConfig) singleton;
-        }
-        singleton = new MsConfig(args);
-        return (MsConfig) singleton;
-    }
+
+    // Missing.
+    public static final int DEFAULT_RTO = 1 * 1000;
+    public static final int GRADIENT_SHUFFLE_LENGTH = 10;
+    public static final int GRADIENT_UTILITY_THRESHOLD = 10;
+    public static final int GRADIENT_NUM_FINGERS = 5;
+    public static final double GRADIENT_TEMPERATURE = 0.9d;
+    public static final int GRADIENT_SEARCH_TIMEOUT = DEFAULT_RTO * 6;
+    public static final int GRADIENT_NUM_PARALLEL_SEARCHES = 5;
+    public static final int GRADIENT_SEARCH_TTL = 5;
+    public static final int GRADIENT_SHUFFLE_TIMEOUT = DEFAULT_RTO;
+    
+//    protected MsConfig(String[] args) throws IOException {
+//
+//    }
+//
+//    public static synchronized MsConfig init(String[] args) throws IOException {
+//        if (singleton != null) {
+//            return (MsConfig) singleton;
+//        }
+//        singleton = new MsConfig(args);
+//        return (MsConfig) singleton;
+//    }
 }

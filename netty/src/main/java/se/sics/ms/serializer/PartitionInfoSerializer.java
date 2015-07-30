@@ -2,14 +2,14 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
 
 import java.security.PublicKey;
 import java.util.UUID;
@@ -45,7 +45,7 @@ public class PartitionInfoSerializer implements Serializer{
             SerializerEncoderHelper.writeStringLength65536(byteBuf, partitionInfo.getHash());
             Serializers.lookupSerializer(PublicKey.class).toBinary(partitionInfo.getKey(), byteBuf);
 
-        } catch (MessageEncodingException e) {
+        } catch (EncodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
         }
@@ -63,7 +63,7 @@ public class PartitionInfoSerializer implements Serializer{
 
             return new PartitionHelper.PartitionInfo(medianId, requestId, type, hash, key);
 
-        } catch (MessageDecodingException e) {
+        } catch (DecodingException e) {
             e.printStackTrace();
         }
 

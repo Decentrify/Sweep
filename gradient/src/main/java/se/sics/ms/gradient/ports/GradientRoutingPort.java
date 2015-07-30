@@ -4,7 +4,6 @@ import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.PortType;
-import se.sics.ms.gradient.control.ControlMessageInternal;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -37,8 +36,6 @@ public class GradientRoutingPort extends PortType {
 
         // Generic Pull Based Control Message Exchange.
         negative(InitiateControlMessageExchangeRound.class);
-        negative(ControlMessageInternal.Request.class);
-        positive(ControlMessageInternal.Response.class);
 
         negative(CheckPartitionInfo.Request.class);
         positive(CheckPartitionInfo.Response.class);

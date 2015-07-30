@@ -104,9 +104,9 @@ public final class SearchPeer extends ComponentDefinition {
         // External Components creating and connection to the local components.
         connectChunkManager(systemConfig, chunkManagerConfig);
         connectCroupier(init.getCroupierConfiguration());
-        connectGradient(init.getGradientConfig(), pseudoGradientConfiguration.getSeed());
+        connectGradient(init.getGradientConfig(), systemConfig.seed);
         connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
-        connectElection(init.getElectionConfig(), pseudoGradientConfiguration.getSeed());
+        connectElection(init.getElectionConfig(), systemConfig.seed);
 
 
         // Internal Component Connections.
@@ -214,7 +214,7 @@ public final class SearchPeer extends ComponentDefinition {
      * @param electionConfig Election Configuration
      * @param seed seed
      */
-    private void connectElection(ElectionConfig electionConfig, int seed) {
+    private void connectElection(ElectionConfig electionConfig, long seed) {
         
         log.info("Starting with the election components creation and connections.");
 
@@ -283,7 +283,7 @@ public final class SearchPeer extends ComponentDefinition {
      * @param gradientConfig System's Gradient Configuration.
      * @param seed Seed for the Random Generator.
      */
-    private void connectGradient(GradientConfig gradientConfig, int seed) {
+    private void connectGradient(GradientConfig gradientConfig, long seed) {
         
         log.info("connecting gradient configuration ...");
         gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 1 , new SimpleUtilityComparator(), new SweepGradientFilter()));

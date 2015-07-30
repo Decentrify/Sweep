@@ -27,7 +27,6 @@ import se.sics.ms.configuration.MsConfig;
  * @author jim
  */
 public class GradientConfiguration 
-        extends AbstractConfiguration<GradientConfiguration>
 {
 
     /** 
@@ -72,17 +71,17 @@ public class GradientConfiguration
     public GradientConfiguration() {
         this(
                 MsConfig.GRADIENT_VIEW_SIZE,
-                VodConfig.GRADIENT_SHUFFLE_LENGTH,
+                MsConfig.GRADIENT_SHUFFLE_LENGTH,
                 MsConfig.GRADIENT_SHUFFLE_PERIOD,
-                VodConfig.GRADIENT_UTILITY_THRESHOLD,
-                VodConfig.GRADIENT_NUM_FINGERS,
-                VodConfig.GRADIENT_TEMPERATURE,
-                VodConfig.GRADIENT_SEARCH_TIMEOUT,
-                VodConfig.GRADIENT_NUM_PARALLEL_SEARCHES,
-                VodConfig.GRADIENT_SEARCH_TTL,
+                MsConfig.GRADIENT_UTILITY_THRESHOLD,
+                MsConfig.GRADIENT_NUM_FINGERS,
+                MsConfig.GRADIENT_TEMPERATURE,
+                MsConfig.GRADIENT_SEARCH_TIMEOUT,
+                MsConfig.GRADIENT_NUM_PARALLEL_SEARCHES,
+                MsConfig.GRADIENT_SEARCH_TTL,
                 MsConfig.GRADIENT_CONVERGENCE_TEST,
                 MsConfig.GRADIENT_CONVERGENCE_TEST_ROUNDS,
-                VodConfig.GRADIENT_SHUFFLE_TIMEOUT,
+                MsConfig.GRADIENT_SHUFFLE_TIMEOUT,
                 MsConfig.GRADIENT_MAX_NUM_ROUTING_ENTRIES,
                 MsConfig.GRADIENT_LEADER_LOOKUP_TIMEOUT,
                 MsConfig.GRADIENT_SEARCH_PARALLELISM,
