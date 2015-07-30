@@ -35,16 +35,16 @@
             <version>${project.version}</version>
         </dependency>
         
-        <dependency>
-            <groupId>se.sics.nat-traverser</groupId>
-            <artifactId>nat-traverser</artifactId>
-            <version>${nattraverser.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>log4j</artifactId>
-                    <groupId>log4j</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>se.sics.nat-traverser</groupId>-->
+            <!--<artifactId>nat-traverser</artifactId>-->
+            <!--<version>${nattraverser.version}</version>-->
+            <!--<exclusions>-->
+                <!--<exclusion>-->
+                    <!--<artifactId>log4j</artifactId>-->
+                    <!--<groupId>log4j</groupId>-->
+                <!--</exclusion>-->
+            <!--</exclusions>-->
+        <!--</dependency>-->
     </dependencies>
 </project>
