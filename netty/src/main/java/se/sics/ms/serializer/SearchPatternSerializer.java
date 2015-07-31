@@ -4,11 +4,11 @@ import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.configuration.MsConfig;
-import se.sics.ms.helper.SerializerDecoderHelper;
-import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 import java.util.Date;
 
@@ -35,7 +35,7 @@ public class SearchPatternSerializer implements Serializer{
 
         try {
             SearchPattern searchPattern = (SearchPattern)o;
-            SerializerEncoderHelper.writeStringLength256(byteBuf, searchPattern.getFileNamePattern());
+            UserEncoderFactory.writeStringLength256(byteBuf, searchPattern.getFileNamePattern());
             byteBuf.writeInt(searchPattern.getMinFileSize());
             byteBuf.writeInt(searchPattern.getMaxFileSize());
 
@@ -49,9 +49,9 @@ public class SearchPatternSerializer implements Serializer{
             else
                 byteBuf.writeLong(searchPattern.getMaxUploadDate().getTime());
 
-            SerializerEncoderHelper.writeStringLength256(byteBuf, searchPattern.getLanguage());
+            UserEncoderFactory.writeStringLength256(byteBuf, searchPattern.getLanguage());
             byteBuf.writeInt(searchPattern.getCategory().ordinal());
-            SerializerEncoderHelper.writeStringLength65536(byteBuf, searchPattern.getDescriptionPattern());
+            UserEncoderFactory.writeStringLength65536(byteBuf, searchPattern.getDescriptionPattern());
 
 
         } catch (EncodingException e) {
@@ -66,7 +66,7 @@ public class SearchPatternSerializer implements Serializer{
 
         try{
 
-            String filePattern = SerializerDecoderHelper.readStringLength256(byteBuf);
+            String filePattern = UserDecoderFactory.readStringLength256(byteBuf);
             int minFileSize = byteBuf.readInt();
             int maxFileSize = byteBuf.readInt();
             Date minUploadDate;
@@ -85,9 +85,9 @@ public class SearchPatternSerializer implements Serializer{
             else
                 maxUploadDate= new Date(maxUploadDateTime);
 
-            String language = SerializerDecoderHelper.readStringLength256(byteBuf);
+            String language = UserDecoderFactory.readStringLength256(byteBuf);
             MsConfig.Categories category = MsConfig.Categories.values()[byteBuf.readInt()];
-            String description = SerializerDecoderHelper.readStringLength65536(byteBuf);
+            String description = UserDecoderFactory.readStringLength65536(byteBuf);
 
 
             return new SearchPattern(filePattern, minFileSize, maxFileSize, minUploadDate, maxUploadDate, language, category, description);

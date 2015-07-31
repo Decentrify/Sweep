@@ -9,6 +9,8 @@ import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 import java.util.UUID;
 
@@ -36,7 +38,7 @@ public class PartitionInfoHashSerializer implements Serializer {
         try {
             PartitionHelper.PartitionInfoHash hashObject = (PartitionHelper.PartitionInfoHash)o;
             Serializers.lookupSerializer(UUID.class).toBinary(hashObject.getPartitionRequestId(), byteBuf);
-            SerializerEncoderHelper.writeStringLength65536(byteBuf, hashObject.getHash());
+            UserEncoderFactory.writeStringLength65536(byteBuf, hashObject.getHash());
             
         } catch (EncodingException e) {
             
@@ -50,7 +52,7 @@ public class PartitionInfoHashSerializer implements Serializer {
         
         try {
             UUID partitionRequestId = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
-            String hash = SerializerDecoderHelper.readStringLength65536(byteBuf);
+            String hash = UserDecoderFactory.readStringLength65536(byteBuf);
             return new PartitionHelper.PartitionInfoHash(partitionRequestId, hash);
             
         } catch (DecodingException e) {

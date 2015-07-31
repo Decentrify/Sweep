@@ -6,6 +6,7 @@ import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
 
+import static se.sics.p2ptoolbox.util.helper.UserEncoderFactory.*;
 import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 
@@ -34,70 +35,6 @@ public class SerializerEncoderHelper {
             writeStringLength65536(buffer, BaseEncoding.base64().encode(indexEntry.getLeaderId().getEncoded()));
     }
 
-
-    public static void writeStringLength65536(ByteBuf buffer, String str) throws EncodingException {
-        if(str == null) {
-            writeUnsignedintAsTwoBytes(buffer, 0);
-        } else {
-            byte[] strBytes;
-            try {
-                strBytes = str.getBytes("UTF-8");
-            } catch (UnsupportedEncodingException var4) {
-                throw new EncodingException("Unsupported chartset when encoding string: UTF-8");
-            }
-
-            int len = strBytes.length;
-            if(len > 1358) {
-                throw new EncodingException("Tried to write more bytes to writeString65536 than the MTU size. Attempted to write #bytes: " + len);
-            }
-
-            writeUnsignedintAsTwoBytes(buffer, len);
-            buffer.writeBytes(strBytes);
-        }
-
-    }
-
-    public static void writeStringLength256(ByteBuf buffer, String str) throws EncodingException {
-        if(str == null) {
-            writeUnsignedintAsOneByte(buffer, 0);
-        } else {
-            if(str.length() > 255) {
-                throw new EncodingException("String length > 255 : " + str);
-            }
-
-            byte[] strBytes;
-            try {
-                strBytes = str.getBytes("UTF-8");
-            } catch (UnsupportedEncodingException var4) {
-                throw new EncodingException("Unsupported chartset when encoding string: UTF-8");
-            }
-
-            int len = strBytes.length;
-            writeUnsignedintAsOneByte(buffer, len);
-            buffer.writeBytes(strBytes);
-        }
-
-    }
-
-    public static void writeUnsignedintAsTwoBytes(ByteBuf buffer, int value) throws EncodingException {
-        byte[] result = new byte[2];
-        if((double)value < Math.pow(2.0D, 16.0D) && value >= 0) {
-            result[0] = (byte)(value >>> 8 & 255);
-            result[1] = (byte)(value & 255);
-            buffer.writeBytes(result);
-        } else {
-            throw new EncodingException("writeUnsignedintAsTwoBytes: + Integer value < 0 or " + value + " is larger than 2^31");
-        }
-    }
-
-
-    public static void writeUnsignedintAsOneByte(ByteBuf buffer, int value) throws EncodingException {
-        if((double)value < Math.pow(2.0D, 8.0D) && value >= 0) {
-            buffer.writeByte((byte)(value & 255));
-        } else {
-            throw new EncodingException("writeUnsignedintAsOneByte: Integer value < 0 or " + value + " is larger than 2^15");
-        }
-    }
 
 
     /**

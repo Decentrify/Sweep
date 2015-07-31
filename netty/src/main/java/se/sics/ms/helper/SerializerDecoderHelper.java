@@ -8,7 +8,7 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
 
-import java.io.UnsupportedEncodingException;
+import  static se.sics.p2ptoolbox.util.helper.UserDecoderFactory.*;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -29,6 +29,7 @@ public class SerializerDecoderHelper {
 
     public static IndexEntry readIndexEntry(ByteBuf buffer)
             throws DecodingException {
+
         String gId = readStringLength256(buffer);
         Long id = buffer.readLong();
         String url = readStringLength256(buffer);
@@ -60,46 +61,6 @@ public class SerializerDecoderHelper {
     }
 
 
-
-    public static String readStringLength256(ByteBuf buffer) throws DecodingException{
-        int len = readIntAsOneByte(buffer);
-        return len == 0?null:readString(buffer, len);
-    }
-
-
-    public static int readIntAsOneByte(ByteBuf buffer) {
-        return readUnsignedIntAsOneByte(buffer);
-    }
-
-    private static String readString(ByteBuf buffer, int len) throws DecodingException {
-        byte[] bytes = new byte[len];
-        buffer.readBytes(bytes);
-
-        try {
-            return new String(bytes, "UTF-8");
-        } catch (UnsupportedEncodingException var4) {
-            throw new DecodingException(var4.getMessage());
-        }
-    }
-
-
-    public static String readStringLength65536(ByteBuf buffer) throws DecodingException {
-        int len = readUnsignedIntAsTwoBytes(buffer);
-        return len == 0?null:readString(buffer, len);
-    }
-
-    public static int readUnsignedIntAsOneByte(ByteBuf buffer) {
-        byte value = buffer.readByte();
-        return value & 255;
-    }
-
-    public static int readUnsignedIntAsTwoBytes(ByteBuf buffer) {
-        byte[] bytes = new byte[2];
-        buffer.readBytes(bytes);
-        int temp0 = bytes[0] & 255;
-        int temp1 = bytes[1] & 255;
-        return (temp0 << 8) + temp1;
-    }
 
     /**
      * Read the collection from the buffer.

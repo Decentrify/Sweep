@@ -10,6 +10,8 @@ import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexHash;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 /**
  * Serializer for the Index Hash Object.
@@ -35,7 +37,7 @@ public class IndexHashSerializer implements Serializer{
         try{
             IndexHash indexHash = (IndexHash)o;
             Serializers.lookupSerializer(Id.class).toBinary(indexHash.getId(), byteBuf);
-            SerializerEncoderHelper.writeStringLength65536(byteBuf, indexHash.getHash());
+            UserEncoderFactory.writeStringLength65536(byteBuf, indexHash.getHash());
         }
         catch (EncodingException e) {
             e.printStackTrace();
@@ -51,7 +53,7 @@ public class IndexHashSerializer implements Serializer{
         try {
 
             Id id = (Id) Serializers.lookupSerializer(Id.class).fromBinary(byteBuf, optional);
-            String hash = SerializerDecoderHelper.readStringLength65536(byteBuf);
+            String hash = UserDecoderFactory.readStringLength65536(byteBuf);
             return new IndexHash(id, hash);
 
         }
