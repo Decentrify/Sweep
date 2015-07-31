@@ -3,10 +3,7 @@ package se.sics.ms.simulator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
-import se.sics.co.FailureDetectorComponent;
-import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.*;
-import se.sics.ipasdistances.AsIpGenerator;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.Timer;
@@ -52,7 +49,6 @@ public final class SearchSimulator extends ComponentDefinition {
 
     private Long identifierSpaceSize;
     private ConsistentHashtable<Long> ringNodes;
-    private AsIpGenerator ipGenerator;
     private MagnetFileIterator magnetFiles;
     static String[] articles = {" ", "The ", "QueryLimit "};
     static String[] verbs = {"fires ", "walks ", "talks ", "types ", "programs "};
@@ -81,10 +77,7 @@ public final class SearchSimulator extends ComponentDefinition {
         treeGradientConfig = init.getTreeGradientConfig();
         
         identifierSpaceSize = (long) 3000;
-        ipGenerator = AsIpGenerator.getInstance(baseSeed);
-        
         subscribe(handleStart, control);
-        subscribe(handleGenerateReport, timer);
         subscribe(handlePeerJoin, simulator);
         subscribe(handlePeerFail, simulator);
 //        subscribe(handleTerminateExperiment, simulator);
@@ -205,12 +198,6 @@ public final class SearchSimulator extends ComponentDefinition {
         }
     };
 
-    Handler<GenerateReport> handleGenerateReport = new Handler<GenerateReport>() {
-        @Override
-        public void handle(GenerateReport event) {
-//            Snapshot.report();
-        }
-    };
 
     Handler<Search> handleSearch = new Handler<Search>() {
         @Override
@@ -237,11 +224,9 @@ public final class SearchSimulator extends ComponentDefinition {
 
         Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
                 gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
-        Component fd = create(FailureDetectorComponent.class, Init.NONE);
 
         connect(network, peer.getNegative(Network.class));
         connect(timer, peer.getNegative(Timer.class));
-        connect(fd.getPositive(FailureDetectorPort.class), peer.getNegative(FailureDetectorPort.class));
 
         List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
         bootstrapNodes.add(self.getAddress());
@@ -249,7 +234,6 @@ public final class SearchSimulator extends ComponentDefinition {
 
 
         trigger(Start.event, peer.getControl());
-        trigger(Start.event, fd.getControl());
         peers.put(id, peer);
         peersAddress.put(id, self.getAddress());
     }

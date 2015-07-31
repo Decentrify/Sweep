@@ -1,6 +1,6 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.net.VodAddress;
+import se.sics.ms.util.PartitioningType;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
@@ -37,7 +37,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
         return overlayId.getPartitionIdDepth();
     }
 
-    public VodAddress.PartitioningType getPartitioningType() {
+    public PartitioningType getPartitioningType() {
         return overlayId.getPartitioningType();
     }
 

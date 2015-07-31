@@ -1,7 +1,7 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.util.OverlayIdHelper;
+import se.sics.ms.util.PartitioningType;
 
 /**
  * Handling the overlay information of the node in the system.
@@ -13,7 +13,7 @@ public class OverlayId implements Comparable<OverlayId> {
     public int categoryId;
     public int partitionId;
     public int partitionIdDepth;
-    public VodAddress.PartitioningType partitioningType;        //CAUTION: This filed needs to be removed eventually as the information is redundant but being used everywhere.
+    public PartitioningType partitioningType;        //CAUTION: This filed needs to be removed eventually as the information is redundant but being used everywhere.
 
 
     public OverlayId(int overlayId){
@@ -25,7 +25,7 @@ public class OverlayId implements Comparable<OverlayId> {
 
     }
 
-    public OverlayId(int categoryId, int partitionId, int partitionIdDepth, VodAddress.PartitioningType partitioningType){
+    public OverlayId(int categoryId, int partitionId, int partitionIdDepth, PartitioningType partitioningType){
         this.categoryId = categoryId;
         this.partitionId = partitionId;
         this.partitionIdDepth = partitionIdDepth;
@@ -44,7 +44,7 @@ public class OverlayId implements Comparable<OverlayId> {
         return partitionIdDepth;
     }
 
-    public VodAddress.PartitioningType getPartitioningType() {
+    public PartitioningType getPartitioningType() {
         return partitioningType;
     }
 

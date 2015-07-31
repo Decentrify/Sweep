@@ -2,7 +2,6 @@ package se.sics.ms.search;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
@@ -15,7 +14,6 @@ import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.events.*;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
-import se.sics.ms.events.paginateAware.*;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.gradient.events.PAGUpdate;
@@ -70,7 +68,6 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
-    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
     private Component gradient, tgradient;
     private Component search, chunkManager, aggregatorComponent, routing;

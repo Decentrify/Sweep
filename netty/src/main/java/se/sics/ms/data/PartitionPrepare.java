@@ -1,6 +1,5 @@
 package se.sics.ms.data;
 
-import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.util.PartitionHelper;

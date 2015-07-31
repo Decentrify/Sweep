@@ -1,7 +1,5 @@
 package se.sics.ms.gradient.events;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 

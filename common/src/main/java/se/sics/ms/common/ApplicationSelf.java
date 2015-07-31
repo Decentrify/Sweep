@@ -1,10 +1,10 @@
 package se.sics.ms.common;
 
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
+import se.sics.ms.util.PartitioningType;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
@@ -111,7 +111,7 @@ public class ApplicationSelf {
         return OverlayIdHelper.getPartitionId(this.overlayId);
     }
 
-    public VodAddress.PartitioningType getPartitioningType(){
+    public PartitioningType getPartitioningType(){
         return OverlayIdHelper.getPartitioningType(this.overlayId);
     }
 

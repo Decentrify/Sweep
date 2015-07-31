@@ -6,7 +6,6 @@ import se.kth.ms.partitionaware.api.events.PALUpdate;
 import se.kth.ms.partitionaware.api.port.PALPort;
 import se.kth.ms.partitionaware.core.PALInit;
 import se.kth.ms.partitionaware.core.PartitionAwareLayer;
-import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
 import se.sics.kompics.*;
@@ -73,7 +72,6 @@ public final class Peer extends ComponentDefinition {
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
-    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     private Component croupier;
     private Component gradient, tgradient;
     private Component search, chunkManager, aggregatorComponent, routing;

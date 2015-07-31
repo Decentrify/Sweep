@@ -1,6 +1,5 @@
 package se.sics.ms.gradient.ports;
 
-import se.sics.gvod.timer.TimeoutId;
 import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.PortType;
@@ -21,24 +20,16 @@ public class GradientRoutingPort extends PortType {
         negative(IndexHashExchangeRequest.class);
         positive(IndexHashExchangeResponse.class);
         negative(SearchRequest.class);
-        negative(ReplicationPrepareCommitRequest.class);
-        negative(ReplicationCommit.class);
         negative(SearchRequest.class);
-        negative(ViewSizeMessage.Request.class);
-        positive(ViewSizeMessage.Response.class);
         positive(RemoveEntriesNotFromYourPartition.class);
         positive(NumberOfPartitions.class);
 
         // Two Phase Commit Partitioning Messages.
         negative(ApplyPartitioningUpdate.class);
-        negative(LeaderGroupInformation.Request.class);
-        positive(LeaderGroupInformation.Response.class);
 
         // Generic Pull Based Control Message Exchange.
         negative(InitiateControlMessageExchangeRound.class);
 
-        negative(CheckPartitionInfo.Request.class);
-        positive(CheckPartitionInfo.Response.class);
 	}
 
 
@@ -199,45 +190,4 @@ public class GradientRoutingPort extends PortType {
         }
     }
 
-    public static class ReplicationPrepareCommitRequest extends Event {
-        private final IndexEntry entry;
-        private final TimeoutId timeoutId;
-
-        public ReplicationPrepareCommitRequest(IndexEntry entry, TimeoutId timeoutId) {
-            this.entry = entry;
-            this.timeoutId = timeoutId;
-        }
-
-        public IndexEntry getEntry() {
-            return entry;
-        }
-
-        public TimeoutId getTimeoutId() {
-            return timeoutId;
-        }
-    }
-
-    public static class ReplicationCommit extends Event {
-        private final TimeoutId timeoutId;
-        private final Long indexEntryId;
-        private final String signature;
-
-        public ReplicationCommit(TimeoutId timeoutId, Long indexEntryId, String signature) {
-            this.timeoutId = timeoutId;
-            this.indexEntryId = indexEntryId;
-            this.signature = signature;
-        }
-
-        public Long getIndexEntryId() {
-            return indexEntryId;
-        }
-
-        public TimeoutId getTimeoutId() {
-            return timeoutId;
-        }
-
-        public String getSignature() {
-            return signature;
-        }
-    }
 }

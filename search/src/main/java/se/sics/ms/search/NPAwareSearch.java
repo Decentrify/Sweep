@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.kth.ms.partitionaware.api.port.PALPort;
 import se.sics.gvod.config.SearchConfiguration;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
@@ -29,12 +28,10 @@ import se.sics.ms.data.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.events.*;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
-import se.sics.ms.events.paginateAware.*;
 import se.sics.ms.gradient.events.*;
 import se.sics.ms.gradient.ports.GradientRoutingPort;
 import se.sics.ms.gradient.ports.LeaderStatusPort;
 import se.sics.ms.model.LocalSearchRequest;
-import se.sics.ms.model.ReplicationCount;
 import se.sics.ms.ports.SelfChangedPort;
 import se.sics.ms.ports.SimulationEventsPort;
 import se.sics.ms.ports.SimulationEventsPort.AddIndexSimulated;
@@ -104,7 +101,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     private DecoratedAddress leaderAddress;
     private PublicKey leaderKey;
 
-    private Map<UUID, ReplicationCount> replicationRequests;
     private Map<UUID, Long> recentRequests;
 
     // Apache Lucene used for searching
@@ -295,7 +291,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         privateKey = init.getPrivateKey();
         gradientEntrySet = new TreeSet<PeerDescriptor>();
 
-        replicationRequests = new HashMap<UUID, ReplicationCount>();
         recentRequests = new HashMap<UUID, Long>();
         nextInsertionId = ApplicationConst.STARTING_ENTRY_ID;
         lowestMissingIndexValue = 0;
@@ -659,7 +654,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                 //If prepare phase was started but no response received, then replicationRequests will have left
                 // over data
-                replicationRequests.remove(event.getTimeoutId());
+//                replicationRequests.remove(event.getTimeoutId());
 
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
@@ -2077,12 +2072,12 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         int nodeId = self.getId();
         int newOverlayId;
-        if (selfPartitionId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE) {
+        if (selfPartitionId.getPartitioningType() == PartitioningType.NEVER_BEFORE) {
 
             int partitionId = (partitionSubId ? 1 : 0);
 
             int selfCategory = self.getCategoryId();
-            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.ONCE_BEFORE,
+            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(PartitioningType.ONCE_BEFORE,
                     1, partitionId, selfCategory);
 
         } else {
@@ -2096,7 +2091,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             int selfCategory = self.getCategoryId();
 
             // Incrementing partitioning depth in the overlayId.
-            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType.MANY_BEFORE,
+            newOverlayId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(PartitioningType.MANY_BEFORE,
                     newDepth, partition, selfCategory);
         }
 

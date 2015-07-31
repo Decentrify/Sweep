@@ -3,7 +3,6 @@ package se.sics.ms.gradient.gradient;
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.co.FailureDetectorPort;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
@@ -58,7 +57,6 @@ public final class Routing extends ComponentDefinition {
     Positive<Timer> timerPort = positive(Timer.class);
 
     Positive<GradientViewChangePort> gradientViewChangePort = positive(GradientViewChangePort.class);
-    Positive<FailureDetectorPort> fdPort = requires(FailureDetectorPort.class);
     Positive<LeaderStatusPort> leaderStatusPort = requires(LeaderStatusPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     
@@ -110,7 +108,6 @@ public final class Routing extends ComponentDefinition {
 
         subscribe(handleIndexHashExchangeRequest, gradientRoutingPort);
         subscribe(handleLeaderLookupTimeout, timerPort);
-        subscribe(handleFailureDetector, fdPort);
         subscribe(handlerControlMessageExchangeInitiation, gradientRoutingPort);
 
         subscribe(handlerSelfChanged, selfChangedPort);
@@ -148,16 +145,6 @@ public final class Routing extends ComponentDefinition {
             logger.info("Pseudo Gradient Component Started ...");
         }
     };
-
-
-    final Handler<FailureDetectorPort.FailureDetectorEvent> handleFailureDetector = new Handler<FailureDetectorPort.FailureDetectorEvent>() {
-
-        @Override
-        public void handle(FailureDetectorPort.FailureDetectorEvent event) {
-            logger.debug("Need to implement this functionality");
-        }
-    };
-
 
 
     /**

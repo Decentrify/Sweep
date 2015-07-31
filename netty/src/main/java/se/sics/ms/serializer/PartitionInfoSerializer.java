@@ -2,10 +2,10 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.ms.util.PartitioningType;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
 import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
@@ -57,7 +57,7 @@ public class PartitionInfoSerializer implements Serializer{
         try {
             UUID requestId = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
             long medianId = byteBuf.readLong();
-            VodAddress.PartitioningType type = VodAddress.PartitioningType.values()[byteBuf.readInt()];
+            PartitioningType type = PartitioningType.values()[byteBuf.readInt()];
             String hash = UserDecoderFactory.readStringLength65536(byteBuf);
             PublicKey key = (PublicKey) Serializers.lookupSerializer(PublicKey.class).fromBinary(byteBuf, optional);
 

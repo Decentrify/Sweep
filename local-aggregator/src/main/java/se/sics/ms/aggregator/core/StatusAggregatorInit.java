@@ -1,6 +1,5 @@
 package se.sics.ms.aggregator.core;
 
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.Init;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 

@@ -2,7 +2,6 @@ package se.sics.ms.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodAddress;
 import se.sics.ms.types.OverlayId;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.PeerDescriptor;
@@ -31,7 +30,7 @@ public class PartitionHelper {
         if(partitionId == null)
             throw new IllegalArgumentException("currentPartitionId can't be null");
 
-        if(partitionId.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE)
+        if(partitionId.getPartitioningType() == PartitioningType.NEVER_BEFORE)
             return (yourNodeId & 1) != 0;
 
         return (yourNodeId & (1 << partitionId.getPartitionIdDepth())) != 0;
@@ -50,14 +49,14 @@ public class PartitionHelper {
             throw new IllegalArgumentException("descriptor can't be null");
 
         if(isFirstPartition)
-            return new PartitionId(VodAddress.PartitioningType.ONCE_BEFORE, 1, descriptor.getId() & 1);
+            return new PartitionId(PartitioningType.ONCE_BEFORE, 1, descriptor.getId() & 1);
 
         int partitionId = 0;
 
         for(int i=0; i<bitsToCheck; i++)
             partitionId = partitionId | (descriptor.getId() & (1<<i));
 
-        return new PartitionId(VodAddress.PartitioningType.MANY_BEFORE, bitsToCheck, partitionId);
+        return new PartitionId(PartitioningType.MANY_BEFORE, bitsToCheck, partitionId);
     }
 
 
@@ -144,18 +143,18 @@ public class PartitionHelper {
 
         private long medianId;
         private UUID requestId;
-        private VodAddress.PartitioningType partitioningType;
+        private PartitioningType partitioningType;
         private String hash;
         private PublicKey key;
 
-        public PartitionInfo(long medianId, UUID requestId, VodAddress.PartitioningType partitioningType){
+        public PartitionInfo(long medianId, UUID requestId, PartitioningType partitioningType){
             this.medianId = medianId;
             this.partitioningType = partitioningType;
             this.requestId = requestId;
         }
 
 
-        public PartitionInfo(long medianId, UUID requestId, VodAddress.PartitioningType partitioningType, String hash, PublicKey key){
+        public PartitionInfo(long medianId, UUID requestId, PartitioningType partitioningType, String hash, PublicKey key){
             this(medianId,requestId,partitioningType);
             this.hash = hash;
             this.key = key;
@@ -165,7 +164,7 @@ public class PartitionHelper {
             return this.medianId;
         }
 
-        public VodAddress.PartitioningType getPartitioningTypeInfo(){
+        public PartitioningType getPartitioningTypeInfo(){
             return this.partitioningType;
         }
 
