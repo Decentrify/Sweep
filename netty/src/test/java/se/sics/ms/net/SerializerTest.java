@@ -10,7 +10,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
@@ -19,6 +18,7 @@ import se.sics.ms.types.*;
 import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.ms.util.PartitioningType;
 import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
@@ -159,7 +159,7 @@ public class SerializerTest {
     public void partitionInfoSerializationTest(){
         logger.info("Partition Info Serialization Test");
 
-        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(10, UUID.randomUUID(), VodAddress.PartitioningType.NEVER_BEFORE, "Hash", publicKey);
+        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(10, UUID.randomUUID(), PartitioningType.NEVER_BEFORE, "Hash", publicKey);
         Serializer piSerializer = Serializers.lookupSerializer(PartitionHelper.PartitionInfo.class);
 
         PartitionHelper.PartitionInfo copiedPartitionInfo = (PartitionHelper.PartitionInfo) addObjectAndCreateCopiedObject(piSerializer, originalBuf, originalPartitionInfo, copiedBuf);
@@ -1010,7 +1010,7 @@ public class SerializerTest {
 
 
     private PartitionHelper.PartitionInfo getPartitionInfo(){
-        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(random.nextInt(), UUID.randomUUID(), VodAddress.PartitioningType.NEVER_BEFORE, "Hash", publicKey);
+        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(random.nextInt(), UUID.randomUUID(), PartitioningType.NEVER_BEFORE, "Hash", publicKey);
         return originalPartitionInfo;
     }
 
