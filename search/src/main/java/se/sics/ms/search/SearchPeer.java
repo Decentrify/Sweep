@@ -122,8 +122,7 @@ public final class SearchPeer extends ComponentDefinition {
         // Internal Component Connections.
         doInternalConnections();
 
-        // Bootstrap the underlying services.
-        initiateServiceBootstrapping();
+
 
         // Subscriptions.
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
@@ -213,10 +212,6 @@ public final class SearchPeer extends ComponentDefinition {
 
 //          Now you actually launch the search peer.
             Set<DecoratedAddress> bootstrapSet = new HashSet<DecoratedAddress>(response.overlaySample);
-
-            log.error(" Sent Array: {}", croupierService);
-            log.error(" Received Array: {}", receivedArray);
-            log.error(" Bootstrap Addresses : {}", bootstrapSet);
 
 //          Bootstrap the croupier service.
             trigger(new CroupierJoin(bootstrapSet), croupier.getPositive(CroupierControlPort.class));
@@ -341,6 +336,10 @@ public final class SearchPeer extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
+
+            log.error("Start Event Received, now initiating the bootstrapping .... ");
+            initiateServiceBootstrapping();
+
             startGradient();
         }
     };
@@ -368,7 +367,8 @@ public final class SearchPeer extends ComponentDefinition {
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
                         new PeerDescriptor(self.getAddress()),
-                        seed,
+                        seed,            // Bootstrap the underlying services.
+
                         electionConfig,
                         publicKey,
                         privateKey,
