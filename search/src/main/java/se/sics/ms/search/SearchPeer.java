@@ -140,6 +140,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         subscribe(overlaySampleResponseHandler, heartbeatPort);
         subscribe(croupierDisconnectedHandler, croupier.getPositive(CroupierControlPort.class));
+        subscribe(caracalTimeoutHandler, timer);
     }
 
 
@@ -150,20 +151,42 @@ public final class SearchPeer extends ComponentDefinition {
      *
      */
     private void initiateServiceBootstrapping(){
+
+        log.error("Going to initiate bootstrapping all the services.");
+
+//      Before bootstrapping inform caracal through heart beats.nj
+        HeartbeatServiceEnum.CROUPIER.setServiceId((byte)1);
+        byte[] croupierService = getCroupierServiceByteArray();
+
+        log.error("Triggering the heart beat to the caracal service.");
+        log.error("Croupier Service: {}", croupierService);
+
+        trigger(new CCHeartbeat.Start(croupierService), heartbeatPort);
+
         initiateCroupierServiceBootstrap();
     }
 
+
+    Handler<TimeoutCollection.CaracalTimeout> caracalTimeoutHandler = new Handler<TimeoutCollection.CaracalTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.CaracalTimeout caracalTimeout) {
+
+            log.error("Actually initiating the croupier service bootstrap");
+            initiateCroupierServiceBootstrap();
+        }
+    };
 
     /**
      * Request for the bootstrapping nodes from the caracal.
      */
     private void initiateCroupierServiceBootstrap(){
 
-        log.info("Trying to connect to caracal for fetching the bootstrapping nodes.");
+        log.error("Trying to connect to caracal for fetching the bootstrapping nodes.");
 
 //      CONSTRUCT AND SEND THE BYTE ARRAY AND THEN INT.
-        HeartbeatServiceEnum.CROUPIER.setServiceId((byte)0);
         byte[] croupierServiceByteArray = getCroupierServiceByteArray();
+        log.error("Croupier Service: {}", croupierServiceByteArray);
+
         trigger(new CCOverlaySample.Request(croupierServiceByteArray), heartbeatPort);
 
     }
@@ -178,10 +201,10 @@ public final class SearchPeer extends ComponentDefinition {
         @Override
         public void handle(CCOverlaySample.Response response) {
 
-            log.debug("Received overlay sample response.");
+            log.error("Received overlay sample response for croupier now.");
 
             byte[] croupierService = getCroupierServiceByteArray();
-            byte[] receivedArray  = response.overlay;
+            byte[] receivedArray  = response.overlayId;
 
             if(!Arrays.equals(croupierService, receivedArray)){
                 log.warn("Received caracal service response for an unknown service.");
@@ -191,9 +214,13 @@ public final class SearchPeer extends ComponentDefinition {
 //          Now you actually launch the search peer.
             Set<DecoratedAddress> bootstrapSet = new HashSet<DecoratedAddress>(response.overlaySample);
 
+            log.error(" Sent Array: {}", croupierService);
+            log.error(" Received Array: {}", receivedArray);
+            log.error(" Bootstrap Addresses : {}", bootstrapSet);
+
 //          Bootstrap the croupier service.
             trigger(new CroupierJoin(bootstrapSet), croupier.getPositive(CroupierControlPort.class));
-            trigger(new CCHeartbeat.Start(croupierService), heartbeatPort);
+
         }
     };
 
@@ -428,10 +455,8 @@ public final class SearchPeer extends ComponentDefinition {
     
     
     private void connectCroupier( CroupierConfig config ) {
-        log.info("connecting croupier components...");
 
-        List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
-        bootstrappingSet.addAll(systemConfig.bootstrapNodes);
+        log.info("connecting croupier components...");
 
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
         connect(timer, croupier.getNegative(Timer.class));

@@ -39,11 +39,11 @@
         <java.compiler.version>1.6</java.compiler.version>
         
         <kompics.version>0.8.1-SNAPSHOT</kompics.version>
-        <croupier.version>1.6-SNAPSHOT</croupier.version>
+        <croupier.version>1.7-SNAPSHOT</croupier.version>
         <gradient.version>1.5-SNAPSHOT</gradient.version>
         <aggregator.version>1.2-SNAPSHOT</aggregator.version>
         <election.version>1.2-SNAPSHOT</election.version>
-        <util.version>1.4-SNAPSHOT</util.version>
+        <util.version>1.5-SNAPSHOT</util.version>
         <chunkmanager.version>1.2-SNAPSHOT</chunkmanager.version>
         <simulator.version>1.4-SNAPSHOT</simulator.version>
         

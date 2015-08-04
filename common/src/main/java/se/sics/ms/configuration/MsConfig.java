@@ -80,6 +80,6 @@ public class MsConfig {
     public static final int GRADIENT_SHUFFLE_TIMEOUT = DEFAULT_RTO;
 
     // Caracal Service Identifier.
-    public static final int CROUPIER_SERVICE = 0;
+    public static final int CROUPIER_SERVICE = 1;
     public static final long CARACAL_TIMEOUT = 2000;
 }
