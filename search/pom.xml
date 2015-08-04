@@ -11,6 +11,10 @@
     <name>ms-search</name>
     <url>http://maven.apache.org</url>
 
+    <properties>
+        <caracal.client.version>1.0-SNAPSHOT</caracal.client.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>se.kth.ms</groupId>
@@ -33,6 +37,16 @@
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc.heartbeat</groupId>
+            <artifactId>core</artifactId>
+            <version>${caracal.client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc.bootstrap</groupId>
+            <artifactId>core</artifactId>
+            <version>${caracal.client.version}</version>
         </dependency>
     </dependencies>
 </project>

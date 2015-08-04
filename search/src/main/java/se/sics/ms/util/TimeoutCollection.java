@@ -208,6 +208,17 @@ public class TimeoutCollection {
             this.fileNamePattern = fileNamePattern;
         }
     }
+
+
+    /**
+     * Timeout for interacting with the caracal service for bootstrapping.
+     */
+    public static class CaracalTimeout extends Timeout{
+
+        public CaracalTimeout(ScheduleTimeout request) {
+            super(request);
+        }
+    }
     
                 
 }
