@@ -453,14 +453,19 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectCroupier( CroupierConfig config ) {
 
         log.info("connecting croupier components...");
+        int croupierOverlay = getCroupierServiceInt(getCroupierServiceByteArray());
 
-        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
+        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, croupierOverlay));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
+        connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(croupierOverlay));
         connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
+    }
+
+    private int getCroupierServiceInt(byte[] serviceArray){
+        return Ints.fromByteArray(serviceArray);
     }
 
     private Handler<CroupierDisconnected> handleCroupierDisconnect = new Handler<CroupierDisconnected>() {
