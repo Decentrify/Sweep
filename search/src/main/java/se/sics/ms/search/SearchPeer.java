@@ -151,17 +151,13 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void initiateServiceBootstrapping(){
 
-        log.error("Going to initiate bootstrapping all the services.");
+        log.info("Going to initiate bootstrapping all the services.");
 
-//      Before bootstrapping inform caracal through heart beats.nj
-        HeartbeatServiceEnum.CROUPIER.setServiceId((byte)1);
+//      Before bootstrapping inform caracal through heart beats.
         byte[] croupierService = getCroupierServiceByteArray();
-
-        log.error("Triggering the heart beat to the caracal service.");
-        log.error("Croupier Service: {}", croupierService);
+        log.debug("Triggering the heart beat to the caracal service with overlay :{}.", croupierService);
 
         trigger(new CCHeartbeat.Start(croupierService), heartbeatPort);
-
         initiateCroupierServiceBootstrap();
     }
 
@@ -170,7 +166,7 @@ public final class SearchPeer extends ComponentDefinition {
         @Override
         public void handle(TimeoutCollection.CaracalTimeout caracalTimeout) {
 
-            log.error("Actually initiating the croupier service bootstrap");
+            log.info("Initiating the croupier service bootstrap");
             initiateCroupierServiceBootstrap();
         }
     };
@@ -180,11 +176,11 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void initiateCroupierServiceBootstrap(){
 
-        log.error("Trying to connect to caracal for fetching the bootstrapping nodes.");
+        log.debug("Trying to connect to caracal for fetching the bootstrapping nodes.");
 
 //      CONSTRUCT AND SEND THE BYTE ARRAY AND THEN INT.
         byte[] croupierServiceByteArray = getCroupierServiceByteArray();
-        log.error("Croupier Service: {}", croupierServiceByteArray);
+        log.debug("Croupier Service Byte Array: {}", croupierServiceByteArray);
 
         trigger(new CCOverlaySample.Request(croupierServiceByteArray), heartbeatPort);
 
@@ -200,7 +196,7 @@ public final class SearchPeer extends ComponentDefinition {
         @Override
         public void handle(CCOverlaySample.Response response) {
 
-            log.error("Received overlay sample response for croupier now.");
+            log.debug("Received overlay sample response for croupier now.");
 
             byte[] croupierService = getCroupierServiceByteArray();
             byte[] receivedArray  = response.overlayId;
