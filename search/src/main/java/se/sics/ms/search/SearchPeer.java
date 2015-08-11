@@ -39,6 +39,7 @@ import java.security.*;
 import java.util.*;
 
 import se.sics.ms.util.CommonHelper;
+import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.HeartbeatServiceEnum;
 import se.sics.ms.util.TimeoutCollection;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
@@ -67,8 +68,7 @@ import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.util.SimpleLCPViewComparator;
-import se.sics.util.SweepLeaderFilter;
+import se.sics.util.*;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -350,6 +350,10 @@ public final class SearchPeer extends ComponentDefinition {
         
         log.info("Starting with the election components creation and connections.");
 
+        LEContainerComparator containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(), new ComparatorCollection.AddressComparator());
+        SweepLCRuleSet leaderComponentRuleSet = new SweepLCRuleSet(containerComparator);
+        SweepCohortsRuleSet cohortsRuleSet = new SweepCohortsRuleSet(containerComparator);
+
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
                 new PeerDescriptor(self.getAddress()),
@@ -358,19 +362,21 @@ public final class SearchPeer extends ComponentDefinition {
                 publicKey,
                 privateKey,
                 new SimpleLCPViewComparator(),
-                new SweepLeaderFilter()));
+                new SweepLeaderFilter(),
+                leaderComponentRuleSet,
+                cohortsRuleSet));
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
                         new PeerDescriptor(self.getAddress()),
                         seed,            // Bootstrap the underlying services.
-
                         electionConfig,
                         publicKey,
                         privateKey,
                         new SimpleLCPViewComparator(),
-                        new SweepLeaderFilter())
-                    );
+                        new SweepLeaderFilter(),
+                        leaderComponentRuleSet,
+                        cohortsRuleSet));
 
         // Election leader connections.
         connect(network, electionLeader.getNegative(Network.class));

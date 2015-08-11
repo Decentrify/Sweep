@@ -44,7 +44,7 @@
         <croupier.version>1.8-SNAPSHOT</croupier.version>
         <gradient.version>1.6-SNAPSHOT</gradient.version>
         <aggregator.version>1.3-SNAPSHOT</aggregator.version>
-        <election.version>1.2-SNAPSHOT</election.version>
+        <election.version>1.3-SNAPSHOT</election.version>
         <util.version>1.6-SNAPSHOT</util.version>
         <chunkmanager.version>1.3-SNAPSHOT</chunkmanager.version>
         <simulator.version>1.4-SNAPSHOT</simulator.version>

@@ -2,6 +2,9 @@ package se.sics.ms.util;
 
 import se.sics.ms.common.RoutingTableContainer;
 import se.sics.ms.types.PeerDescriptor;
+import se.sics.p2ptoolbox.election.api.LCPeerView;
+import se.sics.p2ptoolbox.election.api.LEContainer;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Comparator;
 
@@ -80,6 +83,17 @@ public class ComparatorCollection {
             }
             
             return result;
+        }
+    }
+
+
+
+    public static class AddressComparator implements Comparator<DecoratedAddress> {
+
+        @Override
+        public int compare(DecoratedAddress o1, DecoratedAddress o2) {
+
+            return Integer.compare(o1.getId(), o2.getId());
         }
     }
 
