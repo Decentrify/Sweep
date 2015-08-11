@@ -377,9 +377,6 @@ public final class Peer extends ComponentDefinition {
     private void connectCroupier( SystemConfig systemConfig, CroupierConfig config, int croupierOverlayId ) {
         log.info("connecting croupier components...");
 
-        List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
-        bootstrappingSet.addAll(systemConfig.bootstrapNodes);
-
         croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, croupierOverlayId));
         connect(timer, croupier.getNegative(Timer.class));
         connect(network , croupier.getNegative(Network.class), new IntegerOverlayFilter(croupierOverlayId));

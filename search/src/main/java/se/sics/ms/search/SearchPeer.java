@@ -1,16 +1,24 @@
 package se.sics.ms.search;
 
+import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
+import se.sics.kompics.timer.CancelTimeout;
+import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
+import se.sics.ktoolbox.cc.bootstrap.msg.CCReady;
+import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
+import se.sics.ktoolbox.cc.heartbeat.msg.CCHeartbeat;
+import se.sics.ktoolbox.cc.heartbeat.msg.CCOverlaySample;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.events.*;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
@@ -31,6 +39,8 @@ import java.security.*;
 import java.util.*;
 
 import se.sics.ms.util.CommonHelper;
+import se.sics.ms.util.HeartbeatServiceEnum;
+import se.sics.ms.util.TimeoutCollection;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierComp;
@@ -38,6 +48,7 @@ import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.croupier.CroupierControlPort;
 import se.sics.p2ptoolbox.croupier.CroupierPort;
 import se.sics.p2ptoolbox.croupier.msg.CroupierDisconnected;
+import se.sics.p2ptoolbox.croupier.msg.CroupierJoin;
 import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.election.core.ElectionFollower;
@@ -68,6 +79,8 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<Timer> timer = positive(Timer.class);
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
+    Positive<CCHeartbeatPort> heartbeatPort = requires(CCHeartbeatPort.class);
+
     private Component croupier;
     private Component gradient, tgradient;
     private Component search, chunkManager, aggregatorComponent, routing;
@@ -108,7 +121,9 @@ public final class SearchPeer extends ComponentDefinition {
 
         // Internal Component Connections.
         doInternalConnections();
-        
+
+
+
         // Subscriptions.
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
         subscribe(addIndexEntryUiResponseHandler, search.getPositive(UiPort.class));
@@ -122,7 +137,125 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(paginateSearchRequestHandler, externalUiPort);
         subscribe(paginateSearchResponseHandler, search.getPositive(UiPort.class));
 
+        subscribe(overlaySampleResponseHandler, heartbeatPort);
+        subscribe(croupierDisconnectedHandler, croupier.getPositive(CroupierControlPort.class));
+        subscribe(caracalTimeoutHandler, timer);
     }
+
+
+    /**
+     * Main method indicating the bootstrapping of multiple services.
+     * At the moment, only croupier service needs to be bootstrapped but in future
+     * many services can be bootstrapped.
+     *
+     */
+    private void initiateServiceBootstrapping(){
+
+        log.info("Going to initiate bootstrapping all the services.");
+
+//      Before bootstrapping inform caracal through heart beats.
+        byte[] croupierService = getCroupierServiceByteArray();
+        log.debug("Triggering the heart beat to the caracal service with overlay :{}.", croupierService);
+
+        trigger(new CCHeartbeat.Start(croupierService), heartbeatPort);
+        initiateCroupierServiceBootstrap();
+    }
+
+
+    Handler<TimeoutCollection.CaracalTimeout> caracalTimeoutHandler = new Handler<TimeoutCollection.CaracalTimeout>() {
+        @Override
+        public void handle(TimeoutCollection.CaracalTimeout caracalTimeout) {
+
+            log.info("Initiating the croupier service bootstrap");
+            initiateCroupierServiceBootstrap();
+        }
+    };
+
+    /**
+     * Request for the bootstrapping nodes from the caracal.
+     */
+    private void initiateCroupierServiceBootstrap(){
+
+        log.debug("Trying to connect to caracal for fetching the bootstrapping nodes.");
+
+//      CONSTRUCT AND SEND THE BYTE ARRAY AND THEN INT.
+        byte[] croupierServiceByteArray = getCroupierServiceByteArray();
+        log.debug("Croupier Service Byte Array: {}", croupierServiceByteArray);
+
+        trigger(new CCOverlaySample.Request(croupierServiceByteArray), heartbeatPort);
+
+    }
+
+    /**
+     * Overlay Sample Response Handler.
+     * FIX ME: Handle the response generically. For now as only
+     * one service needs to be bootstrapped therefore it could be allowed.
+     *
+     */
+    Handler<CCOverlaySample.Response> overlaySampleResponseHandler = new Handler<CCOverlaySample.Response>() {
+        @Override
+        public void handle(CCOverlaySample.Response response) {
+
+            log.debug("Received overlay sample response for croupier now.");
+
+            byte[] croupierService = getCroupierServiceByteArray();
+            byte[] receivedArray  = response.overlayId;
+
+            if(!Arrays.equals(croupierService, receivedArray)){
+                log.warn("Received caracal service response for an unknown service.");
+                return;
+            }
+
+//          Now you actually launch the search peer.
+            Set<DecoratedAddress> bootstrapSet = new HashSet<DecoratedAddress>(response.overlaySample);
+
+//          Bootstrap the croupier service.
+            trigger(new CroupierJoin(bootstrapSet), croupier.getPositive(CroupierControlPort.class));
+
+        }
+    };
+
+    /**
+     * Get the byte array for the croupier service.
+     * This byte array will be used to bootstrap the croupier
+     * with the sample.
+     *
+     * @return byte array.
+     */
+    private byte[] getCroupierServiceByteArray(){
+
+        byte[] overlayByteArray = Ints.toByteArray(MsConfig.CROUPIER_SERVICE);
+        byte[] resultByteArray = new byte[] { HeartbeatServiceEnum.CROUPIER.getServiceId(),
+                overlayByteArray[1],
+                overlayByteArray[2],
+                overlayByteArray[3]};
+
+        return resultByteArray;
+    }
+
+    /**
+     * Main handler to be executed when the croupier disconnected
+     * is received by the application.
+     */
+    Handler<CroupierDisconnected> croupierDisconnectedHandler = new Handler<CroupierDisconnected>() {
+        @Override
+        public void handle(CroupierDisconnected croupierDisconnected) {
+
+            log.info("Croupier disconnected. Requesting caracal for bootstrap nodes.");
+            retryCroupierServiceBootstrap();
+        }
+    };
+
+
+    /**
+     * Involves any cleaning up to be performed before the
+     * croupier service can be re-bootstrapped
+     */
+    private void retryCroupierServiceBootstrap(){
+        log.debug("Going to reconnect the caracal for bootstrapping the croupier.");
+        initiateCroupierServiceBootstrap();
+    }
+
 
         // Gradient Port Connections.
 
@@ -147,8 +280,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-//        connect(search.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
-//        connect(routing.getNegative(GradientPort.class), gradient.getPositive(GradientPort.class));
 
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
@@ -201,6 +332,10 @@ public final class SearchPeer extends ComponentDefinition {
     Handler<Start> handleStart = new Handler<Start>() {
         @Override
         public void handle(final Start init) {
+
+            log.error("Start Event Received, now initiating the bootstrapping .... ");
+            initiateServiceBootstrapping();
+
             startGradient();
         }
     };
@@ -228,7 +363,8 @@ public final class SearchPeer extends ComponentDefinition {
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
                         new PeerDescriptor(self.getAddress()),
-                        seed,
+                        seed,            // Bootstrap the underlying services.
+
                         electionConfig,
                         publicKey,
                         privateKey,
@@ -315,18 +451,21 @@ public final class SearchPeer extends ComponentDefinition {
     
     
     private void connectCroupier( CroupierConfig config ) {
+
         log.info("connecting croupier components...");
+        int croupierOverlay = getCroupierServiceInt(getCroupierServiceByteArray());
 
-        List<DecoratedAddress> bootstrappingSet = new ArrayList<DecoratedAddress>();
-        bootstrappingSet.addAll(systemConfig.bootstrapNodes);
-
-        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, 0));
+        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, croupierOverlay));
         connect(timer, croupier.getNegative(Timer.class));
-        connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(0));
+        connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(croupierOverlay));
         connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class));
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
+    }
+
+    private int getCroupierServiceInt(byte[] serviceArray){
+        return Ints.fromByteArray(serviceArray);
     }
 
     private Handler<CroupierDisconnected> handleCroupierDisconnect = new Handler<CroupierDisconnected>() {

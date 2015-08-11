@@ -4,12 +4,16 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.1-SNAPSHOT</version>
+        <version>1.2-SNAPSHOT</version>
     </parent>
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-search</artifactId>
     <name>ms-search</name>
     <url>http://maven.apache.org</url>
+
+    <properties>
+        <caracal.client.version>1.0-SNAPSHOT</caracal.client.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -33,6 +37,16 @@
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc.heartbeat</groupId>
+            <artifactId>core</artifactId>
+            <version>${caracal.client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc.bootstrap</groupId>
+            <artifactId>core</artifactId>
+            <version>${caracal.client.version}</version>
         </dependency>
     </dependencies>
 </project>

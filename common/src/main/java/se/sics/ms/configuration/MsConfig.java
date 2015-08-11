@@ -14,19 +14,6 @@ public class MsConfig {
         Video, Music, Books, Default
     }
 
-    public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_REJECTED_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_VOTE_REQUEST_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_HEARTBEAT_WAIT_TIMEOUT = 10 * 1000;
-    public static final int ELECTION_HEARTBEAT_TIMEOUTDELAY = 5 * 1000;
-
-    public static final int ELECTION_MIN_SIZE_ELECTIONGROUP = 3;
-    public static final double ELECTION_MIN_PERCENTAGE_VOTES = .5d;
-    public static final int ELECTION_HEARTBEAT_TIMEOUT_INTERVAL = 30 * 1000;
-    public static final int ELECTION_MIN_NUMBER_CONVERGED_NODES = 3;
-    public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
-    public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
-
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 25;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
     public static final int SEARCH_ADD_TIMEOUT= 30*1000;
@@ -91,16 +78,8 @@ public class MsConfig {
     public static final int GRADIENT_NUM_PARALLEL_SEARCHES = 5;
     public static final int GRADIENT_SEARCH_TTL = 5;
     public static final int GRADIENT_SHUFFLE_TIMEOUT = DEFAULT_RTO;
-    
-//    protected MsConfig(String[] args) throws IOException {
-//
-//    }
-//
-//    public static synchronized MsConfig init(String[] args) throws IOException {
-//        if (singleton != null) {
-//            return (MsConfig) singleton;
-//        }
-//        singleton = new MsConfig(args);
-//        return (MsConfig) singleton;
-//    }
+
+    // Caracal Service Identifier.
+    public static final int CROUPIER_SERVICE = 1;
+    public static final long CARACAL_TIMEOUT = 2000;
 }
