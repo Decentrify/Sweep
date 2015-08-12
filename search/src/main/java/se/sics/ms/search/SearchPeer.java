@@ -347,12 +347,14 @@ public final class SearchPeer extends ComponentDefinition {
      * @param seed seed
      */
     private void connectElection(ElectionConfig electionConfig, long seed) {
-        
-        log.info("Starting with the election components creation and connections.");
+
+        log.info("Creating application specific rule set.");
 
         LEContainerComparator containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(), new ComparatorCollection.AddressComparator());
-        SweepLCRuleSet leaderComponentRuleSet = new SweepLCRuleSet(containerComparator);
-        SweepCohortsRuleSet cohortsRuleSet = new SweepCohortsRuleSet(containerComparator);
+        ApplicationRuleSet.SweepLCRuleSet leaderComponentRuleSet = new ApplicationRuleSet.SweepLCRuleSet(containerComparator);
+        ApplicationRuleSet.SweepCohortsRuleSet cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(containerComparator);
+
+        log.info("Starting with the election components creation and connections.");
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
                 self.getAddress(),
@@ -362,7 +364,6 @@ public final class SearchPeer extends ComponentDefinition {
                 publicKey,
                 privateKey,
                 new SimpleLCPViewComparator(),
-                new SweepLeaderFilter(),
                 leaderComponentRuleSet,
                 cohortsRuleSet));
 
@@ -374,7 +375,6 @@ public final class SearchPeer extends ComponentDefinition {
                         publicKey,
                         privateKey,
                         new SimpleLCPViewComparator(),
-                        new SweepLeaderFilter(),
                         leaderComponentRuleSet,
                         cohortsRuleSet));
 
