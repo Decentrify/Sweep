@@ -100,12 +100,14 @@ public final class SearchPeer extends ComponentDefinition {
 
         // Generate the Key Pair to be used by the application.
         generateKeys();
-        self = init.getSelf();
 
         pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
         searchConfiguration = init.getSearchConfiguration();
         chunkManagerConfig = init.getChunkManagerConfig();
         systemConfig = init.getSystemConfig();
+
+        //      Build application self here.
+        self = new ApplicationSelf(systemConfig.self);
 
         routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));

@@ -135,15 +135,13 @@ public class SweepOperationsHelper {
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
         systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
-
-        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init = new SearchPeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
+        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
-        peersAddressMap.put(id, applicationSelf.getAddress());
+        peersAddressMap.put(id, systemConfig.self);
 
         bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(applicationSelf.getAddress());
+        bootstrapNodes.add(systemConfig.self);
 
         return init;
     }

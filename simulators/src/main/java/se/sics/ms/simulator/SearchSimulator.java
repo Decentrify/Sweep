@@ -222,15 +222,15 @@ public final class SearchSimulator extends ComponentDefinition {
         BasicAddress address = new BasicAddress(ip, 9999, (int)id);
         self = new ApplicationSelf(new DecoratedAddress(address));
 
-        Component peer = create(SearchPeer.class, new SearchPeerInit(self,systemConfig, croupierConfiguration, searchConfiguration,
+        Component peer = create(SearchPeer.class, new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration,
                 gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, null));
 
         connect(network, peer.getNegative(Network.class));
         connect(timer, peer.getNegative(Timer.class));
 
         List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(self.getAddress());
-        systemConfig = new SystemConfig(baseSeed + id, self.getAddress(), null, bootstrapNodes);
+        bootstrapNodes.add(systemConfig.self);
+        systemConfig = new SystemConfig(baseSeed + id, systemConfig.self, null, bootstrapNodes);
 
 
         trigger(Start.event, peer.getControl());

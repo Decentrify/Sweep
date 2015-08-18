@@ -58,12 +58,10 @@ public class SystemLaunch extends ComponentDefinition{
         TreeGradientConfig treeGradientConfig = new TreeGradientConfig(config);
         
         logger.debug(" Loaded the configurations ... ");
-        ApplicationSelf applicationSelf = new ApplicationSelf(systemConfig.self);
-        logger.debug("Successfully created new application self ... ");
 
         timer = create(JavaTimer.class, Init.NONE);
         network = create(NettyNetwork.class, new NettyInit(systemConfig.self));
-        searchPeer = create(SearchPeer.class, new SearchPeerInit(applicationSelf, systemConfig, croupierConfig,
+        searchPeer = create(SearchPeer.class, new SearchPeerInit(systemConfig, croupierConfig,
                 SearchConfiguration.build(), GradientConfiguration.build(),
                 chunkManagerConfig, gradientConfig, electionConfig, treeGradientConfig ));
 
