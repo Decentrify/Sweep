@@ -2,6 +2,8 @@
 
 package se.sics.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
@@ -19,6 +21,7 @@ import java.util.*;
  */
 public class ApplicationRuleSet {
 
+    private static Logger logger = LoggerFactory.getLogger(ApplicationRuleSet.class);
 
     /**
      * Implementation of the election rule set
@@ -112,7 +115,7 @@ public class ApplicationRuleSet {
          * @return true if nated.
          */
         private boolean isNated(DecoratedAddress address) {
-            return (address.getTrait(Nated.class) != null);
+            return (address.hasTrait(Nated.class));
         }
 
 

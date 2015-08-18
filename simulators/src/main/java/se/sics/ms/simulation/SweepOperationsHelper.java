@@ -476,6 +476,8 @@ public class SweepOperationsHelper {
      */
     public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
 
+        logger.error("Creating Node: - > {}", id);
+
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress selfAddress = new DecoratedAddress(basicAddress);
 

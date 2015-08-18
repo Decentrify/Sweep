@@ -56,8 +56,6 @@ public class SimulatorHostComp extends ComponentDefinition{
         systemConfig = init.systemConfig;
 
         logger.debug("Setting up the serializers");
-//        int startId = 128;
-//        SerializerHelper.registerSerializers(startId);
     }
 
 
