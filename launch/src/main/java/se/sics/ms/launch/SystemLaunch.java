@@ -15,6 +15,7 @@ import se.sics.kompics.timer.java.JavaTimer;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.serializer.SerializerHelper;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
@@ -80,7 +81,7 @@ public class SystemLaunch extends ComponentDefinition{
         config = ConfigFactory.load("application.conf");
 
         logger.debug("Setting up the serializers");
-        SerializerSetup.registerSerializers(startId);
+        SerializerHelper.registerSerializers(startId);
     }
 
 

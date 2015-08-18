@@ -19,7 +19,7 @@ import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 public class SerializerHelper {
 
 
-    public static void registerSerializer(int startId){
+    public static void registerSerializers(int startId){
 
         int currentId = startId;
         BasicSerializerSetup.registerBasicSerializers(currentId);

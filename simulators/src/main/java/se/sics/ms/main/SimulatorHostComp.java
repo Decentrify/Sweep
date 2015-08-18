@@ -1,7 +1,6 @@
 package se.sics.ms.main;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.GradientConfiguration;
@@ -12,11 +11,9 @@ import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
 import se.sics.ktoolbox.cc.sim.CCHeartbeatSimComp;
 import se.sics.ktoolbox.cc.sim.CCHeartbeatSimInit;
-import se.sics.ktoolbox.cc.sim.CCSimMain;
-import se.sics.ktoolbox.cc.sim.CCSimMainInit;
-import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
+import se.sics.ms.serializer.SerializerHelper;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.p2ptoolbox.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.election.core.ElectionConfig;
@@ -34,34 +31,33 @@ public class SimulatorHostComp extends ComponentDefinition{
 
     private Logger logger = LoggerFactory.getLogger(SimulatorHostComp.class);
     private Config config;
+    private SystemConfig systemConfig;
     private Component searchPeer;
-    private Component caracalSimComp;
     private Component caracalSimHeartbeatComp;
 
-    private static final int SLOT_LENGTH = 20;
     private DecoratedAddress ccAddress;
-
     private Positive<Network> network = requires(Network.class);
     private Positive<Timer> timer = requires(Timer.class);
 
 
-    public SimulatorHostComp(SimulatorHostCompIInit init) {
+    public SimulatorHostComp(SimulatorHostCompInit init) {
 
         doInit(init);
         subscribe(startHandler, control);
     }
 
-    private void doInit(SimulatorHostCompIInit init) {
+    private void doInit(SimulatorHostCompInit init) {
 
         logger.debug("Main simulation initialization.");
         ccAddress = init.ccAddress;
 
         logger.debug("Loading the main configuration file");
-        config = ConfigFactory.load("application.conf");
+        config = init.config;
+        systemConfig = init.systemConfig;
 
         logger.debug("Setting up the serializers");
-        int startId = 128;
-        SerializerSetup.registerSerializers(startId);
+//        int startId = 128;
+//        SerializerHelper.registerSerializers(startId);
     }
 
 
@@ -74,7 +70,9 @@ public class SimulatorHostComp extends ComponentDefinition{
 
             logger.debug("Start handler invoked for the component.");
 
-            SystemConfig systemConfig = new SystemConfig(config);
+//          System configuration will be loaded through the Operations helper as nodes are being started in simulation.
+//          They need to have different configurations and therefore cannot be loaded from the main conf file.
+
             GradientConfig gradientConfig  = new GradientConfig(config);
             CroupierConfig croupierConfig = new CroupierConfig(config);
             ElectionConfig electionConfig = new ElectionConfig(config);
@@ -107,15 +105,12 @@ public class SimulatorHostComp extends ComponentDefinition{
      */
     private void bootCaracalSimClient ( DecoratedAddress selfAddress, DecoratedAddress caracalClientAddress ){
 
-        caracalSimComp = create(CCSimMain.class, new CCSimMainInit(SLOT_LENGTH, caracalClientAddress));
-        connect(caracalSimComp.getNegative(Timer.class), timer);
-        connect(caracalSimComp.getNegative(Network.class), network);
+        logger.debug("Logging the caracal client address :{}", caracalClientAddress);
 
         caracalSimHeartbeatComp = create(CCHeartbeatSimComp.class, new CCHeartbeatSimInit(selfAddress, caracalClientAddress));
         connect(caracalSimHeartbeatComp.getNegative(Timer.class), timer);
         connect(caracalSimHeartbeatComp.getNegative(Network.class), network);
 
-        trigger(Start.event, caracalSimComp.getControl());
         trigger(Start.event, caracalSimHeartbeatComp.getControl());
     }
 

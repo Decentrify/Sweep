@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.gvod.config.GradientConfiguration;
 import se.sics.gvod.config.SearchConfiguration;
+import se.sics.ktoolbox.cc.sim.CCSimMainInit;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
+import se.sics.ms.main.SimulatorHostCompInit;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeerInit;
@@ -53,6 +55,9 @@ public class SweepOperationsHelper {
     private static SystemConfig systemConfig;
     private final static TreeGradientConfig treeGradientConfig;
 
+    private static Config config;
+    private static DecoratedAddress caracalClientAddress;
+
     private static Logger logger = LoggerFactory.getLogger(SweepOperationsHelper.class);
     private static Long identifierSpaceSize;
     private static DecoratedAddress bootstrapAddress = null;
@@ -65,22 +70,22 @@ public class SweepOperationsHelper {
 
     static {
 
-        int startId = 128;
-        int currentId = startId;
-        BasicSerializerSetup.registerBasicSerializers(currentId);
-        currentId += BasicSerializerSetup.serializerIds;
-        currentId = CroupierSerializerSetup.registerSerializers(currentId);
-        currentId = GradientSerializerSetup.registerSerializers(currentId);
-        currentId = ElectionSerializerSetup.registerSerializers(currentId);
-        currentId = AggregatorSerializerSetup.registerSerializers(currentId);
-        currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
-        SerializerSetup.registerSerializers(currentId);
+//        int startId = 128;
+//        int currentId = startId;
+//        BasicSerializerSetup.registerBasicSerializers(currentId);
+//        currentId += BasicSerializerSetup.serializerIds;
+//        currentId = CroupierSerializerSetup.registerSerializers(currentId);
+//        currentId = GradientSerializerSetup.registerSerializers(currentId);
+//        currentId = ElectionSerializerSetup.registerSerializers(currentId);
+//        currentId = AggregatorSerializerSetup.registerSerializers(currentId);
+//        currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
+//        SerializerSetup.registerSerializers(currentId);
 
 
         reservedIdList = new ArrayList<Long>();
         reservedIdList.add((long) 0);
 
-        Config config = ConfigFactory.load("application.conf");
+        config = ConfigFactory.load("application.conf");
 
         identifierSpaceSize = new Long(3000);
         peersAddressMap = new HashMap<Long, DecoratedAddress>();
@@ -461,4 +466,76 @@ public class SweepOperationsHelper {
     }
 
 
+//  Caracal host component connections and other related methods.
+
+
+    /**
+     * Construct initialization class for the host component
+     * used to start the node in simulation.
+     * @return
+     */
+    public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
+
+        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
+        DecoratedAddress selfAddress = new DecoratedAddress(basicAddress);
+
+        storePeerAddress(selfAddress);
+
+        SystemConfig systemConfig = new SystemConfig( baseSeed + id,
+                selfAddress, simulatorAddress,
+                new ArrayList<DecoratedAddress>(bootstrap));
+
+        return new SimulatorHostCompInit(caracalClientAddress, systemConfig, config);
+    }
+
+
+    /**
+     * Get the init for the caracal client.
+     * @param id
+     * @return
+     */
+    public static CCSimMainInit getCCSimInit(long id){
+
+//      Get the basic address for the caracal sim client.
+        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
+        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
+
+//      Update the address store.
+        storePeerAddress(decoratedAddress);
+
+        return new CCSimMainInit(20, decoratedAddress);
+    }
+
+
+    /**
+     * Store the peer address generated in a local store
+     * which would be used later.
+     *
+     * @param address client address.
+     */
+    private static void storePeerAddress(DecoratedAddress address){
+        peersAddressMap.put(Long.valueOf(address.getId()), address);
+    }
+
+
+    /**
+     * Based on the identifier, fetch the peer address from the
+     * data store.
+     *
+     * @param id identifier.
+     * @return Address
+     */
+    public static DecoratedAddress getPeerAddress(long id){
+        return peersAddressMap.get(id);
+    }
+
+    /**
+     * Store the address of the peer that will be used as the caracal client.
+     * @param address address
+     */
+    public static void storeCaracalSimClientAddress(DecoratedAddress address){
+
+        caracalClientAddress = address;
+        logger.debug(" !!!!!!! Storing the caracal client address as : {}", caracalClientAddress);
+    }
 }
