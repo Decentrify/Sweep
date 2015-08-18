@@ -7,10 +7,7 @@ import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
-import se.sics.ktoolbox.cc.bootstrap.msg.CCReady;
 import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCHeartbeat;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCOverlaySample;
@@ -120,11 +117,8 @@ public final class SearchPeer extends ComponentDefinition {
         connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
         connectElection(init.getElectionConfig(), systemConfig.seed);
 
-
         // Internal Component Connections.
         doInternalConnections();
-
-
 
         // Subscriptions.
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
@@ -282,7 +276,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(indexPort, search.getNegative(SimulationEventsPort.class));

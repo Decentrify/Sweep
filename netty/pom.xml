@@ -25,9 +25,36 @@
         </dependency>
         
         <dependency>
+            <groupId>se.sics.ktoolbox.croupier</groupId>
+            <artifactId>croupier-network</artifactId>
+            <version>${croupier.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.gradient</groupId>
+            <artifactId>gradient-network</artifactId>
+            <version>${gradient.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>se.sics.ktoolbox.election</groupId>
             <artifactId>election-network</artifactId>
             <version>${election.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator</groupId>
+            <artifactId>aggregator-network</artifactId>
+            <version>${aggregator.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.cm</groupId>
+            <artifactId>cm-network</artifactId>
+            <version>${chunkmanager.version}</version>
+        </dependency>
+
+
+
     </dependencies>
 </project>

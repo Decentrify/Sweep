@@ -12,6 +12,10 @@
     <name>ms-simulators</name>
     <url>http://maven.apache.org</url>
 
+    <properties>
+        <cc.sim.client>1.0-SNAPSHOT</cc.sim.client>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>se.kth.ms</groupId>
@@ -45,6 +49,12 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>${logger.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc</groupId>
+            <artifactId>sim</artifactId>
+            <version>${cc.sim.client}</version>
         </dependency>
 
     </dependencies>
