@@ -41,7 +41,7 @@ public class LEContainerComparator implements Comparator<LEContainer>{
         if(result != 0)
             return result;
 
-//      Tie breaker.
-        return addressComparator.compare(o1.getSource(), o2.getSource());
+//      Tie breaker. ( Multiply with -1 to invert the result in accordance with other comparators. )
+        return -1 * addressComparator.compare(o1.getSource(), o2.getSource());
     }
 }

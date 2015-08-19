@@ -261,11 +261,16 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void doInternalConnections(){
         
-        // Network Connections.
+//      Network Connections.
+//      COMMENT THE BELOW IN SIMULATION.
         connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), routing.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
 
+//      UNCOMMENT THE BELOW IN SIMULATION.
+//        connect(network, search.getNegative(Network.class));
+//        connect(network, routing.getNegative(Network.class));
+//        connect(network, aggregatorComponent.getNegative(Network.class));
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
         connect(timer, routing.getNegative(Timer.class));

@@ -51,7 +51,7 @@ public class ApplicationRuleSet {
             List<LEContainer> list = new ArrayList<LEContainer>(view);
             Collections.sort(list, leComparator);
 
-            if (list.size() > 0 && leComparator.compare(selfContainer, list.get(0)) < 0)
+            if (list.size() > 0 && leComparator.compare(selfContainer, list.get(list.size() -1)) < 0)
                 return new ArrayList<DecoratedAddress>();
 
 
@@ -128,11 +128,11 @@ public class ApplicationRuleSet {
          */
         private Collection<DecoratedAddress> getTopNResults(List<LEContainer> cohorts, int size) {
 
-            if (size < cohorts.size())
+            if (cohorts.size() < size)
                 return getResult(cohorts);
 
             Collections.sort(cohorts, leComparator);
-            return getResult(cohorts.subList(0, size - 1));
+            return getResult(cohorts.subList(0, size));
         }
 
 
