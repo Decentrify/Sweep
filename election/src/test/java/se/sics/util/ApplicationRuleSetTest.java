@@ -119,6 +119,43 @@ public class ApplicationRuleSetTest {
     }
 
 
+    @Test
+    public void followerAcceptanceTest(){
+
+        logger.debug("Performing follower acceptance test.");
+        int viewSize = 10;
+
+        Collection<LEContainer> containerCollection = createContainers(viewSize);
+
+        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MIN_VALUE + 1);
+        LEContainer leaderContainer = createContainer(ipAddress, port, Integer.MIN_VALUE);
+
+        boolean actualResult = cohortsRuleSet.validate(leaderContainer, selfContainer, containerCollection);
+        Assert.assertEquals("follower acceptance test", true, actualResult);
+
+    }
+
+
+    @Test
+    public void followerRejectionTest(){
+
+        logger.debug("Performing follower acceptance test.");
+        int viewSize = 10;
+
+        Collection<LEContainer> containerCollection = createContainers(viewSize);
+        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MAX_VALUE);
+
+        LEContainer leaderContainer = createContainer(ipAddress, port, 8);
+        boolean actualResult = cohortsRuleSet.validate(leaderContainer, selfContainer, containerCollection);
+
+        Assert.assertEquals("follower acceptance test", false, actualResult);
+
+    }
+
+
+
+
+
     /**
      * Return a reverse sorted collection.
      *

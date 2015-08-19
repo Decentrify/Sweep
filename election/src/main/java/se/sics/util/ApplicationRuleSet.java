@@ -50,14 +50,14 @@ public class ApplicationRuleSet {
 //      Stage 2 : Check if I am the Best node based on utility comparison
             List<LEContainer> list = new ArrayList<LEContainer>(view);
 
-            Collections.sort(list, leComparator);
-            Collections.reverse(list);      // Collection need to be reversed, as top N are fetched.
+            // Collection need to be reversed, as top N are fetched.
+            list = reverseSortList(leComparator, list);
 
             if (list.size() > 0 && leComparator.compare(selfContainer, list.get(0)) < 0)
                 return new ArrayList<DecoratedAddress>();
 
 
-//      Stage 3: Create list of nodes for the leader group which are not behind nat.
+//          Stage 3: Create list of nodes for the leader group which are not behind nat.
             for (LEContainer container : list) {
 
                 DecoratedAddress address = container.getSource();
@@ -67,11 +67,10 @@ public class ApplicationRuleSet {
                 intermediate.add(container);
             }
 
-//      Stage 4: Check for the length of the list.
+//          Stage 4: Check for the length of the list.
             if (intermediate.size() <= cohortsSize)
                 return getResult(intermediate);
 
-//            logger.error("Trying to get the top N for list: {}", intermediate);
             return getTopNResults(intermediate, cohortsSize);
         }
 
@@ -79,11 +78,11 @@ public class ApplicationRuleSet {
         @Override
         public Collection<DecoratedAddress> continueLeadership(LEContainer selfContainer, Collection<LEContainer> collection, int cohortsSize) {
 
-//      IMPORTANT: Create shallow copies of the object to prevent messing with the original objects.
+//          IMPORTANT: Create shallow copies of the object to prevent messing with the original objects.
             selfContainer = disableContainer(selfContainer);
             Collection<LEContainer> disabledContainers = disableLGMembership(collection);
 
-//      Delegate the task to the initiate leadership as same process.
+//          Delegate the task to the initiate leadership as same process.
             return initiateLeadership(selfContainer, disabledContainers, cohortsSize);
         }
 
@@ -214,11 +213,11 @@ public class ApplicationRuleSet {
 
             if(view != null && !view.isEmpty()){
 
-//          Create a local collection to be sorted.
+//              Create a local collection to be sorted.
                 List<LEContainer> intermediate = new ArrayList<LEContainer>(view);
-                Collections.sort(intermediate, leComparator);
+                intermediate = reverseSortList(leComparator, intermediate);
 
-//          Anybody better in the collection.
+//              Anybody better in the collection.
                 bestContainer = leComparator.compare(bestContainer, intermediate.get(0)) > 0 ?
                         bestContainer : intermediate.get(0);
             }
@@ -228,6 +227,27 @@ public class ApplicationRuleSet {
         }
     }
 
+
+    /**
+     * Reverse sort the container list.
+     *
+     * Reverse sorting needs to be performed
+     * because the way comparator is written. The comparator produces
+     * +ve value in case element is a better node in terms of utility.
+     * Therefore, the best nodes are at the end of the list which needs to reversed.
+     *
+     * @param comparator comparator.
+     * @param list list.
+     *
+     * @return reverse sorted list.
+     */
+    private static List<LEContainer> reverseSortList(Comparator<LEContainer> comparator, List<LEContainer> list){
+
+        Collections.sort(list, comparator);
+        Collections.reverse(list);
+
+        return list;
+    }
 
 
 
