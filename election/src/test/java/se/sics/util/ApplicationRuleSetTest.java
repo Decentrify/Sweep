@@ -15,8 +15,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 
 /**
  * Unit test for the application rule set.
@@ -28,6 +27,7 @@ public class ApplicationRuleSetTest {
     private static Logger logger = LoggerFactory.getLogger(ApplicationRuleSetTest.class);
     private static InetAddress ipAddress;
     private static int port;
+    private static Comparator<LEContainer> containerComparator;
 
     private static ApplicationRuleSet.SweepLCRuleSet lcRuleSet;
     private static ApplicationRuleSet.SweepCohortsRuleSet cohortsRuleSet;
@@ -38,16 +38,17 @@ public class ApplicationRuleSetTest {
 
         logger.debug("One time initiation");
 
-        LEContainerComparator comparator = new LEContainerComparator(new SimpleLCPViewComparator(),
+        containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(),
                 new ComparatorCollection.AddressComparator());
+
 
         try {
 
             ipAddress = InetAddress.getLocalHost();
             port = 33333;
 
-            lcRuleSet = new ApplicationRuleSet.SweepLCRuleSet(comparator);
-            cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(comparator);
+            lcRuleSet = new ApplicationRuleSet.SweepLCRuleSet(containerComparator);
+            cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(containerComparator);
 
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -86,7 +87,55 @@ public class ApplicationRuleSetTest {
     @Test
     public void falseLeadershipTest(){
 
+        int viewsize = 10;
+        int cohortSize = 6;
+
+        Collection<LEContainer> containerCollection = createContainers(viewsize);
+        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MAX_VALUE);
+
+        Collection<DecoratedAddress> result = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
+        Assert.assertEquals("Empty Cohort Size Comparison", 0, result.size());
+
     }
+
+
+    @Test
+    public void correctCohortTest(){
+
+        int viewSize = 10;
+        int cohortSize = 6;
+
+        Collection<LEContainer> containerCollection = createContainers(viewSize);
+        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MIN_VALUE);
+
+        Collection<LEContainer> reverseSortedCollection = reverseSortCollection(containerComparator, containerCollection);
+        DecoratedAddress expectedBestCohortAddress = reverseSortedCollection.isEmpty() ? null : reverseSortedCollection.iterator().next().getSource();
+
+        Collection<DecoratedAddress> cohorts = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
+        DecoratedAddress actualBestCohortAddress = cohorts.isEmpty() ? null : cohorts.iterator().next();
+
+        logger.debug("Expected : {}, Actual :{}", expectedBestCohortAddress, actualBestCohortAddress);
+        Assert.assertEquals("Best Cohort Test", expectedBestCohortAddress, actualBestCohortAddress);
+    }
+
+
+    /**
+     * Return a reverse sorted collection.
+     *
+     * @param comparator comparator
+     * @param containers container
+     * @return reverse sorted collection.
+     */
+    public Collection<LEContainer> reverseSortCollection(Comparator<LEContainer> comparator, Collection<LEContainer> containers){
+
+        List<LEContainer> containerList = new ArrayList<LEContainer>(containers);
+        Collections.sort(containerList, comparator);
+
+        Collections.reverse(containerList);
+
+        return containerList;
+    }
+
 
 
     /**

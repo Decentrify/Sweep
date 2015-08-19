@@ -49,14 +49,16 @@ public class ApplicationRuleSet {
 
 //      Stage 2 : Check if I am the Best node based on utility comparison
             List<LEContainer> list = new ArrayList<LEContainer>(view);
-            Collections.sort(list, leComparator);
 
-            if (list.size() > 0 && leComparator.compare(selfContainer, list.get(list.size() -1)) < 0)
+            Collections.sort(list, leComparator);
+            Collections.reverse(list);      // Collection need to be reversed, as top N are fetched.
+
+            if (list.size() > 0 && leComparator.compare(selfContainer, list.get(0)) < 0)
                 return new ArrayList<DecoratedAddress>();
 
 
 //      Stage 3: Create list of nodes for the leader group which are not behind nat.
-            for (LEContainer container : view) {
+            for (LEContainer container : list) {
 
                 DecoratedAddress address = container.getSource();
                 if (isNated(address))
@@ -69,7 +71,7 @@ public class ApplicationRuleSet {
             if (intermediate.size() <= cohortsSize)
                 return getResult(intermediate);
 
-
+//            logger.error("Trying to get the top N for list: {}", intermediate);
             return getTopNResults(intermediate, cohortsSize);
         }
 
@@ -131,7 +133,6 @@ public class ApplicationRuleSet {
             if (cohorts.size() < size)
                 return getResult(cohorts);
 
-            Collections.sort(cohorts, leComparator);
             return getResult(cohorts.subList(0, size));
         }
 
