@@ -13,7 +13,7 @@
     <url>http://maven.apache.org</url>
 
     <properties>
-        <cc.sim.client>1.0-SNAPSHOT</cc.sim.client>
+        <cc.sim.client>1.1-SNAPSHOT</cc.sim.client>
     </properties>
 
     <dependencies>
