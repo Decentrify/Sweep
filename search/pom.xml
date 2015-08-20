@@ -4,7 +4,7 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.2-SNAPSHOT</version>
+        <version>1.3-SNAPSHOT</version>
     </parent>
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-search</artifactId>
@@ -12,7 +12,7 @@
     <url>http://maven.apache.org</url>
 
     <properties>
-        <caracal.client.version>1.0-SNAPSHOT</caracal.client.version>
+        <caracal.client.version>1.1-SNAPSHOT</caracal.client.version>
     </properties>
 
     <dependencies>
