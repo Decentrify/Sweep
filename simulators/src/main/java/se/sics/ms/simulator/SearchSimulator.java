@@ -230,7 +230,7 @@ public final class SearchSimulator extends ComponentDefinition {
 
         List<DecoratedAddress> bootstrapNodes = new ArrayList<DecoratedAddress>();
         bootstrapNodes.add(systemConfig.self);
-        systemConfig = new SystemConfig(baseSeed + id, systemConfig.self, null, bootstrapNodes);
+        systemConfig = new SystemConfig(baseSeed + id, systemConfig.self, null);
 
 
         trigger(Start.event, peer.getControl());

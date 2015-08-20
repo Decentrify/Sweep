@@ -29,12 +29,12 @@
         </dependency>
         
         <dependency>
-            <groupId>se.sics.p2ptoolbox.simulator</groupId>
+            <groupId>se.sics.ktoolbox.simulator</groupId>
             <artifactId>simulator-core</artifactId>
             <version>${simulator.version}</version>
         </dependency>
         <dependency>
-            <groupId>se.sics.p2ptoolbox.simulator</groupId>
+            <groupId>se.sics.ktoolbox.simulator</groupId>
             <artifactId>simulator-dsl</artifactId>
             <version>${simulator.version}</version>
         </dependency>

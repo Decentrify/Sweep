@@ -139,7 +139,7 @@ public class SweepOperationsHelper {
 
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
+        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress);
         SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
@@ -163,7 +163,7 @@ public class SweepOperationsHelper {
 
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress, new ArrayList<DecoratedAddress>(bootstrap));
+        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress);
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
         PeerInit init = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
@@ -484,8 +484,7 @@ public class SweepOperationsHelper {
         storePeerAddress(selfAddress);
 
         SystemConfig systemConfig = new SystemConfig( baseSeed + id,
-                selfAddress, simulatorAddress,
-                new ArrayList<DecoratedAddress>(bootstrap));
+                selfAddress, simulatorAddress);
 
         return new SimulatorHostCompInit(caracalClientAddress, systemConfig, config);
     }
