@@ -92,8 +92,7 @@ public class ComparatorCollection {
 
         @Override
         public int compare(DecoratedAddress o1, DecoratedAddress o2) {
-
-            return Integer.compare(o1.getId(), o2.getId());
+            return o1.getId().compareTo(o2.getId());
         }
     }
 
