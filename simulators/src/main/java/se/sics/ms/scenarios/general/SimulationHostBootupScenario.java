@@ -9,7 +9,7 @@ import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
  *
  * Created by babbarshaer on 2015-02-04.
  */
-public class SimpleBootupScenario {
+public class SimulationHostBootupScenario {
 
 
     public static SimulationScenario boot(final long seed) {
@@ -24,11 +24,20 @@ public class SimpleBootupScenario {
                         raise(1 , SweepOperations.startAggregatorNodeCmd);
                     }
                 };
+
+                StochasticProcess startCaracalClient = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startCaracalClient, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+
                 
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise( 6 , SweepOperations.startNodeCmdOperation, uniform(0, Integer.MAX_VALUE) );
+                        raise( 12 , SweepOperations.startSimulationHostComp, uniform(0, Integer.MAX_VALUE) );
                     }
                 };
 
@@ -36,7 +45,7 @@ public class SimpleBootupScenario {
                 StochasticProcess specialPeerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startNodeCmdOperation, constant(Integer.MIN_VALUE));
+                        raise(1 , SweepOperations.startSimulationHostComp, constant(Integer.MIN_VALUE));
                     }
                 };
 
@@ -74,10 +83,11 @@ public class SimpleBootupScenario {
 
 //                startAggregatorNode.start();
 //                specialPeerJoin.start();
-                peerJoin.start();
+                startCaracalClient.start();
+                peerJoin.startAfterTerminationOf(5000, startCaracalClient);
 //                largestPeerJoin.startAfterTerminationOf(1000, peerJoin);
 //                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
-//                specialPeerJoin.startAfterTerminationOf(30000, addIndexEntryCommand);
+                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
 //                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
                 
 //                searchIndexEntry.startAfterTerminationOf(50000, peerJoin);

@@ -7,10 +7,7 @@ import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
-import se.sics.kompics.timer.CancelTimeout;
-import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timer;
-import se.sics.ktoolbox.cc.bootstrap.msg.CCReady;
 import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCHeartbeat;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCOverlaySample;
@@ -39,6 +36,7 @@ import java.security.*;
 import java.util.*;
 
 import se.sics.ms.util.CommonHelper;
+import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.HeartbeatServiceEnum;
 import se.sics.ms.util.TimeoutCollection;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerComp;
@@ -67,8 +65,7 @@ import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.util.SimpleLCPViewComparator;
-import se.sics.util.SweepLeaderFilter;
+import se.sics.util.*;
 
 public final class SearchPeer extends ComponentDefinition {
 
@@ -100,12 +97,14 @@ public final class SearchPeer extends ComponentDefinition {
 
         // Generate the Key Pair to be used by the application.
         generateKeys();
-        self = init.getSelf();
 
         pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
         searchConfiguration = init.getSearchConfiguration();
         chunkManagerConfig = init.getChunkManagerConfig();
         systemConfig = init.getSystemConfig();
+
+        //      Build application self here.
+        self = new ApplicationSelf(systemConfig.self);
 
         routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
@@ -118,11 +117,8 @@ public final class SearchPeer extends ComponentDefinition {
         connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
         connectElection(init.getElectionConfig(), systemConfig.seed);
 
-
         // Internal Component Connections.
         doInternalConnections();
-
-
 
         // Subscriptions.
         subscribe(searchResponseHandler, search.getPositive(UiPort.class));
@@ -265,11 +261,16 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void doInternalConnections(){
         
-        // Network Connections.
+//      Network Connections.
+//      COMMENT THE BELOW IN SIMULATION.
         connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), routing.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
 
+//      UNCOMMENT THE BELOW IN SIMULATION.
+//        connect(network, search.getNegative(Network.class));
+//        connect(network, routing.getNegative(Network.class));
+//        connect(network, aggregatorComponent.getNegative(Network.class));
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
         connect(timer, routing.getNegative(Timer.class));
@@ -280,7 +281,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
 
         // Internal Connections.
-
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
@@ -347,7 +347,13 @@ public final class SearchPeer extends ComponentDefinition {
      * @param seed seed
      */
     private void connectElection(ElectionConfig electionConfig, long seed) {
-        
+
+        log.info("Creating application specific rule set.");
+
+        LEContainerComparator containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(), new ComparatorCollection.AddressComparator());
+        ApplicationRuleSet.SweepLCRuleSet leaderComponentRuleSet = new ApplicationRuleSet.SweepLCRuleSet(containerComparator);
+        ApplicationRuleSet.SweepCohortsRuleSet cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(containerComparator);
+
         log.info("Starting with the election components creation and connections.");
 
         electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
@@ -358,19 +364,19 @@ public final class SearchPeer extends ComponentDefinition {
                 publicKey,
                 privateKey,
                 new SimpleLCPViewComparator(),
-                new SweepLeaderFilter()));
+                leaderComponentRuleSet,
+                cohortsRuleSet));
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
                         new PeerDescriptor(self.getAddress()),
                         seed,            // Bootstrap the underlying services.
-
                         electionConfig,
                         publicKey,
                         privateKey,
                         new SimpleLCPViewComparator(),
-                        new SweepLeaderFilter())
-                    );
+                        leaderComponentRuleSet,
+                        cohortsRuleSet));
 
         // Election leader connections.
         connect(network, electionLeader.getNegative(Network.class));

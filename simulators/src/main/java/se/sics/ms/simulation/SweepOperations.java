@@ -7,10 +7,14 @@ import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
+import se.sics.ktoolbox.cc.sim.CCSimMain;
+import se.sics.ktoolbox.cc.sim.CCSimMainInit;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplication;
 import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplicationInit;
+import se.sics.ms.main.SimulatorHostComp;
+import se.sics.ms.main.SimulatorHostCompInit;
 import se.sics.ms.search.Peer;
 import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeer;
@@ -229,7 +233,89 @@ public class SweepOperations {
         }
     };
     
-    
+
+
+    public static Operation1<StartNodeCmd, Long> startSimulationHostComp = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
+
+                long nodeId = SweepOperationsHelper.getStableId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int)nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 2;
+                }
+
+                @Override
+                public Class<SimulatorHostComp> getNodeComponentDefinition() {
+                    return SimulatorHostComp.class;
+                }
+
+                @Override
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> set) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, set, nodeId);
+                }
+
+                @Override
+                public DecoratedAddress getAddress() {
+                    return SweepOperationsHelper.getPeerAddress(nodeId);
+                }
+            };
+        }
+    };
+
+
+    public static Operation1<StartNodeCmd, Long> startCaracalClient = new Operation1<StartNodeCmd, Long>() {
+        @Override
+        public StartNodeCmd generate(final Long id) {
+
+            return new StartNodeCmd<CCSimMain, DecoratedAddress>(){
+
+                long nodeId = SweepOperationsHelper.getStableId(id);
+
+                @Override
+                public Integer getNodeId() {
+                    return (int)nodeId;
+                }
+
+                @Override
+                public int bootstrapSize() {
+                    return 0;
+                }
+
+                @Override
+                public Class<CCSimMain> getNodeComponentDefinition() {
+                    return CCSimMain.class;
+                }
+
+                @Override
+                public CCSimMainInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> set) {
+                    return SweepOperationsHelper.getCCSimInit(nodeId);
+                }
+
+                @Override
+                public DecoratedAddress getAddress() {
+
+//                  Before returning, store the address.
+
+                    DecoratedAddress ccSimAddress = SweepOperationsHelper.getPeerAddress(nodeId);
+                    SweepOperationsHelper.storeCaracalSimClientAddress(ccSimAddress);
+
+                    return ccSimAddress;
+                }
+            };
+        }
+    };
+
+
+
+
     
 
 

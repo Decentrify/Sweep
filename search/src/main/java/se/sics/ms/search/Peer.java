@@ -285,7 +285,7 @@ public final class Peer extends ComponentDefinition {
                 publicKey,
                 privateKey,
                 new SimpleLCPViewComparator(),
-                new SweepLeaderFilter()));
+                null, null));
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
                         self.getAddress(),
@@ -295,7 +295,7 @@ public final class Peer extends ComponentDefinition {
                         publicKey,
                         privateKey,
                         new SimpleLCPViewComparator(),
-                        new SweepLeaderFilter())
+                        null, null)
                     );
 
         // Election leader connections.

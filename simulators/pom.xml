@@ -12,6 +12,10 @@
     <name>ms-simulators</name>
     <url>http://maven.apache.org</url>
 
+    <properties>
+        <cc.sim.client>1.1-SNAPSHOT</cc.sim.client>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>se.kth.ms</groupId>
@@ -25,12 +29,12 @@
         </dependency>
         
         <dependency>
-            <groupId>se.sics.p2ptoolbox.simulator</groupId>
+            <groupId>se.sics.ktoolbox.simulator</groupId>
             <artifactId>simulator-core</artifactId>
             <version>${simulator.version}</version>
         </dependency>
         <dependency>
-            <groupId>se.sics.p2ptoolbox.simulator</groupId>
+            <groupId>se.sics.ktoolbox.simulator</groupId>
             <artifactId>simulator-dsl</artifactId>
             <version>${simulator.version}</version>
         </dependency>
@@ -40,5 +44,18 @@
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${logger.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.cc</groupId>
+            <artifactId>sim</artifactId>
+            <version>${cc.sim.client}</version>
+        </dependency>
+
     </dependencies>
 </project>

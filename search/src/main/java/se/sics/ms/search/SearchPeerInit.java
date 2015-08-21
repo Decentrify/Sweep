@@ -13,7 +13,6 @@ import se.sics.p2ptoolbox.util.config.SystemConfig;
 
 public final class SearchPeerInit extends Init<SearchPeer> {
 
-    private final ApplicationSelf self;
     private final SystemConfig systemConfig;
     private final CroupierConfig croupierConfiguration;
     private final SearchConfiguration applicationConfiguration;
@@ -23,13 +22,12 @@ public final class SearchPeerInit extends Init<SearchPeer> {
     private final ElectionConfig electionConfig;
     private final TreeGradientConfig tGradientConfig;
     
-    public SearchPeerInit(ApplicationSelf self, SystemConfig systemConfig,
+    public SearchPeerInit( SystemConfig systemConfig,
             CroupierConfig croupierConfiguration, SearchConfiguration applicationConfiguration,
             GradientConfiguration pseudoGradientConfiguration,
             ChunkManagerConfig chunkManagerConfiguration, GradientConfig gradientConfig,
             ElectionConfig electionConfig, TreeGradientConfig tGradientConfig) {
         super();
-        this.self = self;
         this.systemConfig = systemConfig;
         this.croupierConfiguration = croupierConfiguration;
         this.applicationConfiguration = applicationConfiguration;
@@ -46,10 +44,6 @@ public final class SearchPeerInit extends Init<SearchPeer> {
 
     public SystemConfig getSystemConfig(){
         return this.systemConfig;
-    }
-
-    public ApplicationSelf getSelf() {
-        return this.self;
     }
 
     public CroupierConfig getCroupierConfiguration() {

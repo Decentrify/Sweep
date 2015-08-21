@@ -14,6 +14,7 @@ public class SimpleLCPViewComparator implements Comparator<LCPeerView>{
 
     PeerDescriptor s1;
     PeerDescriptor s2;
+
     @Override
     public int compare(LCPeerView o1, LCPeerView o2) {
 
