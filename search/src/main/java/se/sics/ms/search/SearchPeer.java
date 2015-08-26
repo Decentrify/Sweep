@@ -108,7 +108,7 @@ public final class SearchPeer extends ComponentDefinition {
 
         routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
-        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator, systemConfig.self , 800));       // FIX ME: Address Set as Null.
+        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator.get(), systemConfig.self , 800));       // FIX ME: Address Set as Null.
 
         // External Components creating and connection to the local components.
         connectChunkManager(systemConfig, chunkManagerConfig);

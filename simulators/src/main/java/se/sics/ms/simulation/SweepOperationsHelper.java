@@ -1,5 +1,6 @@
 package se.sics.ms.simulation;
 
+import com.google.common.base.Optional;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientSerializerSetup;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.helper.SystemConfigBuilder;
 import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
@@ -57,7 +59,7 @@ public class SweepOperationsHelper {
 
     private static Config config;
     private static DecoratedAddress caracalClientAddress;
-
+    private static SystemConfigBuilder builder;
     private static Logger logger = LoggerFactory.getLogger(SweepOperationsHelper.class);
     private static Long identifierSpaceSize;
     private static DecoratedAddress bootstrapAddress = null;
@@ -139,7 +141,7 @@ public class SweepOperationsHelper {
 
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress);
+        systemConfig = new SystemConfig(baseSeed + id, null, decoratedAddress,  Optional.of(simulatorAddress), config);
         SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
@@ -163,7 +165,7 @@ public class SweepOperationsHelper {
 
         BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
         DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-        systemConfig = new SystemConfig(baseSeed + id, decoratedAddress, simulatorAddress);
+        systemConfig = new SystemConfig(baseSeed + id, null, decoratedAddress, Optional.of(simulatorAddress), config);
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
         PeerInit init = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
@@ -483,8 +485,8 @@ public class SweepOperationsHelper {
 
         storePeerAddress(selfAddress);
 
-        SystemConfig systemConfig = new SystemConfig( baseSeed + id,
-                selfAddress, simulatorAddress);
+        SystemConfig systemConfig = new SystemConfig( baseSeed + id, null,
+                selfAddress, Optional.of(simulatorAddress), config);
 
         return new SimulatorHostCompInit(caracalClientAddress, systemConfig, config);
     }

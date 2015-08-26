@@ -22,6 +22,7 @@ import se.sics.p2ptoolbox.election.core.ElectionConfig;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.helper.SystemConfigBuilder;
 
 import java.io.IOException;
 
@@ -44,7 +45,8 @@ public class SystemLaunch extends ComponentDefinition{
 
         doInit();
 
-        SystemConfig systemConfig = new SystemConfig(config);
+        SystemConfigBuilder builder = new SystemConfigBuilder(config);
+        SystemConfig systemConfig = builder.build();
         GradientConfig gradientConfig  = new GradientConfig(config);
         CroupierConfig croupierConfig = new CroupierConfig(config);
         ElectionConfig electionConfig = new ElectionConfig(config);
