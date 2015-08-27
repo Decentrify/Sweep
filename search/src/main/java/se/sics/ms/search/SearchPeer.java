@@ -108,7 +108,10 @@ public final class SearchPeer extends ComponentDefinition {
 
         routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
-        aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator.get(), systemConfig.self , 800));       // FIX ME: Address Set as Null.
+
+        if(systemConfig.aggregator.isPresent()){
+            aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator.get(), systemConfig.self , 800));       // FIX ME: Address Set as Null.
+        }
 
         // External Components creating and connection to the local components.
         connectChunkManager(systemConfig, chunkManagerConfig);
@@ -265,20 +268,27 @@ public final class SearchPeer extends ComponentDefinition {
 //      COMMENT THE BELOW IN SIMULATION.
         connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
         connect(chunkManager.getPositive(Network.class), routing.getNegative(Network.class));
-        connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
 
 //      UNCOMMENT THE BELOW IN SIMULATION.
 //        connect(network, search.getNegative(Network.class));
 //        connect(network, routing.getNegative(Network.class));
-//        connect(network, aggregatorComponent.getNegative(Network.class));
+
+
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
         connect(timer, routing.getNegative(Timer.class));
-        connect(timer, aggregatorComponent.getNegative(Timer.class));
 
-        // Aggregator Connections.
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
-        connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
+
+        // Aggregator Connections. (Aggregator can be null meaning values not being supplied by the user.)
+        if(aggregatorComponent != null){
+
+            connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
+//            connect(network, aggregatorComponent.getNegative(Network.class));
+            connect(timer, aggregatorComponent.getNegative(Timer.class));
+            connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
+            connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
+        }
+
 
         // Internal Connections.
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));

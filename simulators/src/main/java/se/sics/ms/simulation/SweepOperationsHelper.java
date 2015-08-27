@@ -485,8 +485,13 @@ public class SweepOperationsHelper {
 
         storePeerAddress(selfAddress);
 
+        Optional<DecoratedAddress> simAddress  = simulatorAddress != null
+
+                ? Optional.of(simulatorAddress)
+                : Optional.<DecoratedAddress>absent();
+
         SystemConfig systemConfig = new SystemConfig( baseSeed + id, null,
-                selfAddress, Optional.of(simulatorAddress), config);
+                selfAddress, simAddress, config);
 
         return new SimulatorHostCompInit(caracalClientAddress, systemConfig, config);
     }
