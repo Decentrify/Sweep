@@ -3,6 +3,7 @@ package se.sics.ms.aggregator;
 
 import se.sics.ktoolbox.aggregator.global.api.system.ComponentInfo;
 import se.sics.ms.types.PeerDescriptor;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Information contained in the search component.
@@ -14,11 +15,13 @@ public class SearchComponentInfo implements ComponentInfo{
 
     private PeerDescriptor descriptor;
     private float searchResponse;
+    private DecoratedAddress leaderInfo;
 
-    public SearchComponentInfo (PeerDescriptor descriptor, float searchResponse){
+    public SearchComponentInfo (PeerDescriptor descriptor, float searchResponse, DecoratedAddress leaderInfo){
 
         this.descriptor = descriptor;
         this.searchResponse = searchResponse;
+        this.leaderInfo = leaderInfo;
     }
 
     @Override
@@ -26,6 +29,7 @@ public class SearchComponentInfo implements ComponentInfo{
         return "SearchComponentInfo{" +
                 "descriptor=" + descriptor +
                 ", searchResponse=" + searchResponse +
+                ", leaderInfo=" + leaderInfo +
                 '}';
     }
 
@@ -35,5 +39,9 @@ public class SearchComponentInfo implements ComponentInfo{
 
     public float getSearchResponse() {
         return searchResponse;
+    }
+
+    public DecoratedAddress getLeaderInfo() {
+        return leaderInfo;
     }
 }
