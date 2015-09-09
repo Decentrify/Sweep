@@ -3,7 +3,7 @@ package se.sics.ms.aggregator.design;
 import se.sics.ktoolbox.aggregator.global.api.system.DesignInfo;
 
 /**
- * Average Search Response for the cluster.
+ * Average Search Response for the cluster for a particular window.
  *
  * Created by babbar on 2015-09-06.
  */

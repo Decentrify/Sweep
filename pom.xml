@@ -54,7 +54,10 @@
         <junit.version>4.10</junit.version>
         <config.version>1.2.1</config.version>
         <logger.version>1.7.5</logger.version>
-        
+
+        <aggregator.local.version>1.0-SNAPSHOT</aggregator.local.version>
+        <aggregator.global.version>1.0-SNAPSHOT</aggregator.global.version>
+
     </properties>
 
     <dependencies>
