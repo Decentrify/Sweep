@@ -1,7 +1,7 @@
-package se.sics.ms.aggregator.design;
+package se.sics.ms.data.aggregator.design;
 
 import se.sics.ktoolbox.aggregator.global.api.system.DesignInfo;
-import se.sics.ms.aggregator.packets.InternalStatePacket;
+import se.sics.ms.data.aggregator.packets.InternalStatePacket;
 import java.util.Collection;
 
 /**

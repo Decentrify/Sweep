@@ -1,5 +1,5 @@
 
-package se.sics.ms.aggregator;
+package se.sics.ms.data.aggregator;
 
 import se.sics.ktoolbox.aggregator.global.api.system.ComponentInfo;
 import se.sics.ms.types.PeerDescriptor;

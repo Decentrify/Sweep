@@ -1,5 +1,5 @@
 
-package se.sics.ms.aggregator.packets;
+package se.sics.ms.data.aggregator.packets;
 
 import se.sics.ktoolbox.aggregator.global.api.system.PacketInfo;
 

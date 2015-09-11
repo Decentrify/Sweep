@@ -1,4 +1,4 @@
-package se.sics.ms.aggregator.design;
+package se.sics.ms.data.aggregator.design;
 
 import se.sics.ktoolbox.aggregator.global.api.system.DesignInfo;
 
