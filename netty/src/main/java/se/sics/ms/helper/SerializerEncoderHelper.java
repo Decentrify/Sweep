@@ -1,13 +1,15 @@
 package se.sics.ms.helper;
 
+import com.google.common.base.Optional;
 import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
+import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.helper.EncodingException;
 
 import static se.sics.p2ptoolbox.util.helper.UserEncoderFactory.*;
-import java.io.UnsupportedEncodingException;
+
 import java.util.Collection;
 
 /**
@@ -73,6 +75,36 @@ public class SerializerEncoderHelper {
         }
         
     }
-    
+
+
+    /**
+     * The method simply checks if the object is null and
+     * if it is then adds a boolean entry to indicate it. If not then
+     * adds boolean entry as well as serialize the information added.
+     *
+     * @param buf buffer
+     * @param obj object
+     * @param optionalSerializer serializer
+     */
+    public static void serializeWithNullCheck(ByteBuf buf, Object obj, Optional<Serializer> optionalSerializer){
+
+        if(obj == null){
+            buf.writeBoolean(true);
+        }
+
+        else {
+
+            buf.writeBoolean(false);
+            if(optionalSerializer.isPresent()){
+                Serializer serializer = optionalSerializer.get();
+                serializer.toBinary(obj, buf);
+            }
+
+            else{
+                Serializers.toBinary(obj, buf);
+            }
+        }
+    }
+
 
 }

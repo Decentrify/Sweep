@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
+import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
 import se.sics.p2ptoolbox.util.helper.DecodingException;
@@ -91,4 +92,35 @@ public class SerializerDecoderHelper {
         return buf.readBoolean();
     }
 
+
+    /**
+     * Deserialize the object in case the information needs to be checked for null.
+     * Add null check for the object and return the appropriate value.
+     *
+     * @param byteBuf
+     * @param serializerOptional
+     * @param hint
+     * @return
+     */
+
+    public static Object deserializeWithNullCheck(ByteBuf byteBuf, Optional<Serializer> serializerOptional, Optional<Object> hint){
+
+        boolean isNull = byteBuf.readBoolean();
+
+        if(isNull){
+            return null;
+        }
+
+        Object response;
+
+        if(serializerOptional.isPresent()){
+            Serializer serializer = serializerOptional.get();
+            response = serializer.fromBinary(byteBuf, hint);
+        }
+        else {
+            response = Serializers.fromBinary(byteBuf, hint);
+        }
+
+        return response;
+    }
 }
