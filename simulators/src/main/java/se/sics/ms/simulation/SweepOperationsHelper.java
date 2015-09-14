@@ -140,9 +140,7 @@ public class SweepOperationsHelper {
 
         logger.trace(" Generating address for peer with id: {} ", id);
 
-        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
-        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-
+        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip, port, (int)id);
         Optional<DecoratedAddress> simAddress  = simulatorAddress != null
 
                 ? Optional.of(simulatorAddress)
@@ -170,9 +168,7 @@ public class SweepOperationsHelper {
 
         logger.trace(" Generating address for peer with id: {} ", id);
 
-        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
-        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
-
+        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip,port, (int)id);
         Optional<DecoratedAddress> simAddress  = simulatorAddress != null
 
                 ? Optional.of(simulatorAddress)
@@ -493,9 +489,7 @@ public class SweepOperationsHelper {
 
         logger.error("Creating Node: - > {}", id);
 
-        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
-        DecoratedAddress selfAddress = new DecoratedAddress(basicAddress);
-
+        DecoratedAddress selfAddress = DecoratedAddress.open(ip, port, (int)id);
         storePeerAddress(selfAddress);
 
         Optional<DecoratedAddress> simAddress  = simulatorAddress != null
@@ -516,8 +510,7 @@ public class SweepOperationsHelper {
     public static CCSimMainInit getCCSimInit(long id){
 
 //      Get the basic address for the caracal sim client.
-        BasicAddress basicAddress = new BasicAddress(ip, port, (int) id);
-        DecoratedAddress decoratedAddress = new DecoratedAddress(basicAddress);
+        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip, port, (int)id);
 
 //      Update the address store.
         storePeerAddress(decoratedAddress);

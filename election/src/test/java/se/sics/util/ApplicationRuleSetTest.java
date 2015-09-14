@@ -198,12 +198,10 @@ public class ApplicationRuleSetTest {
 
     private LEContainer createContainer(InetAddress ipAddress, int port , int id){
 
-        BasicAddress address = new BasicAddress(ipAddress, port, id);
-        DecoratedAddress decoratedAddress = new DecoratedAddress(address);
+        DecoratedAddress decoratedAddress = DecoratedAddress.open(ipAddress, port, id);
 
         PeerDescriptor descriptor = new PeerDescriptor(decoratedAddress);
         LEContainer container = new LEContainer(decoratedAddress, descriptor);
-
         return container;
 
     }
