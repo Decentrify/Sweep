@@ -44,4 +44,15 @@ public class SearchComponentInfo implements ComponentInfo{
     public DecoratedAddress getLeaderInfo() {
         return leaderInfo;
     }
+
+
+    @Override
+    public ComponentInfo append(ComponentInfo componentInfo) {
+
+        if(componentInfo instanceof SearchComponentInfo){
+            return componentInfo;
+        }
+
+        return this;
+    }
 }
