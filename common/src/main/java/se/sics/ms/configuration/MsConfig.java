@@ -82,4 +82,7 @@ public class MsConfig {
     // Caracal Service Identifier.
     public static final int CROUPIER_SERVICE = 1;
     public static final long CARACAL_TIMEOUT = 2000;
+
+    // Aggregator Timeout.
+    public static final long LOCAL_AGGREGATOR_TIMEOUT = 5000;
 }

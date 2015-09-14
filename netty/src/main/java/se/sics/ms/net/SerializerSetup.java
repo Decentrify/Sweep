@@ -2,7 +2,9 @@ package se.sics.ms.net;
 
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.aggregator.data.SweepAggregatedPacket;
-import se.sics.ms.aggregator.serializer.SweepPacketSerializer;
+import se.sics.ms.data.aggregator.packets.InternalStatePacket;
+import se.sics.ms.data.aggregator.serializer.InternalStatePacketSerializer;
+import se.sics.ms.data.aggregator.serializer.SweepPacketSerializer;
 import se.sics.ms.data.*;
 import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
 import se.sics.ms.data.aggregator.ElectionLeaderUpdateSerializer;
@@ -101,7 +103,10 @@ public class SerializerSetup {
         searchQueryResponse(SearchQuery.Response.class, "searchQueryResponse"),
         
         searchFetchRequest(SearchFetch.Request.class, "searchFetchRequest"),
-        searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse");
+        searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse"),
+        
+//      AGGREGATION PACKET.
+        internalStatePacket(InternalStatePacket.class, "internalStatePacket");
         
         private final Class serializedClass;
         private final String serializerName;
@@ -415,6 +420,11 @@ public class SerializerSetup {
         Serializers.register(entryScorePairSerializer, SweepSerializers.entryScorePair.serializerName);
         Serializers.register(SweepSerializers.entryScorePair.serializedClass, SweepSerializers.entryScorePair.serializerName);
 
+
+        InternalStatePacketSerializer ispSerializer = new InternalStatePacketSerializer(currentId++);
+        Serializers.register(ispSerializer, SweepSerializers.internalStatePacket.serializerName);
+        Serializers.register(SweepSerializers.internalStatePacket.serializedClass, SweepSerializers.internalStatePacket.serializerName);
+        
         return currentId;
     }
 

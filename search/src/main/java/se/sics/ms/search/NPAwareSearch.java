@@ -17,6 +17,9 @@ import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
+import se.sics.ktoolbox.aggregator.local.api.events.ComponentInfoEvent;
+import se.sics.ktoolbox.aggregator.local.api.ports.LocalAggregatorPort;
+import se.sics.ms.data.aggregator.SearchComponentInfo;
 import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
@@ -80,6 +83,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
     Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
+    Positive<LocalAggregatorPort> localAggregatorPort = requires(LocalAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     Positive<PALPort> pagPort = requires(PALPort.class);
@@ -2118,7 +2122,12 @@ public final class NPAwareSearch extends ComponentDefinition {
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
-//        trigger(new PAGUpdate(updatedDesc), pagPort);
+
+
+//      Send the information to the local aggregator in form of one big packet.
+        SearchComponentInfo componentInfo = new SearchComponentInfo(updatedDesc, 0, leaderAddress);
+        ComponentInfoEvent event = new ComponentInfoEvent(defaultComponentOverlayId, componentInfo);
+        trigger(event, localAggregatorPort);
     }
 
 

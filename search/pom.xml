@@ -16,37 +16,50 @@
     </properties>
 
     <dependencies>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>partition-aware</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-gradient</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-election</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>local-aggregator</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>se.sics.ktoolbox.cc.heartbeat</groupId>
             <artifactId>core</artifactId>
             <version>${caracal.client.version}</version>
         </dependency>
+
         <dependency>
             <groupId>se.sics.ktoolbox.cc.bootstrap</groupId>
             <artifactId>core</artifactId>
             <version>${caracal.client.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator.local</groupId>
+            <artifactId>aggregator-core</artifactId>
+            <version>${aggregator.local.version}</version>
+        </dependency>
+
     </dependencies>
 </project>

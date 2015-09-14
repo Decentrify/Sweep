@@ -54,7 +54,10 @@
         <junit.version>4.10</junit.version>
         <config.version>1.2.1</config.version>
         <logger.version>1.7.5</logger.version>
-        
+
+        <aggregator.local.version>1.0-SNAPSHOT</aggregator.local.version>
+        <aggregator.global.version>1.0-SNAPSHOT</aggregator.global.version>
+
     </properties>
 
     <dependencies>
@@ -113,6 +116,11 @@
             <groupId>se.sics.ktoolbox.election</groupId>
             <artifactId>election-core</artifactId>
             <version>${election.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator.local</groupId>
+            <artifactId>aggregator-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
         </dependency>
         
         <dependency>

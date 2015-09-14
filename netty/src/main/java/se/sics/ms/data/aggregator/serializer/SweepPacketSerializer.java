@@ -1,4 +1,4 @@
-package se.sics.ms.aggregator.serializer;
+package se.sics.ms.data.aggregator.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;

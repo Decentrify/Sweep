@@ -8,12 +8,17 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.Timer;
+import se.sics.ktoolbox.aggregator.local.api.ComponentInfoProcessor;
+import se.sics.ktoolbox.aggregator.local.api.ports.LocalAggregatorPort;
+import se.sics.ktoolbox.aggregator.local.core.LocalAggregator;
+import se.sics.ktoolbox.aggregator.local.core.LocalAggregatorInit;
 import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCHeartbeat;
 import se.sics.ktoolbox.cc.heartbeat.msg.CCOverlaySample;
+import se.sics.ms.data.aggregator.SearchComponentInfo;
 import se.sics.ms.aggregator.core.StatusAggregator;
 import se.sics.ms.aggregator.core.StatusAggregatorInit;
-import se.sics.ms.aggregator.port.StatusAggregatorPort;
+import se.sics.ms.data.aggregator.processor.CompInternalStateProcessor;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.events.*;
@@ -109,16 +114,13 @@ public final class SearchPeer extends ComponentDefinition {
         routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
 
-        if(systemConfig.aggregator.isPresent()){
-            aggregatorComponent = create(StatusAggregator.class, new StatusAggregatorInit(systemConfig.aggregator.get(), systemConfig.self , 800));       // FIX ME: Address Set as Null.
-        }
-
         // External Components creating and connection to the local components.
         connectChunkManager(systemConfig, chunkManagerConfig);
         connectCroupier(init.getCroupierConfiguration());
         connectGradient(init.getGradientConfig(), systemConfig.seed);
         connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
         connectElection(init.getElectionConfig(), systemConfig.seed);
+        connectAggregator(systemConfig);
 
         // Internal Component Connections.
         doInternalConnections();
@@ -278,18 +280,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, search.getNegative(Timer.class));
         connect(timer, routing.getNegative(Timer.class));
 
-
-        // Aggregator Connections. (Aggregator can be null meaning values not being supplied by the user.)
-        if(aggregatorComponent != null){
-
-            connect(chunkManager.getPositive(Network.class), aggregatorComponent.getNegative(Network.class));
-//            connect(network, aggregatorComponent.getNegative(Network.class));
-            connect(timer, aggregatorComponent.getNegative(Timer.class));
-            connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), search.getNegative(StatusAggregatorPort.class));
-            connect(aggregatorComponent.getPositive(StatusAggregatorPort.class), routing.getNegative(StatusAggregatorPort.class));
-        }
-
-
         // Internal Connections.
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
@@ -300,7 +290,51 @@ public final class SearchPeer extends ComponentDefinition {
         connect(search.getPositive(SelfChangedPort.class), routing.getNegative(SelfChangedPort.class));
         
     }
-    
+
+
+    /**
+     * Make the connections to the local aggregator in the system.
+     * @param systemConfig system configuration.
+     */
+    private void connectAggregator(SystemConfig systemConfig){
+
+        log.debug("Initiating the connection to the local aggregator component.");
+
+        if(!systemConfig.aggregator.isPresent()){
+            log.warn("Unable to bootup local aggregator component as the information about the global aggregator missing.");
+//            return;
+        }
+
+        DecoratedAddress globalAggregatorAddress = systemConfig.aggregator.isPresent()? systemConfig.aggregator.get() : null;
+        DecoratedAddress selfAddress = systemConfig.self;
+
+        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = getComponentProcessorMap();
+        Component aggregator = create(LocalAggregator.class, new LocalAggregatorInit( MsConfig.LOCAL_AGGREGATOR_TIMEOUT, componentProcessorMap,
+                globalAggregatorAddress, selfAddress ));
+        connect(timer, aggregator.getNegative(Timer.class));
+        connect(network, aggregator.getNegative(Network.class));
+        connect(aggregator.getPositive(LocalAggregatorPort.class), search.getNegative(LocalAggregatorPort.class));
+
+    }
+
+
+    /**
+     * Construct the component information processor map,
+     * which will be used by the aggregator in task to create packets to be sent to
+     * the global aggregator.
+     *
+     * @return ProcessorMap.
+     */
+    private Map<Class, List<ComponentInfoProcessor>> getComponentProcessorMap(){
+
+        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = new HashMap<Class, List<ComponentInfoProcessor>>();
+
+        List<ComponentInfoProcessor> searchCompProcessors = new ArrayList<ComponentInfoProcessor>();
+        searchCompProcessors.add(new CompInternalStateProcessor());
+        componentProcessorMap.put(SearchComponentInfo.class, searchCompProcessors);     // Processor list for the search component information.
+
+        return componentProcessorMap;
+    }
     
     
     /**
