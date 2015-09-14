@@ -153,4 +153,8 @@ public class ApplicationSelf {
     public void setLastLeaderUnit(LeaderUnit lastLeaderUnit) {
         this.lastLeaderUnit = lastLeaderUnit;
     }
+
+    public void setSelfAddress(DecoratedAddress selfAddress){
+        this.address = selfAddress;
+    }
 }

@@ -2,6 +2,7 @@ package se.sics.ms.types;
 
 import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.update.SelfViewUpdate;
 
 import java.io.Serializable;
 
@@ -11,7 +12,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView{
+public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, SelfViewUpdate{
 
 //    private int age;
     private transient boolean connected;
@@ -68,8 +69,6 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
         return overlayAddress;
     }
 
-
-    @Override
     public int compareTo(PeerDescriptor that) {
 
         if(that == null){
@@ -191,17 +190,14 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
         return this.overlayAddress.getPartitionIdDepth();
     }
     
-    @Override
     public boolean isLeaderGroupMember() {
         return this.isLGMember;
     }
 
-    @Override
     public LCPeerView enableLGMembership() {
         return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true, this.lastLeaderUnit);
     }
 
-    @Override
     public LCPeerView disableLGMembership() {
         return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false, this.lastLeaderUnit);
     }

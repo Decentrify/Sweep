@@ -53,6 +53,9 @@ import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+import se.sics.p2ptoolbox.util.update.SelfAddressUpdate;
+import se.sics.p2ptoolbox.util.update.SelfAddressUpdatePort;
+import se.sics.p2ptoolbox.util.update.SelfViewUpdatePort;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -87,6 +90,9 @@ public final class NPAwareSearch extends ComponentDefinition {
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     Positive<PALPort> pagPort = requires(PALPort.class);
+
+    Positive<SelfAddressUpdatePort> selfAddressUpdatePort = requires(SelfAddressUpdatePort.class);
+    Negative<SelfViewUpdatePort> selfViewUpdatePort = provides(SelfViewUpdatePort.class);
 
     // ======== LOCAL VARIABLES.
 
@@ -280,6 +286,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(searchProtocolTracker.cacheTimeoutHandler, timerPort);
 
         subscribe(paginateSearchRequestHandler, uiPort);
+        subscribe(selfAddressUpdateHandler, selfAddressUpdatePort);
     }
 
     /**
@@ -390,6 +397,18 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
+     * Event from the parent maker indicating the change in the address.
+     */
+    Handler<SelfAddressUpdate> selfAddressUpdateHandler = new Handler<SelfAddressUpdate>() {
+        @Override
+        public void handle(SelfAddressUpdate selfAddressUpdate) {
+
+            logger.debug("Handling the self address update from the parent maker.");
+            self.setSelfAddress(selfAddressUpdate.self);
+        }
+    };
+
+    /**
      * Initialize the Index Caches, from the indexes stored in files.
      *
      * @param luceneAdaptor IndexEntryLuceneAdaptor for access to lucene instance.
@@ -459,7 +478,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             PaginateInfo defaultPaginateInfo = new PaginateInfo(0, 5);
             searchProtocolTracker.initiateShardSearch(event.getSearchPattern(), defaultPaginateInfo, event.getSearchTimeout(), event.getSearchParallelism());
-//            startSearch(event.getSearchPattern(), event.getSearchTimeout(), event.getSearchParallelism()); // Update it to get the params from the simulator.
         }
     };
 
@@ -2122,7 +2140,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
-
+        trigger(selfDescriptor, selfViewUpdatePort);
 
 //      Send the information to the local aggregator in form of one big packet.
         SearchComponentInfo componentInfo = new SearchComponentInfo(updatedDesc, 0, leaderAddress);

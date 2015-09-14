@@ -69,6 +69,9 @@ import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+import se.sics.p2ptoolbox.util.update.SelfAddressUpdate;
+import se.sics.p2ptoolbox.util.update.SelfAddressUpdatePort;
+import se.sics.p2ptoolbox.util.update.SelfViewUpdatePort;
 import se.sics.util.*;
 
 public final class SearchPeer extends ComponentDefinition {
@@ -81,6 +84,8 @@ public final class SearchPeer extends ComponentDefinition {
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<CCHeartbeatPort> heartbeatPort = requires(CCHeartbeatPort.class);
+    Positive<SelfAddressUpdatePort> selfAddressUpdatePort = requires(SelfAddressUpdatePort.class);
+    Positive<SelfViewUpdatePort> selfViewUpdatePort = requires(SelfViewUpdatePort.class);
 
     private Component croupier;
     private Component gradient, tgradient;
@@ -224,7 +229,7 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private byte[] getCroupierServiceByteArray(){
 
-        byte[] overlayByteArray = Ints.toByteArray(MsConfig.CROUPIER_SERVICE);
+        byte[] overlayByteArray = Ints.toByteArray(MsConfig.CROUPIER_OVERLAY_ID);
         byte[] resultByteArray = new byte[] { HeartbeatServiceEnum.CROUPIER.getServiceId(),
                 overlayByteArray[1],
                 overlayByteArray[2],
@@ -280,8 +285,7 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, routing.getNegative(Timer.class));
 
         // Internal Connections.
-        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
-        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class));
         connect(routing.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
@@ -468,10 +472,13 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectGradient(GradientConfig gradientConfig, long seed) {
         
         log.info("connecting gradient configuration ...");
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, 1 , new SimpleUtilityComparator(), new SweepGradientFilter()));
-        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(1));
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, MsConfig.GRADIENT_OVERLAY_ID , new SimpleUtilityComparator(), new SweepGradientFilter()));
+        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(MsConfig.GRADIENT_OVERLAY_ID));
         connect(timer, gradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
+        connect(croupier.getNegative(SelfViewUpdatePort.class), gradient.getPositive(SelfViewUpdatePort.class));
+        connect(gradient.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
+
     }
 
     /**
@@ -481,11 +488,16 @@ public final class SearchPeer extends ComponentDefinition {
     private void connectTreeGradient(TreeGradientConfig tgradientConfig, GradientConfig gradientConfig) {
 
         log.info("connecting tree gradient configuration ...");
-        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(systemConfig, gradientConfig, tgradientConfig, 2 , new SweepGradientFilter()));
-        connect(network, tgradient.getNegative(Network.class), new IntegerOverlayFilter(2));
+        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(systemConfig, gradientConfig, tgradientConfig, MsConfig.T_GRADIENT_OVERLAY_ID , new SweepGradientFilter()));
+        connect(network, tgradient.getNegative(Network.class), new IntegerOverlayFilter(MsConfig.T_GRADIENT_OVERLAY_ID));
         connect(timer, tgradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
         connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
+        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
+        connect(gradient.getNegative(SelfViewUpdatePort.class), tgradient.getPositive(SelfViewUpdatePort.class));
+        connect(tgradient.getNegative(SelfViewUpdatePort.class), selfViewUpdatePort);
+        connect(tgradient.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
 
     }
 
@@ -507,6 +519,7 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, croupier.getNegative(Timer.class));
         connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(croupierOverlay));
         connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class));
+        connect(croupier.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
 
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");

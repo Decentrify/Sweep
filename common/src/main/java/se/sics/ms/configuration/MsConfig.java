@@ -85,4 +85,10 @@ public class MsConfig {
 
     // Aggregator Timeout.
     public static final long LOCAL_AGGREGATOR_TIMEOUT = 5000;
+
+    // Overlay Identifiers.
+    public static final int CROUPIER_OVERLAY_ID = 1;
+    public static final int GRADIENT_OVERLAY_ID = 2;
+    public static final int T_GRADIENT_OVERLAY_ID = 3;
+
 }
