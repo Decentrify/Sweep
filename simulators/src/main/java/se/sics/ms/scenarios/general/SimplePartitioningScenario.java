@@ -21,13 +21,6 @@ public class SimplePartitioningScenario {
             
             {
 
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-
                 StochasticProcess generatePartitionNodeMap = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -83,8 +76,7 @@ public class SimplePartitioningScenario {
                     }
                 };
                 
-                startAggregatorNode.start();
-                generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
+                generatePartitionNodeMap.start();
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                 partitionEntryAdd.startAfterTerminationOf(40000, partitionPeerJoin);
                 

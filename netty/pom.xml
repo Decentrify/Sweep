@@ -44,12 +44,6 @@
         </dependency>
 
         <dependency>
-            <groupId>se.sics.ktoolbox.aggregator</groupId>
-            <artifactId>aggregator-network</artifactId>
-            <version>${aggregator.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>se.sics.ktoolbox.cm</groupId>
             <artifactId>cm-network</artifactId>
             <version>${chunkmanager.version}</version>

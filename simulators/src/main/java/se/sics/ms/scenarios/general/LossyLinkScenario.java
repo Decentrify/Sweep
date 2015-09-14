@@ -18,14 +18,6 @@ public class LossyLinkScenario {
             
             {
 
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-
-
 
                 StochasticProcess lossyLinkModel = new StochasticProcess() {{
 

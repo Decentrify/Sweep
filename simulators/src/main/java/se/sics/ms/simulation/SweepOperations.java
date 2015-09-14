@@ -11,8 +11,6 @@ import se.sics.ktoolbox.cc.sim.CCSimMain;
 import se.sics.ktoolbox.cc.sim.CCSimMainInit;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplication;
-import se.sics.ms.launch.global.aggregator.main.SystemAggregatorApplicationInit;
 import se.sics.ms.main.SimulatorHostComp;
 import se.sics.ms.main.SimulatorHostCompInit;
 import se.sics.ms.search.Peer;
@@ -38,7 +36,6 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.Random;
 import java.util.Set;
 
@@ -91,34 +88,6 @@ public class SweepOperations {
     };
     
     
-    public static Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>> startAggregatorNodeCmd =
-            new Operation<StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>>() {
-
-                @Override
-                public StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress> generate() {
-                    final DecoratedAddress aggregatorAddress = SweepOperationsHelper.getAggregatorAddress();
-                    
-                    return new StartAggregatorCmd<SystemAggregatorApplication, DecoratedAddress>() {
-
-                        @Override
-                        public Class<SystemAggregatorApplication> getNodeComponentDefinition() {
-                            return SystemAggregatorApplication.class;
-                        }
-
-                        @Override
-                        public Init getNodeComponentInit() {
-                            return new SystemAggregatorApplicationInit(null);
-                        }
-
-                        @Override
-                        public DecoratedAddress getAddress() {
-                            return aggregatorAddress;
-                        }
-                    };
-                }
-    };
-
-
     public static Operation1<StartNodeCmd, Long> startLeaderGroupNodes = new Operation1<StartNodeCmd, Long>() {
         @Override
         public StartNodeCmd generate(final Long id) {

@@ -34,14 +34,6 @@ public class BasicShardingScenario {
                 };
 
 
-
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-
                 StochasticProcess generatePartitionNodeMap = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -129,8 +121,7 @@ public class BasicShardingScenario {
                 };
 
                 changeNetworkModel.start();
-                startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
-                generatePartitionNodeMap.startAfterTerminationOf(10000, startAggregatorNode);
+                generatePartitionNodeMap.startAfterTerminationOf(10000, changeNetworkModel);
                 partitionPeerJoin.startAfterTerminationOf(10000, generatePartitionNodeMap);
                // partitionEntryAdd.startAfterTerminationOf(40000, partitionPeerJoin);
 

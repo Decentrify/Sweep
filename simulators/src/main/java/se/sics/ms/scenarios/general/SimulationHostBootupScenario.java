@@ -18,13 +18,6 @@ public class SimulationHostBootupScenario {
             
             {
 
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-
                 StochasticProcess startCaracalClient = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
