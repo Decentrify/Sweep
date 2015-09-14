@@ -48,7 +48,6 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.gradient.temp.UpdatePort;
 import se.sics.p2ptoolbox.tgradient.TreeGradientComp;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
@@ -57,11 +56,8 @@ import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 import se.sics.util.SimpleLCPViewComparator;
-import se.sics.util.SweepLeaderFilter;
 
 import java.security.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class Peer extends ComponentDefinition {
 
@@ -361,7 +357,6 @@ public final class Peer extends ComponentDefinition {
         connect(timer, tgradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
         connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
-        connect(gradient.getPositive(UpdatePort.class), tgradient.getNegative(UpdatePort.class));
 
     }
 

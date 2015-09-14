@@ -69,8 +69,8 @@ public class SerializerTest {
 
         SerializerSetup.checkSetup();
 
-        selfAddress = new DecoratedAddress(localHost, 54321, 1);
-        destinationAddress = new DecoratedAddress(localHost, 54322, 2);
+        selfAddress = DecoratedAddress.open(localHost, 54321, 1);
+        destinationAddress = DecoratedAddress.open(localHost, 54322, 2);
         selfDescriptor = new PeerDescriptor(selfAddress, 1);
         otherDescriptor = new PeerDescriptor(destinationAddress, 0);
 

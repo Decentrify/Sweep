@@ -29,10 +29,10 @@ import se.sics.p2ptoolbox.gradient.util.GradientContainer;
 import se.sics.p2ptoolbox.gradient.util.GradientLocalView;
 import se.sics.p2ptoolbox.util.Container;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.p2ptoolbox.util.traits.Nated;
 
 import java.util.*;
 
@@ -338,7 +338,7 @@ public class PartitionAwareGradient extends ComponentDefinition {
                         Set<Container> privateSet = new HashSet<Container>();
                         Set<Container> publicSet = new HashSet<Container>();
                         
-                        if(address.hasTrait(Nated.class)){
+                        if(NatedTrait.isOpen(address)){
                             privateSet.add(cc);
                         }else{
                             publicSet.add(cc);

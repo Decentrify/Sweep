@@ -61,7 +61,6 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.gradient.temp.UpdatePort;
 import se.sics.p2ptoolbox.tgradient.TreeGradientComp;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
@@ -208,7 +207,7 @@ public final class SearchPeer extends ComponentDefinition {
             }
 
 //          Now you actually launch the search peer.
-            Set<DecoratedAddress> bootstrapSet = new HashSet<DecoratedAddress>(response.overlaySample);
+            List<DecoratedAddress> bootstrapSet = new ArrayList<DecoratedAddress>(response.overlaySample);
 
 //          Bootstrap the croupier service.
             trigger(new CroupierJoin(bootstrapSet), croupier.getPositive(CroupierControlPort.class));
@@ -487,7 +486,6 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, tgradient.getNegative(Timer.class));
         connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
         connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
-        connect(gradient.getPositive(UpdatePort.class), tgradient.getNegative(UpdatePort.class));
 
     }
 

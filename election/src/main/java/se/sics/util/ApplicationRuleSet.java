@@ -9,8 +9,8 @@ import se.sics.p2ptoolbox.election.api.LCPeerView;
 import se.sics.p2ptoolbox.election.api.LEContainer;
 import se.sics.p2ptoolbox.election.api.rules.CohortsRuleSet;
 import se.sics.p2ptoolbox.election.api.rules.LCRuleSet;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.traits.Nated;
 
 import java.util.*;
 
@@ -116,7 +116,7 @@ public class ApplicationRuleSet {
          * @return true if nated.
          */
         private boolean isNated(DecoratedAddress address) {
-            return (address.hasTrait(Nated.class));
+            return !(NatedTrait.isOpen(address));
         }
 
 
