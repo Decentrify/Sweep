@@ -24,17 +24,17 @@ public class SearchRespDesignProcessor implements DesignProcessor<SearchRespPack
     private Logger logger = LoggerFactory.getLogger(SearchRespDesignProcessor.class);
 
     @Override
-    public DesignInfoContainer<AvgSearchResponse> process(Collection<Map<BasicAddress, List<PacketInfo>>> collection) {
+    public DesignInfoContainer<AvgSearchResponse> process(Collection<Map<Integer, List<PacketInfo>>> collection) {
 
         logger.debug("Initiating the processing of the system information map.");
 
         Collection<AvgSearchResponse> collectionResult = new ArrayList<AvgSearchResponse>();
-        for(Map<BasicAddress, List<PacketInfo>> window : collection){
+        for(Map<Integer, List<PacketInfo>> window : collection){
 
             int count = 0;
             float sum = 0;
 
-            for(Map.Entry<BasicAddress, List<PacketInfo>> entry: window.entrySet()){
+            for(Map.Entry<Integer, List<PacketInfo>> entry: window.entrySet()){
 
                 for(PacketInfo info : entry.getValue()){
                     if( info instanceof  SearchRespPacketInfo){

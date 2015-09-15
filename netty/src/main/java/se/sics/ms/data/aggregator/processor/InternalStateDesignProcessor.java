@@ -8,7 +8,6 @@ import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.ms.data.aggregator.design.AggregatedInternalState;
 import se.sics.ms.data.aggregator.design.AggregatedInternalStateContainer;
 import se.sics.ms.data.aggregator.packets.InternalStatePacket;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,15 +23,15 @@ public class InternalStateDesignProcessor implements DesignProcessor<InternalSta
     Logger logger = LoggerFactory.getLogger(InternalStateDesignProcessor.class);
     
     @Override
-    public DesignInfoContainer<AggregatedInternalState> process(Collection<Map<BasicAddress, List<PacketInfo>>> windows) {
+    public DesignInfoContainer<AggregatedInternalState> process(Collection<Map<Integer, List<PacketInfo>>> windows) {
         
         logger.debug("Initiating with the processing of the internal state packets per window.");
         Collection<AggregatedInternalState> processedWindows = new ArrayList<AggregatedInternalState>();
         
-        for(Map<BasicAddress, List<PacketInfo>> window : windows){
+        for(Map<Integer, List<PacketInfo>> window : windows){
             
             Collection<InternalStatePacket> statePackets = new ArrayList<InternalStatePacket>();
-            for(Map.Entry<BasicAddress, List<PacketInfo>> entry : window.entrySet()){
+            for(Map.Entry<Integer, List<PacketInfo>> entry : window.entrySet()){
                 
                 for(PacketInfo packet :entry.getValue()){
                     
