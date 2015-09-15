@@ -38,7 +38,6 @@ import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientSample;
 import se.sics.p2ptoolbox.util.Container;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
@@ -84,8 +83,8 @@ public final class Routing extends ComponentDefinition {
     final private HashSet<PeerDescriptor> queriedNodes = new HashSet<PeerDescriptor>();
 
     final private HashMap<UUID, PeerDescriptor> openRequests = new HashMap<UUID, PeerDescriptor>();
-    final private HashMap<BasicAddress, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<BasicAddress, Pair<DecoratedAddress, Integer>>();
-    private List<BasicAddress> leadersAlreadyComunicated = new ArrayList<BasicAddress>();
+    final private HashMap<Integer, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<Integer, Pair<DecoratedAddress, Integer>>();
+    private List<Integer> leadersAlreadyComunicated = new ArrayList<Integer>();
 
 
     // Routing Table Update Information.
@@ -172,7 +171,7 @@ public final class Routing extends ComponentDefinition {
      * look up mechanism part of the protocol.
      */
     private void clearLookupParameters(){
-        
+
         queriedNodes.clear();
         openRequests.clear();
         leadersAlreadyComunicated.clear();
@@ -236,7 +235,7 @@ public final class Routing extends ComponentDefinition {
             }
             // In case the request is to add entry for a different category.
             else {
-                Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
+                Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
                 
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
@@ -357,12 +356,12 @@ public final class Routing extends ComponentDefinition {
                 
                 DecoratedAddress source = event.getSource();
                 Integer numberOfAnswers;
-                if (locatedLeaders.containsKey(source)) {
-                    numberOfAnswers = locatedLeaders.get(event.getSource().getBase()).getValue1() + 1;
+                if (locatedLeaders.containsKey(source.getId())) {
+                    numberOfAnswers = locatedLeaders.get(event.getSource().getId()).getValue1() + 1;
                 } else {
                     numberOfAnswers = 1;
                 }
-                locatedLeaders.put(event.getSource().getBase(), Pair.with(event.getSource(),numberOfAnswers));
+                locatedLeaders.put(event.getSource().getBase().getId(), Pair.with(event.getSource(),numberOfAnswers));
             }
 
             else {
@@ -375,9 +374,9 @@ public final class Routing extends ComponentDefinition {
 
                 if (higherUtilityNodes.size() > 0) {
                     PeerDescriptor first = higherUtilityNodes.get(0);
-                    if (locatedLeaders.containsKey(first.getVodAddress())) {
-                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress().getBase()).getValue1() + 1;
-                        locatedLeaders.put(first.getVodAddress().getBase(), Pair.with(first.getVodAddress(),numberOfAnswers));
+                    if (locatedLeaders.containsKey(first.getVodAddress().getId())) {
+                        Integer numberOfAnswers = locatedLeaders.get(first.getVodAddress().getId()).getValue1() + 1;
+                        locatedLeaders.put(first.getVodAddress().getId(), Pair.with(first.getVodAddress(),numberOfAnswers));
                     }
                 }
 
@@ -394,7 +393,7 @@ public final class Routing extends ComponentDefinition {
             }
 
             // Check it a quorum was reached
-            for (BasicAddress locatedLeader : locatedLeaders.keySet()) {
+            for (Integer locatedLeader : locatedLeaders.keySet()) {
                 
                 if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookup.QueryLimit / 2) {
                     if (!leadersAlreadyComunicated.contains(locatedLeader)) {
@@ -467,7 +466,7 @@ public final class Routing extends ComponentDefinition {
         public void handle(GradientRoutingPort.SearchRequest event) {
 
             MsConfig.Categories category = event.getPattern().getCategory();
-            Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
+            Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
 
             int parallelism = event.getFanoutParameter() != null ? event.getFanoutParameter() : config.getSearchParallelism();
             logger.warn("Updated the fanout parameter to: {}", parallelism);
@@ -675,14 +674,14 @@ public final class Routing extends ComponentDefinition {
 
     private void publishRoutingTable() {
 
-        for (Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryMap : routingTableHandler.values()) {
+        for (Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryMap : routingTableHandler.values()) {
 
-            for (Map.Entry<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> bucket : categoryMap.entrySet()) {
+            for (Map.Entry<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> bucket : categoryMap.entrySet()) {
 
-                Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> depthBucket = bucket.getValue();
+                Pair<Integer, HashMap<Integer, RoutingTableContainer>> depthBucket = bucket.getValue();
 
-                for (BasicAddress addr : depthBucket.getValue1().keySet()) {
-                    logger.debug(" Updated RoutingTable: PartitionId: {} PartitionDepth: {}  NodeId: {}", new Object[]{bucket.getKey(), depthBucket.getValue0(), addr.getId()});
+                for (Integer identifier : depthBucket.getValue1().keySet()) {
+                    logger.debug(" Updated RoutingTable: PartitionId: {} PartitionDepth: {}  NodeId: {}", new Object[]{bucket.getKey(), depthBucket.getValue0(), identifier});
                 }
             }
         }

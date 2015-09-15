@@ -24,14 +24,14 @@ import java.util.*;
  */
 public class RoutingTableHandler {
 
-    private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>>> routingTable;
+    private Map<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>>> routingTable;
     private Logger logger = LoggerFactory.getLogger(RoutingTableHandler.class);
     private int maxRoutingEntries;
     private Comparator<RoutingTableContainer> ageComparator;
 
     public RoutingTableHandler(int maxRoutingEntries) {
 
-        routingTable = new HashMap<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>>>();
+        routingTable = new HashMap<MsConfig.Categories, Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>>>();
         this.maxRoutingEntries = maxRoutingEntries;
         this.ageComparator = new ComparatorCollection.AgeComparator();
     }
@@ -59,14 +59,14 @@ public class RoutingTableHandler {
             PartitionId partitionInfo = new PartitionId(descriptor.getOverlayAddress().getPartitioningType(),
                     descriptor.getOverlayAddress().getPartitionIdDepth(), descriptor.getOverlayAddress().getPartitionId());
 
-            Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap = routingTable.get(category);
+            Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap = routingTable.get(category);
 
             if (categoryRoutingMap == null) {
-                categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>>();
+                categoryRoutingMap = new HashMap<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>>();
                 routingTable.put(category, categoryRoutingMap);
             }
 
-            Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> partitionBucket = categoryRoutingMap.get(partitionInfo.getPartitionId());
+            Pair<Integer, HashMap<Integer, RoutingTableContainer>> partitionBucket = categoryRoutingMap.get(partitionInfo.getPartitionId());
 
             if (partitionBucket == null) {
                 partitionBucket = checkAndAddNewBucket(partitionInfo, categoryRoutingMap);
@@ -97,21 +97,21 @@ public class RoutingTableHandler {
      * @param croupierContainer SampleContainer
      * @param partitionBucket   PartitionBucket for a particular partition id and partitioning depth.
      */
-    private void addToPartitionBucket(CroupierContainer croupierContainer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> partitionBucket) {
+    private void addToPartitionBucket(CroupierContainer croupierContainer, Pair<Integer, HashMap<Integer, RoutingTableContainer>> partitionBucket) {
 
         BasicAddress receivedBaseAddress = croupierContainer.getSource().getBase();
-        RoutingTableContainer selfContainer = partitionBucket.getValue1().get(receivedBaseAddress);
+        RoutingTableContainer selfContainer = partitionBucket.getValue1().get(receivedBaseAddress.getId());
 
         if (selfContainer != null) {
 
             if (selfContainer.getAge() >= croupierContainer.getAge()) {
-                partitionBucket.getValue1().remove(receivedBaseAddress);
+                partitionBucket.getValue1().remove(receivedBaseAddress.getId());
             } else
                 return;
         }
 
         selfContainer = new RoutingTableContainer(croupierContainer.getAge(), croupierContainer.getSource(), (PeerDescriptor)((GradientLocalView)croupierContainer.getContent()).appView);
-        partitionBucket.getValue1().put(receivedBaseAddress, selfContainer);
+        partitionBucket.getValue1().put(receivedBaseAddress.getId(), selfContainer);
 
         if (partitionBucket.getValue1().size() > maxRoutingEntries) {
 
@@ -119,7 +119,7 @@ public class RoutingTableHandler {
             if (sortedList != null && sortedList.size() > 0) {
 
                 // Remove the first element in case we exceed the size.
-                partitionBucket.getValue1().remove(sortedList.get(0).getSource().getBase());
+                partitionBucket.getValue1().remove(sortedList.get(0).getSource().getBase().getId());
             }
         }
     }
@@ -132,9 +132,9 @@ public class RoutingTableHandler {
      * @param partitionInfo      Partition Id of the new sample.
      * @param categoryRoutingMap Current Routing Map.
      */
-    private Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap) {
+    private Pair<Integer, HashMap<Integer, RoutingTableContainer>> checkAndAddNewBucket(PartitionId partitionInfo, Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap) {
 
-        Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> newPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<BasicAddress, RoutingTableContainer>());
+        Pair<Integer, HashMap<Integer, RoutingTableContainer>> newPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<Integer, RoutingTableContainer>());
         removeOldBuckets(partitionInfo, categoryRoutingMap);
         categoryRoutingMap.put(partitionInfo.getPartitionId(), newPartitionBucket);
         logger.debug("Creating new bucket for the partition id: {}, partitiondepth: {}", partitionInfo.getPartitionId(), partitionInfo.getPartitionIdDepth());
@@ -145,7 +145,7 @@ public class RoutingTableHandler {
         if (!isFirstBucket(partitionInfo)) {
 
             int otherPartitionId = PartitionHelper.getPartitionIdOtherHalf(partitionInfo);
-            Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<BasicAddress, RoutingTableContainer>());
+            Pair<Integer, HashMap<Integer, RoutingTableContainer>> otherPartitionBucket = Pair.with(partitionInfo.getPartitionIdDepth(), new HashMap<Integer, RoutingTableContainer>());
             categoryRoutingMap.put(otherPartitionId, otherPartitionBucket);
             logger.debug("Creating new bucket for the partition id: {}, partitiondepth: {}", otherPartitionId, partitionInfo.getPartitionIdDepth());
         }
@@ -166,7 +166,7 @@ public class RoutingTableHandler {
      * @param partition          Updated Partition Id.
      * @param categoryRoutingMap Current Routing Map.
      */
-    public void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap) {
+    public void removeOldBuckets(PartitionId partition, Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap) {
 
 
         if (partition == null) {
@@ -195,9 +195,9 @@ public class RoutingTableHandler {
      */
     public void incrementRoutingTableDescriptorAges() {
 
-        for (Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> categoryRoutingMap : routingTable.values()) {
+        for (Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap : routingTable.values()) {
 
-            for (Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>> bucket : categoryRoutingMap.values()) {
+            for (Pair<Integer, HashMap<Integer, RoutingTableContainer>> bucket : categoryRoutingMap.values()) {
 
                 for (RoutingTableContainer routingTableContainer : bucket.getValue1().values()) {
                     routingTableContainer.incrementAge();
@@ -237,13 +237,13 @@ public class RoutingTableHandler {
      * @param category category map
      * @return Map
      */
-    public Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>> getCategoryRoutingMap(MsConfig.Categories category){
+    public Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> getCategoryRoutingMap(MsConfig.Categories category){
         return this.routingTable.get(category);
     }
 
 
 
-    public Collection<Map<Integer, Pair<Integer, HashMap<BasicAddress, RoutingTableContainer>>>> values(){
+    public Collection<Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>>> values(){
         return this.routingTable.values();
     }
 
