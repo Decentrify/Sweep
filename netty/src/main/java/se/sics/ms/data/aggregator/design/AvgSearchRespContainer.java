@@ -1,6 +1,7 @@
 
 package se.sics.ms.data.aggregator.design;
-import se.sics.ktoolbox.aggregator.server.api.system.DesignInfoContainer;
+
+import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 
 import java.util.Collection;
 

@@ -12,7 +12,6 @@ import se.sics.ktoolbox.cc.sim.CCSimMainInit;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.main.SimulatorHostCompInit;
-import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
@@ -155,7 +154,7 @@ public class SweepOperationsHelper {
      *
      * @param id NodeId
      */
-    public static PeerInit generatePALPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
+    public static SearchPeerInit generatePALPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
 
         logger.trace(" Generating address for peer with id: {} ", id);
 
@@ -168,7 +167,7 @@ public class SweepOperationsHelper {
         systemConfig = new SystemConfig(config, baseSeed + id, decoratedAddress, Optional.<Address>absent(), simAddress);
 
         ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        PeerInit init = new PeerInit(applicationSelf, systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
+        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
 
         ringNodes.addNode(id);
         peersAddressMap.put(id, applicationSelf.getAddress());

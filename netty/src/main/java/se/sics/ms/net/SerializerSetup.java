@@ -1,15 +1,9 @@
 package se.sics.ms.net;
 
 import se.sics.kompics.network.netty.serialization.Serializers;
-import se.sics.ms.aggregator.data.SweepAggregatedPacket;
 import se.sics.ms.data.aggregator.packets.InternalStatePacket;
 import se.sics.ms.data.aggregator.serializer.InternalStatePacketSerializer;
-import se.sics.ms.data.aggregator.serializer.SweepPacketSerializer;
 import se.sics.ms.data.*;
-import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
-import se.sics.ms.data.aggregator.ElectionLeaderUpdateSerializer;
-import se.sics.ms.data.aggregator.SearchComponentUpdate;
-import se.sics.ms.data.aggregator.SearchComponentUpdateSerializer;
 import se.sics.ms.serializer.*;
 import se.sics.ms.types.*;
 import se.sics.ms.util.EntryScorePair;
@@ -39,9 +33,6 @@ public class SerializerSetup {
         leaderUnitUpdate(LeaderUnitUpdate.class, "leaderUnitUpdate"),
         
         // aggregators
-        searchComponentUpdate(SearchComponentUpdate.class, "searchComponentUpdate"),
-        leaderComponentUpdate(ElectionLeaderComponentUpdate.class, "leaderComponentUpdate"),
-        sweepAggregatedPacket(SweepAggregatedPacket.class, "sweepAggregatedPacket"),
 
         searchInfoRequest(SearchInfo.Request.class, "searchInfoRequest"),
         searchInfoResponse(SearchInfo.Response.class, "searchInfoResponse"),
@@ -163,19 +154,6 @@ public class SerializerSetup {
         PartitionInfoHashSerializer partitionHashSerializer = new PartitionInfoHashSerializer(currentId++);
         Serializers.register(partitionHashSerializer, SweepSerializers.partitionInfoHash.serializerName);
         Serializers.register(SweepSerializers.partitionInfoHash.serializedClass, SweepSerializers.partitionInfoHash.serializerName);
-
-        // Aggregators.
-        SearchComponentUpdateSerializer scuSerializer = new SearchComponentUpdateSerializer(currentId++);
-        Serializers.register(scuSerializer, SweepSerializers.searchComponentUpdate.serializerName);
-        Serializers.register(SweepSerializers.searchComponentUpdate.serializedClass, SweepSerializers.searchComponentUpdate.serializerName);
-
-        ElectionLeaderUpdateSerializer lcuSerializer = new ElectionLeaderUpdateSerializer(currentId++);
-        Serializers.register(lcuSerializer, SweepSerializers.leaderComponentUpdate.serializerName);
-        Serializers.register(SweepSerializers.leaderComponentUpdate.serializedClass, SweepSerializers.leaderComponentUpdate.serializerName);
-
-        SweepPacketSerializer sapSerializer = new SweepPacketSerializer(currentId++);
-        Serializers.register(sapSerializer, SweepSerializers.sweepAggregatedPacket.serializerName);
-        Serializers.register(SweepSerializers.sweepAggregatedPacket.serializedClass, SweepSerializers.sweepAggregatedPacket.serializerName);
 
         // Search Request / Response.
         SearchInfoSerializer.Request siRequest = new SearchInfoSerializer.Request(currentId++);

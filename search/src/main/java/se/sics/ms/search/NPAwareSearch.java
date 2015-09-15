@@ -17,17 +17,12 @@ import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
-import se.sics.ktoolbox.aggregator.client.api.events.ComponentInfoEvent;
-import se.sics.ktoolbox.aggregator.client.api.ports.LocalAggregatorPort;
+import se.sics.ktoolbox.aggregator.client.LocalAggregatorPort;
+import se.sics.ktoolbox.aggregator.client.events.ComponentInfoEvent;
 import se.sics.ms.data.aggregator.SearchComponentInfo;
-import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
-import se.sics.ms.data.aggregator.ElectionLeaderComponentUpdate;
-import se.sics.ms.data.aggregator.ElectionLeaderUpdateEvent;
-import se.sics.ms.data.aggregator.SearchComponentUpdate;
-import se.sics.ms.data.aggregator.SearchComponentUpdateEvent;
 import se.sics.ms.events.*;
 import se.sics.ms.events.UiSearchRequest;
 import se.sics.ms.events.UiSearchResponse;
@@ -85,7 +80,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     Negative<LeaderStatusPort> leaderStatusPort = negative(LeaderStatusPort.class);
     Negative<UiPort> uiPort = negative(UiPort.class);
     Negative<SelfChangedPort> selfChangedPort = negative(SelfChangedPort.class);
-    Positive<StatusAggregatorPort> statusAggregatorPortPositive = requires(StatusAggregatorPort.class);
     Positive<LocalAggregatorPort> localAggregatorPort = requires(LocalAggregatorPort.class);
     Positive<GradientPort> gradientPort = requires(GradientPort.class);
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
@@ -2136,8 +2130,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new SearchComponentUpdateEvent(new SearchComponentUpdate(updatedDesc, defaultComponentOverlayId)), statusAggregatorPortPositive);
-        trigger(new ElectionLeaderUpdateEvent(new ElectionLeaderComponentUpdate(leader, defaultComponentOverlayId)), statusAggregatorPortPositive);
         trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
         trigger(selfDescriptor, selfViewUpdatePort);

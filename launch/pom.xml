@@ -18,11 +18,6 @@
             <artifactId>ms-search</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>local-aggregator</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>se.sics.kompics.basic</groupId>

@@ -13,20 +13,18 @@
     <url>http://maven.apache.org</url>
 
     <dependencies>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>local-aggregator</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>se.sics.ms</groupId>
             <artifactId>netty</artifactId>
             <version>${project.version}</version>
         </dependency>
+
     </dependencies>
 </project>

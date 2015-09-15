@@ -2,7 +2,6 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.kompics.Init;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
@@ -13,8 +12,6 @@ import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
 import se.sics.ms.main.SimulatorHostComp;
 import se.sics.ms.main.SimulatorHostCompInit;
-import se.sics.ms.search.Peer;
-import se.sics.ms.search.PeerInit;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
@@ -24,7 +21,6 @@ import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.ChangeNetworkModelCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
-import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.core.network.impl.BasicLossyLinkModel;
 import se.sics.p2ptoolbox.simulator.core.network.impl.agg.UniformRandomModel;
@@ -170,7 +166,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<Peer, DecoratedAddress>() {
+            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
@@ -186,11 +182,11 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return Peer.class;
+                    return SearchPeer.class;
                 }
 
                 @Override
-                public PeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
                     return SweepOperationsHelper.generatePALPeerInit(address, bootstrapNodes, nodeId);
                 }
 

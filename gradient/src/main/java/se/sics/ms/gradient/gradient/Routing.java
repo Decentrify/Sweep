@@ -9,7 +9,6 @@ import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
-import se.sics.ms.aggregator.port.StatusAggregatorPort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.common.RoutingTableContainer;
 import se.sics.ms.common.RoutingTableHandler;
@@ -62,7 +61,6 @@ public final class Routing extends ComponentDefinition {
     Negative<GradientRoutingPort> gradientRoutingPort = negative(GradientRoutingPort.class);
     Positive<SelfChangedPort> selfChangedPort = positive(SelfChangedPort.class);
 
-    Positive<StatusAggregatorPort> statusAggregatorPortPositive = positive(StatusAggregatorPort.class);
     Positive<GradientPort> gradientPort = positive(GradientPort.class);
     Positive<CroupierPort> croupierPort = positive(CroupierPort.class);
 

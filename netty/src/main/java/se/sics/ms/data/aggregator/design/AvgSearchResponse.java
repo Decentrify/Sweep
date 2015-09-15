@@ -1,5 +1,6 @@
 package se.sics.ms.data.aggregator.design;
-import se.sics.ktoolbox.aggregator.server.api.system.DesignInfo;
+
+import se.sics.ktoolbox.aggregator.server.util.DesignInfo;
 
 /**
  * Average Search Response for the cluster for a particular window.

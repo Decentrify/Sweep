@@ -11,10 +11,6 @@
     <name>ms-search</name>
     <url>http://maven.apache.org</url>
 
-    <properties>
-        <caracal.client.version>1.1-SNAPSHOT</caracal.client.version>
-    </properties>
-
     <dependencies>
 
         <dependency>
@@ -35,12 +31,6 @@
             <artifactId>ms-election</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>local-aggregator</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <dependency>

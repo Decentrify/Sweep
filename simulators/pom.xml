@@ -12,10 +12,6 @@
     <name>ms-simulators</name>
     <url>http://maven.apache.org</url>
 
-    <properties>
-        <cc.sim.client>1.1-SNAPSHOT</cc.sim.client>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>se.kth.ms</groupId>

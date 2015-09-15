@@ -1,6 +1,6 @@
 package se.sics.ms.data.aggregator.design;
 
-import se.sics.ktoolbox.aggregator.server.api.system.DesignInfo;
+import se.sics.ktoolbox.aggregator.server.util.DesignInfo;
 import se.sics.ms.data.aggregator.packets.InternalStatePacket;
 import java.util.Collection;
 

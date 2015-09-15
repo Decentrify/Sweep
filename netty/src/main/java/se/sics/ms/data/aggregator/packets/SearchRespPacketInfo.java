@@ -1,6 +1,7 @@
 
 package se.sics.ms.data.aggregator.packets;
-import se.sics.ktoolbox.aggregator.common.PacketInfo;
+
+import se.sics.ktoolbox.aggregator.util.PacketInfo;
 
 /**
  * Packet Containing information regarding the latest search response time.

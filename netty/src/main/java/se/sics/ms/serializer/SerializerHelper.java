@@ -2,7 +2,7 @@
 
 package se.sics.ms.serializer;
 
-import se.sics.ktoolbox.aggregator.network.serializer.AggregatorSerializerSetup;
+import se.sics.ktoolbox.aggregator.AggregatorSerializerSetup;
 import se.sics.ms.net.SerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
 import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
