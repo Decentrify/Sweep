@@ -2,9 +2,9 @@ package se.sics.ms.data.aggregator.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.ktoolbox.aggregator.global.api.system.DesignInfoContainer;
-import se.sics.ktoolbox.aggregator.global.api.system.DesignProcessor;
-import se.sics.ktoolbox.aggregator.global.api.system.PacketInfo;
+import se.sics.ktoolbox.aggregator.common.PacketInfo;
+import se.sics.ktoolbox.aggregator.server.api.system.DesignInfoContainer;
+import se.sics.ktoolbox.aggregator.server.api.system.DesignProcessor;
 import se.sics.ms.data.aggregator.design.AvgSearchRespContainer;
 import se.sics.ms.data.aggregator.design.AvgSearchResponse;
 import se.sics.ms.data.aggregator.packets.SearchRespPacketInfo;
@@ -19,7 +19,7 @@ import java.util.Map;
  *
  * Created by babbar on 2015-09-06.
  */
-public class SearchRespDesignProcessor implements DesignProcessor<SearchRespPacketInfo, AvgSearchResponse>{
+public class SearchRespDesignProcessor implements DesignProcessor<SearchRespPacketInfo, AvgSearchResponse> {
 
     private Logger logger = LoggerFactory.getLogger(SearchRespDesignProcessor.class);
 

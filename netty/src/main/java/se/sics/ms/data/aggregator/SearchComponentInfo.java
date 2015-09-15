@@ -1,7 +1,7 @@
 
 package se.sics.ms.data.aggregator;
 
-import se.sics.ktoolbox.aggregator.global.api.system.ComponentInfo;
+import se.sics.ktoolbox.aggregator.common.ComponentInfo;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
@@ -11,7 +11,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  *
  * Created by babbar on 2015-09-06.
  */
-public class SearchComponentInfo implements ComponentInfo{
+public class SearchComponentInfo implements ComponentInfo {
 
     private PeerDescriptor descriptor;
     private float searchResponse;

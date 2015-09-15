@@ -1,7 +1,6 @@
 
 package se.sics.ms.data.aggregator.design;
-
-import se.sics.ktoolbox.aggregator.global.api.system.DesignInfoContainer;
+import se.sics.ktoolbox.aggregator.server.api.system.DesignInfoContainer;
 
 import java.util.Collection;
 
@@ -10,7 +9,7 @@ import java.util.Collection;
  *
  * Created by babbar on 2015-09-06.
  */
-public class AvgSearchRespContainer extends DesignInfoContainer<AvgSearchResponse>{
+public class AvgSearchRespContainer extends DesignInfoContainer<AvgSearchResponse> {
 
     public AvgSearchRespContainer(Collection<AvgSearchResponse> processedWindows) {
         super(processedWindows);

@@ -1,14 +1,13 @@
 
 package se.sics.ms.data.aggregator.packets;
-
-import se.sics.ktoolbox.aggregator.global.api.system.PacketInfo;
+import se.sics.ktoolbox.aggregator.common.PacketInfo;
 
 /**
  * Packet Containing information regarding the latest search response time.
  *
  * Created by babbar on 2015-09-06.
  */
-public class SearchRespPacketInfo implements PacketInfo{
+public class SearchRespPacketInfo implements PacketInfo {
 
 
     private float searchResponse;

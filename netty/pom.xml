@@ -50,9 +50,9 @@
         </dependency>
 
         <dependency>
-            <groupId>se.sics.ktoolbox.aggregator.global</groupId>
-            <artifactId>aggregator-network</artifactId>
-            <version>${aggregator.global.version}</version>
+            <groupId>se.sics.ktoolbox.aggregator</groupId>
+            <artifactId>network</artifactId>
+            <version>${aggregator.version}</version>
         </dependency>
 
 

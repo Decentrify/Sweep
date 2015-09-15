@@ -42,7 +42,7 @@
         <kompics.version>0.8.2-SNAPSHOT</kompics.version>
         <croupier.version>1.9-SNAPSHOT</croupier.version>
         <gradient.version>1.7-SNAPSHOT</gradient.version>
-        <aggregator.version>1.3-SNAPSHOT</aggregator.version>
+        <aggregator.version>1.0-SNAPSHOT</aggregator.version>
         <election.version>1.4-SNAPSHOT</election.version>
         <util.version>1.9-SNAPSHOT</util.version>
         <chunkmanager.version>1.3-SNAPSHOT</chunkmanager.version>
@@ -53,9 +53,6 @@
         <junit.version>4.10</junit.version>
         <config.version>1.2.1</config.version>
         <logger.version>1.7.5</logger.version>
-
-        <aggregator.local.version>1.0-SNAPSHOT</aggregator.local.version>
-        <aggregator.global.version>1.0-SNAPSHOT</aggregator.global.version>
 
     </properties>
 
@@ -111,12 +108,19 @@
             <artifactId>election-core</artifactId>
             <version>${election.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>se.sics.ktoolbox.aggregator.local</groupId>
-            <artifactId>aggregator-api</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>se.sics.ktoolbox.aggregator.client</groupId>
+            <artifactId>api</artifactId>
+            <version>${aggregator.version}</version>
         </dependency>
-        
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator.server</groupId>
+            <artifactId>api</artifactId>
+            <version>${aggregator.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

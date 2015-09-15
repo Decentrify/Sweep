@@ -1,13 +1,12 @@
 package se.sics.ms.data.aggregator.design;
-
-import se.sics.ktoolbox.aggregator.global.api.system.DesignInfo;
+import se.sics.ktoolbox.aggregator.server.api.system.DesignInfo;
 
 /**
  * Average Search Response for the cluster for a particular window.
  *
  * Created by babbar on 2015-09-06.
  */
-public class AvgSearchResponse implements DesignInfo{
+public class AvgSearchResponse implements DesignInfo {
 
 
     private float srTotal;
