@@ -2254,7 +2254,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             BasicAddress addr = itr.next().getBase();
             logger.warn("{}: Leader Group Node :{}", self.getId(), addr.getId());
-            if (selfPeerAddress.equals(addr)) {
+            if (selfPeerAddress.getId().equals(addr.getId())) {
                 itr.remove();
                 break;
             }
