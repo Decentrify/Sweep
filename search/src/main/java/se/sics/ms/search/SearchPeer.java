@@ -87,7 +87,7 @@ public final class SearchPeer extends ComponentDefinition {
 
     private Component croupier;
     private Component gradient, tgradient;
-    private Component search, chunkManager, aggregatorComponent, routing;
+    private Component search, aggregatorComponent, routing;
     private Component partitionAwareGradient;
     private Component electionLeader, electionFollower;
     private ApplicationSelf self;
@@ -117,7 +117,6 @@ public final class SearchPeer extends ComponentDefinition {
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
 
         // External Components creating and connection to the local components.
-        connectChunkManager(systemConfig, chunkManagerConfig);
         connectCroupier(init.getCroupierConfiguration());
         connectGradient(init.getGradientConfig(), systemConfig.seed);
         connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
@@ -268,16 +267,6 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void doInternalConnections(){
         
-//      Network Connections.
-//      COMMENT THE BELOW IN SIMULATION.
-        connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class));
-        connect(chunkManager.getPositive(Network.class), routing.getNegative(Network.class));
-
-//      UNCOMMENT THE BELOW IN SIMULATION.
-//        connect(network, search.getNegative(Network.class));
-//        connect(network, routing.getNegative(Network.class));
-
-
         // Timer Connections.
         connect(timer, search.getNegative(Timer.class));
         connect(timer, routing.getNegative(Timer.class));
@@ -439,19 +428,6 @@ public final class SearchPeer extends ComponentDefinition {
     }
 
 
-    /**
-     * Attach the chunk manager configuration and connect it to the appropriate ports.
-     * @param systemConfig system
-     * @param chunkManagerConfig chunk manager config.
-     */
-    private void connectChunkManager(SystemConfig systemConfig, ChunkManagerConfig chunkManagerConfig) {
-        
-        chunkManager = create(ChunkManagerComp.class, new ChunkManagerComp.CMInit(systemConfig, chunkManagerConfig));
-        connect(chunkManager.getNegative(Network.class), network);
-        connect(chunkManager.getNegative(Timer.class), timer);
-    }
-    
-    
 	/**
      * Initialize the PAG service.
      */
