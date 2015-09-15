@@ -292,10 +292,10 @@ public final class SearchPeer extends ComponentDefinition {
 
         if(!systemConfig.aggregator.isPresent()){
             log.warn("Unable to bootup local aggregator component as the information about the global aggregator missing.");
-//            return;
+            return;
         }
 
-        DecoratedAddress globalAggregatorAddress = systemConfig.aggregator.isPresent()? systemConfig.aggregator.get() : null;
+        DecoratedAddress globalAggregatorAddress = systemConfig.aggregator.get();
         DecoratedAddress selfAddress = systemConfig.self;
 
         Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = getComponentProcessorMap();
@@ -304,6 +304,7 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, aggregator.getNegative(Timer.class));
         connect(network, aggregator.getNegative(Network.class));
         connect(aggregator.getPositive(LocalAggregatorPort.class), search.getNegative(LocalAggregatorPort.class));
+        connect(aggregator.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
 
     }
 
