@@ -19,7 +19,7 @@ import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.client.LocalAggregatorPort;
 import se.sics.ktoolbox.aggregator.client.events.ComponentInfoEvent;
-import se.sics.ms.data.aggregator.SearchComponentInfo;
+import se.sics.ms.aggregator.SearchComponentInfo;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;

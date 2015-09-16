@@ -1,6 +1,5 @@
 package se.sics.ms.data;
 
-import se.sics.ms.exceptions.IllegalSearchString;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;

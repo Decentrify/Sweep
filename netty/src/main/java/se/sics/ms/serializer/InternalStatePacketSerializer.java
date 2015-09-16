@@ -1,13 +1,12 @@
-package se.sics.ms.data.aggregator.serializer;
+package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
-import se.sics.ms.data.aggregator.packets.InternalStatePacket;
+import se.sics.ms.data.InternalStatePacket;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
-import se.sics.ms.serializer.SerializerHelper;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**

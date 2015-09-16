@@ -1,8 +1,8 @@
 package se.sics.ms.net;
 
 import se.sics.kompics.network.netty.serialization.Serializers;
-import se.sics.ms.data.aggregator.packets.InternalStatePacket;
-import se.sics.ms.data.aggregator.serializer.InternalStatePacketSerializer;
+import se.sics.ms.data.InternalStatePacket;
+import se.sics.ms.serializer.InternalStatePacketSerializer;
 import se.sics.ms.data.*;
 import se.sics.ms.serializer.*;
 import se.sics.ms.types.*;
@@ -15,7 +15,7 @@ import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
  * Main class for the setting up of the serializers in the system as well as the basic serializers used.
  * Created by babbar on 2015-04-21.
  */
-public class SerializerSetup {
+public class SweepSerializerSetup {
 
 
     public static enum SweepSerializers {

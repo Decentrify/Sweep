@@ -1,5 +1,5 @@
 
-package se.sics.ms.data.aggregator.design;
+package se.sics.ms.aggregator.design;
 
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 

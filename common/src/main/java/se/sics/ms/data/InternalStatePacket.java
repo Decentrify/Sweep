@@ -1,4 +1,4 @@
-package se.sics.ms.data.aggregator.packets;
+package se.sics.ms.data;
 
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;

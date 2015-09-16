@@ -341,7 +341,7 @@
  * Public License instead of this License.
  */
 
-package se.sics.ms.data.aggregator;
+package se.sics.ms.aggregator;
 
 import se.sics.ktoolbox.aggregator.client.util.ComponentInfo;
 import se.sics.ms.types.PeerDescriptor;

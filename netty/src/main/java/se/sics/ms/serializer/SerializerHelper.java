@@ -3,7 +3,7 @@
 package se.sics.ms.serializer;
 
 import se.sics.ktoolbox.aggregator.AggregatorSerializerSetup;
-import se.sics.ms.net.SerializerSetup;
+import se.sics.ms.net.SweepSerializerSetup;
 import se.sics.p2ptoolbox.chunkmanager.ChunkManagerSerializerSetup;
 import se.sics.p2ptoolbox.croupier.CroupierSerializerSetup;
 import se.sics.p2ptoolbox.election.network.ElectionSerializerSetup;
@@ -29,7 +29,7 @@ public class SerializerHelper {
         currentId = ElectionSerializerSetup.registerSerializers(currentId);
         currentId = AggregatorSerializerSetup.registerSerializers(currentId);
         currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
-        SerializerSetup.registerSerializers(currentId);
+        SweepSerializerSetup.registerSerializers(currentId);
     }
 
 

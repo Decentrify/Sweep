@@ -84,13 +84,13 @@ public class SerializerTest {
         int currentId = 128;
         BasicSerializerSetup.registerBasicSerializers(currentId);
         currentId = currentId + BasicSerializerSetup.serializerIds;
-        currentId = SerializerSetup.registerSerializers(currentId);
+        currentId = SweepSerializerSetup.registerSerializers(currentId);
         
         PublicKeySerializer pkSerializer =  new PublicKeySerializer(currentId++);
         Serializers.register(pkSerializer, "publicKeySerializer");
         Serializers.register(PublicKey.class, "publicKeySerializer");
 
-        SerializerSetup.checkSetup();
+        SweepSerializerSetup.checkSetup();
         ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
         DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
     }

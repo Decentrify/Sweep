@@ -1,13 +1,13 @@
-package se.sics.ms.data.aggregator.processor;
+package se.sics.ms.aggregator.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
-import se.sics.ms.data.aggregator.design.AggregatedInternalState;
-import se.sics.ms.data.aggregator.design.AggregatedInternalStateContainer;
-import se.sics.ms.data.aggregator.packets.InternalStatePacket;
+import se.sics.ms.aggregator.design.AggregatedInternalState;
+import se.sics.ms.aggregator.design.AggregatedInternalStateContainer;
+import se.sics.ms.data.InternalStatePacket;
 
 import java.util.ArrayList;
 import java.util.Collection;

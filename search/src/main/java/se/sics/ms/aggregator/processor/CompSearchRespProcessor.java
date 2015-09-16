@@ -1,9 +1,9 @@
 
-package se.sics.ms.data.aggregator.processor;
+package se.sics.ms.aggregator.processor;
 
 import se.sics.ktoolbox.aggregator.client.util.ComponentInfoProcessor;
-import se.sics.ms.data.aggregator.SearchComponentInfo;
-import se.sics.ms.data.aggregator.packets.SearchRespPacketInfo;
+import se.sics.ms.aggregator.SearchComponentInfo;
+import se.sics.ms.aggregator.SearchRespPacketInfo;
 
 /**
  * A simple processor converting the information from the component

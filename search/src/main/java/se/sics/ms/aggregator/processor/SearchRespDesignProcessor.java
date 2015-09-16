@@ -1,14 +1,13 @@
-package se.sics.ms.data.aggregator.processor;
+package se.sics.ms.aggregator.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
-import se.sics.ms.data.aggregator.design.AvgSearchRespContainer;
-import se.sics.ms.data.aggregator.design.AvgSearchResponse;
-import se.sics.ms.data.aggregator.packets.SearchRespPacketInfo;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.ms.aggregator.design.AvgSearchRespContainer;
+import se.sics.ms.aggregator.design.AvgSearchResponse;
+import se.sics.ms.aggregator.SearchRespPacketInfo;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -1,8 +1,8 @@
-package se.sics.ms.data.aggregator.processor;
+package se.sics.ms.aggregator.processor;
 
 import se.sics.ktoolbox.aggregator.client.util.ComponentInfoProcessor;
-import se.sics.ms.data.aggregator.SearchComponentInfo;
-import se.sics.ms.data.aggregator.packets.InternalStatePacket;
+import se.sics.ms.aggregator.SearchComponentInfo;
+import se.sics.ms.data.InternalStatePacket;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
 
