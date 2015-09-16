@@ -1,5 +1,6 @@
 package se.sics.util;
 
+import com.google.common.collect.ImmutableMap;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
@@ -16,6 +17,8 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
+import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
 
 /**
  * Unit test for the application rule set.
@@ -37,6 +40,7 @@ public class ApplicationRuleSetTest {
     public static void beforeClass() {
 
         logger.debug("One time initiation");
+        systemSetup();
 
         containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(),
                 new ComparatorCollection.AddressComparator());
@@ -53,6 +57,11 @@ public class ApplicationRuleSetTest {
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
+    }
+    
+    private static void systemSetup() {
+        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
+        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
     }
 
     @Before

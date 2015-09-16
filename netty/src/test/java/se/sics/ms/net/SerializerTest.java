@@ -1,6 +1,7 @@
 package se.sics.ms.net;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import junit.framework.Assert;
@@ -27,6 +28,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.*;
 import java.util.*;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
+import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
 
 /**
  * Main Test Class for the Serializers used in the application.
@@ -59,15 +62,9 @@ public class SerializerTest {
     public static void oneTimeSetup() throws NoSuchAlgorithmException {
 
         logger.info("Executing the one time setup.");
-        int currentId = 128;
         int seed = 100;
-        BasicSerializerSetup.registerBasicSerializers(currentId);
-        currentId = currentId + BasicSerializerSetup.serializerIds;
-        currentId = SerializerSetup.registerSerializers(currentId);
         
-        registerPublicKeySerializer(currentId);
-
-        SerializerSetup.checkSetup();
+        systemSetup();
 
         selfAddress = DecoratedAddress.open(localHost, 54321, 1);
         destinationAddress = DecoratedAddress.open(localHost, 54322, 2);
@@ -82,13 +79,20 @@ public class SerializerTest {
         random = new Random(seed);
         generateKeys();
     }
-
-    private static void registerPublicKeySerializer(int currentId) {
-
+    
+    private static void systemSetup() {
+        int currentId = 128;
+        BasicSerializerSetup.registerBasicSerializers(currentId);
+        currentId = currentId + BasicSerializerSetup.serializerIds;
+        currentId = SerializerSetup.registerSerializers(currentId);
+        
         PublicKeySerializer pkSerializer =  new PublicKeySerializer(currentId++);
         Serializers.register(pkSerializer, "publicKeySerializer");
         Serializers.register(PublicKey.class, "publicKeySerializer");
 
+        SerializerSetup.checkSetup();
+        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
+        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
     }
 
     @Before
