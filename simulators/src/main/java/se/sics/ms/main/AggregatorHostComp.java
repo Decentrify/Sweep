@@ -8,8 +8,8 @@ import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregator;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorInit;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
-import se.sics.ms.helper.DataDump;
-import se.sics.ms.helper.DataDumpInit;
+import se.sics.ktoolbox.aggregator.util.PacketInfo;
+import se.sics.ms.helper.*;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
 
 /**
@@ -53,15 +53,18 @@ public class AggregatorHostComp extends ComponentDefinition{
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
             Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation));
+            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(new EntryFinalState(100), new EntryFinalStateProcessor()));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
+            connect(stateTermination.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
+            connect(stateTermination.getNegative(ExperimentPort.class), experimentPort);
             connect(globalAggregator.getNegative(Network.class), network);
             connect(globalAggregator.getNegative(Timer.class), timer);
 
             logger.debug("Creating the data dump component.");
             trigger(Start.event, globalAggregator.control());
             trigger(Start.event, dataDumpWrite.control());
-
+            trigger(Start.event, stateTermination.control());
             System.exit(-1);
         }
     };
