@@ -120,65 +120,6 @@ public class SweepOperationsHelper {
         return id;
     }
 
-
-    /**
-     * Based on the NodeId provided, generate an init configuration for the search peer.
-     *
-     * @param id NodeId
-     */
-    public static SearchPeerInit generatePAGPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
-
-        logger.trace(" Generating address for peer with id: {} ", id);
-
-        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip, port, (int)id);
-        Optional<DecoratedAddress> simAddress  = simulatorAddress != null
-
-                ? Optional.of(simulatorAddress)
-                : Optional.<DecoratedAddress>absent();
-
-        systemConfig = new SystemConfig(config, baseSeed + id, decoratedAddress, Optional.<Address>absent(), simAddress);
-        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
-
-        ringNodes.addNode(id);
-        peersAddressMap.put(id, systemConfig.self);
-
-        bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(systemConfig.self);
-
-        return init;
-    }
-
-
-    /**
-     * Based on the NodeId provided, generate an init configuration for the search peer.
-     *
-     * @param id NodeId
-     */
-    public static SearchPeerInit generatePALPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
-
-        logger.trace(" Generating address for peer with id: {} ", id);
-
-        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip,port, (int)id);
-        Optional<DecoratedAddress> simAddress  = simulatorAddress != null
-
-                ? Optional.of(simulatorAddress)
-                : Optional.<DecoratedAddress>absent();
-
-        systemConfig = new SystemConfig(config, baseSeed + id, decoratedAddress, Optional.<Address>absent(), simAddress);
-
-        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
-
-        ringNodes.addNode(id);
-        peersAddressMap.put(id, applicationSelf.getAddress());
-
-        bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(applicationSelf.getAddress());
-
-        return init;
-    }
-
-
     /**
      * Based on the id passed, locate the next successor on the ring
      * and return the address.

@@ -88,7 +88,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getLeaderGroupNodeId(id);
 
@@ -104,12 +104,12 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return SearchPeer.class;
+                    return SimulatorHostComp.class;
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
@@ -129,7 +129,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
@@ -145,12 +145,12 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return SearchPeer.class;
+                    return SimulatorHostComp.class;
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
@@ -166,7 +166,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
@@ -182,12 +182,12 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return SearchPeer.class;
+                    return SimulatorHostComp.class;
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePALPeerInit(address, bootstrapNodes, nodeId);
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
@@ -323,7 +323,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getStableId(id);
 
@@ -339,12 +339,12 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return SearchPeer.class;
+                    return SimulatorHostComp.class;
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
@@ -360,7 +360,7 @@ public class SweepOperations {
         @Override
         public StartNodeCmd generate(final Long id) {
 
-            return new StartNodeCmd<SearchPeer, DecoratedAddress>() {
+            return new StartNodeCmd<SimulatorHostComp, DecoratedAddress>() {
 
                 long nodeId = SweepOperationsHelper.getPartitionBucketNode(id);
 
@@ -376,12 +376,12 @@ public class SweepOperations {
 
                 @Override
                 public Class getNodeComponentDefinition() {
-                    return SearchPeer.class;
+                    return SimulatorHostComp.class;
                 }
 
                 @Override
-                public SearchPeerInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
-                    return SweepOperationsHelper.generatePAGPeerInit(address, bootstrapNodes, nodeId);
+                public SimulatorHostCompInit getNodeComponentInit(DecoratedAddress address, Set<DecoratedAddress> bootstrapNodes) {
+                    return SweepOperationsHelper.getSimHostCompInit(address, bootstrapNodes, nodeId);
                 }
 
                 @Override
