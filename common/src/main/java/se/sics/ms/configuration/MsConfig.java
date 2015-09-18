@@ -84,11 +84,12 @@ public class MsConfig {
     public static final long CARACAL_TIMEOUT = 2000;
 
     // Aggregator Timeout.
-    public static final long LOCAL_AGGREGATOR_TIMEOUT = 5000;
+    public static final long AGGREGATOR_TIMEOUT = 5000;
 
     // Overlay Identifiers.
     public static final int CROUPIER_OVERLAY_ID = 1;
     public static final int GRADIENT_OVERLAY_ID = 2;
     public static final int T_GRADIENT_OVERLAY_ID = 3;
 
+    public static final String SIMULATION_FILE_LOC = "/home/babbar/Documents/Experiments/Result/sweepSimResult.txt";
 }

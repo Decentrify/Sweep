@@ -1,6 +1,7 @@
 package se.sics.ms.simulation;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -22,7 +23,9 @@ import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.helper.SystemConfigBuilder;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -63,16 +66,8 @@ public class SweepOperationsHelper {
 
     static {
 
-//        int startId = 128;
-//        int currentId = startId;
-//        BasicSerializerSetup.registerBasicSerializers(currentId);
-//        currentId += BasicSerializerSetup.serializerIds;
-//        currentId = CroupierSerializerSetup.registerSerializers(currentId);
-//        currentId = GradientSerializerSetup.registerSerializers(currentId);
-//        currentId = ElectionSerializerSetup.registerSerializers(currentId);
-//        currentId = AggregatorSerializerSetup.registerSerializers(currentId);
-//        currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
-//        SerializerSetup.registerSerializers(currentId);
+        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
+        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
 
 
         reservedIdList = new ArrayList<Long>();

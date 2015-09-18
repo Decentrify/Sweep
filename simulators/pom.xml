@@ -53,5 +53,11 @@
             <version>${cc.sim.client}</version>
         </dependency>
 
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator.server</groupId>
+            <artifactId>core</artifactId>
+            <version>${aggregator.version}</version>
+        </dependency>
+
     </dependencies>
 </project>

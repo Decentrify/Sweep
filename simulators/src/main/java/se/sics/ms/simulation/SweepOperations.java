@@ -2,18 +2,20 @@ package se.sics.ms.simulation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.kompics.Init;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.network.Address;
 import se.sics.kompics.network.Msg;
 import se.sics.kompics.network.Transport;
 import se.sics.ktoolbox.cc.sim.CCSimMain;
 import se.sics.ktoolbox.cc.sim.CCSimMainInit;
+import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
+import se.sics.ms.main.AggregatorHostComp;
+import se.sics.ms.main.AggregatorHostCompInit;
 import se.sics.ms.main.SimulatorHostComp;
 import se.sics.ms.main.SimulatorHostCompInit;
-import se.sics.ms.search.SearchPeer;
-import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
@@ -21,6 +23,7 @@ import se.sics.p2ptoolbox.simulator.cmd.NetworkOpCmd;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.ChangeNetworkModelCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
+import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.core.network.impl.BasicLossyLinkModel;
 import se.sics.p2ptoolbox.simulator.core.network.impl.agg.UniformRandomModel;
@@ -665,8 +668,22 @@ public class SweepOperations {
             };
         }
     };
-    
-    
+
+
+    /**
+     * Main method to start the aggregator node in the system.
+     * The simulator keeps track of the aggregator node and supplies the information to
+     * other nodes in the system.
+     *
+     */
+    public static Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> startAggregatorNode = new Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>>() {
+
+        @Override
+        public StartAggregatorCmd<AggregatorHostComp, DecoratedAddress> generate() {
+            return new StartAggregatorNode(MsConfig.AGGREGATOR_TIMEOUT, MsConfig.SIMULATION_FILE_LOC);
+        }
+    };
+
     
     
 }

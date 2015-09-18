@@ -297,7 +297,7 @@ public final class SearchPeer extends ComponentDefinition {
         DecoratedAddress selfAddress = systemConfig.self;
 
         Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = getComponentProcessorMap();
-        Component aggregator = create(LocalAggregator.class, new LocalAggregatorInit( MsConfig.LOCAL_AGGREGATOR_TIMEOUT, componentProcessorMap,
+        Component aggregator = create(LocalAggregator.class, new LocalAggregatorInit( MsConfig.AGGREGATOR_TIMEOUT, componentProcessorMap,
                 globalAggregatorAddress, selfAddress ));
         connect(timer, aggregator.getNegative(Timer.class));
         connect(network, aggregator.getNegative(Network.class));

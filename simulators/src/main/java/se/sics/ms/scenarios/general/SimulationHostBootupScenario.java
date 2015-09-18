@@ -18,6 +18,14 @@ public class SimulationHostBootupScenario {
             
             {
 
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1, SweepOperations.startAggregatorNode);
+                    }
+                };
+
+
                 StochasticProcess startCaracalClient = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -74,17 +82,11 @@ public class SimulationHostBootupScenario {
                     }
                 };
 
-//                startAggregatorNode.start();
-//                specialPeerJoin.start();
-                startCaracalClient.start();
-                peerJoin.startAfterTerminationOf(5000, startCaracalClient);
-//                largestPeerJoin.startAfterTerminationOf(1000, peerJoin);
-//                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
-                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
-//                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
-                
-//                searchIndexEntry.startAfterTerminationOf(50000, peerJoin);
-//                === Add a termination event.
+                startAggregatorNode.start();
+//                startCaracalClient.start();
+//                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
+//                peerJoin.startAfterTerminationOf(5000, startCaracalClient);
+//                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
             }
         };
         
