@@ -26,6 +26,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
     private long timeout;
     private String fileLocation;
+    private static final int START_ID = 0;
 
     public AggregatorHostComp(AggregatorHostCompInit init){
 
@@ -40,6 +41,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
         this.timeout = init.timeout;
         this.fileLocation = init.fileLocation;
+        SimulationSerializerSetup.registerSerializers(START_ID);
     }
 
     /**
