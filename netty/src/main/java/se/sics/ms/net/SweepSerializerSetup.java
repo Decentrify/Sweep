@@ -127,7 +127,7 @@ public class SweepSerializerSetup {
         int currentId = startId;
 
         // Main Object Serializers.
-        SearchDescriptorSerializer sdSerializer = new SearchDescriptorSerializer(currentId++);
+        PeerDescriptorSerializer sdSerializer = new PeerDescriptorSerializer(currentId++);
         Serializers.register(sdSerializer, SweepSerializers.searchDescriptor.serializerName);
         Serializers.register(SweepSerializers.searchDescriptor.serializedClass, SweepSerializers.searchDescriptor.serializerName);
 

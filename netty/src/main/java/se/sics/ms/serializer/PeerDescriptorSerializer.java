@@ -13,11 +13,11 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  *
  * Created by babbar on 2015-04-21.
  */
-public class SearchDescriptorSerializer implements Serializer{
+public class PeerDescriptorSerializer implements Serializer{
 
     private final int id;
 
-    public SearchDescriptorSerializer(int id){
+    public PeerDescriptorSerializer(int id){
         this.id = id;
     }
 
