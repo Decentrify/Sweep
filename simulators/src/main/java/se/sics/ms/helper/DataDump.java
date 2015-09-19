@@ -11,6 +11,8 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
+import se.sics.p2ptoolbox.simulator.ExperimentPort;
+import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 import java.io.*;
 
@@ -23,20 +25,26 @@ public class DataDump {
     private static Logger logger = LoggerFactory.getLogger(DataDump.class);
 
 
+//  ===================================
 //  DATA DUMP WRITE COMPONENT.
+//  ===================================
 
-    public static class Write extends ComponentDefinition{
+    public static class Write extends ComponentDefinition {
 
         Positive<GlobalAggregatorPort> aggregatorPort = requires(GlobalAggregatorPort.class);
+        Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
+
         private String name = "WRITE";
         private ByteBuf byteBuf;
         private FileOutputStream outputStream;
+
+
 
         public Write(DataDumpInit.Write init) {
 
             doInit(init);
             subscribe(startHandler, control);
-            subscribe(stopHandler, control);
+            subscribe(stopHandler, experimentPort);
             subscribe(aggregatedInfoHandler, aggregatorPort);
         }
 
@@ -112,9 +120,9 @@ public class DataDump {
          * Handler indicating that the component will be stopping,
          * releasing memory resources, if any.
          */
-        Handler<Stop> stopHandler = new Handler<Stop>() {
+        Handler<TerminateExperiment> stopHandler = new Handler<TerminateExperiment>() {
             @Override
-            public void handle(Stop stop) {
+            public void handle(TerminateExperiment stop) {
 
                 logger.debug("No more data needs to be dumped in the file, stopping.");
                 IOUtils.closeQuietly(outputStream);
@@ -125,9 +133,9 @@ public class DataDump {
     }
 
 
-
+//  ===================================
 //  DATA DUMP READ COMPONENT.
-
+//  ===================================
 
     public static class Read extends ComponentDefinition{
 

@@ -8,9 +8,9 @@ import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregator;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorInit;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
-import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.ms.helper.*;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
+import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 /**
  * Main host component for the aggregator in the system.
@@ -33,6 +33,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
         doInit(init);
         subscribe(startHandler, control);
+        subscribe(experimentTermination, experimentPort);
     }
 
     public void doInit(AggregatorHostCompInit init){
@@ -56,8 +57,11 @@ public class AggregatorHostComp extends ComponentDefinition{
             Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(new EntryFinalState(100), new EntryFinalStateProcessor()));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
+            connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);
+
             connect(stateTermination.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
             connect(stateTermination.getNegative(ExperimentPort.class), experimentPort);
+
             connect(globalAggregator.getNegative(Network.class), network);
             connect(globalAggregator.getNegative(Timer.class), timer);
 
@@ -65,7 +69,15 @@ public class AggregatorHostComp extends ComponentDefinition{
             trigger(Start.event, globalAggregator.control());
             trigger(Start.event, dataDumpWrite.control());
             trigger(Start.event, stateTermination.control());
-            System.exit(-1);
+        }
+    };
+
+
+
+    Handler<TerminateExperiment> experimentTermination = new Handler<TerminateExperiment>() {
+        @Override
+        public void handle(TerminateExperiment terminateExperiment) {
+            logger.debug("Going to terminate the experiment.");
         }
     };
 

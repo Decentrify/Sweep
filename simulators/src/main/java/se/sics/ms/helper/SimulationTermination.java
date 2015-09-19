@@ -4,12 +4,12 @@ package se.sics.ms.helper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
-import se.sics.kompics.p2p.experiment.dsl.events.TerminateExperiment;
 import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
+import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +28,7 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
     private FinalStateProcessor<PacketInfo, FS> finalStateProcessor;
 
     Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
+
     Positive<GlobalAggregatorPort> globalAggregatorPort = requires(GlobalAggregatorPort.class);
 
 

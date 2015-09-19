@@ -2,6 +2,7 @@ package se.sics.ms.helper;
 
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,6 @@ public class EntryFinalStateProcessor implements FinalStateProcessor<PacketInfo,
 
     @Override
     public Collection<EntryFinalState> process(Map<Integer, List<PacketInfo>> window) {
-        return null;
+        return new ArrayList<EntryFinalState>();
     }
 }
