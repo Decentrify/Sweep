@@ -32,27 +32,36 @@ public class InternalStatePacketSerializer implements Serializer {
     public void toBinary(Object o, ByteBuf byteBuf) {
         
         InternalStatePacket isp = (InternalStatePacket)o;
+        byteBuf.writeInt(isp.getSelfIdentifier());
         byteBuf.writeInt(isp.getPartitionId());
         byteBuf.writeInt(isp.getPartitionDepth());
 
-        Serializer decoratedAddressSerializer = Serializers.lookupSerializer(DecoratedAddress.class);
-        DecoratedAddress leader = isp.getLeaderAddress();
-        SerializerEncoderHelper.serializeWithNullCheck(byteBuf, leader, Optional.of(decoratedAddressSerializer));
+        Integer leader = isp.getLeaderIdentifier();
+        if(leader == null){
+            byteBuf.writeByte(0);
+        }
+        else{
+            byteBuf.writeByte(1);
+            byteBuf.writeInt(leader);
+        }
 
         byteBuf.writeLong(isp.getNumEntries());
-
     }
 
     @Override
     public Object fromBinary(ByteBuf byteBuf, Optional<Object> objectOptional) {
 
+        Integer selfIndentifier = byteBuf.readInt();
         int partitionId = byteBuf.readInt();
         int partitionDepth = byteBuf.readInt();
 
-        Serializer addressSerializer = Serializers.lookupSerializer(DecoratedAddress.class);
-        DecoratedAddress leaderAddress = (DecoratedAddress)SerializerDecoderHelper.deserializeWithNullCheck(byteBuf, Optional.of(addressSerializer), objectOptional);
+        int isLeader = Byte.valueOf(byteBuf.readByte()).intValue();
+        Integer leaderId = null;
+        if(isLeader !=0 ) {
+            leaderId = byteBuf.readInt();
+        }
 
         long numEntries = byteBuf.readLong();
-        return new InternalStatePacket(partitionId, partitionDepth, leaderAddress, numEntries);
+        return new InternalStatePacket(selfIndentifier, partitionId, partitionDepth, leaderId, numEntries);
     }
 }

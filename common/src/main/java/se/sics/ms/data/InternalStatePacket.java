@@ -10,14 +10,16 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  * Created by babbarshaer on 2015-09-09.
  */
 public class InternalStatePacket implements PacketInfo {
-    
+
+    private Integer selfIdentifier;
     private int partitionId;
     private int partitionDepth;
-    private DecoratedAddress leaderAddress;
+    private Integer leaderAddress;
     private long numEntries;
     
-    public InternalStatePacket(int partitionId, int partitionDepth, DecoratedAddress leaderAddress, long numEntries){
-        
+    public InternalStatePacket(int selfIdentifier, int partitionId, int partitionDepth, Integer leaderAddress, long numEntries){
+
+        this.selfIdentifier = selfIdentifier;
         this.partitionId = partitionId;
         this.partitionDepth = partitionDepth;
         this.leaderAddress = leaderAddress;
@@ -27,11 +29,16 @@ public class InternalStatePacket implements PacketInfo {
     @Override
     public String toString() {
         return "InternalStatePacket{" +
-                "partitionId=" + partitionId +
+                "selfIdentifier=" + selfIdentifier +
+                ", partitionId=" + partitionId +
                 ", partitionDepth=" + partitionDepth +
                 ", leaderAddress=" + leaderAddress +
                 ", numEntries=" + numEntries +
                 '}';
+    }
+
+    public Integer getSelfIdentifier(){
+        return selfIdentifier;
     }
 
     public int getPartitionId() {
@@ -42,7 +49,7 @@ public class InternalStatePacket implements PacketInfo {
         return partitionDepth;
     }
 
-    public DecoratedAddress getLeaderAddress() {
+    public Integer getLeaderIdentifier() {
         return leaderAddress;
     }
 

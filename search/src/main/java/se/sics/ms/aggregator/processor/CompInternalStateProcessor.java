@@ -5,6 +5,7 @@ import se.sics.ms.aggregator.SearchComponentInfo;
 import se.sics.ms.data.InternalStatePacket;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
+import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Processor at the local aggregator level for creation of the 
@@ -20,8 +21,11 @@ public class CompInternalStateProcessor implements ComponentInfoProcessor<Search
 
         PeerDescriptor descriptor = searchComponentInfo.getDescriptor();
         OverlayAddress overlay = descriptor.getOverlayAddress();
-        
-        return new InternalStatePacket(overlay.getPartitionId(), overlay.getPartitionIdDepth(),
-                searchComponentInfo.getLeaderInfo(), descriptor.getNumberOfIndexEntries());
+
+        DecoratedAddress leaderAddress = searchComponentInfo.getLeaderInfo();
+        Integer leaderId = leaderAddress != null ? leaderAddress.getId() : null;
+
+        return new InternalStatePacket(descriptor.getId(), overlay.getPartitionId(), overlay.getPartitionIdDepth(),
+                leaderId, descriptor.getNumberOfIndexEntries());
     }
 }
