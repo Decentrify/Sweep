@@ -97,8 +97,13 @@ public class AggregatedInfoSimSerializer implements SimulationSerializer{
             result.put(key, packets);
             mapSize --;
         }
-        return result;
+        return new AggregatedInfo(result);
     }
 
-
+    @Override
+    public String toString() {
+        return "AggregatedInfoSimSerializer{" +
+                "identifier=" + identifier +
+                '}';
+    }
 }

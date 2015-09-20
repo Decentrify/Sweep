@@ -103,9 +103,12 @@ public class DataDump {
             @Override
             public void handle(AggregatedInfo aggregatedInfo) {
 
-                logger.debug("Handler for the aggregated information from the global aggregator.");
-
+                logger.trace("Handler for the aggregated information from the global aggregator.");
                 AggregatedInfo filteredInfo = helper.filter(aggregatedInfo);
+
+                if(filteredInfo.getNodePacketMap().isEmpty())
+                    return;
+
                 aggregatedInfoList.add(filteredInfo);
             }
         };
@@ -118,9 +121,6 @@ public class DataDump {
         Handler<TerminateExperiment> stopHandler = new Handler<TerminateExperiment>() {
             @Override
             public void handle(TerminateExperiment stop) {
-
-                logger.debug("No more data needs to be dumped in the file, stopping.");
-                System.exit(-1);
 
                 logger.debug("Start writing the collection in the file.");
 
@@ -149,6 +149,7 @@ public class DataDump {
                 }
 
                 IOUtils.closeQuietly(outputStream);
+                System.out.println("Finished with dumping the data to file.");
             }
         };
 
@@ -219,7 +220,7 @@ public class DataDump {
          */
         private void initiateInformationRead(){
 
-            logger.debug("{}: Initiating the reading of the ");
+            logger.debug("{}: Initiating the reading of the aggregated data.", name);
             try {
 
                 byte[] bytes = IOUtils.toByteArray(inputStream);
@@ -227,6 +228,7 @@ public class DataDump {
 
                 int size = buffer.getInt();
                 SimulationSerializer serializer = SimulationSerializers.lookupSerializer(AggregatedInfo.class);
+                logger.debug("{}: ", serializer);
 
                 while(size > 0){
 

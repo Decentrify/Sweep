@@ -71,14 +71,7 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
             Map<Integer, List<PacketInfo>> nodePacketMap = aggregatedInfo.getNodePacketMap();
             Collection<FS> finalStateObjects = finalStateProcessor.process(nodePacketMap);
 
-            if(finalStateObjects.size() < systemSize){
-
-//                logger.warn("Size of the final state objects: {}", finalStateObjects.size());
-//                logger.warn("{}", finalStateObjects);
-//                logger.warn("The final state is calculated for less than expected nodes, exiting ... !");
-            }
-
-            else{
+            if(!(finalStateObjects.size() < systemSize)){
 
                 boolean result = true;
                 logger.warn("{}", finalStateObjects);
@@ -92,7 +85,6 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
 
                 if(result){
                     logger.warn("Time to terminate the experiment");
-                    System.exit(-1);
                     trigger(new TerminateExperiment(), experimentPort);
                 }
             }

@@ -5,6 +5,7 @@ import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.ms.data.InternalStatePacket;
 import se.sics.ms.main.AggregatorCompHelper;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,7 @@ public class BasicHelper implements AggregatorCompHelper {
     public AggregatedInfo filter(AggregatedInfo originalInfo) {
 
 
-        Map<Integer, List<PacketInfo>> nodePacketMap = originalInfo.getNodePacketMap();
+        Map<Integer, List<PacketInfo>> nodePacketMap = new HashMap<Integer, List<PacketInfo>>(originalInfo.getNodePacketMap());
 
         for(Map.Entry<Integer, List<PacketInfo>> entry : nodePacketMap.entrySet()){
 
@@ -36,7 +37,7 @@ public class BasicHelper implements AggregatorCompHelper {
             while(packetInfoIterator.hasNext()){
 
                 PacketInfo packetInfo = packetInfoIterator.next();
-                if(packetInfo instanceof InternalStatePacket){
+                if(! (packetInfo instanceof InternalStatePacket)){
 
 //                  Clean everything except the InternalStatePacket.
                     packetInfoIterator.remove();
