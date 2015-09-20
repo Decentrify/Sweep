@@ -63,7 +63,7 @@ public class SimulationHostBootupScenario {
                 StochasticProcess addIndexEntryCommand = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(10, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
+                        raise(1, SweepOperations.addIndexEntryCommand, uniform(0, Integer.MAX_VALUE));
                     }
                 };
 
@@ -83,9 +83,11 @@ public class SimulationHostBootupScenario {
                 };
 
                 startAggregatorNode.start();
-//                startCaracalClient.start();
+                startCaracalClient.startAfterTerminationOf(1000, startAggregatorNode);
 //                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
-//                peerJoin.startAfterTerminationOf(5000, startCaracalClient);
+                peerJoin.startAfterTerminationOf(5000, startCaracalClient);
+                addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
+
 //                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
             }
         };

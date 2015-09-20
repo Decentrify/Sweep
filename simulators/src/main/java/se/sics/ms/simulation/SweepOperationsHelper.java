@@ -452,6 +452,8 @@ public class SweepOperationsHelper {
      * @param address client address.
      */
     private static void storePeerAddress(DecoratedAddress address){
+
+        ringNodes.addNode((long)address.getId());
         peersAddressMap.put(Long.valueOf(address.getId()), address);
     }
 

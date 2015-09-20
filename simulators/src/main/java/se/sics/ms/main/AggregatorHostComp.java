@@ -39,6 +39,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
     public void doInit(AggregatorHostCompInit init){
 
+
         this.timeout = init.timeout;
         this.fileLocation = init.fileLocation;
         SimulationSerializerSetup.registerSerializers(START_ID);
@@ -55,11 +56,11 @@ public class AggregatorHostComp extends ComponentDefinition{
             logger.debug("Handling the start event in the system.");
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
-            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
-            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(new EntryFinalState(100), new EntryFinalStateProcessor()));
+//            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
+            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(12, new EntryFinalState(1), new EntryFinalStateProcessor()));
 
-            connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
-            connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);
+//            connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
+//            connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);
 
             connect(stateTermination.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
             connect(stateTermination.getNegative(ExperimentPort.class), experimentPort);
@@ -68,10 +69,10 @@ public class AggregatorHostComp extends ComponentDefinition{
             connect(globalAggregator.getNegative(Timer.class), timer);
 
             logger.debug("Creating the data dump component.");
-            System.exit(-1);
+//            System.exit(-1);
 
             trigger(Start.event, globalAggregator.control());
-            trigger(Start.event, dataDumpWrite.control());
+//            trigger(Start.event, dataDumpWrite.control());
             trigger(Start.event, stateTermination.control());
         }
     };

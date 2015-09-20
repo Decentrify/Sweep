@@ -16,7 +16,6 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 public class CompInternalStateProcessor implements ComponentInfoProcessor<SearchComponentInfo, InternalStatePacket> {
     
     
-    @Override
     public InternalStatePacket processComponentInfo(SearchComponentInfo searchComponentInfo) {
 
         PeerDescriptor descriptor = searchComponentInfo.getDescriptor();

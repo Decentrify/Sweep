@@ -26,6 +26,7 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
     private Logger logger = LoggerFactory.getLogger(SimulationTermination.class);
     private FS finalStateInfo;
     private FinalStateProcessor<PacketInfo, FS> finalStateProcessor;
+    private int systemSize;
 
     Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
 
@@ -38,6 +39,7 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
 
         finalStateInfo = init.finalState;
         finalStateProcessor = init.processor;
+        systemSize = init.systemSize;
 
         subscribe(startHandler, control);
         subscribe(aggregatedInfoHandler, globalAggregatorPort);
@@ -64,23 +66,39 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
         @Override
         public void handle(AggregatedInfo aggregatedInfo) {
 
-            logger.debug("Received the information from the global aggregator.");
+            logger.trace("Received the information from the global aggregator.");
 
             Map<Integer, List<PacketInfo>> nodePacketMap = aggregatedInfo.getNodePacketMap();
             Collection<FS> finalStateObjects = finalStateProcessor.process(nodePacketMap);
 
-            boolean result = true;
-            for(FS state : finalStateObjects){
+            if(finalStateObjects.size() < systemSize){
 
-                result = (state.equals(finalStateInfo));
-                if(!result)
-                    break;
+                logger.warn("Size of the final state objects: {}", finalStateObjects.size());
+                logger.warn("{}", finalStateObjects);
+                logger.warn("The final state is calculated for less than expected nodes, exiting ... !");
+
             }
 
-            if(result){
-                logger.debug("Time to terminate the experiment");
-                trigger(new TerminateExperiment(), experimentPort);
+            else{
+
+                boolean result = true;
+                logger.debug("{}", finalStateObjects);
+
+                for(FS state : finalStateObjects){
+
+                    result = (state.equals(finalStateInfo));
+                    if(!result)
+                        break;
+                }
+
+                if(result){
+                    logger.debug("Time to terminate the experiment");
+                    System.exit(-1);
+
+                    trigger(new TerminateExperiment(), experimentPort);
+                }
             }
+
         }
     };
 
@@ -91,9 +109,11 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
 
         public FS finalState;
         public FinalStateProcessor<PI_I, FS> processor;
+        public int systemSize;
 
+        public SimulationTerminationInit(int systemSize, FS finalState, FinalStateProcessor<PI_I, FS> finalStateProcessor){
 
-        public SimulationTerminationInit(FS finalState, FinalStateProcessor<PI_I, FS> finalStateProcessor){
+            this.systemSize = systemSize;
             this.finalState = finalState;
             this.processor  = finalStateProcessor;
         }

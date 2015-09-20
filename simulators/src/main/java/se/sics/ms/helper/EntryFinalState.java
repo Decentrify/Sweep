@@ -29,4 +29,11 @@ public class EntryFinalState implements FinalStateInfo{
     public int hashCode() {
         return (int) (entries ^ (entries >>> 32));
     }
+
+    @Override
+    public String toString() {
+        return "EntryFinalState{" +
+                "entries=" + entries +
+                '}';
+    }
 }

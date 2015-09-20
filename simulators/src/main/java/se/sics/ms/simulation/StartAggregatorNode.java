@@ -25,18 +25,14 @@ public class StartAggregatorNode implements StartAggregatorCmd<AggregatorHostCom
         this.fileLocation = fileLocation;
     }
 
-
-    @Override
     public Class<AggregatorHostComp> getNodeComponentDefinition() {
         return AggregatorHostComp.class;
     }
 
-    @Override
     public Init<AggregatorHostComp> getNodeComponentInit() {
         return new AggregatorHostCompInit(timeout, fileLocation);
     }
 
-    @Override
     public DecoratedAddress getAddress() {
         return SweepOperationsHelper.getAggregatorAddress();
     }

@@ -462,6 +462,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     final Handler<AddIndexSimulated> handleAddIndexSimulated = new Handler<AddIndexSimulated>() {
         @Override
         public void handle(AddIndexSimulated event) {
+
+            logger.error("{}: Received the add entry command from the system.", self.getId());
+            System.exit(-1);
+
             addEntryGlobal(event.getEntry());
         }
     };
@@ -2130,7 +2134,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
         trigger(selfDescriptor, selfViewUpdatePort);
 
