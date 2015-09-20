@@ -73,16 +73,15 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
 
             if(finalStateObjects.size() < systemSize){
 
-                logger.warn("Size of the final state objects: {}", finalStateObjects.size());
-                logger.warn("{}", finalStateObjects);
-                logger.warn("The final state is calculated for less than expected nodes, exiting ... !");
-
+//                logger.warn("Size of the final state objects: {}", finalStateObjects.size());
+//                logger.warn("{}", finalStateObjects);
+//                logger.warn("The final state is calculated for less than expected nodes, exiting ... !");
             }
 
             else{
 
                 boolean result = true;
-                logger.debug("{}", finalStateObjects);
+                logger.warn("{}", finalStateObjects);
 
                 for(FS state : finalStateObjects){
 
@@ -92,9 +91,8 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
                 }
 
                 if(result){
-                    logger.debug("Time to terminate the experiment");
+                    logger.warn("Time to terminate the experiment");
                     System.exit(-1);
-
                     trigger(new TerminateExperiment(), experimentPort);
                 }
             }

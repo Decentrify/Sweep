@@ -58,6 +58,8 @@ import se.sics.p2ptoolbox.gradient.GradientComp;
 import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.gradient.GradientPort;
 import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
+import se.sics.p2ptoolbox.gradient.temp.RankUpdate;
+import se.sics.p2ptoolbox.gradient.temp.RankUpdatePort;
 import se.sics.p2ptoolbox.tgradient.TreeGradientComp;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
@@ -81,7 +83,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<CCHeartbeatPort> heartbeatPort = requires(CCHeartbeatPort.class);
     Positive<SelfAddressUpdatePort> selfAddressUpdatePort = requires(SelfAddressUpdatePort.class);
-    Positive<SelfViewUpdatePort> selfViewUpdatePort = requires(SelfViewUpdatePort.class);
+//    Positive<SelfViewUpdatePort> selfViewUpdatePort = requires(SelfViewUpdatePort.class);
 
     private Component croupier;
     private Component gradient, tgradient;
@@ -208,6 +210,7 @@ public final class SearchPeer extends ComponentDefinition {
 
 //          Now you actually launch the search peer.
             List<DecoratedAddress> bootstrapSet = new ArrayList<DecoratedAddress>(response.overlaySample);
+            log.debug("{}: The size of bootstrap set : {}", self.getId(), bootstrapSet);
 
 //          Bootstrap the croupier service.
             trigger(new CroupierJoin(bootstrapSet), croupier.getPositive(CroupierControlPort.class));
@@ -270,6 +273,8 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, routing.getNegative(Timer.class));
 
         // Internal Connections.
+        connect(network, search.getNegative(Network.class));
+        connect(network, routing.getNegative(Network.class));
 
         connect(indexPort, search.getNegative(SimulationEventsPort.class));
         connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class));
@@ -366,7 +371,7 @@ public final class SearchPeer extends ComponentDefinition {
         @Override
         public void handle(final Start init) {
 
-            log.error("Start Event Received, now initiating the bootstrapping .... ");
+            log.debug("Start Event Received, now initiating the bootstrapping .... ");
             initiateServiceBootstrapping();
 
             startGradient();
@@ -469,8 +474,9 @@ public final class SearchPeer extends ComponentDefinition {
         connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
         connect(gradient.getNegative(SelfViewUpdatePort.class), tgradient.getPositive(SelfViewUpdatePort.class));
-        connect(tgradient.getNegative(SelfViewUpdatePort.class), selfViewUpdatePort);
+        connect(tgradient.getNegative(SelfViewUpdatePort.class), search.getPositive(SelfViewUpdatePort.class));
         connect(tgradient.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
+        connect(tgradient.getNegative(RankUpdatePort.class), gradient.getPositive(RankUpdatePort.class));
 
     }
 
@@ -478,8 +484,9 @@ public final class SearchPeer extends ComponentDefinition {
      * Boot Up the gradient service.
      */
     private void startGradient() {
-        log.info("Starting Gradient component.");
-        trigger(new PeerDescriptor(self.getAddress()), tgradient.getNegative(SelfViewUpdatePort.class));
+
+        log.debug("Starting Gradient component.");
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getNegative(SelfViewUpdatePort.class));
     }
     
     

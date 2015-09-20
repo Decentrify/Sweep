@@ -12,7 +12,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, SelfViewUpdate{
+public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, SelfViewUpdate {
 
 //    private int age;
     private transient boolean connected;
@@ -62,7 +62,7 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
 
     @Override
     public String toString() {
-        return ("SearchDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
+        return ("PeerDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
     }
 
     public OverlayAddress getOverlayAddress() {

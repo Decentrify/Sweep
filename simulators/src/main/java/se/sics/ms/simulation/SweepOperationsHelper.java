@@ -246,8 +246,8 @@ public class SweepOperationsHelper {
                 logger.error("Partition Bucket Nodes for partition:{} : {}", randomPartitionBucket, partitionBucketNodes);
             } else {
 
-                logger.warn("Returning nodes not part of partition bucket. ");
-                logger.warn("Partition Bucket: {}", partitionBucketNodes);
+                logger.debug("Returning nodes not part of partition bucket. ");
+                logger.debug("Partition Bucket: {}", partitionBucketNodes);
                 return getStableId(id);
             }
 
@@ -413,7 +413,7 @@ public class SweepOperationsHelper {
      */
     public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
 
-        logger.error("Creating Node: - > {}", id);
+        logger.warn("Creating Node: - > {}", id);
 
         DecoratedAddress selfAddress = DecoratedAddress.open(ip, port, (int)id);
         storePeerAddress(selfAddress);

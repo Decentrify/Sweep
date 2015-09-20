@@ -464,8 +464,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void handle(AddIndexSimulated event) {
 
             logger.error("{}: Received the add entry command from the system.", self.getId());
-            System.exit(-1);
-
             addEntryGlobal(event.getEntry());
         }
     };
@@ -2135,7 +2133,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
-        trigger(selfDescriptor, selfViewUpdatePort);
+        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), selfViewUpdatePort);
 
 //      Send the information to the local aggregator in form of one big packet.
         SearchComponentInfo componentInfo = new SearchComponentInfo(updatedDesc, 0, leaderAddress);
@@ -2360,7 +2358,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                     // Reset the tracker information for the round.
                     landingEntryTracker.startTracking( landingEntryTracker.getEpochId(), 
-                            landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID, 
+                            landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID,
                             landingEntryTracker.getPreviousEpochContainer());
                     
                     initiateEntryAdditionMechanism( new AddIndexEntry.Request( landingEntryRoundId, IndexEntry.DEFAULT_ENTRY ), self.getAddress() );
@@ -2471,7 +2469,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             counter++;
         }
 
-        return exchangeNodes.size() >= exchangeNumber ? exchangeNodes : null;
+        return exchangeNodes;
     }
 
 

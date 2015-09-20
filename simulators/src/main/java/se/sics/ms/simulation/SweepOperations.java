@@ -48,17 +48,6 @@ public class SweepOperations {
     private static Logger logger = LoggerFactory.getLogger(SweepOperations.class);
     private static FileWriter writer = null;
     static {
-
-        try {
-            File file = new File("search.csv");
-            writer = new FileWriter(file);
-            logger.error("File Location: "+ file.getAbsolutePath());
-        } 
-        
-        catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Can't construct writer");
-        }
     }
     
     
