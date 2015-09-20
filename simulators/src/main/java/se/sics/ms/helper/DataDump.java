@@ -11,10 +11,16 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
+import se.sics.ms.main.AggregatorCompHelper;
+import se.sics.ms.main.SimulationSerializer;
+import se.sics.ms.main.SimulationSerializers;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
 import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Main class for the data dumping in the system.
@@ -35,10 +41,9 @@ public class DataDump {
         Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
 
         private String name = "WRITE";
-        private ByteBuf byteBuf;
         private FileOutputStream outputStream;
-
-
+        private List<AggregatedInfo> aggregatedInfoList = new ArrayList<AggregatedInfo>();
+        private AggregatorCompHelper helper;
 
         public Write(DataDumpInit.Write init) {
 
@@ -56,6 +61,7 @@ public class DataDump {
         public void doInit(DataDumpInit.Write init){
 
             logger.debug("{}: Initialization method invoked.", name);
+            helper = init.helper;
 
             try {
 
@@ -74,9 +80,6 @@ public class DataDump {
                 throw new RuntimeException("Unable to create file output stream for the dumping data.");
             }
 
-
-            logger.debug("{}: Creating buffer instance.");
-            this.byteBuf = Unpooled.buffer();
         }
 
 
@@ -102,16 +105,8 @@ public class DataDump {
 
                 logger.debug("Handler for the aggregated information from the global aggregator.");
 
-                Serializers.lookupSerializer(AggregatedInfo.class).toBinary(aggregatedInfo, byteBuf);
-//              Dump the buffer in the file and clear the buffer to get the value again.
-
-                byte[] backingArray = byteBuf.array();
-                try {
-                    IOUtils.write(backingArray, outputStream);
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
+                AggregatedInfo filteredInfo = helper.filter(aggregatedInfo);
+                aggregatedInfoList.add(filteredInfo);
             }
         };
 
@@ -125,6 +120,34 @@ public class DataDump {
             public void handle(TerminateExperiment stop) {
 
                 logger.debug("No more data needs to be dumped in the file, stopping.");
+                System.exit(-1);
+
+                logger.debug("Start writing the collection in the file.");
+
+                SimulationSerializer aggregatedInfoSerializer = SimulationSerializers.lookupSerializer(AggregatedInfo.class);
+                int size = 0;
+                size += 4;  // Adding size of collection.
+
+                for(AggregatedInfo aggregatedInfo : aggregatedInfoList){
+                    size += aggregatedInfoSerializer.getByteSize(aggregatedInfo);
+                }
+
+                ByteBuffer buffer = ByteBuffer.allocate(size);
+
+                buffer.putInt(aggregatedInfoList.size());
+                for(AggregatedInfo aggregatedInfo : aggregatedInfoList){
+                    aggregatedInfoSerializer.toBinary(aggregatedInfo, buffer);
+                }
+
+                try {
+                    outputStream.write(buffer.array());
+                }
+                catch (IOException e) {
+
+                    e.printStackTrace();
+                    throw new RuntimeException("Unable to write the serialized byte array to the stream.");
+                }
+
                 IOUtils.closeQuietly(outputStream);
             }
         };
@@ -200,17 +223,19 @@ public class DataDump {
             try {
 
                 byte[] bytes = IOUtils.toByteArray(inputStream);
-                ByteBuf byteBuf = Unpooled.wrappedBuffer(bytes);
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
 
-//              Read till we exhaust the bytes in the buffer.
-                while(byteBuf.isReadable()){
+                int size = buffer.getInt();
+                SimulationSerializer serializer = SimulationSerializers.lookupSerializer(AggregatedInfo.class);
 
-                    AggregatedInfo aggregatedInfo = (AggregatedInfo) Serializers.lookupSerializer(AggregatedInfo.class)
-                            .fromBinary(byteBuf, Optional.absent());
+                while(size > 0){
 
-//                  Inform the visualizer component on top of it about the same.
+                    AggregatedInfo aggregatedInfo = (AggregatedInfo) serializer.fromBinary(buffer);
                     trigger(aggregatedInfo, aggregatorPort);
+
+                    size --;
                 }
+
             }
             catch (IOException e) {
                 e.printStackTrace();
