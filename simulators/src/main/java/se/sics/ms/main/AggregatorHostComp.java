@@ -57,7 +57,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
             Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
-            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(12, new EntryFinalState(1), new EntryFinalStateProcessor()));
+            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(12, new EntryFinalState(11), new EntryFinalStateProcessor()));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
             connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);

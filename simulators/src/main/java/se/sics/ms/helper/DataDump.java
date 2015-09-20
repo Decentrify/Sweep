@@ -132,6 +132,7 @@ public class DataDump {
                     size += aggregatedInfoSerializer.getByteSize(aggregatedInfo);
                 }
 
+                logger.debug("Going to allocate size : {}", size);
                 ByteBuffer buffer = ByteBuffer.allocate(size);
 
                 buffer.putInt(aggregatedInfoList.size());

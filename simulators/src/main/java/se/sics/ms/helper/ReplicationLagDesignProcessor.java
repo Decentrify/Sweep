@@ -24,7 +24,6 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
     public DesignInfoContainer<ReplicationLagDesignInfo> process(Collection<Map<Integer, List<PacketInfo>>> collection) {
 
         logger.debug("Initiating the processing of the design information.");
-
         List<ReplicationLagDesignInfo> designInfoList = new ArrayList<ReplicationLagDesignInfo>();
 
         Iterator<Map<Integer, List<PacketInfo>>> iterator = collection.iterator();
@@ -34,7 +33,6 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
             List<Long> entryList = new ArrayList<Long>();
 
             for(Map.Entry<Integer, List<PacketInfo>> entry : window.entrySet()){
-
                 for(PacketInfo packet : entry.getValue()){
 
                     if(packet instanceof InternalStatePacket){
@@ -43,8 +41,11 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
                 }
             }
 
+            ReplicationLagDesignInfo designInfo = calculateReplicationLag(entryList);
+            if(designInfo == null)
+                continue;
 
-
+            designInfoList.add(designInfo);
         }
 
 //      Return the processed windows.
@@ -59,20 +60,22 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
      */
     private ReplicationLagDesignInfo calculateReplicationLag(List<Long> entries){
 
-        logger.debug(" Create Replication Lag Design Information for all the ");
-
         if(entries.size() <= 0){
             return null;
         }
-
 
         Collections.sort(entries);
         long maxVal = entries.get(entries.size()-1);
         long minVal = entries.get(0);
 
-        Collection<Long> difference = new ArrayList<Long>();
+        long sum = 0;
 
-        return null;
+        for(Long val : entries){
+            sum += (maxVal - val);
+        }
+
+        double avg = sum/(double)entries.size();
+        return new ReplicationLagDesignInfo(avg, maxVal-minVal, 0);
     }
 
 

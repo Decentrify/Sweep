@@ -37,7 +37,7 @@ public class ISPSimSerializer implements SimulationSerializer{
         result += 1;     // Byte for indicating the presence of the leader information.
 
         Integer leaderId = internalStatePacket.getLeaderIdentifier();
-        if(leaderId == null){
+        if(leaderId != null){
             result += 4;
         }
 

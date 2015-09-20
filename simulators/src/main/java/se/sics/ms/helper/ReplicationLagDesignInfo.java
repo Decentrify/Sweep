@@ -10,15 +10,23 @@ import se.sics.ktoolbox.aggregator.server.util.DesignInfo;
 public class ReplicationLagDesignInfo implements DesignInfo{
 
     public double averageLag;
-    public int maxLag;
-    public int minLag;
+    public long maxLag;
+    public long minLag;
 
 
-    public ReplicationLagDesignInfo(double averageLag, int maxLag, int minLag){
+    public ReplicationLagDesignInfo(double averageLag, long maxLag, long minLag){
 
         this.averageLag = averageLag;
         this.minLag = minLag;
         this.maxLag = maxLag;
     }
 
+    @Override
+    public String toString() {
+        return "ReplicationLagDesignInfo{" +
+                "averageLag=" + averageLag +
+                ", maxLag=" + maxLag +
+                ", minLag=" + minLag +
+                '}';
+    }
 }
