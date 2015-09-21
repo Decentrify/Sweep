@@ -39,7 +39,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         
-        <kompics.version>0.8.2-SNAPSHOT</kompics.version>
+        <kompics.version>0.8.3-SNAPSHOT</kompics.version>
         <croupier.version>1.9-SNAPSHOT</croupier.version>
         <gradient.version>1.7-SNAPSHOT</gradient.version>
         <aggregator.version>2.1-SNAPSHOT</aggregator.version>
