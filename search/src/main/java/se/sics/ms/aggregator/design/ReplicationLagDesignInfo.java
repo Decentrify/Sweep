@@ -18,7 +18,7 @@ public class ReplicationLagDesignInfo implements DesignInfo{
     public ReplicationLagDesignInfo(long time, double averageLag, long maxLag, long minLag){
 
         this.time = time;
-        this.averageLag = averageLag;
+        this.averageLag = Math.round( 100 * averageLag) / 100.0;
         this.minLag = minLag;
         this.maxLag = maxLag;
     }

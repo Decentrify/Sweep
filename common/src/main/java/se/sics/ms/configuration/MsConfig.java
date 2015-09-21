@@ -92,5 +92,6 @@ public class MsConfig {
     public static final int T_GRADIENT_OVERLAY_ID = 3;
 
     public static final String SIMULATION_FILE_LOC = "/home/babbar/Documents/Experiments/Result/sweepSimResult.txt";
+    public static final String JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/jsonDumpResult.txt";
     public static final int SIM_SERIALIZER_START = 0;
 }

@@ -21,10 +21,8 @@ import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.*;
 import se.sics.ms.net.SweepSerializerSetup;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.*;
 
 /**
  * Host Component for the visualizer to be used in the system.
@@ -134,15 +132,30 @@ public class VisualizerHostComp extends ComponentDefinition {
 
             logger.debug("Received response from the visualizer component about the aggregated information.");
             Collection<ReplicationLagDesignInfo> result = content.getContent().getProcessedWindows();
+            List<ReplicationLagDesignInfo> reversedList = new ArrayList<ReplicationLagDesignInfo>(result);
+            Collections.reverse(reversedList);
 
-            for(ReplicationLagDesignInfo designInfo : result){
+            for(ReplicationLagDesignInfo designInfo : reversedList){
                 logger.debug("{}", designInfo);
             }
 
-            System.exit(-1);
+            try {
+                logger.debug("Creating a JSON Dump File.");
+                performJSONDump(reversedList, MsConfig.JSON_DUMP_FILE);
+
+                System.exit(-1);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Unable to create the JSON Dump File.");
+            }
         }
     };
 
+
+    private void performJSONDump(List<ReplicationLagDesignInfo>list,  String fileLocation) throws IOException {
+        JSONDump.dumpSystemLagInfo(list, fileLocation);
+    }
 
     private class ResultTimeout extends Timeout{
 
