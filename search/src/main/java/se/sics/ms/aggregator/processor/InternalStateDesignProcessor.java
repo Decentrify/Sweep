@@ -2,6 +2,7 @@ package se.sics.ms.aggregator.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
@@ -23,15 +24,16 @@ public class InternalStateDesignProcessor implements DesignProcessor<InternalSta
     Logger logger = LoggerFactory.getLogger(InternalStateDesignProcessor.class);
     
     @Override
-    public DesignInfoContainer<AggregatedInternalState> process(Collection<Map<Integer, List<PacketInfo>>> windows) {
+    public DesignInfoContainer<AggregatedInternalState> process(List<AggregatedInfo> windows) {
         
         logger.debug("Initiating with the processing of the internal state packets per window.");
         Collection<AggregatedInternalState> processedWindows = new ArrayList<AggregatedInternalState>();
         
-        for(Map<Integer, List<PacketInfo>> window : windows){
-            
+        for(AggregatedInfo window : windows){
+
+            Map<Integer, List<PacketInfo>> map = window.getNodePacketMap();
             Collection<InternalStatePacket> statePackets = new ArrayList<InternalStatePacket>();
-            for(Map.Entry<Integer, List<PacketInfo>> entry : window.entrySet()){
+            for(Map.Entry<Integer, List<PacketInfo>> entry : map.entrySet()){
                 
                 for(PacketInfo packet :entry.getValue()){
                     

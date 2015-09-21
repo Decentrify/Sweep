@@ -39,6 +39,9 @@ public class AggregatedInfoSerializer implements Serializer {
         AggregatedInfo aggregatedInfo = (AggregatedInfo)o;
         Map<Integer, List<PacketInfo>> nodePacketMap = aggregatedInfo.getNodePacketMap();
 
+//     Write the timestamp.
+        byteBuf.writeLong(aggregatedInfo.getTime());
+
 //      Write the size of the map.
         byteBuf.writeInt(nodePacketMap.size());
 
@@ -60,6 +63,9 @@ public class AggregatedInfoSerializer implements Serializer {
 
         Map<Integer, List<PacketInfo>> nodePacketMap = new HashMap<Integer, List<PacketInfo>>();
 
+//      Time for the window.
+        long time = byteBuf.readLong();
+
 //      Read Size of Packet Map.
         int packetMapSize = byteBuf.readInt();
         while(packetMapSize > 0){
@@ -80,6 +86,6 @@ public class AggregatedInfoSerializer implements Serializer {
             packetMapSize --;
         }
 
-        return nodePacketMap;
+        return new AggregatedInfo(time, nodePacketMap);
     }
 }

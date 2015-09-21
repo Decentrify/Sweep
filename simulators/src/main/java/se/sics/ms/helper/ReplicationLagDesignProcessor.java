@@ -2,6 +2,7 @@ package se.sics.ms.helper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
@@ -21,18 +22,19 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
 
 
     @Override
-    public DesignInfoContainer<ReplicationLagDesignInfo> process(Collection<Map<Integer, List<PacketInfo>>> collection) {
+    public DesignInfoContainer<ReplicationLagDesignInfo> process(List<AggregatedInfo> windows) {
 
         logger.debug("Initiating the processing of the design information.");
         List<ReplicationLagDesignInfo> designInfoList = new ArrayList<ReplicationLagDesignInfo>();
 
-        Iterator<Map<Integer, List<PacketInfo>>> iterator = collection.iterator();
+        Iterator<AggregatedInfo> iterator = windows.iterator();
         while(iterator.hasNext()){
 
-            Map<Integer, List<PacketInfo>> window = iterator.next();
+            AggregatedInfo window = iterator.next();
+            Map<Integer, List<PacketInfo>> map = window.getNodePacketMap();
             List<Long> entryList = new ArrayList<Long>();
 
-            for(Map.Entry<Integer, List<PacketInfo>> entry : window.entrySet()){
+            for(Map.Entry<Integer, List<PacketInfo>> entry : map.entrySet()){
                 for(PacketInfo packet : entry.getValue()){
 
                     if(packet instanceof InternalStatePacket){
@@ -41,7 +43,7 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
                 }
             }
 
-            ReplicationLagDesignInfo designInfo = calculateReplicationLag(entryList);
+            ReplicationLagDesignInfo designInfo = calculateReplicationLag(window.getTime(), entryList);
             if(designInfo == null)
                 continue;
 
@@ -58,7 +60,7 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
     /**
      * Process the list of the values for the replication lags.
      */
-    private ReplicationLagDesignInfo calculateReplicationLag(List<Long> entries){
+    private ReplicationLagDesignInfo calculateReplicationLag(long time, List<Long> entries){
 
         if(entries.size() <= 0){
             return null;
@@ -75,12 +77,12 @@ public class ReplicationLagDesignProcessor implements DesignProcessor<PacketInfo
         }
 
         double avg = sum/(double)entries.size();
-        return new ReplicationLagDesignInfo(avg, maxVal-minVal, 0);
+        return new ReplicationLagDesignInfo(time, avg, maxVal-minVal, 0);
     }
 
 
     @Override
     public void cleanState() {
-
+        logger.debug("Call to clean the internal state of the processor.");
     }
 }

@@ -9,13 +9,15 @@ import se.sics.ktoolbox.aggregator.server.util.DesignInfo;
  */
 public class ReplicationLagDesignInfo implements DesignInfo{
 
+    public long time;
     public double averageLag;
     public long maxLag;
     public long minLag;
 
 
-    public ReplicationLagDesignInfo(double averageLag, long maxLag, long minLag){
+    public ReplicationLagDesignInfo(long time, double averageLag, long maxLag, long minLag){
 
+        this.time = time;
         this.averageLag = averageLag;
         this.minLag = minLag;
         this.maxLag = maxLag;
@@ -24,7 +26,8 @@ public class ReplicationLagDesignInfo implements DesignInfo{
     @Override
     public String toString() {
         return "ReplicationLagDesignInfo{" +
-                "averageLag=" + averageLag +
+                "time=" + time +
+                ", averageLag=" + averageLag +
                 ", maxLag=" + maxLag +
                 ", minLag=" + minLag +
                 '}';
