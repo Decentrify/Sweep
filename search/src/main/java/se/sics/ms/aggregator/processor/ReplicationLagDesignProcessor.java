@@ -1,4 +1,4 @@
-package se.sics.ms.helper;
+package se.sics.ms.aggregator.processor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -6,6 +6,8 @@ import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
+import se.sics.ms.aggregator.design.ReplicationLagDesignInfo;
+import se.sics.ms.aggregator.design.ReplicationLagDesignInfoContainer;
 import se.sics.ms.data.InternalStatePacket;
 
 import java.util.*;

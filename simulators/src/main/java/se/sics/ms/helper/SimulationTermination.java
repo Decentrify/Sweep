@@ -74,8 +74,6 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
             if(!(finalStateObjects.size() < systemSize)){
 
                 boolean result = true;
-                logger.warn("{}", finalStateObjects);
-
                 for(FS state : finalStateObjects){
 
                     result = (state.equals(finalStateInfo));

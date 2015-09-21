@@ -8,6 +8,7 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
+import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
@@ -30,7 +31,6 @@ public class DataDump {
 
     private static Logger logger = LoggerFactory.getLogger(DataDump.class);
 
-
 //  ===================================
 //  DATA DUMP WRITE COMPONENT.
 //  ===================================
@@ -44,12 +44,15 @@ public class DataDump {
         private FileOutputStream outputStream;
         private List<AggregatedInfo> aggregatedInfoList = new ArrayList<AggregatedInfo>();
         private AggregatorCompHelper helper;
+        private Serializer aggregatedInfoSerializer;
+        private ByteBuf byteBuf;
+
 
         public Write(DataDumpInit.Write init) {
 
             doInit(init);
             subscribe(startHandler, control);
-            subscribe(stopHandler, experimentPort);
+            subscribe(stopHandlerUpdated, experimentPort);
             subscribe(aggregatedInfoHandler, aggregatorPort);
         }
 
@@ -62,6 +65,8 @@ public class DataDump {
 
             logger.debug("{}: Initialization method invoked.", name);
             helper = init.helper;
+            aggregatedInfoSerializer = Serializers.lookupSerializer(AggregatedInfo.class);
+            byteBuf = Unpooled.buffer();
 
             try {
 
@@ -109,7 +114,23 @@ public class DataDump {
                 if(filteredInfo.getNodePacketMap().isEmpty())
                     return;
 
-                aggregatedInfoList.add(filteredInfo);
+                try {
+
+                    aggregatedInfoSerializer.toBinary(filteredInfo, byteBuf);
+                    logger.debug("Going to write :{}, bytes", byteBuf.readableBytes());
+
+                    int readableBytes  = byteBuf.readableBytes();
+                    byteBuf.readBytes(outputStream, readableBytes);
+                    outputStream.flush();
+
+                    byteBuf.clear();
+                }
+                catch (IOException e) {
+
+                    e.printStackTrace();
+                    throw new RuntimeException("Unable to write the serialized data to the stream.");
+                }
+//                aggregatedInfoList.add(filteredInfo);
             }
         };
 
@@ -155,6 +176,23 @@ public class DataDump {
         };
 
 
+
+
+        /**
+         * Handler indicating that the component will be stopping,
+         * releasing memory resources, if any.
+         */
+        Handler<TerminateExperiment> stopHandlerUpdated = new Handler<TerminateExperiment>() {
+            @Override
+            public void handle(TerminateExperiment stop) {
+
+                logger.debug("Start writing the collection in the file.");
+
+                IOUtils.closeQuietly(outputStream);
+                System.out.println("Finished with dumping the data to file.");
+            }
+        };
+
     }
 
 
@@ -168,6 +206,7 @@ public class DataDump {
         Negative<GlobalAggregatorPort> aggregatorPort = provides(GlobalAggregatorPort.class);
 
         private FileInputStream inputStream;
+        private Serializer aggregatedInfoSerializer;
 
         public Read(DataDumpInit.Read init){
             doInit(init);
@@ -183,6 +222,7 @@ public class DataDump {
         public void doInit(DataDumpInit.Read init){
 
             logger.debug("{}: Initializing the component", name);
+            aggregatedInfoSerializer = Serializers.lookupSerializer(AggregatedInfo.class);
 
             try {
 
@@ -210,7 +250,7 @@ public class DataDump {
             public void handle(Start start) {
 
                 logger.debug("{}: Start Handler invoked ", name);
-                initiateInformationRead();
+                initiateInformationReadUpdated();
             }
         };
 
@@ -243,6 +283,36 @@ public class DataDump {
             catch (IOException e) {
                 e.printStackTrace();
                 throw new RuntimeException("Unable to open the file for reading.");
+            }
+        }
+
+
+        /**
+         * Start reading the information dumped in the file and then send it to the
+         * application above that will be connected with it.
+         */
+        private void initiateInformationReadUpdated(){
+
+            logger.debug("{}: Initiating the reading of the aggregated data.", name);
+            try {
+
+                byte[] bytes = IOUtils.toByteArray(inputStream);
+                logger.debug("Bytes Read :{}", bytes.length);
+                ByteBuf byteBuf = Unpooled.wrappedBuffer(bytes);
+
+                while(byteBuf.isReadable()){
+
+                    AggregatedInfo aggregatedInfo= (AggregatedInfo)aggregatedInfoSerializer.fromBinary(byteBuf, Optional.absent());
+                    trigger(aggregatedInfo, aggregatorPort);
+                }
+
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Unable to open the file for reading.");
+            }
+            finally {
+                IOUtils.closeQuietly(inputStream);
             }
         }
 

@@ -7,16 +7,19 @@ import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.kompics.timer.java.JavaTimer;
+import se.sics.ktoolbox.aggregator.AggregatorSerializerSetup;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.Visualizer;
 import se.sics.ktoolbox.aggregator.server.VisualizerInit;
 import se.sics.ktoolbox.aggregator.server.VisualizerPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.server.event.WindowProcessing;
-import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
+import se.sics.ms.aggregator.design.ReplicationLagDesignInfo;
+import se.sics.ms.aggregator.design.ReplicationLagDesignInfoContainer;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.*;
+import se.sics.ms.net.SweepSerializerSetup;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -38,6 +41,8 @@ public class VisualizerHostComp extends ComponentDefinition {
 
         logger.debug("Component initialized.");
         SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+        int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+        AggregatorSerializerSetup.registerSerializers(result);
         subscribe(startHandler, control);
     }
 
@@ -64,7 +69,7 @@ public class VisualizerHostComp extends ComponentDefinition {
 
             trigger(st, timer.getPositive(Timer.class));
 
-//            subscribe(aggregatedInfoHandler, dataDumpRead.getPositive(GlobalAggregatorPort.class));
+            subscribe(aggregatedInfoHandler, dataDumpRead.getPositive(GlobalAggregatorPort.class));
             subscribe(resultTimeoutHandler, timer.getPositive(Timer.class));
             subscribe(replicationLagResponse, visualizer.getPositive(VisualizerPort.class));
         }
@@ -74,8 +79,8 @@ public class VisualizerHostComp extends ComponentDefinition {
     Handler<AggregatedInfo> aggregatedInfoHandler = new Handler<AggregatedInfo>() {
         @Override
         public void handle(AggregatedInfo aggregatedInfo) {
-            logger.debug("Handling the aggregated info packet from the data read component.");
-            logger.debug("{}:", aggregatedInfo.getNodePacketMap());
+//            logger.debug("Handling the aggregated info packet from the data read component.");
+//            logger.debug("{}:, time:{}", aggregatedInfo.getNodePacketMap(), aggregatedInfo.getTime());
         }
     };
 

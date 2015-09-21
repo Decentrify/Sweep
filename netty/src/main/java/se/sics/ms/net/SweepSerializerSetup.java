@@ -1,6 +1,7 @@
 package se.sics.ms.net;
 
 import se.sics.kompics.network.netty.serialization.Serializers;
+import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ms.data.InternalStatePacket;
 import se.sics.ms.serializer.InternalStatePacketSerializer;
 import se.sics.ms.data.*;
@@ -97,7 +98,8 @@ public class SweepSerializerSetup {
         searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse"),
         
 //      AGGREGATION PACKET.
-        internalStatePacket(InternalStatePacket.class, "internalStatePacket");
+        internalStatePacket(InternalStatePacket.class, "internalStatePacket"),
+        aggregatedInfo(AggregatedInfo.class, "aggregatedStateInfo");
         
         private final Class serializedClass;
         private final String serializerName;
@@ -402,7 +404,11 @@ public class SweepSerializerSetup {
         InternalStatePacketSerializer ispSerializer = new InternalStatePacketSerializer(currentId++);
         Serializers.register(ispSerializer, SweepSerializers.internalStatePacket.serializerName);
         Serializers.register(SweepSerializers.internalStatePacket.serializedClass, SweepSerializers.internalStatePacket.serializerName);
-        
+
+        AggregatedInfoSerializer aggInfoSerializer = new AggregatedInfoSerializer(currentId++);
+        Serializers.register(aggInfoSerializer, SweepSerializers.aggregatedInfo.serializerName);
+        Serializers.register(SweepSerializers.aggregatedInfo.serializedClass, SweepSerializers.aggregatedInfo.serializerName);
+
         return currentId;
     }
 

@@ -1,6 +1,7 @@
 package se.sics.ms.helper;
 
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
+import se.sics.ms.aggregator.processor.ReplicationLagDesignProcessor;
 
 /**
  * Designer Enum used by the visualizer component
