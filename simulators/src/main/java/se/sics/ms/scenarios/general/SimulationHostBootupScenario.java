@@ -85,9 +85,7 @@ public class SimulationHostBootupScenario {
                 startAggregatorNode.start();
                 startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
                 peerJoin.startAfterTerminationOf(5000, startCaracalClient);
-                addIndexEntryCommand.startAfterTerminationOf(50000, peerJoin);
-
-//                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
+                addIndexEntryCommand.startAfterTerminationOf(60000, peerJoin);
             }
         };
         

@@ -22,6 +22,22 @@ public class BasicAvailabilityScenario {
 
             {
 
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.startAggregatorNode);
+                    }
+                };
+
+
+                StochasticProcess startCaracalClient = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startCaracalClient, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+
                 StochasticProcess changeNetworkModel = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(300));
@@ -56,19 +72,17 @@ public class BasicAvailabilityScenario {
 
                 StochasticProcess churnEntryAddition = new StochasticProcess() {
                     {
+                        System.out.println("Starting the main churn entry addition scenario");
                         eventInterArrivalTime(constant(1000 / entryChangePerSec));
                         raise( time* entryChangePerSec , SweepOperations.addIndexEntryCommand, constant(Integer.MIN_VALUE));
                     }
                 };
 
-                changeNetworkModel.start();
-                specialPeerJoin.startAfterTerminationOf(10000, changeNetworkModel);
+                startAggregatorNode.start();
+                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
+                specialPeerJoin.startAfterTerminationOf(10000, startCaracalClient);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(50000, initialPeerJoin);
-
-                // Churn Scenario Commands.
-//                churnPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
-//                churnPeerKillProcess.startAtSameTimeWith(churnPeerJoin);
                 churnEntryAddition.startAfterTerminationOf(50*1000, addIndexEntryCommand);
 
             }

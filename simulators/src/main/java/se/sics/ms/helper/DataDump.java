@@ -42,7 +42,6 @@ public class DataDump {
 
         private String name = "WRITE";
         private FileOutputStream outputStream;
-        private List<AggregatedInfo> aggregatedInfoList = new ArrayList<AggregatedInfo>();
         private AggregatorCompHelper helper;
         private Serializer aggregatedInfoSerializer;
         private ByteBuf byteBuf;
@@ -130,53 +129,8 @@ public class DataDump {
                     e.printStackTrace();
                     throw new RuntimeException("Unable to write the serialized data to the stream.");
                 }
-//                aggregatedInfoList.add(filteredInfo);
             }
         };
-
-
-        /**
-         * Handler indicating that the component will be stopping,
-         * releasing memory resources, if any.
-         */
-        Handler<TerminateExperiment> stopHandler = new Handler<TerminateExperiment>() {
-            @Override
-            public void handle(TerminateExperiment stop) {
-
-                logger.debug("Start writing the collection in the file.");
-
-                SimulationSerializer aggregatedInfoSerializer = SimulationSerializers.lookupSerializer(AggregatedInfo.class);
-                int size = 0;
-                size += 4;  // Adding size of collection.
-
-                for(AggregatedInfo aggregatedInfo : aggregatedInfoList){
-                    size += aggregatedInfoSerializer.getByteSize(aggregatedInfo);
-                }
-
-                logger.debug("Going to allocate size : {}", size);
-                ByteBuffer buffer = ByteBuffer.allocate(size);
-
-                buffer.putInt(aggregatedInfoList.size());
-                for(AggregatedInfo aggregatedInfo : aggregatedInfoList){
-                    aggregatedInfoSerializer.toBinary(aggregatedInfo, buffer);
-                }
-
-                try {
-                    outputStream.write(buffer.array());
-                }
-                catch (IOException e) {
-
-                    e.printStackTrace();
-                    throw new RuntimeException("Unable to write the serialized byte array to the stream.");
-                }
-
-                IOUtils.closeQuietly(outputStream);
-                System.out.println("Finished with dumping the data to file.");
-            }
-        };
-
-
-
 
         /**
          * Handler indicating that the component will be stopping,

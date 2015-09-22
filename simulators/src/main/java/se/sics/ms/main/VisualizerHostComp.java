@@ -135,10 +135,6 @@ public class VisualizerHostComp extends ComponentDefinition {
             List<ReplicationLagDesignInfo> reversedList = new ArrayList<ReplicationLagDesignInfo>(result);
             Collections.reverse(reversedList);
 
-            for(ReplicationLagDesignInfo designInfo : reversedList){
-                logger.debug("{}", designInfo);
-            }
-
             try {
                 logger.debug("Creating a JSON Dump File.");
                 performJSONDump(reversedList, MsConfig.JSON_DUMP_FILE);

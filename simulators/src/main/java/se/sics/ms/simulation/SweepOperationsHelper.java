@@ -413,7 +413,7 @@ public class SweepOperationsHelper {
      */
     public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
 
-        logger.warn("Creating Node: - > {}", id);
+        logger.debug("Creating Node: - > {}", id);
 
         DecoratedAddress selfAddress = DecoratedAddress.open(ip, port, (int)id);
         storePeerAddress(selfAddress);
