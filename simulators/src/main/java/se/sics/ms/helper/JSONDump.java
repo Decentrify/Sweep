@@ -2,6 +2,7 @@ package se.sics.ms.helper;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import se.sics.ms.aggregator.design.PercentileLagDesignInfo;
 import se.sics.ms.aggregator.design.ReplicationLagDesignInfo;
 
 import java.io.FileWriter;
@@ -35,6 +36,33 @@ public class JSONDump {
         writer.write(list.toJSONString());
         writer.flush();
         writer.close();
+
+    }
+
+
+    public static void dumpPercentileLagInfo(Collection<PercentileLagDesignInfo> collection, String fileLocation) throws IOException{
+
+
+        JSONArray list = new JSONArray();
+
+        for(PercentileLagDesignInfo obj : collection){
+
+            JSONObject object = new JSONObject();
+            object.put("time", obj.time);
+            object.put("fifty", obj.fiftyPercentileRingLag);
+            object.put("seventyFive", obj.seventyFivePercentileRingLag);
+            object.put("ninety", obj.ninetyPercentileRingLag);
+
+            list.add(object);
+        }
+
+
+        FileWriter writer = new FileWriter(fileLocation);
+        writer.write(list.toJSONString());
+        writer.flush();
+        writer.close();
+
+
 
     }
 

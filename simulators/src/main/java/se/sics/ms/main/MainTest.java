@@ -1,16 +1,12 @@
 package se.sics.ms.main;
 
-import org.junit.Test;
-import se.sics.ms.scenarios.general.SimpleBootupScenario;
-import se.sics.ms.scenarios.general.SimplePartitioningScenario;
-
 /**
  * Main Class for test execution.
  * Created by babbarshaer on 2015-02-04.
  */
 
-import se.sics.ms.scenarios.general.SimulationHostBootupScenario;
 import se.sics.ms.scenarios.general.ThreadedTimeInterceptor;
+import se.sics.ms.scenarios.special.BasicAvailabilityScenario;
 import se.sics.p2ptoolbox.simulator.run.LauncherComp;
 
 import java.net.UnknownHostException;
@@ -29,7 +25,9 @@ public class MainTest {
     }
 
     public static void myTest() throws UnknownHostException {
-        SimulationHostBootupScenario.boot(seed).simulate(LauncherComp.class, new ThreadedTimeInterceptor(null));
+
+//        SimulationHostBootupScenario.boot(seed).simulate(LauncherComp.class, new ThreadedTimeInterceptor(null));
+        BasicAvailabilityScenario.boot(seed, 1, 200, 20, 100, 4).simulate(LauncherComp.class, new ThreadedTimeInterceptor(null));
     }
 
 }

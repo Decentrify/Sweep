@@ -15,11 +15,14 @@ import se.sics.ktoolbox.aggregator.server.VisualizerPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ktoolbox.aggregator.server.event.WindowProcessing;
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
+import se.sics.ms.aggregator.design.PercentileLagDesignInfo;
+import se.sics.ms.aggregator.design.PercentileLagDesignInfoContainer;
 import se.sics.ms.aggregator.design.ReplicationLagDesignInfo;
 import se.sics.ms.aggregator.design.ReplicationLagDesignInfoContainer;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.*;
 import se.sics.ms.net.SweepSerializerSetup;
+import sun.awt.X11.Visual;
 
 import java.io.IOException;
 import java.util.*;
@@ -67,20 +70,12 @@ public class VisualizerHostComp extends ComponentDefinition {
 
             trigger(st, timer.getPositive(Timer.class));
 
-            subscribe(aggregatedInfoHandler, dataDumpRead.getPositive(GlobalAggregatorPort.class));
             subscribe(resultTimeoutHandler, timer.getPositive(Timer.class));
             subscribe(replicationLagResponse, visualizer.getPositive(VisualizerPort.class));
+            subscribe(percentileReplicationLag, visualizer.getPositive(VisualizerPort.class));
         }
     };
 
-
-    Handler<AggregatedInfo> aggregatedInfoHandler = new Handler<AggregatedInfo>() {
-        @Override
-        public void handle(AggregatedInfo aggregatedInfo) {
-//            logger.debug("Handling the aggregated info packet from the data read component.");
-//            logger.debug("{}:, time:{}", aggregatedInfo.getNodePacketMap(), aggregatedInfo.getTime());
-        }
-    };
 
     public static void main(String[] args) {
 
@@ -121,7 +116,12 @@ public class VisualizerHostComp extends ComponentDefinition {
                     SimDesignerEnum.ReplicationLagDesigner.getName(),
                     0, Integer.MAX_VALUE);
 
+            WindowProcessing.Request percentileLagRequest = new WindowProcessing.Request(UUID.randomUUID(),
+                    SimDesignerEnum.PercentileLagDesigner.getName(),
+                    0 , Integer.MAX_VALUE);
+
             trigger(request, visualizer.getPositive(VisualizerPort.class));
+            trigger(percentileLagRequest, visualizer.getPositive(VisualizerPort.class));
         }
     };
 
@@ -130,16 +130,14 @@ public class VisualizerHostComp extends ComponentDefinition {
         @Override
         public void handle(ReplicationLagDesignInfoContainer replicationLagDesignInfoContainer, WindowProcessing.Response<ReplicationLagDesignInfoContainer> content) {
 
-            logger.debug("Received response from the visualizer component about the aggregated information.");
+            logger.debug("Received response from the visualizer component about the average lag information.");
             Collection<ReplicationLagDesignInfo> result = content.getContent().getProcessedWindows();
             List<ReplicationLagDesignInfo> reversedList = new ArrayList<ReplicationLagDesignInfo>(result);
             Collections.reverse(reversedList);
 
             try {
                 logger.debug("Creating a JSON Dump File.");
-                performJSONDump(reversedList, MsConfig.JSON_DUMP_FILE);
-
-                System.exit(-1);
+                performJSONDump(reversedList, MsConfig.AVG_LAG_JSON_DUMP_FILE);
             }
             catch (IOException e) {
                 e.printStackTrace();
@@ -147,6 +145,35 @@ public class VisualizerHostComp extends ComponentDefinition {
             }
         }
     };
+
+
+
+    ClassMatchedHandler<PercentileLagDesignInfoContainer, WindowProcessing.Response<PercentileLagDesignInfoContainer>> percentileReplicationLag = new ClassMatchedHandler<PercentileLagDesignInfoContainer, WindowProcessing.Response<PercentileLagDesignInfoContainer>>() {
+        @Override
+        public void handle(PercentileLagDesignInfoContainer replicationLagDesignInfoContainer, WindowProcessing.Response<PercentileLagDesignInfoContainer> content) {
+
+            logger.debug("Received response from the visualizer component about the percentile lag information.");
+
+            Collection<PercentileLagDesignInfo> result = content.getContent().getProcessedWindows();
+            List<PercentileLagDesignInfo> reversedList = new ArrayList<PercentileLagDesignInfo>(result);
+            Collections.reverse(reversedList);
+
+            try {
+                logger.debug("Creating a JSON Dump File.");
+                performPercentileLagJSONDump(reversedList, MsConfig.PER_LAG_JSON_DUMP_FILE);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Unable to create the JSON Dump File.");
+            }
+        }
+    };
+
+
+
+    private void performPercentileLagJSONDump(List<PercentileLagDesignInfo> list, String location) throws IOException {
+        JSONDump.dumpPercentileLagInfo(list, location);
+    }
 
 
     private void performJSONDump(List<ReplicationLagDesignInfo>list,  String fileLocation) throws IOException {
