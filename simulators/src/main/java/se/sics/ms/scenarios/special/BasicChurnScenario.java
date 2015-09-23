@@ -22,6 +22,23 @@ public class BasicChurnScenario {
 
             {
 
+
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.startAggregatorNode);
+                    }
+                };
+
+
+                StochasticProcess startCaracalClient = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startCaracalClient, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+
                 StochasticProcess changeNetworkModel = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(300));
@@ -77,8 +94,11 @@ public class BasicChurnScenario {
                     }
                 };
 
-                changeNetworkModel.start();
-                specialPeerJoin.startAfterTerminationOf(10000, changeNetworkModel);
+
+                startAggregatorNode.start();
+                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
+//                changeNetworkModel.start();
+                specialPeerJoin.startAfterTerminationOf(10000, startCaracalClient);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(50000, initialPeerJoin);
 
