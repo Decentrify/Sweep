@@ -29,6 +29,9 @@ public class AggregatorHostComp extends ComponentDefinition{
 
     private long timeout;
     private String fileLocation;
+    private int maxNodes;
+    private FinalStateInfo finalState;
+    private FinalStateProcessor stateProcessor;
 
     public AggregatorHostComp(AggregatorHostCompInit init){
 
@@ -44,6 +47,10 @@ public class AggregatorHostComp extends ComponentDefinition{
 
         this.timeout = init.timeout;
         this.fileLocation = init.fileLocation;
+        this.maxNodes = init.conditionWrapper.numNodes;
+        this.finalState = init.conditionWrapper.finalState;
+        this.stateProcessor = init.conditionWrapper.stateProcessor;
+
         SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         AggregatorSerializerSetup.registerSerializers(result);
@@ -61,7 +68,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
             Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
-            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(200, new EntryFinalState(421), new EntryFinalStateProcessor()));
+            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(maxNodes, finalState, stateProcessor));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
             connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);

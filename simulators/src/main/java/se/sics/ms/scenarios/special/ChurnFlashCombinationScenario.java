@@ -368,7 +368,7 @@ public class ChurnFlashCombinationScenario {
                 StochasticProcess startAggregatorNode = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(300));
-                        raise(1, SweepOperations.startAggregatorNode);
+                        raise(1, SweepOperations.getAggregatorComponent(null));
                     }
                 };
 

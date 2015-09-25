@@ -12,10 +12,7 @@ import se.sics.ktoolbox.cc.sim.CCSimMainInit;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.events.simEvents.AddIndexEntryP2pSimulated;
 import se.sics.ms.events.simEvents.SearchP2pSimulated;
-import se.sics.ms.main.AggregatorHostComp;
-import se.sics.ms.main.AggregatorHostCompInit;
-import se.sics.ms.main.SimulatorHostComp;
-import se.sics.ms.main.SimulatorHostCompInit;
+import se.sics.ms.main.*;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.p2ptoolbox.simulator.SimulationContext;
@@ -664,14 +661,16 @@ public class SweepOperations {
      * other nodes in the system.
      *
      */
-    public static Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> startAggregatorNode = new Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>>() {
+    public static Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> getAggregatorComponent(final TerminateConditionWrapper terminateCondition){
 
-        @Override
-        public StartAggregatorCmd<AggregatorHostComp, DecoratedAddress> generate() {
-            return new StartAggregatorNode(MsConfig.AGGREGATOR_TIMEOUT, MsConfig.SIMULATION_FILE_LOC);
-        }
-    };
+        Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> result = new Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>>() {
+            @Override
+            public StartAggregatorCmd<AggregatorHostComp, DecoratedAddress> generate() {
+                return new StartAggregatorNode(MsConfig.AGGREGATOR_TIMEOUT, MsConfig.SIMULATION_FILE_LOC, terminateCondition);
+            }
+        };
 
-    
+        return result;
+    }
     
 }
