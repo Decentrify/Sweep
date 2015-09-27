@@ -166,7 +166,19 @@ public class DataDump {
 
                 logger.debug("Start writing the collection in the file.");
 
-                IOUtils.closeQuietly(outputStream);
+                try {
+                    outputStream = getNextOutputStream(outputStream);       // Close the current stream.
+                    outputStream = getNextOutputStream(outputStream);       // Empty commit file indicating the termination of the experiment.
+
+                    IOUtils.closeQuietly(outputStream);
+                }
+
+                catch (IOException e) {
+                    e.printStackTrace();
+                    throw new RuntimeException("Unable to terminate the experiment.");
+                }
+
+
                 System.out.println("Finished with dumping the data to file.");
             }
         };
