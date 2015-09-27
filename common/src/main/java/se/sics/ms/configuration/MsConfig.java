@@ -95,4 +95,5 @@ public class MsConfig {
     public static final String AVG_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/avgLagJSONDump.txt";
     public static final String PER_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/perLagJSONDump.txt";
     public static final int SIM_SERIALIZER_START = 0;
+    public static final int MAX_WINDOWS_PER_FILE = 50;
 }

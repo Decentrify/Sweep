@@ -20,6 +20,9 @@ import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +33,22 @@ import java.util.List;
 public class DataDump {
 
     private static Logger logger = LoggerFactory.getLogger(DataDump.class);
+    private static Path path;
+    private static String fileName;
+
+    public static void register(String directory, String fileName){
+
+        Path path = Paths.get(directory);
+        if(!Files.exists(path) || !Files.isWritable(path)){
+            throw new RuntimeException("Invalid location or missing write permission");
+        }
+
+        logger.debug("Path constructed is valid.");
+        DataDump.path = path;
+        DataDump.fileName = fileName;
+    }
+
+
 
 //  ===================================
 //  DATA DUMP WRITE COMPONENT.
@@ -41,11 +60,13 @@ public class DataDump {
         Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
 
         private String name = "WRITE";
-        private FileOutputStream outputStream;
+        private OutputStream outputStream;
         private AggregatorCompHelper helper;
         private Serializer aggregatedInfoSerializer;
         private ByteBuf byteBuf;
-
+        private int maxWindowsPerFile;
+        private int fileNameCounter;
+        private int currentWindowCounter;
 
         public Write(DataDumpInit.Write init) {
 
@@ -67,21 +88,15 @@ public class DataDump {
             aggregatedInfoSerializer = Serializers.lookupSerializer(AggregatedInfo.class);
             byteBuf = Unpooled.buffer();
 
+            fileNameCounter = 0;
+            currentWindowCounter = 0;
+            maxWindowsPerFile = init.maxWindowsPerFile;
+
             try {
-
-                File file = new File(init.location);
-                if(!file.exists() || file.isDirectory()) {
-
-                    logger.debug("Invalid file location.");
-                    throw new RuntimeException("Unable to create file for the dumping data.");
-                }
-
-                outputStream = new FileOutputStream(file);
+                outputStream = getNextOutputStream(null);
             }
-            catch (FileNotFoundException e) {
-
+            catch (IOException e) {
                 e.printStackTrace();
-                throw new RuntimeException("Unable to create file output stream for the dumping data.");
             }
 
         }
@@ -115,6 +130,14 @@ public class DataDump {
 
                 try {
 
+//                  Switch to the next outputstream in case we already have reached the quota.
+                    if(currentWindowCounter > maxWindowsPerFile){
+
+                        logger.debug("Current file dump completed, going to dump in a new file.");
+                        outputStream = getNextOutputStream(outputStream);
+                        currentWindowCounter = 0;
+                    }
+
                     aggregatedInfoSerializer.toBinary(filteredInfo, byteBuf);
                     logger.debug("Going to write :{}, bytes", byteBuf.readableBytes());
 
@@ -123,6 +146,7 @@ public class DataDump {
                     outputStream.flush();
 
                     byteBuf.clear();
+                    currentWindowCounter++;
                 }
                 catch (IOException e) {
 
@@ -146,6 +170,27 @@ public class DataDump {
                 System.out.println("Finished with dumping the data to file.");
             }
         };
+
+        /**
+         * Get the output stream for the
+         * next file in the series.
+         *
+         * @return OutputStream.
+         */
+        private OutputStream getNextOutputStream(OutputStream currentStream) throws IOException {
+
+            if(currentStream != null)
+                IOUtils.closeQuietly(currentStream);
+
+            StringBuffer buffer = new StringBuffer().append(DataDump.fileName).append(fileNameCounter);
+            Path filePath = Paths.get(DataDump.path.toAbsolutePath().toString(), buffer.toString());
+
+            logger.debug(filePath.toAbsolutePath().toString());
+            OutputStream outputStream = Files.newOutputStream(filePath);
+            fileNameCounter++;
+            return outputStream;
+        }
+
 
     }
 

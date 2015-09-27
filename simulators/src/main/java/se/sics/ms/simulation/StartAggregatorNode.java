@@ -17,7 +17,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 public class StartAggregatorNode implements StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>, ConnectSimulatorPort {
 
-    private final TerminateConditionWrapper terminateConditionWrapper;
+    private TerminateConditionWrapper terminateConditionWrapper;
     public long timeout;
     public String fileLocation;
 

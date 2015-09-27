@@ -663,14 +663,15 @@ public class SweepOperations {
      */
     public static Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> getAggregatorComponent(final TerminateConditionWrapper terminateCondition){
 
-        Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>> result = new Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>>() {
+        System.out.println("Get Aggregator Component Invoked.");
+
+        return new Operation<StartAggregatorCmd<AggregatorHostComp, DecoratedAddress>>() {
             @Override
             public StartAggregatorCmd<AggregatorHostComp, DecoratedAddress> generate() {
+                System.out.println("Calling generate for the start aggregator command.");
                 return new StartAggregatorNode(MsConfig.AGGREGATOR_TIMEOUT, MsConfig.SIMULATION_FILE_LOC, terminateCondition);
             }
         };
-
-        return result;
     }
     
 }

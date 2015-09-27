@@ -13,13 +13,12 @@ public class DataDumpInit {
 
     public static class Write extends Init<DataDump.Write>{
 
-        public final String location;
         public final AggregatorCompHelper helper;
+        public final int maxWindowsPerFile;
 
-        public Write(String location, AggregatorCompHelper helper){
-
-            this.location = location;
+        public Write(AggregatorCompHelper helper, int maxWindowsPerFile){
             this.helper = helper;
+            this.maxWindowsPerFile = maxWindowsPerFile;
         }
     }
 

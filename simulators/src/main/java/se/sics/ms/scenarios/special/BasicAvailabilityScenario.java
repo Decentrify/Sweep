@@ -1,5 +1,8 @@
 package se.sics.ms.scenarios.special;
 
+import se.sics.ms.helper.EntryFinalState;
+import se.sics.ms.helper.EntryFinalStateProcessor;
+import se.sics.ms.main.TerminateConditionWrapper;
 import se.sics.ms.simulation.SweepOperations;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 
@@ -24,8 +27,9 @@ public class BasicAvailabilityScenario {
 
                 StochasticProcess startAggregatorNode = new StochasticProcess() {
                     {
+                        TerminateConditionWrapper wrapper = new TerminateConditionWrapper(new EntryFinalState(401), 200, new EntryFinalStateProcessor());
                         eventInterArrivalTime(constant(300));
-                        raise(1, SweepOperations.getAggregatorComponent(null));
+                        raise(1, SweepOperations.getAggregatorComponent(wrapper));
                     }
                 };
 

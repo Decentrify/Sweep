@@ -51,9 +51,9 @@ public class AggregatorHostComp extends ComponentDefinition{
         this.finalState = init.conditionWrapper.finalState;
         this.stateProcessor = init.conditionWrapper.stateProcessor;
 
-        SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         AggregatorSerializerSetup.registerSerializers(result);
+        DataDump.register("/home/babbar/Documents/Experiments/Result","dataDump");
     }
 
     /**
@@ -67,7 +67,7 @@ public class AggregatorHostComp extends ComponentDefinition{
             logger.debug("Handling the start event in the system.");
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
-            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
+            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(new BasicHelper(), MsConfig.MAX_WINDOWS_PER_FILE));
             Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(maxNodes, finalState, stateProcessor));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
