@@ -57,7 +57,7 @@ public class VisualizerHostComp extends ComponentDefinition {
 
             timer = create(JavaTimer.class, Init.NONE);
 
-            Component dataDumpRead = create(DataDump.Read.class, new DataDumpInit.Read(MsConfig.SIMULATION_FILE_LOC));
+            Component dataDumpRead = create(DataDump.Read.class, new DataDumpInit.Read(5000));
             visualizer = create(Visualizer.class, new VisualizerInit(Integer.MAX_VALUE, getDesignProcessorMap()));
             connect(visualizer.getNegative(GlobalAggregatorPort.class), dataDumpRead.getPositive(GlobalAggregatorPort.class));
 

@@ -25,10 +25,9 @@ public class DataDumpInit {
 
     public static class Read extends Init<DataDump.Read>{
 
-        public final String location;
-
-        public Read(String location){
-            this.location = location;
+        public final long timeout;
+        public Read(long timeout){
+            this.timeout = timeout;
         }
     }
 

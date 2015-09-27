@@ -10,21 +10,23 @@ import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
+import se.sics.kompics.timer.CancelPeriodicTimeout;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
+import se.sics.kompics.timer.Timeout;
+import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ktoolbox.aggregator.server.event.AggregatedInfo;
 import se.sics.ms.main.AggregatorCompHelper;
-import se.sics.ms.main.SimulationSerializer;
-import se.sics.ms.main.SimulationSerializers;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
 import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Main class for the data dumping in the system.
@@ -215,9 +217,14 @@ public class DataDump {
 
         private String name  = "READ";
         Negative<GlobalAggregatorPort> aggregatorPort = provides(GlobalAggregatorPort.class);
+        Positive<Timer> timer = requires(Timer.class);
 
-        private FileInputStream inputStream;
+        private InputStream inputStream;
         private Serializer aggregatedInfoSerializer;
+        private List<AggregatedInfo> aggregatedInfoList = new ArrayList<AggregatedInfo>();
+        private long timeout;
+        private int fileNameCounter;
+        private UUID periodicTimeout;
 
         public Read(DataDumpInit.Read init){
             doInit(init);
@@ -233,21 +240,13 @@ public class DataDump {
         public void doInit(DataDumpInit.Read init){
 
             logger.debug("{}: Initializing the component", name);
-            aggregatedInfoSerializer = Serializers.lookupSerializer(AggregatedInfo.class);
 
-            try {
-
-                File file = new File(init.location);
-                inputStream = new FileInputStream(file);
-
-            } catch (FileNotFoundException e) {
-
-                e.printStackTrace();
-                throw new RuntimeException("Unable to locate files for creating an input stream.");
-            }
-
+            this.aggregatedInfoSerializer = Serializers.lookupSerializer(AggregatedInfo.class);
+            this.timeout = init.timeout;
+            this.fileNameCounter = 0;
 
             subscribe(startHandler, control);
+            subscribe(periodicReadHandler, timer);
         }
 
 
@@ -261,7 +260,12 @@ public class DataDump {
             public void handle(Start start) {
 
                 logger.debug("{}: Start Handler invoked ", name);
-                initiateInformationReadUpdated();
+                SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(timeout, timeout);
+
+                spt.setTimeoutEvent(new PeriodicRead(spt));
+                periodicTimeout = spt.getTimeoutEvent().getTimeoutId();
+                trigger(spt, timer);
+
             }
         };
 
@@ -276,43 +280,19 @@ public class DataDump {
             try {
 
                 byte[] bytes = IOUtils.toByteArray(inputStream);
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-
-                int size = buffer.getInt();
-                SimulationSerializer serializer = SimulationSerializers.lookupSerializer(AggregatedInfo.class);
-                logger.debug("{}: ", serializer);
-
-                while(size > 0){
-
-                    AggregatedInfo aggregatedInfo = (AggregatedInfo) serializer.fromBinary(buffer);
-                    trigger(aggregatedInfo, aggregatorPort);
-
-                    size --;
-                }
-
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-                throw new RuntimeException("Unable to open the file for reading.");
-            }
-        }
-
-
-        /**
-         * Start reading the information dumped in the file and then send it to the
-         * application above that will be connected with it.
-         */
-        private void initiateInformationReadUpdated(){
-
-            logger.debug("{}: Initiating the reading of the aggregated data.", name);
-            try {
-
-                byte[] bytes = IOUtils.toByteArray(inputStream);
                 logger.debug("Bytes Read :{}", bytes.length);
                 ByteBuf byteBuf = Unpooled.wrappedBuffer(bytes);
 
-                while(byteBuf.isReadable()){
+                if(byteBuf.readableBytes() == 0){
 
+                    logger.debug("The simulation has terminated and we should stop reading.");
+                    IOUtils.closeQuietly(inputStream);
+                    CancelPeriodicTimeout cpt = new CancelPeriodicTimeout(periodicTimeout);
+                    trigger(cpt, timer);
+                    return;
+                }
+
+                while(byteBuf.isReadable()){
                     AggregatedInfo aggregatedInfo= (AggregatedInfo)aggregatedInfoSerializer.fromBinary(byteBuf, Optional.absent());
                     trigger(aggregatedInfo, aggregatorPort);
                 }
@@ -326,6 +306,75 @@ public class DataDump {
                 IOUtils.closeQuietly(inputStream);
             }
         }
+
+
+        /**
+         * Handler for checking if the read can be invoked on the file.
+         * Based on the current file counter, it checks if the writer has started writing the next file
+         * and in case the condition is true, it starts the file write.
+         */
+        Handler<PeriodicRead> periodicReadHandler = new Handler<PeriodicRead>() {
+            @Override
+            public void handle(PeriodicRead periodicRead) {
+
+                logger.debug("Initiating periodic Read of the file dump.");
+//              Check if the next file has been written or not.
+
+                int nextFileCount = fileNameCounter + 1;
+
+                StringBuffer buffer = new StringBuffer().append(DataDump.fileName).append(nextFileCount);
+                Path filePath = Paths.get(path.toAbsolutePath().toString(), buffer.toString());
+
+                if(Files.exists(filePath)){
+
+                    try {
+                        inputStream = getNextInputStream(inputStream);
+                        initiateInformationRead();
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        throw new RuntimeException("Unable to read the next file.");
+                    }
+                    fileNameCounter++;
+                }
+
+                else {
+                    logger.trace("Unable to initiate the file read because the user is still writing the current file.");
+                }
+
+            }
+        };
+
+
+        /**
+         * Fetch the input stream for the data dump file
+         * because the user has started writing the next inline file.
+         *
+         * @param currentStream current stream.
+         * @return input stream.
+         * @throws IOException
+         */
+        private InputStream getNextInputStream(InputStream currentStream) throws IOException {
+
+            if(currentStream != null)
+                IOUtils.closeQuietly(currentStream);
+
+            Path filePath = Paths.get(path.toAbsolutePath().toString(), DataDump.fileName + fileNameCounter);
+            fileNameCounter++;
+
+            return Files.newInputStream(filePath);
+        }
+
+
+
+        private class PeriodicRead extends Timeout{
+
+            public PeriodicRead(SchedulePeriodicTimeout request) {
+                super(request);
+            }
+        }
+
+
 
 
     }
