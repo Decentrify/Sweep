@@ -287,11 +287,14 @@ public class DataDump {
 
                     logger.debug("The simulation has terminated and we should stop reading.");
                     IOUtils.closeQuietly(inputStream);
+
+                    logger.debug("Cancelling the periodic read timeout.");
                     CancelPeriodicTimeout cpt = new CancelPeriodicTimeout(periodicTimeout);
                     trigger(cpt, timer);
                     return;
                 }
 
+                logger.debug("Going to read the whole file and send it to the visualizer component.");
                 while(byteBuf.isReadable()){
                     AggregatedInfo aggregatedInfo= (AggregatedInfo)aggregatedInfoSerializer.fromBinary(byteBuf, Optional.absent());
                     trigger(aggregatedInfo, aggregatorPort);
@@ -318,7 +321,6 @@ public class DataDump {
             public void handle(PeriodicRead periodicRead) {
 
                 logger.debug("Initiating periodic Read of the file dump.");
-//              Check if the next file has been written or not.
 
                 int nextFileCount = fileNameCounter + 1;
 
@@ -339,7 +341,7 @@ public class DataDump {
                 }
 
                 else {
-                    logger.trace("Unable to initiate the file read because the user is still writing the current file.");
+                    logger.debug("Unable to initiate the file read because the user is still writing the current file.");
                 }
 
             }

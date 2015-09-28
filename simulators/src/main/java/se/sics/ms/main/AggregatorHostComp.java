@@ -53,7 +53,7 @@ public class AggregatorHostComp extends ComponentDefinition{
 
         int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         AggregatorSerializerSetup.registerSerializers(result);
-        DataDump.register("/home/babbar/Documents/Experiments/Result","dataDump");
+        DataDump.register(MsConfig.SIMULATION_DIRECTORY, MsConfig.SIMULATION_FILENAME);
     }
 
     /**

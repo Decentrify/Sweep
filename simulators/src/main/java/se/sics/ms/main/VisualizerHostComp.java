@@ -43,6 +43,8 @@ public class VisualizerHostComp extends ComponentDefinition {
         logger.debug("Component initialized.");
         SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
         int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+
+        DataDump.register(MsConfig.SIMULATION_DIRECTORY, MsConfig.SIMULATION_FILENAME);
         AggregatorSerializerSetup.registerSerializers(result);
         subscribe(startHandler, control);
     }
@@ -58,6 +60,8 @@ public class VisualizerHostComp extends ComponentDefinition {
             timer = create(JavaTimer.class, Init.NONE);
 
             Component dataDumpRead = create(DataDump.Read.class, new DataDumpInit.Read(5000));
+            connect(dataDumpRead.getNegative(Timer.class), timer.getPositive(Timer.class));
+
             visualizer = create(Visualizer.class, new VisualizerInit(Integer.MAX_VALUE, getDesignProcessorMap()));
             connect(visualizer.getNegative(GlobalAggregatorPort.class), dataDumpRead.getPositive(GlobalAggregatorPort.class));
 
@@ -68,7 +72,7 @@ public class VisualizerHostComp extends ComponentDefinition {
             ScheduleTimeout st = new ScheduleTimeout(5000);
             st.setTimeoutEvent(new ResultTimeout(st));
 
-            trigger(st, timer.getPositive(Timer.class));
+//            trigger(st, timer.getPositive(Timer.class));
 
             subscribe(resultTimeoutHandler, timer.getPositive(Timer.class));
             subscribe(replicationLagResponse, visualizer.getPositive(VisualizerPort.class));
