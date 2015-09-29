@@ -41,11 +41,11 @@ public class VisualizerHostComp extends ComponentDefinition {
     public VisualizerHostComp(){
 
         logger.debug("Component initialized.");
-        SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+
         int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+        AggregatorSerializerSetup.registerSerializers(result);
 
         DataDump.register(MsConfig.SIMULATION_DIRECTORY, MsConfig.SIMULATION_FILENAME);
-        AggregatorSerializerSetup.registerSerializers(result);
         subscribe(startHandler, control);
     }
 

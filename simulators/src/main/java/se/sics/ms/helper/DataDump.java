@@ -337,7 +337,6 @@ public class DataDump {
                         e.printStackTrace();
                         throw new RuntimeException("Unable to read the next file.");
                     }
-                    fileNameCounter++;
                 }
 
                 else {
