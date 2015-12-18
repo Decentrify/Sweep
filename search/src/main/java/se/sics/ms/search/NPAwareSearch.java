@@ -2130,7 +2130,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), gradientPort);
+        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), selfViewUpdatePort);
         trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
         trigger(selfDescriptor, selfViewUpdatePort);
 

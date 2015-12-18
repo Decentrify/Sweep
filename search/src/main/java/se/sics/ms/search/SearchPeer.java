@@ -479,7 +479,7 @@ public final class SearchPeer extends ComponentDefinition {
      */
     private void startGradient() {
         log.info("Starting Gradient component.");
-        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getPositive(GradientPort.class));
+        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getNegative(SelfViewUpdatePort.class));
     }
     
     
