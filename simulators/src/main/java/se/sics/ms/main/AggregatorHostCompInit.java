@@ -11,9 +11,11 @@ public class AggregatorHostCompInit extends Init<AggregatorHostComp>{
 
     public long timeout;
     public final String fileLocation;
+    public final TerminateConditionWrapper conditionWrapper;
 
-    public AggregatorHostCompInit(long timeout, String fileLocation){
+    public AggregatorHostCompInit(long timeout, String fileLocation, TerminateConditionWrapper conditionWrapper){
         this.timeout = timeout;
         this.fileLocation = fileLocation;
+        this.conditionWrapper = conditionWrapper;
     }
 }

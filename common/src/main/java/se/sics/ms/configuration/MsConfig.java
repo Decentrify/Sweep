@@ -65,7 +65,7 @@ public class MsConfig {
 
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;
-    public static final int MAX_EPOCH_CONTAINER_ENTRIES = 100;            // EPOCH CONTAINER SIZE.
+    public static final int MAX_EPOCH_CONTAINER_ENTRIES = 1000;            // EPOCH CONTAINER SIZE.
 
 
     // Missing.
@@ -92,5 +92,12 @@ public class MsConfig {
     public static final int T_GRADIENT_OVERLAY_ID = 3;
 
     public static final String SIMULATION_FILE_LOC = "/home/babbar/Documents/Experiments/Result/sweepSimResult.txt";
+    public static final String AVG_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/avgLagJSONDump.txt";
+    public static final String PER_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/perLagJSONDump.txt";
+
+    public static final String SIMULATION_DIRECTORY = "/home/babbar/Documents/Experiments/Result";
+    public static final String SIMULATION_FILENAME = "dataDump";
+
     public static final int SIM_SERIALIZER_START = 0;
+    public static final int MAX_WINDOWS_PER_FILE = 50;
 }

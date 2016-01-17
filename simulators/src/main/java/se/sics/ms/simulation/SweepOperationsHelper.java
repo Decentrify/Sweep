@@ -42,14 +42,6 @@ public class SweepOperationsHelper {
     private final static ConsistentHashtable<Long> ringNodes;
     private static Map<Integer, TreeSet<Integer>> partitionNodeMap;
     private static Map<Integer, TreeSet<Integer>> partitionNodeMapCopy;
-    private final static CroupierConfig croupierConfiguration;
-    private final static SearchConfiguration searchConfiguration;
-    private final static GradientConfiguration gradientConfiguration;
-    private final static ChunkManagerConfig chunkManagerConfiguration;
-    private final static GradientConfig gradientConfig;
-    private final static ElectionConfig electionConfig;
-    private static SystemConfig systemConfig;
-    private final static TreeGradientConfig treeGradientConfig;
 
     private static Config config;
     private static DecoratedAddress caracalClientAddress;
@@ -69,24 +61,15 @@ public class SweepOperationsHelper {
         ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
         DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
 
-
         reservedIdList = new ArrayList<Long>();
         reservedIdList.add((long) 0);
 
         config = ConfigFactory.load("application.conf");
-
         identifierSpaceSize = new Long(3000);
         peersAddressMap = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
-
         partitionNodeMap = new HashMap<Integer, TreeSet<Integer>>();
-        croupierConfiguration = new CroupierConfig(config);
-        searchConfiguration = SearchConfiguration.build();
-        gradientConfiguration = GradientConfiguration.build();
-        chunkManagerConfiguration = new ChunkManagerConfig(config);
-        gradientConfig = new GradientConfig(config);
-        electionConfig = new ElectionConfig(config);
-        treeGradientConfig = new TreeGradientConfig(config);
+
         try {
             ip = InetAddress.getLocalHost();
             port = 9999;
@@ -413,7 +396,7 @@ public class SweepOperationsHelper {
      */
     public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
 
-        logger.warn("Creating Node: - > {}", id);
+        logger.debug("Creating Node: - > {}", id);
 
         DecoratedAddress selfAddress = DecoratedAddress.open(ip, port, (int)id);
         storePeerAddress(selfAddress);

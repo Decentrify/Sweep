@@ -3,6 +3,7 @@ package se.sics.ms.helper;
 import se.sics.ktoolbox.aggregator.util.PacketInfo;
 import se.sics.ktoolbox.aggregator.util.Processor;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,7 @@ import java.util.Map;
  * This is a special kind of processor which runs on window by window basis.
  * Created by babbar on 2015-09-18.
  */
-public interface FinalStateProcessor<PI extends PacketInfo, PI_O extends FinalStateInfo> extends Processor {
+public interface FinalStateProcessor<PI extends PacketInfo, PI_O extends FinalStateInfo> extends Processor, Serializable {
 
 
     /**

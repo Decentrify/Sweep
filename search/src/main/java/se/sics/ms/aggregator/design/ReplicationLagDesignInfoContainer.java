@@ -1,4 +1,4 @@
-package se.sics.ms.helper;
+package se.sics.ms.aggregator.design;
 
 import se.sics.ktoolbox.aggregator.server.util.DesignInfoContainer;
 

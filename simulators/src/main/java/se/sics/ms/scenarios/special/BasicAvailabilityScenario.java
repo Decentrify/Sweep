@@ -1,5 +1,8 @@
 package se.sics.ms.scenarios.special;
 
+import se.sics.ms.helper.EntryFinalState;
+import se.sics.ms.helper.EntryFinalStateProcessor;
+import se.sics.ms.main.TerminateConditionWrapper;
 import se.sics.ms.simulation.SweepOperations;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 
@@ -21,6 +24,23 @@ public class BasicAvailabilityScenario {
         SimulationScenario scenario = new SimulationScenario() {
 
             {
+
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        TerminateConditionWrapper wrapper = new TerminateConditionWrapper(new EntryFinalState(401), 200, new EntryFinalStateProcessor());
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.getAggregatorComponent(wrapper));
+                    }
+                };
+
+
+                StochasticProcess startCaracalClient = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startCaracalClient, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
 
                 StochasticProcess changeNetworkModel = new StochasticProcess() {
                     {
@@ -56,19 +76,17 @@ public class BasicAvailabilityScenario {
 
                 StochasticProcess churnEntryAddition = new StochasticProcess() {
                     {
+                        System.out.println("Starting the main churn entry addition scenario");
                         eventInterArrivalTime(constant(1000 / entryChangePerSec));
                         raise( time* entryChangePerSec , SweepOperations.addIndexEntryCommand, constant(Integer.MIN_VALUE));
                     }
                 };
 
-                changeNetworkModel.start();
-                specialPeerJoin.startAfterTerminationOf(10000, changeNetworkModel);
+                startAggregatorNode.start();
+                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
+                specialPeerJoin.startAfterTerminationOf(10000, startCaracalClient);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(50000, initialPeerJoin);
-
-                // Churn Scenario Commands.
-//                churnPeerJoin.startAfterTerminationOf(150000, addIndexEntryCommand);
-//                churnPeerKillProcess.startAtSameTimeWith(churnPeerJoin);
                 churnEntryAddition.startAfterTerminationOf(50*1000, addIndexEntryCommand);
 
             }

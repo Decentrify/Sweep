@@ -29,7 +29,6 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
     private int systemSize;
 
     Positive<ExperimentPort> experimentPort = requires(ExperimentPort.class);
-
     Positive<GlobalAggregatorPort> globalAggregatorPort = requires(GlobalAggregatorPort.class);
 
 
@@ -74,8 +73,7 @@ public class SimulationTermination <FS extends FinalStateInfo> extends Component
             if(!(finalStateObjects.size() < systemSize)){
 
                 boolean result = true;
-                logger.warn("{}", finalStateObjects);
-
+                logger.debug("{}", finalStateObjects);
                 for(FS state : finalStateObjects){
 
                     result = (state.equals(finalStateInfo));

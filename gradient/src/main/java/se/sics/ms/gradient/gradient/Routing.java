@@ -50,7 +50,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
  */
 public final class Routing extends ComponentDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger(Routing.class);
+    private static final Logger logger = LoggerFactory.getLogger("Routing");
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 

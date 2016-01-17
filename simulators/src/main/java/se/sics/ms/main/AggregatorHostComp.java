@@ -5,11 +5,13 @@ import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.Timer;
+import se.sics.ktoolbox.aggregator.AggregatorSerializerSetup;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregator;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorInit;
 import se.sics.ktoolbox.aggregator.server.GlobalAggregatorPort;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.helper.*;
+import se.sics.ms.net.SweepSerializerSetup;
 import se.sics.p2ptoolbox.simulator.ExperimentPort;
 import se.sics.p2ptoolbox.simulator.dsl.events.TerminateExperiment;
 
@@ -27,6 +29,9 @@ public class AggregatorHostComp extends ComponentDefinition{
 
     private long timeout;
     private String fileLocation;
+    private int maxNodes;
+    private FinalStateInfo finalState;
+    private FinalStateProcessor stateProcessor;
 
     public AggregatorHostComp(AggregatorHostCompInit init){
 
@@ -42,7 +47,13 @@ public class AggregatorHostComp extends ComponentDefinition{
 
         this.timeout = init.timeout;
         this.fileLocation = init.fileLocation;
-        SimulationSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+        this.maxNodes = init.conditionWrapper.numNodes;
+        this.finalState = init.conditionWrapper.finalState;
+        this.stateProcessor = init.conditionWrapper.stateProcessor;
+
+        int result = SweepSerializerSetup.registerSerializers(MsConfig.SIM_SERIALIZER_START);
+        AggregatorSerializerSetup.registerSerializers(result);
+        DataDump.register(MsConfig.SIMULATION_DIRECTORY, MsConfig.SIMULATION_FILENAME);
     }
 
     /**
@@ -56,8 +67,8 @@ public class AggregatorHostComp extends ComponentDefinition{
             logger.debug("Handling the start event in the system.");
 
             Component globalAggregator = create(GlobalAggregator.class, new GlobalAggregatorInit(timeout));
-            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(fileLocation, new BasicHelper()));
-            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(12, new EntryFinalState(11), new EntryFinalStateProcessor()));
+            Component dataDumpWrite = create(DataDump.Write.class, new DataDumpInit.Write(new BasicHelper(), MsConfig.MAX_WINDOWS_PER_FILE));
+            Component stateTermination = create(SimulationTermination.class, new SimulationTermination.SimulationTerminationInit(maxNodes, finalState, stateProcessor));
 
             connect(dataDumpWrite.getNegative(GlobalAggregatorPort.class), globalAggregator.getPositive(GlobalAggregatorPort.class));
             connect(dataDumpWrite.getNegative(ExperimentPort.class), experimentPort);

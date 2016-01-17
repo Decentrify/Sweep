@@ -38,6 +38,7 @@ public class AggregatedInfoSimSerializer implements SimulationSerializer{
 
         int result = 0;
 
+        result += 8;    // For the timestamp.
         result += 4;    // For writing the size of the packet map.
         for(Map.Entry<Integer, List<PacketInfo>> entry : nodePacketMap.entrySet()){
 
@@ -62,6 +63,7 @@ public class AggregatedInfoSimSerializer implements SimulationSerializer{
         AggregatedInfo aggregatedInfo = (AggregatedInfo)o;
         Map<Integer, List<PacketInfo>> nodePacketMap = aggregatedInfo.getNodePacketMap();
 
+        buffer.putLong(aggregatedInfo.getTime());
         buffer.putInt(nodePacketMap.size());
         for(Map.Entry<Integer, List<PacketInfo>> entry : nodePacketMap.entrySet()){
 
@@ -80,6 +82,7 @@ public class AggregatedInfoSimSerializer implements SimulationSerializer{
 
         Map<Integer, List<PacketInfo>> result = new HashMap<Integer, List<PacketInfo>>();
 
+        long time = buffer.getLong();
         int mapSize = buffer.getInt();
         while(mapSize > 0){
 
@@ -97,7 +100,7 @@ public class AggregatedInfoSimSerializer implements SimulationSerializer{
             result.put(key, packets);
             mapSize --;
         }
-        return new AggregatedInfo(result);
+        return new AggregatedInfo(time, result);
     }
 
     @Override

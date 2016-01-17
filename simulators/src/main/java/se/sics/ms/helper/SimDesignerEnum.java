@@ -1,6 +1,8 @@
 package se.sics.ms.helper;
 
 import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
+import se.sics.ms.aggregator.processor.PercentileLagDesignProcessor;
+import se.sics.ms.aggregator.processor.ReplicationLagDesignProcessor;
 
 /**
  * Designer Enum used by the visualizer component
@@ -10,7 +12,8 @@ import se.sics.ktoolbox.aggregator.server.util.DesignProcessor;
  */
 public enum SimDesignerEnum {
 
-    ReplicationLagDesigner("replicationLag", new ReplicationLagDesignProcessor());
+    ReplicationLagDesigner("replicationLag", new ReplicationLagDesignProcessor()),
+    PercentileLagDesigner("percentileLag", new PercentileLagDesignProcessor());
 
     private String name;
     private DesignProcessor processor;
