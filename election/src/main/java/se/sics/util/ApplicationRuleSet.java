@@ -5,14 +5,14 @@ package se.sics.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.election.api.LEContainer;
-import se.sics.p2ptoolbox.election.api.rules.CohortsRuleSet;
-import se.sics.p2ptoolbox.election.api.rules.LCRuleSet;
-import se.sics.p2ptoolbox.util.nat.NatedTrait;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.*;
+import se.sics.ktoolbox.election.rules.CohortsRuleSet;
+import se.sics.ktoolbox.election.rules.LCRuleSet;
+import se.sics.ktoolbox.election.util.LCPeerView;
+import se.sics.ktoolbox.election.util.LEContainer;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.nat.NatType;
 
 /**
  * Leader election rule set for the application.
@@ -37,14 +37,14 @@ public class ApplicationRuleSet {
         }
 
         @Override
-        public Collection<DecoratedAddress> initiateLeadership(LEContainer selfContainer, Collection<LEContainer> view, int cohortsSize) {
+        public List<KAddress> initiateLeadership(LEContainer selfContainer, Collection<LEContainer> view, int cohortsSize) {
 
             List<LEContainer> intermediate = new ArrayList<LEContainer>();
-            DecoratedAddress selfAddress = selfContainer.getSource();
+            KAddress selfAddress = selfContainer.getSource();
 
 //      Stage 1: Check if node self is Nated.
-            if (isNated(selfAddress)) {
-                return new ArrayList<DecoratedAddress>();
+            if (NatType.isNated(selfAddress)) {
+                return new ArrayList<KAddress>();
             }
 
 //      Stage 2 : Check if I am the Best node based on utility comparison
@@ -54,14 +54,14 @@ public class ApplicationRuleSet {
             list = reverseSortList(leComparator, list);
 
             if (list.size() > 0 && leComparator.compare(selfContainer, list.get(0)) < 0)
-                return new ArrayList<DecoratedAddress>();
+                return new ArrayList<KAddress>();
 
 
 //          Stage 3: Create list of nodes for the leader group which are not behind nat.
             for (LEContainer container : list) {
 
-                DecoratedAddress address = container.getSource();
-                if (isNated(address))
+                KAddress address = container.getSource();
+                if (NatType.isNated(address))
                     continue;
 
                 intermediate.add(container);
@@ -76,7 +76,7 @@ public class ApplicationRuleSet {
 
 
         @Override
-        public Collection<DecoratedAddress> continueLeadership(LEContainer selfContainer, Collection<LEContainer> collection, int cohortsSize) {
+        public List<KAddress> continueLeadership(LEContainer selfContainer, Collection<LEContainer> collection, int cohortsSize) {
 
 //          IMPORTANT: Create shallow copies of the object to prevent messing with the original objects.
             selfContainer = disableContainer(selfContainer);
@@ -106,20 +106,6 @@ public class ApplicationRuleSet {
 
 
 //      --------------------------------------------------------------------------------------------------------
-
-
-        /**
-         * Convenience method to check if the address is
-         * behind the nat.
-         *
-         * @param address
-         * @return true if nated.
-         */
-        private boolean isNated(DecoratedAddress address) {
-            return !(NatedTrait.isOpen(address));
-        }
-
-
         /**
          * Sort the cohorts and extract the best to be a part of leader group.
          *
@@ -127,7 +113,7 @@ public class ApplicationRuleSet {
          * @param size
          * @return
          */
-        private Collection<DecoratedAddress> getTopNResults(List<LEContainer> cohorts, int size) {
+        private List<KAddress> getTopNResults(List<LEContainer> cohorts, int size) {
 
             if (cohorts.size() < size)
                 return getResult(cohorts);
@@ -143,9 +129,9 @@ public class ApplicationRuleSet {
          * @param cohorts
          * @return
          */
-        private Collection<DecoratedAddress> getResult(Collection<LEContainer> cohorts) {
+        private List<KAddress> getResult(Collection<LEContainer> cohorts) {
 
-            Collection<DecoratedAddress> result = new ArrayList<DecoratedAddress>();
+            List<KAddress> result = new ArrayList<KAddress>();
             for (LEContainer container : cohorts) {
                 result.add(container.getSource());
             }
@@ -227,7 +213,6 @@ public class ApplicationRuleSet {
         }
     }
 
-
     /**
      * Reverse sort the container list.
      *
@@ -248,7 +233,4 @@ public class ApplicationRuleSet {
 
         return list;
     }
-
-
-
 }

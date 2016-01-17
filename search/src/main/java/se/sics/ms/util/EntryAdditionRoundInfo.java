@@ -4,10 +4,10 @@ import se.sics.ms.data.EntryAddPrepare;
 import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.IndexEntry;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Simple POJO containing the information for a entry addition round.
@@ -16,16 +16,16 @@ import java.util.UUID;
  */
 public class EntryAdditionRoundInfo {
     
-    private Collection<DecoratedAddress> leaderGroupAddress;
+    private List<KAddress> leaderGroupAddress;
     private int promiseResponses;
     private IndexEntry entryToAdd;
-    private DecoratedAddress entryAddSourceNode;
+    private KAddress entryAddSourceNode;
     private UUID entryAdditionRoundId;
     private ApplicationEntry applicationEntry;
     private LeaderUnit previousEpochUpdate;
     
-    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress> leaderGroupAddress, IndexEntry entry, DecoratedAddress entryAddSourceNode){
-
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, List<KAddress> leaderGroupAddress, IndexEntry entry, 
+            KAddress entryAddSourceNode){
         this.entryAdditionRoundId = entryAdditionRoundId;
         this.leaderGroupAddress = leaderGroupAddress;
         this.promiseResponses = 0;
@@ -33,7 +33,8 @@ public class EntryAdditionRoundInfo {
         this.entryAddSourceNode = entryAddSourceNode;
     }
 
-    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, Collection<DecoratedAddress>leaderGroupAddress, ApplicationEntry applicationEntry, DecoratedAddress entryAddSourceNode, LeaderUnit previousEpochUpdate){
+    public EntryAdditionRoundInfo(UUID entryAdditionRoundId, List<KAddress>leaderGroupAddress, 
+            ApplicationEntry applicationEntry, KAddress entryAddSourceNode, LeaderUnit previousEpochUpdate){
         
         this.entryAdditionRoundId = entryAdditionRoundId;
         this.leaderGroupAddress = leaderGroupAddress;
@@ -89,7 +90,7 @@ public class EntryAdditionRoundInfo {
     }
 
 
-    public Collection<DecoratedAddress> getLeaderGroupAddress() {
+    public List<KAddress> getLeaderGroupAddress() {
         return leaderGroupAddress;
     }
 
@@ -101,7 +102,7 @@ public class EntryAdditionRoundInfo {
         return this.applicationEntry;
     }
 
-    public DecoratedAddress getEntryAddSourceNode() {
+    public KAddress getEntryAddSourceNode() {
         return entryAddSourceNode;
     }
     

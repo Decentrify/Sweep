@@ -4,9 +4,9 @@ import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
+import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Serializer for the descriptor used by the application.
@@ -30,7 +30,7 @@ public class PeerDescriptorSerializer implements Serializer{
     public void toBinary(Object o, ByteBuf byteBuf) {
 
         PeerDescriptor sd = (PeerDescriptor)o;
-        Serializers.lookupSerializer(DecoratedAddress.class).toBinary(sd.getVodAddress(), byteBuf);
+        Serializers.toBinary(sd.getVodAddress(), byteBuf);
         byteBuf.writeInt(sd.getOverlayId().getId());
         byteBuf.writeLong(sd.getNumberOfIndexEntries());
         byteBuf.writeBoolean(sd.isLeaderGroupMember());
@@ -40,7 +40,7 @@ public class PeerDescriptorSerializer implements Serializer{
     @Override
     public Object fromBinary(ByteBuf byteBuf, Optional<Object> optional) {
 
-        DecoratedAddress decoratedAddress = (DecoratedAddress)Serializers.lookupSerializer(DecoratedAddress.class).fromBinary(byteBuf, optional);
+        KAddress decoratedAddress = (KAddress)Serializers.fromBinary(byteBuf, optional);
         int overlayId = byteBuf.readInt();
         long numberOfIndexEntries = byteBuf.readLong();
         boolean isLGMember = byteBuf.readBoolean();

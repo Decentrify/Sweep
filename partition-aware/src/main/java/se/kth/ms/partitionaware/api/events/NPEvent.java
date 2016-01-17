@@ -1,9 +1,9 @@
 package se.kth.ms.partitionaware.api.events;
 
 import se.sics.kompics.KompicsEvent;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Event depicting the case of possible network partition
@@ -13,9 +13,9 @@ import java.util.Collection;
  */
 public class NPEvent implements KompicsEvent{
 
-    public final Collection<DecoratedAddress> npNodes;
+    public final Collection<KAddress> npNodes;
 
-    public NPEvent(Collection<DecoratedAddress> nodes){
+    public NPEvent(Collection<KAddress> nodes){
         this.npNodes = nodes;
     }
 

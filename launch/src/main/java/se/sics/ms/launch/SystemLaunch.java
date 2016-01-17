@@ -15,15 +15,11 @@ import se.sics.kompics.timer.java.JavaTimer;
 import se.sics.ms.search.SearchPeer;
 import se.sics.ms.search.SearchPeerInit;
 import se.sics.ms.serializer.SerializerHelper;
-import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
-import se.sics.p2ptoolbox.croupier.CroupierConfig;
-import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.gradient.GradientConfig;
-import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
-import se.sics.p2ptoolbox.util.config.SystemConfig;
-import se.sics.p2ptoolbox.util.helper.SystemConfigBuilder;
 
 import java.io.IOException;
+import se.sics.ktoolbox.chunkmanager.ChunkManagerConfig;
+import se.sics.ktoolbox.election.ElectionConfig;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  *
@@ -31,7 +27,7 @@ import java.io.IOException;
  *
  * Created by babbar on 2015-04-17.
  */
-public class SystemLaunch extends ComponentDefinition{
+public class SystemLaunch extends ComponentDefinition {
 
     Component network;
     Component timer;
@@ -40,35 +36,30 @@ public class SystemLaunch extends ComponentDefinition{
 
     private Logger logger = LoggerFactory.getLogger(SystemLaunch.class);
 
-    public SystemLaunch(){
+    public SystemLaunch() {
 
         doInit();
 
-        SystemConfigBuilder builder = new SystemConfigBuilder(config);
-        SystemConfig systemConfig = builder.build();
-        GradientConfig gradientConfig  = new GradientConfig(config);
-        CroupierConfig croupierConfig = new CroupierConfig(config);
         ElectionConfig electionConfig = new ElectionConfig(config);
         ChunkManagerConfig chunkManagerConfig = new ChunkManagerConfig(config);
-        TreeGradientConfig treeGradientConfig = new TreeGradientConfig(config);
-        
+
         logger.debug(" Loaded the configurations ... ");
 
         timer = create(JavaTimer.class, Init.NONE);
-        network = create(NettyNetwork.class, new NettyInit(systemConfig.self));
-        searchPeer = create(SearchPeer.class, new SearchPeerInit(systemConfig, croupierConfig,
-                SearchConfiguration.build(), GradientConfiguration.build(),
-                chunkManagerConfig, gradientConfig, electionConfig, treeGradientConfig ));
+        //TODO Alex fix
+        KAddress self = null;
+        network = create(NettyNetwork.class, new NettyInit(self));
+        searchPeer = create(SearchPeer.class, new SearchPeerInit(self, SearchConfiguration.build(),
+                electionConfig, GradientConfiguration.build()));
 
-        connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class));
-        connect(network.getPositive(Network.class), searchPeer.getNegative(Network.class));
+        connect(timer.getPositive(Timer.class), searchPeer.getNegative(Timer.class), Channel.TWO_WAY);
+        connect(network.getPositive(Network.class), searchPeer.getNegative(Network.class), Channel.TWO_WAY);
 
         logger.debug("All components booted up ...");
-        
+
         subscribe(startHandler, control);
         subscribe(stopHandler, control);
     }
-
 
     /**
      * Perform the main initialization tasks.
@@ -85,7 +76,6 @@ public class SystemLaunch extends ComponentDefinition{
         SerializerHelper.registerSerializers(startId);
     }
 
-
     Handler<Start> startHandler = new Handler<Start>() {
         @Override
         public void handle(Start start) {
@@ -93,17 +83,12 @@ public class SystemLaunch extends ComponentDefinition{
         }
     };
 
-
     Handler<Stop> stopHandler = new Handler<Stop>() {
         @Override
         public void handle(Stop stop) {
             logger.trace("Stopping Component.");
         }
     };
-
-
-
-
 
     public static void main(String[] args) throws IOException {
 
@@ -114,7 +99,5 @@ public class SystemLaunch extends ComponentDefinition{
         System.setProperty("java.net.preferIPv4Stack", "true");
         Kompics.createAndStart(SystemLaunch.class, numWorkers);
     }
-
-
 
 }

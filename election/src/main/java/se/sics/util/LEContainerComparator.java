@@ -2,11 +2,11 @@
 
 package se.sics.util;
 
-import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.election.api.LEContainer;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Comparator;
+import se.sics.ktoolbox.election.util.LCPeerView;
+import se.sics.ktoolbox.election.util.LEContainer;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Comparator for the LEContainer.
@@ -16,9 +16,9 @@ import java.util.Comparator;
 public class LEContainerComparator implements Comparator<LEContainer>{
 
     private Comparator<LCPeerView> lcPeerViewComparator;
-    private Comparator<DecoratedAddress> addressComparator;
+    private Comparator<KAddress> addressComparator;
 
-    public LEContainerComparator(Comparator<LCPeerView> lcPeerViewComparator, Comparator<DecoratedAddress> addressComparator){
+    public LEContainerComparator(Comparator<LCPeerView> lcPeerViewComparator, Comparator<KAddress> addressComparator){
         this.lcPeerViewComparator = lcPeerViewComparator;
         this.addressComparator = addressComparator;
     }

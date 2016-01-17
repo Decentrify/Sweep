@@ -1,11 +1,11 @@
 package se.sics.ms.gradient.gradient;
 
+import se.sics.ktoolbox.gradient.GradientFilter;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.ms.util.PartitioningType;
-import se.sics.p2ptoolbox.gradient.GradientFilter;
 
 /**
  * Application's Gradient Filter.

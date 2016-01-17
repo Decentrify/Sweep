@@ -26,21 +26,22 @@ import se.sics.ms.types.OverlayId;
 import java.security.PublicKey;
 import java.util.*;
 import java.util.UUID;
+import se.sics.ktoolbox.croupier.CroupierPort;
+import se.sics.ktoolbox.croupier.event.CroupierSample;
+import se.sics.ktoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.ktoolbox.election.event.LeaderState;
+import se.sics.ktoolbox.election.event.LeaderUpdate;
+import se.sics.ktoolbox.gradient.GradientPort;
+import se.sics.ktoolbox.gradient.event.GradientSample;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.KContentMsg;
+import se.sics.ktoolbox.util.network.KHeader;
+import se.sics.ktoolbox.util.network.basic.BasicHeader;
+import se.sics.ktoolbox.util.other.Container;
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
-import se.sics.p2ptoolbox.croupier.CroupierPort;
-import se.sics.p2ptoolbox.croupier.msg.CroupierSample;
-import se.sics.p2ptoolbox.election.api.msg.LeaderState;
-import se.sics.p2ptoolbox.election.api.msg.LeaderUpdate;
-import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
-import se.sics.p2ptoolbox.gradient.GradientPort;
-import se.sics.p2ptoolbox.gradient.msg.GradientSample;
-import se.sics.p2ptoolbox.util.Container;
-import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-
 
 /**
  * The component is responsible for routing the requests and creating 
@@ -69,7 +70,7 @@ public final class Routing extends ComponentDefinition {
     private Random random;
 
     private boolean leader;
-    private DecoratedAddress leaderAddress;
+    private KAddress leaderAddress;
     private PublicKey leaderPublicKey;
     String compName;
 
@@ -78,11 +79,11 @@ public final class Routing extends ComponentDefinition {
 
     private IndexEntry indexEntryToAdd;
     private UUID addIndexEntryRequestTimeoutId;
-    final private HashSet<PeerDescriptor> queriedNodes = new HashSet<PeerDescriptor>();
+    final private HashSet<PeerDescriptor> queriedNodes = new HashSet<>();
 
-    final private HashMap<UUID, PeerDescriptor> openRequests = new HashMap<UUID, PeerDescriptor>();
-    final private HashMap<Integer, Pair<DecoratedAddress, Integer>> locatedLeaders = new HashMap<Integer, Pair<DecoratedAddress, Integer>>();
-    private List<Integer> leadersAlreadyComunicated = new ArrayList<Integer>();
+    final private HashMap<UUID, PeerDescriptor> openRequests = new HashMap<>();
+    final private HashMap<Identifier, Pair<KAddress, Integer>> locatedLeaders = new HashMap<>();
+    private List<Identifier> leadersAlreadyComunicated = new ArrayList<>();
 
 
     // Routing Table Update Information.
@@ -201,7 +202,7 @@ public final class Routing extends ComponentDefinition {
                 if (leader) {
                     
                     logger.debug ("Triggering entry addition request to self.");
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
+                    KHeader<KAddress> header = new BasicHeader<KAddress>(self.getAddress(), self.getAddress(), Transport.UDP);
                     AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry());
                     
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
@@ -211,7 +212,7 @@ public final class Routing extends ComponentDefinition {
                 else if (leaderAddress != null) {
                     
                     logger.debug ("Triggering the entry request to leader: {}", leaderAddress);
-                    DecoratedHeader<DecoratedAddress> header = new DecoratedHeader<DecoratedAddress>(self.getAddress(), leaderAddress, Transport.UDP);
+                    KHeader<KAddress> header = new BasicHeader<KAddress>(self.getAddress(), leaderAddress, Transport.UDP);
                     AddIndexEntry.Request request = new AddIndexEntry.Request(event.getTimeoutId(), event.getEntry());
 
                     trigger(CommonHelper.getDecoratedContentMsg(header, request), networkPort);
@@ -233,7 +234,7 @@ public final class Routing extends ComponentDefinition {
             }
             // In case the request is to add entry for a different category.
             else {
-                Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
+                Map<Integer, Pair<Integer, HashMap<Identifier, RoutingTableContainer>>> partitions = routingTableHandler.getCategoryRoutingMap(addCategory);
                 
                 if (partitions == null || partitions.isEmpty()) {
                     logger.info("{} handleAddIndexEntryRequest: no partition for category {} ", self.getAddress(), addCategory);
@@ -301,11 +302,11 @@ public final class Routing extends ComponentDefinition {
      * above in the gradient.
      * 
      */
-    ClassMatchedHandler<LeaderLookup.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request>> handleLeaderLookupRequest = new ClassMatchedHandler<LeaderLookup.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request>>() {
+    ClassMatchedHandler handleLeaderLookupRequest = new ClassMatchedHandler<LeaderLookup.Request, KContentMsg<KAddress, KHeader<KAddress>, LeaderLookup.Request>>() {
         @Override
-        public void handle(LeaderLookup.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Request> event) {
+        public void handle(LeaderLookup.Request request, KContentMsg<KAddress, KHeader<KAddress>, LeaderLookup.Request> event) {
             
-            logger.debug("{}: Received leader lookup request from : {}", self.getId(), event.getSource().getId());
+            logger.debug("{}: Received leader lookup request from : {}", self.getId(), event.getHeader().getSource().getId());
             
             TreeSet<PeerDescriptor> higherNodes = new TreeSet<PeerDescriptor>(getHigherUtilityNodes());
             ArrayList<PeerDescriptor> searchDescriptors = new ArrayList<PeerDescriptor>();
@@ -325,7 +326,7 @@ public final class Routing extends ComponentDefinition {
             }
             
             LeaderLookup.Response response = new LeaderLookup.Response(request.getLeaderLookupRound(), leader, searchDescriptors);
-            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
+            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getHeader().getSource(), Transport.UDP, response), networkPort);
         }
     };
 
@@ -336,10 +337,10 @@ public final class Routing extends ComponentDefinition {
      * If initial criteria gets satisfied and the quorum is reached, then send request to the leader for the entry.
      *
      */
-    ClassMatchedHandler<LeaderLookup.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Response>> handleLeaderLookupResponse = new ClassMatchedHandler<LeaderLookup.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Response>>() {
+    ClassMatchedHandler handleLeaderLookupResponse = new ClassMatchedHandler<LeaderLookup.Response, KContentMsg<KAddress, KHeader<KAddress>, LeaderLookup.Response>>() {
         @Override
-        public void handle(LeaderLookup.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderLookup.Response> event) {
-            logger.debug("{}: Received leader lookup response from the node: {} ", self.getId(), event.getSource());
+        public void handle(LeaderLookup.Response response, KContentMsg<KAddress, KHeader<KAddress>, LeaderLookup.Response> event) {
+            logger.debug("{}: Received leader lookup response from the node: {} ", self.getId(), event.getHeader().getSource());
             
             if(!openRequests.containsKey(response.getLeaderLookupRound())) {
                 logger.warn("Look up request timed out.");
@@ -352,14 +353,14 @@ public final class Routing extends ComponentDefinition {
             
             if(response.isLeader()) {
                 
-                DecoratedAddress source = event.getSource();
+                KAddress source = event.getHeader().getSource();
                 Integer numberOfAnswers;
                 if (locatedLeaders.containsKey(source.getId())) {
-                    numberOfAnswers = locatedLeaders.get(event.getSource().getId()).getValue1() + 1;
+                    numberOfAnswers = locatedLeaders.get(event.getHeader().getSource().getId()).getValue1() + 1;
                 } else {
                     numberOfAnswers = 1;
                 }
-                locatedLeaders.put(event.getSource().getBase().getId(), Pair.with(event.getSource(),numberOfAnswers));
+                locatedLeaders.put(event.getHeader().getSource().getId(), Pair.with(event.getHeader().getSource(), numberOfAnswers));
             }
 
             else {
@@ -391,7 +392,7 @@ public final class Routing extends ComponentDefinition {
             }
 
             // Check it a quorum was reached
-            for (Integer locatedLeader : locatedLeaders.keySet()) {
+            for (Identifier locatedLeader : locatedLeaders.keySet()) {
                 
                 if (locatedLeaders.get(locatedLeader).getValue1() > LeaderLookup.QueryLimit / 2) {
                     if (!leadersAlreadyComunicated.contains(locatedLeader)) {
@@ -464,7 +465,7 @@ public final class Routing extends ComponentDefinition {
         public void handle(GradientRoutingPort.SearchRequest event) {
 
             MsConfig.Categories category = event.getPattern().getCategory();
-            Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
+            Map<Integer, Pair<Integer, HashMap<Identifier, RoutingTableContainer>>> categoryRoutingMap = routingTableHandler.getCategoryRoutingMap(category);
 
             int parallelism = event.getFanoutParameter() != null ? event.getFanoutParameter() : config.getSearchParallelism();
             logger.warn("Updated the fanout parameter to: {}", parallelism);
@@ -551,7 +552,7 @@ public final class Routing extends ComponentDefinition {
             Iterator<PeerDescriptor> iterator = preferredNodes.iterator();
             
             for (int i = 0; i < event.getControlMessageExchangeNumber() && iterator.hasNext(); i++) {
-                DecoratedAddress destination = iterator.next().getVodAddress();
+                KAddress destination = iterator.next().getVodAddress();
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
             }
         }
@@ -589,8 +590,8 @@ public final class Routing extends ComponentDefinition {
                 logger.info("{}: Pseudo Gradient Received Empty Sample: " + self.getId());
 
             Collection<Container> rawCroupierSample = new ArrayList<Container>();
-            rawCroupierSample.addAll(event.publicSample);
-            rawCroupierSample.addAll(event.privateSample);
+            rawCroupierSample.addAll(event.publicSample.values());
+            rawCroupierSample.addAll(event.privateSample.values());
 
             routingTableHandler.addEntriesToRoutingTable(rawCroupierSample);
             routingTableHandler.incrementRoutingTableDescriptorAges();
@@ -672,13 +673,13 @@ public final class Routing extends ComponentDefinition {
 
     private void publishRoutingTable() {
 
-        for (Map<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> categoryMap : routingTableHandler.values()) {
+        for (Map<Integer, Pair<Integer, HashMap<Identifier, RoutingTableContainer>>> categoryMap : routingTableHandler.values()) {
 
-            for (Map.Entry<Integer, Pair<Integer, HashMap<Integer, RoutingTableContainer>>> bucket : categoryMap.entrySet()) {
+            for (Map.Entry<Integer, Pair<Integer, HashMap<Identifier, RoutingTableContainer>>> bucket : categoryMap.entrySet()) {
 
-                Pair<Integer, HashMap<Integer, RoutingTableContainer>> depthBucket = bucket.getValue();
+                Pair<Integer, HashMap<Identifier, RoutingTableContainer>> depthBucket = bucket.getValue();
 
-                for (Integer identifier : depthBucket.getValue1().keySet()) {
+                for (Identifier identifier : depthBucket.getValue1().keySet()) {
                     logger.debug(" Updated RoutingTable: PartitionId: {} PartitionDepth: {}  NodeId: {}", new Object[]{bucket.getKey(), depthBucket.getValue0(), identifier});
                 }
             }

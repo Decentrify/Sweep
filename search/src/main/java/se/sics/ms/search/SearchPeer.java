@@ -8,15 +8,7 @@ import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.Timer;
-import se.sics.ktoolbox.aggregator.client.LocalAggregator;
-import se.sics.ktoolbox.aggregator.client.LocalAggregatorInit;
-import se.sics.ktoolbox.aggregator.client.LocalAggregatorPort;
-import se.sics.ktoolbox.aggregator.client.util.ComponentInfoProcessor;
 import se.sics.ktoolbox.cc.heartbeat.CCHeartbeatPort;
-import se.sics.ktoolbox.cc.heartbeat.msg.CCHeartbeat;
-import se.sics.ktoolbox.cc.heartbeat.msg.CCOverlaySample;
-import se.sics.ms.aggregator.SearchComponentInfo;
-import se.sics.ms.aggregator.processor.CompInternalStateProcessor;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.events.*;
@@ -37,39 +29,37 @@ import se.sics.ms.types.PeerDescriptor;
 
 import java.security.*;
 import java.util.*;
+import se.sics.ktoolbox.cc.heartbeat.event.CCHeartbeat;
+import se.sics.ktoolbox.cc.heartbeat.event.CCOverlaySample;
+import se.sics.ktoolbox.croupier.CroupierComp;
+import se.sics.ktoolbox.croupier.CroupierControlPort;
+import se.sics.ktoolbox.croupier.CroupierPort;
+import se.sics.ktoolbox.croupier.event.CroupierDisconnected;
+import se.sics.ktoolbox.croupier.event.CroupierJoin;
+import se.sics.ktoolbox.election.ElectionConfig;
+import se.sics.ktoolbox.election.ElectionFollower;
+import se.sics.ktoolbox.election.ElectionInit;
+import se.sics.ktoolbox.election.ElectionLeader;
+import se.sics.ktoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.ktoolbox.gradient.GradientComp;
+import se.sics.ktoolbox.gradient.GradientPort;
+import se.sics.ktoolbox.gradient.temp.RankUpdatePort;
+import se.sics.ktoolbox.tgradient.TreeGradientComp;
+import se.sics.ktoolbox.util.address.AddressUpdatePort;
+import se.sics.ktoolbox.util.config.impl.SystemKCWrapper;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.KHeader;
+import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
+import se.sics.ktoolbox.util.selectors.OverlaySelector;
+import se.sics.ktoolbox.util.update.view.OverlayViewUpdate;
+import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.HeartbeatServiceEnum;
 import se.sics.ms.util.TimeoutCollection;
-import se.sics.p2ptoolbox.chunkmanager.ChunkManagerConfig;
-import se.sics.p2ptoolbox.croupier.CroupierComp;
-import se.sics.p2ptoolbox.croupier.CroupierConfig;
-import se.sics.p2ptoolbox.croupier.CroupierControlPort;
-import se.sics.p2ptoolbox.croupier.CroupierPort;
-import se.sics.p2ptoolbox.croupier.msg.CroupierDisconnected;
-import se.sics.p2ptoolbox.croupier.msg.CroupierJoin;
-import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
-import se.sics.p2ptoolbox.election.core.ElectionConfig;
-import se.sics.p2ptoolbox.election.core.ElectionFollower;
-import se.sics.p2ptoolbox.election.core.ElectionInit;
-import se.sics.p2ptoolbox.election.core.ElectionLeader;
-import se.sics.p2ptoolbox.gradient.GradientComp;
-import se.sics.p2ptoolbox.gradient.GradientConfig;
-import se.sics.p2ptoolbox.gradient.GradientPort;
-import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.gradient.temp.RankUpdate;
-import se.sics.p2ptoolbox.gradient.temp.RankUpdatePort;
-import se.sics.p2ptoolbox.tgradient.TreeGradientComp;
-import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
-import se.sics.p2ptoolbox.util.config.SystemConfig;
-
-import se.sics.p2ptoolbox.util.filters.IntegerOverlayFilter;
-import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.p2ptoolbox.util.update.SelfAddressUpdatePort;
-import se.sics.p2ptoolbox.util.update.SelfViewUpdatePort;
 import se.sics.util.*;
 
 public final class SearchPeer extends ComponentDefinition {
@@ -82,7 +72,7 @@ public final class SearchPeer extends ComponentDefinition {
     Negative<UiPort> internalUiPort = negative(UiPort.class);
     Positive<UiPort> externalUiPort = positive(UiPort.class);
     Positive<CCHeartbeatPort> heartbeatPort = requires(CCHeartbeatPort.class);
-    Positive<SelfAddressUpdatePort> selfAddressUpdatePort = requires(SelfAddressUpdatePort.class);
+    Positive<AddressUpdatePort> selfAddressUpdatePort = requires(AddressUpdatePort.class);
 //    Positive<SelfViewUpdatePort> selfViewUpdatePort = requires(SelfViewUpdatePort.class);
 
     private Component croupier;
@@ -92,36 +82,31 @@ public final class SearchPeer extends ComponentDefinition {
     private Component electionLeader, electionFollower;
     private ApplicationSelf self;
     private SearchConfiguration searchConfiguration;
-    private SystemConfig systemConfig;
-    private GradientConfiguration pseudoGradientConfiguration;
-    private ChunkManagerConfig chunkManagerConfig;
+    private final SystemKCWrapper systemConfig;
 
     private PublicKey publicKey;
     private PrivateKey privateKey;
-
 
     public SearchPeer(SearchPeerInit init) throws NoSuchAlgorithmException {
 
         // Generate the Key Pair to be used by the application.
         generateKeys();
 
-        pseudoGradientConfiguration = init.getPseudoGradientConfiguration();
-        searchConfiguration = init.getSearchConfiguration();
-        chunkManagerConfig = init.getChunkManagerConfig();
-        systemConfig = init.getSystemConfig();
-
         //      Build application self here.
-        self = new ApplicationSelf(systemConfig.self);
+        self = new ApplicationSelf(init.self);
+        searchConfiguration = init.searchConfig;
+        systemConfig = new SystemKCWrapper(config());
 
-        routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, pseudoGradientConfiguration));
+        routing = create(Routing.class, new RoutingInit(systemConfig.seed, self, init.gradientConfig));
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
 
         // External Components creating and connection to the local components.
-        connectCroupier(init.getCroupierConfiguration());
-        connectGradient(init.getGradientConfig(), systemConfig.seed);
-        connectTreeGradient(init.getTGradientConfig(), init.getGradientConfig());
-        connectElection(init.getElectionConfig(), systemConfig.seed);
-        connectAggregator(systemConfig);
+        connectCroupier();
+        connectGradient();
+        connectTreeGradient();
+        connectElection(init.electionConfig, systemConfig.seed);
+        //TODO Alex - aggregator
+//        connectAggregator(systemConfig);
 
         // Internal Component Connections.
         doInternalConnections();
@@ -144,25 +129,23 @@ public final class SearchPeer extends ComponentDefinition {
         subscribe(caracalTimeoutHandler, timer);
     }
 
-
     /**
-     * Main method indicating the bootstrapping of multiple services.
-     * At the moment, only croupier service needs to be bootstrapped but in future
-     * many services can be bootstrapped.
+     * Main method indicating the bootstrapping of multiple services. At the
+     * moment, only croupier service needs to be bootstrapped but in future many
+     * services can be bootstrapped.
      *
      */
-    private void initiateServiceBootstrapping(){
+    private void initiateServiceBootstrapping() {
 
         log.info("Going to initiate bootstrapping all the services.");
 
 //      Before bootstrapping inform caracal through heart beats.
-        byte[] croupierService = getCroupierServiceByteArray();
-        log.debug("Triggering the heart beat to the caracal service with overlay :{}.", croupierService);
+        Identifier croupierServiceId = new IntIdentifier(Ints.fromByteArray(getCroupierServiceByteArray()));
+        log.debug("Triggering the heart beat to the caracal service with overlay :{}.", croupierServiceId);
 
-        trigger(new CCHeartbeat.Start(croupierService), heartbeatPort);
+        trigger(new CCHeartbeat.Start(croupierServiceId), heartbeatPort);
         initiateCroupierServiceBootstrap();
     }
-
 
     Handler<TimeoutCollection.CaracalTimeout> caracalTimeoutHandler = new Handler<TimeoutCollection.CaracalTimeout>() {
         @Override
@@ -176,22 +159,22 @@ public final class SearchPeer extends ComponentDefinition {
     /**
      * Request for the bootstrapping nodes from the caracal.
      */
-    private void initiateCroupierServiceBootstrap(){
+    private void initiateCroupierServiceBootstrap() {
 
         log.debug("Trying to connect to caracal for fetching the bootstrapping nodes.");
 
 //      CONSTRUCT AND SEND THE BYTE ARRAY AND THEN INT.
-        byte[] croupierServiceByteArray = getCroupierServiceByteArray();
-        log.debug("Croupier Service Byte Array: {}", croupierServiceByteArray);
+        Identifier croupierServiceId = new IntIdentifier(Ints.fromByteArray(getCroupierServiceByteArray()));
+        log.debug("Croupier Service Id: {}", croupierServiceId);
 
-        trigger(new CCOverlaySample.Request(croupierServiceByteArray), heartbeatPort);
+        trigger(new CCOverlaySample.Request(croupierServiceId), heartbeatPort);
 
     }
 
     /**
-     * Overlay Sample Response Handler.
-     * FIX ME: Handle the response generically. For now as only
-     * one service needs to be bootstrapped therefore it could be allowed.
+     * Overlay Sample Response Handler. FIX ME: Handle the response generically.
+     * For now as only one service needs to be bootstrapped therefore it could
+     * be allowed.
      *
      */
     Handler<CCOverlaySample.Response> overlaySampleResponseHandler = new Handler<CCOverlaySample.Response>() {
@@ -200,16 +183,16 @@ public final class SearchPeer extends ComponentDefinition {
 
             log.debug("Received overlay sample response for croupier now.");
 
-            byte[] croupierService = getCroupierServiceByteArray();
-            byte[] receivedArray  = response.overlayId;
+            Identifier croupierService = new IntIdentifier(Ints.fromByteArray(getCroupierServiceByteArray()));
+            Identifier receivedArray = response.req.overlayId;
 
-            if(!Arrays.equals(croupierService, receivedArray)){
+            if (!croupierService.equals(receivedArray)) {
                 log.warn("Received caracal service response for an unknown service.");
                 return;
             }
 
 //          Now you actually launch the search peer.
-            List<DecoratedAddress> bootstrapSet = new ArrayList<DecoratedAddress>(response.overlaySample);
+            List<KAddress> bootstrapSet = new ArrayList<KAddress>(response.overlaySample);
             log.debug("{}: The size of bootstrap set : {}", self.getId(), bootstrapSet);
 
 //          Bootstrap the croupier service.
@@ -219,26 +202,25 @@ public final class SearchPeer extends ComponentDefinition {
     };
 
     /**
-     * Get the byte array for the croupier service.
-     * This byte array will be used to bootstrap the croupier
-     * with the sample.
+     * Get the byte array for the croupier service. This byte array will be used
+     * to bootstrap the croupier with the sample.
      *
      * @return byte array.
      */
-    private byte[] getCroupierServiceByteArray(){
+    private byte[] getCroupierServiceByteArray() {
 
         byte[] overlayByteArray = Ints.toByteArray(MsConfig.CROUPIER_OVERLAY_ID);
-        byte[] resultByteArray = new byte[] { HeartbeatServiceEnum.CROUPIER.getServiceId(),
-                overlayByteArray[1],
-                overlayByteArray[2],
-                overlayByteArray[3]};
+        byte[] resultByteArray = new byte[]{HeartbeatServiceEnum.CROUPIER.getServiceId(),
+            overlayByteArray[1],
+            overlayByteArray[2],
+            overlayByteArray[3]};
 
         return resultByteArray;
     }
 
     /**
-     * Main handler to be executed when the croupier disconnected
-     * is received by the application.
+     * Main handler to be executed when the croupier disconnected is received by
+     * the application.
      */
     Handler<CroupierDisconnected> croupierDisconnectedHandler = new Handler<CroupierDisconnected>() {
         @Override
@@ -249,109 +231,106 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-
     /**
-     * Involves any cleaning up to be performed before the
-     * croupier service can be re-bootstrapped
+     * Involves any cleaning up to be performed before the croupier service can
+     * be re-bootstrapped
      */
-    private void retryCroupierServiceBootstrap(){
+    private void retryCroupierServiceBootstrap() {
         log.debug("Going to reconnect the caracal for bootstrapping the croupier.");
         initiateCroupierServiceBootstrap();
     }
 
-
-        // Gradient Port Connections.
-
+    // Gradient Port Connections.
     /**
-     * Perform the internal connections among the components
-     * that are local to the application. In other words, connect the components
+     * Perform the internal connections among the components that are local to
+     * the application. In other words, connect the components
      */
-    private void doInternalConnections(){
-        
+    private void doInternalConnections() {
+
         // Timer Connections.
-        connect(timer, search.getNegative(Timer.class));
-        connect(timer, routing.getNegative(Timer.class));
+        connect(timer, search.getNegative(Timer.class), Channel.TWO_WAY);
+        connect(timer, routing.getNegative(Timer.class), Channel.TWO_WAY);
 
         // Internal Connections.
-        connect(network, search.getNegative(Network.class));
-        connect(network, routing.getNegative(Network.class));
+        connect(network, search.getNegative(Network.class), Channel.TWO_WAY);
+        connect(network, routing.getNegative(Network.class), Channel.TWO_WAY);
 
-        connect(indexPort, search.getNegative(SimulationEventsPort.class));
-        connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class));
-        connect(routing.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class));
-        connect(internalUiPort, search.getPositive(UiPort.class));
-        connect(search.getPositive(SelfChangedPort.class), routing.getNegative(SelfChangedPort.class));
-        
+        connect(indexPort, search.getNegative(SimulationEventsPort.class), Channel.TWO_WAY);
+        connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
+        connect(routing.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class), Channel.TWO_WAY);
+        connect(internalUiPort, search.getPositive(UiPort.class), Channel.TWO_WAY);
+        connect(search.getPositive(SelfChangedPort.class), routing.getNegative(SelfChangedPort.class), Channel.TWO_WAY);
+
     }
-
 
     /**
      * Make the connections to the local aggregator in the system.
+     *
      * @param systemConfig system configuration.
      */
-    private void connectAggregator(SystemConfig systemConfig){
+    private void connectAggregator() {
 
         log.debug("Initiating the connection to the local aggregator component.");
 
-        if(!systemConfig.aggregator.isPresent()){
+        if (!systemConfig.aggregator.isPresent()) {
             log.warn("Unable to bootup local aggregator component as the information about the global aggregator missing.");
             return;
         }
 
-        DecoratedAddress globalAggregatorAddress = systemConfig.aggregator.get();
-        DecoratedAddress selfAddress = systemConfig.self;
+        KAddress globalAggregatorAddress = systemConfig.aggregator.get();
+        KAddress selfAddress = self.getAddress();
 
-        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = getComponentProcessorMap();
-        Component aggregator = create(LocalAggregator.class, new LocalAggregatorInit( MsConfig.AGGREGATOR_TIMEOUT, componentProcessorMap,
-                globalAggregatorAddress, selfAddress ));
-        connect(timer, aggregator.getNegative(Timer.class));
-        connect(network, aggregator.getNegative(Network.class));
-        connect(aggregator.getPositive(LocalAggregatorPort.class), search.getNegative(LocalAggregatorPort.class));
-        connect(aggregator.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
-
+        //TODO Alex - start aggregator
+//        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = getComponentProcessorMap();
+//        Component aggregator = create(LocalAggregator.class, new LocalAggregatorInit( MsConfig.AGGREGATOR_TIMEOUT, componentProcessorMap,
+//                globalAggregatorAddress, selfAddress ));
+//        connect(timer, aggregator.getNegative(Timer.class));
+//        connect(network, aggregator.getNegative(Network.class));
+//        connect(aggregator.getPositive(LocalAggregatorPort.class), search.getNegative(LocalAggregatorPort.class));
+//        connect(aggregator.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
     }
 
-
+//    /**
+//     * Construct the component information processor map,
+//     * which will be used by the aggregator in task to create packets to be sent to
+//     * the global aggregator.
+//     *
+//     * @return ProcessorMap.
+//     */
+//    private Map<Class, List<ComponentInfoProcessor>> getComponentProcessorMap(){
+//
+//        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = new HashMap<Class, List<ComponentInfoProcessor>>();
+//
+//        List<ComponentInfoProcessor> searchCompProcessors = new ArrayList<ComponentInfoProcessor>();
+//        searchCompProcessors.add(new CompInternalStateProcessor());
+//        componentProcessorMap.put(SearchComponentInfo.class, searchCompProcessors);     // Processor list for the search component information.
+//
+//        return componentProcessorMap;
+//    }
+    //TODO Alex - end aggregator
     /**
-     * Construct the component information processor map,
-     * which will be used by the aggregator in task to create packets to be sent to
-     * the global aggregator.
+     * Connect the application with the partition aware gradient. The PAG will
+     * enclose the gradient, so connection to the PAG will be similar to the
+     * gradient.
      *
-     * @return ProcessorMap.
-     */
-    private Map<Class, List<ComponentInfoProcessor>> getComponentProcessorMap(){
-
-        Map<Class, List<ComponentInfoProcessor>> componentProcessorMap = new HashMap<Class, List<ComponentInfoProcessor>>();
-
-        List<ComponentInfoProcessor> searchCompProcessors = new ArrayList<ComponentInfoProcessor>();
-        searchCompProcessors.add(new CompInternalStateProcessor());
-        componentProcessorMap.put(SearchComponentInfo.class, searchCompProcessors);     // Processor list for the search component information.
-
-        return componentProcessorMap;
-    }
-    
-    
-    /**
-     * Connect the application with the partition aware 
-     * gradient. The PAG will enclose the gradient, so connection to the 
-     * PAG will be similar to the gradient.
-     *  
      * @param systemConfig system configuration.
      * @param gradientConfig gradient configuration.
      */
-    private void connectPAG(SystemConfig systemConfig, GradientConfig gradientConfig) {
-        
+    private void connectPAG() {
+
         log.debug("Initiating the connection to the partition aware gradient.");
-        
-        PAGInit init = new PAGInit(systemConfig, gradientConfig, self.getAddress().getBase(), 0, 50);
+
+        //TODO Alex - PAG identifier
+        Identifier pagId = new IntIdentifier(0);
+        PAGInit init = new PAGInit(config(), self.getAddress(), pagId, 50);
         partitionAwareGradient = create(PartitionAwareGradient.class, init);
-        
-        connect(partitionAwareGradient.getNegative(Timer.class), timer);
-        connect(network, partitionAwareGradient.getNegative(Network.class), new IntegerOverlayFilter(0));
-        connect(croupier.getPositive(CroupierPort.class), partitionAwareGradient.getNegative(CroupierPort.class));
-        connect(partitionAwareGradient.getPositive(PAGPort.class), search.getNegative(PAGPort.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), search.getNegative(GradientPort.class));
-        connect(partitionAwareGradient.getPositive(GradientPort.class), routing.getNegative(GradientPort.class));
+
+        connect(partitionAwareGradient.getNegative(Timer.class), timer, Channel.TWO_WAY);
+        connect(network, partitionAwareGradient.getNegative(Network.class), new OverlaySelector(pagId, true), Channel.TWO_WAY);
+        connect(croupier.getPositive(CroupierPort.class), partitionAwareGradient.getNegative(CroupierPort.class), Channel.TWO_WAY);
+        connect(partitionAwareGradient.getPositive(PAGPort.class), search.getNegative(PAGPort.class), Channel.TWO_WAY);
+        connect(partitionAwareGradient.getPositive(GradientPort.class), search.getNegative(GradientPort.class), Channel.TWO_WAY);
+        connect(partitionAwareGradient.getPositive(GradientPort.class), routing.getNegative(GradientPort.class), Channel.TWO_WAY);
     }
 
     /**
@@ -406,77 +385,82 @@ public final class SearchPeer extends ComponentDefinition {
                 cohortsRuleSet));
 
         electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
-                        self.getAddress(),
-                        new PeerDescriptor(self.getAddress()),
-                        seed,            // Bootstrap the underlying services.
-                        electionConfig,
-                        publicKey,
-                        privateKey,
-                        new SimpleLCPViewComparator(),
-                        leaderComponentRuleSet,
-                        cohortsRuleSet));
+                self.getAddress(),
+                new PeerDescriptor(self.getAddress()),
+                seed, // Bootstrap the underlying services.
+                electionConfig,
+                publicKey,
+                privateKey,
+                new SimpleLCPViewComparator(),
+                leaderComponentRuleSet,
+                cohortsRuleSet));
 
         // Election leader connections.
-        connect(network, electionLeader.getNegative(Network.class));
-        connect(timer, electionLeader.getNegative(Timer.class));
-        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class));
-        connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
-        connect(electionLeader.getPositive(LeaderElectionPort.class), routing.getNegative(LeaderElectionPort.class));
-        
+        connect(network, electionLeader.getNegative(Network.class), Channel.TWO_WAY);
+        connect(timer, electionLeader.getNegative(Timer.class), Channel.TWO_WAY);
+        connect(gradient.getPositive(GradientPort.class), electionLeader.getNegative(GradientPort.class), Channel.TWO_WAY);
+        connect(electionLeader.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class), Channel.TWO_WAY);
+        connect(electionLeader.getPositive(LeaderElectionPort.class), routing.getNegative(LeaderElectionPort.class), Channel.TWO_WAY);
+
         // Election follower connections.
-        connect(network, electionFollower.getNegative(Network.class));
-        connect(timer, electionFollower.getNegative(Timer.class));
-        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class));
-        connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class));
-        connect(electionFollower.getPositive(LeaderElectionPort.class), routing.getNegative(LeaderElectionPort.class));
+        connect(network, electionFollower.getNegative(Network.class), Channel.TWO_WAY);
+        connect(timer, electionFollower.getNegative(Timer.class), Channel.TWO_WAY);
+        connect(gradient.getPositive(GradientPort.class), electionFollower.getNegative(GradientPort.class), Channel.TWO_WAY);
+        connect(electionFollower.getPositive(LeaderElectionPort.class), search.getNegative(LeaderElectionPort.class), Channel.TWO_WAY);
+        connect(electionFollower.getPositive(LeaderElectionPort.class), routing.getNegative(LeaderElectionPort.class), Channel.TWO_WAY);
     }
 
-
-	/**
+    /**
      * Initialize the PAG service.
      */
-    private void startPAG(){
+    private void startPAG() {
         log.debug("Sending initial self update to the PAG ... ");
         trigger(new PAGUpdate(new PeerDescriptor(self.getAddress())), partitionAwareGradient.getPositive(PAGPort.class));
-        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
+        //TODO Alex WARN - does pag need connection to view update?
+//        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(new PeerDescriptor(self.getAddress())), partitionAwareGradient.getPositive(GradientPort.class));
     }
-
 
     /**
      * Connect gradient with the application.
+     *
      * @param gradientConfig System's Gradient Configuration.
      * @param seed Seed for the Random Generator.
      */
-    private void connectGradient(GradientConfig gradientConfig, long seed) {
-        
+    private void connectGradient() {
+
         log.info("connecting gradient configuration ...");
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(systemConfig, gradientConfig, MsConfig.GRADIENT_OVERLAY_ID , new SimpleUtilityComparator(), new SweepGradientFilter()));
-        connect(network, gradient.getNegative(Network.class), new IntegerOverlayFilter(MsConfig.GRADIENT_OVERLAY_ID));
-        connect(timer, gradient.getNegative(Timer.class));
-        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class));
-        connect(croupier.getNegative(SelfViewUpdatePort.class), gradient.getPositive(SelfViewUpdatePort.class));
-        connect(gradient.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
+        Identifier gradientId = new IntIdentifier(MsConfig.GRADIENT_OVERLAY_ID);
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(self.getAddress(), new SimpleUtilityComparator(),
+                new SweepGradientFilter(), systemConfig.seed, gradientId));
+        connect(network, gradient.getNegative(Network.class), new OverlaySelector(gradientId, true), Channel.TWO_WAY);
+        connect(timer, gradient.getNegative(Timer.class), Channel.TWO_WAY);
+        connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class), Channel.TWO_WAY);
+        connect(croupier.getNegative(ViewUpdatePort.class), gradient.getPositive(ViewUpdatePort.class), Channel.TWO_WAY);
+        connect(gradient.getNegative(AddressUpdatePort.class), selfAddressUpdatePort, Channel.TWO_WAY);
 
     }
 
     /**
      * Connect gradient with the application.
+     *
      * @param gradientConfig System's Gradient Configuration.
      */
-    private void connectTreeGradient(TreeGradientConfig tgradientConfig, GradientConfig gradientConfig) {
+    private void connectTreeGradient() {
 
         log.info("connecting tree gradient configuration ...");
-        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(systemConfig, gradientConfig, tgradientConfig, MsConfig.T_GRADIENT_OVERLAY_ID , new SweepGradientFilter()));
-        connect(network, tgradient.getNegative(Network.class), new IntegerOverlayFilter(MsConfig.T_GRADIENT_OVERLAY_ID));
-        connect(timer, tgradient.getNegative(Timer.class));
-        connect(croupier.getPositive(CroupierPort.class), tgradient.getNegative(CroupierPort.class));
-        connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class));
-        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
-        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class));
-        connect(gradient.getNegative(SelfViewUpdatePort.class), tgradient.getPositive(SelfViewUpdatePort.class));
-        connect(tgradient.getNegative(SelfViewUpdatePort.class), search.getPositive(SelfViewUpdatePort.class));
-        connect(tgradient.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
-        connect(tgradient.getNegative(RankUpdatePort.class), gradient.getPositive(RankUpdatePort.class));
+        Identifier tGradientId = new IntIdentifier(MsConfig.T_GRADIENT_OVERLAY_ID);
+        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(self.getAddress(),
+                new SweepGradientFilter(), systemConfig.seed, tGradientId));
+        connect(tgradient.getNegative(Network.class), network, new OverlaySelector(tGradientId, true), Channel.TWO_WAY);
+        connect(tgradient.getNegative(Timer.class), timer, Channel.TWO_WAY);
+        connect(tgradient.getNegative(CroupierPort.class), croupier.getPositive(CroupierPort.class), Channel.TWO_WAY);
+        connect(gradient.getPositive(GradientPort.class), tgradient.getNegative(GradientPort.class), Channel.TWO_WAY);
+        connect(search.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class), Channel.TWO_WAY);
+        connect(routing.getNegative(GradientPort.class), tgradient.getPositive(GradientPort.class), Channel.TWO_WAY);
+        connect(gradient.getNegative(ViewUpdatePort.class), tgradient.getPositive(ViewUpdatePort.class), Channel.TWO_WAY);
+        connect(tgradient.getNegative(ViewUpdatePort.class), search.getPositive(ViewUpdatePort.class), Channel.TWO_WAY);
+        connect(tgradient.getNegative(AddressUpdatePort.class), selfAddressUpdatePort, Channel.TWO_WAY);
+        connect(tgradient.getNegative(RankUpdatePort.class), gradient.getPositive(RankUpdatePort.class), Channel.TWO_WAY);
 
     }
 
@@ -486,39 +470,37 @@ public final class SearchPeer extends ComponentDefinition {
     private void startGradient() {
 
         log.debug("Starting Gradient component.");
-        trigger(new GradientUpdate<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getNegative(SelfViewUpdatePort.class));
+        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getNegative(ViewUpdatePort.class));
     }
-    
-    
-    private void connectCroupier( CroupierConfig config ) {
+
+    private void connectCroupier() {
 
         log.info("connecting croupier components...");
-        int croupierOverlay = getCroupierServiceInt(getCroupierServiceByteArray());
+        Identifier croupierOverlay = new IntIdentifier(getCroupierServiceInt(getCroupierServiceByteArray()));
 
-        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(systemConfig, config, croupierOverlay));
-        connect(timer, croupier.getNegative(Timer.class));
-        connect(network, croupier.getNegative(Network.class), new IntegerOverlayFilter(croupierOverlay));
-        connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class));
-        connect(croupier.getNegative(SelfAddressUpdatePort.class), selfAddressUpdatePort);
+        croupier = create(CroupierComp.class, new CroupierComp.CroupierInit(croupierOverlay, self.getAddress()));
+        connect(croupier.getNegative(Timer.class), timer, Channel.TWO_WAY);
+        connect(croupier.getNegative(Network.class), network, new OverlaySelector(croupierOverlay, true), Channel.TWO_WAY);
+        connect(croupier.getPositive(CroupierPort.class), routing.getNegative(CroupierPort.class), Channel.TWO_WAY);
+        connect(croupier.getNegative(AddressUpdatePort.class), selfAddressUpdatePort, Channel.TWO_WAY);
 
+        //TODO Alex - fix this later - need local port, WARN
         subscribe(handleCroupierDisconnect, croupier.getPositive(CroupierControlPort.class));
         log.debug("expecting start croupier next");
     }
 
-    private int getCroupierServiceInt(byte[] serviceArray){
+    private int getCroupierServiceInt(byte[] serviceArray) {
         return Ints.fromByteArray(serviceArray);
     }
 
-    private Handler<CroupierDisconnected> handleCroupierDisconnect = new Handler<CroupierDisconnected>() {
+    private Handler handleCroupierDisconnect = new Handler<CroupierDisconnected>() {
 
         @Override
         public void handle(CroupierDisconnected event) {
             log.error("croupier disconnected .. ");
+
         }
-
     };
-
-    
 
     final Handler<UiSearchRequest> searchRequestHandler = new Handler<UiSearchRequest>() {
         @Override
@@ -548,7 +530,6 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-
     final Handler<se.sics.ms.events.paginateAware.UiSearchRequest> paginateSearchRequestHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchRequest>() {
         @Override
         public void handle(se.sics.ms.events.paginateAware.UiSearchRequest uiSearchRequest) {
@@ -557,7 +538,6 @@ public final class SearchPeer extends ComponentDefinition {
             trigger(uiSearchRequest, search.getPositive(UiPort.class));
         }
     };
-
 
     final Handler<se.sics.ms.events.paginateAware.UiSearchResponse> paginateSearchResponseHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchResponse>() {
         @Override
@@ -568,29 +548,25 @@ public final class SearchPeer extends ComponentDefinition {
         }
     };
 
-
-
     // =====
     //  Simulator Event Handlers.
     // =====
+    ClassMatchedHandler addEntrySimulatorHandler
+            = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntryP2pSimulated>>() {
+                @Override
+                public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntryP2pSimulated> event) {
+                    log.debug("{}: Add Entry Received for Node:", self.getId());
+                    trigger(new SimulationEventsPort.AddIndexSimulated(request.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
+                }
+            };
 
+    KAddress currentSimAddress = null;
 
-    ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>> addEntrySimulatorHandler = new ClassMatchedHandler<AddIndexEntryP2pSimulated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated>>() {
-        @Override
-        public void handle(AddIndexEntryP2pSimulated request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntryP2pSimulated> event) {
-            log.debug("{}: Add Entry Received for Node:", self.getId());
-            trigger(new SimulationEventsPort.AddIndexSimulated(request.getIndexEntry()), search.getNegative(SimulationEventsPort.class));
-        }
-    };
-
-
-    DecoratedAddress currentSimAddress = null;
-
-    ClassMatchedHandler<SearchP2pSimulated.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>> searchSimulatorHandler =
-            new ClassMatchedHandler<SearchP2pSimulated.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request>>() {
+    ClassMatchedHandler searchSimulatorHandler
+            = new ClassMatchedHandler<SearchP2pSimulated.Request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchP2pSimulated.Request>>() {
 
                 @Override
-                public void handle(SearchP2pSimulated.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchP2pSimulated.Request> event) {
+                public void handle(SearchP2pSimulated.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchP2pSimulated.Request> event) {
 
                     currentSimAddress = event.getSource();
                     log.debug("Search Event Received : {}", request.getSearchPattern());
@@ -599,22 +575,20 @@ public final class SearchPeer extends ComponentDefinition {
             };
 
     /**
-     * Handler for the Response from the Search Component regarding the responses and the partitions
-     * hit for the request.
+     * Handler for the Response from the Search Component regarding the
+     * responses and the partitions hit for the request.
      */
     Handler<SimulationEventsPort.SearchSimulated.Response> searchSimulatedResponseHandler = new Handler<SimulationEventsPort.SearchSimulated.Response>() {
         @Override
         public void handle(SimulationEventsPort.SearchSimulated.Response event) {
 
             log.debug("{}: Received the search simulated response from the child component", self.getId());
-            if(currentSimAddress != null){
+            if (currentSimAddress != null) {
                 log.debug("Responses: {}, Partitions Hit: {}", event.getResponses(), event.getPartitionHit());
                 SearchP2pSimulated.Response response = new SearchP2pSimulated.Response(event.getResponses(), event.getPartitionHit());
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), currentSimAddress, Transport.UDP, response), network);
             }
         }
     };
-
-
 
 }

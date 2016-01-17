@@ -9,12 +9,12 @@ import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayId;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Serializer for the information exchange as part of
@@ -95,13 +95,11 @@ public class ControlPullSerializer {
 
             Serializers.lookupSerializer(UUID.class).toBinary(response.getPullRound(), buf);
             
-            DecoratedAddress leaderAddress = response.getLeaderAddress();
+            KAddress leaderAddress = response.getLeaderAddress();
             SerializerEncoderHelper.checkNullAndUpdateBuff(buf, response.getLeaderAddress());
             
             if(leaderAddress != null){
-                
-                Serializers.lookupSerializer(DecoratedAddress.class)
-                        .toBinary(leaderAddress, buf);
+                Serializers.toBinary(leaderAddress, buf);
             }
             
             PublicKey leaderKey = response.getLeaderKey();
@@ -130,11 +128,10 @@ public class ControlPullSerializer {
             UUID pullRound = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
             
             boolean addressAbsent = SerializerDecoderHelper.checkNullCommit(buf);
-            DecoratedAddress leaderAddress = null;
+            KAddress leaderAddress = null;
             if( !addressAbsent ){
                 
-                leaderAddress = (DecoratedAddress)Serializers.lookupSerializer(DecoratedAddress.class)
-                        .fromBinary(buf, hint);
+                leaderAddress = (KAddress)Serializers.fromBinary(buf, hint);
             }
 
             boolean keyAbsent = SerializerDecoderHelper.checkNullCommit(buf);

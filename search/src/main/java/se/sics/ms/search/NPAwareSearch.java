@@ -18,7 +18,6 @@ import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.client.LocalAggregatorPort;
-import se.sics.ktoolbox.aggregator.client.events.ComponentInfoEvent;
 import se.sics.ms.aggregator.SearchComponentInfo;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
@@ -37,36 +36,41 @@ import se.sics.ms.ports.UiPort;
 import se.sics.ms.timeout.AwaitingForCommitTimeout;
 import se.sics.ms.types.*;
 import se.sics.ms.util.*;
-import se.sics.ms.util.Pair;
-import se.sics.p2ptoolbox.election.api.msg.*;
-import se.sics.p2ptoolbox.election.api.ports.LeaderElectionPort;
-import se.sics.p2ptoolbox.gradient.GradientPort;
-import se.sics.p2ptoolbox.gradient.msg.GradientSample;
-import se.sics.p2ptoolbox.gradient.msg.GradientUpdate;
-import se.sics.p2ptoolbox.util.Container;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
-import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
-import se.sics.p2ptoolbox.util.update.SelfAddressUpdate;
-import se.sics.p2ptoolbox.util.update.SelfAddressUpdatePort;
-import se.sics.p2ptoolbox.util.update.SelfViewUpdatePort;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.*;
 import java.util.*;
-
+import org.javatuples.Pair;
+import se.sics.ktoolbox.election.api.ports.LeaderElectionPort;
+import se.sics.ktoolbox.election.event.ElectionState;
+import se.sics.ktoolbox.election.event.ExtensionUpdate;
+import se.sics.ktoolbox.election.event.LeaderState;
+import se.sics.ktoolbox.election.event.LeaderUpdate;
+import se.sics.ktoolbox.election.event.ViewUpdate;
+import se.sics.ktoolbox.gradient.GradientPort;
+import se.sics.ktoolbox.gradient.event.GradientSample;
+import se.sics.ktoolbox.util.address.AddressUpdate;
+import se.sics.ktoolbox.util.address.AddressUpdatePort;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.KHeader;
+import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
+import se.sics.ktoolbox.util.other.Container;
+import se.sics.ktoolbox.util.update.view.OverlayViewUpdate;
+import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
 
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
  * two different modes depending on if it the executing node was elected leader
  * or not.
  * <p/>
- * {@link se.sics.ms.types.IndexEntry}s are spread via gossiping using the Cyclon samples stored
- * in the routing tables for the partition of the local node.
+ * {@link se.sics.ms.types.IndexEntry}s are spread via gossiping using the
+ * Cyclon samples stored in the routing tables for the partition of the local
+ * node.
  */
 public final class NPAwareSearch extends ComponentDefinition {
+
     /**
      * Set to true to store the Lucene index on disk
      */
@@ -85,11 +89,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     Positive<PALPort> pagPort = requires(PALPort.class);
 
-    Positive<SelfAddressUpdatePort> selfAddressUpdatePort = requires(SelfAddressUpdatePort.class);
-    Negative<SelfViewUpdatePort> selfViewUpdatePort = provides(SelfViewUpdatePort.class);
+    Positive<AddressUpdatePort> selfAddressUpdatePort = requires(AddressUpdatePort.class);
+    Negative<ViewUpdatePort> selfViewUpdatePort = provides(ViewUpdatePort.class);
 
     // ======== LOCAL VARIABLES.
-
     private static final Logger logger = LoggerFactory.getLogger(NPAwareSearch.class);
     private String prefix;
     private long seed;
@@ -102,7 +105,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private long currentEpoch = 0;
     private boolean markerEntryAdded = false;
     private TreeSet<PeerDescriptor> gradientEntrySet;
-    private DecoratedAddress leaderAddress;
+    private KAddress leaderAddress;
     private PublicKey leaderKey;
 
     private Map<UUID, Long> recentRequests;
@@ -115,7 +118,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     // Lucene variables used to store and search in collected answers
     private LocalSearchRequest searchRequest;
     private Directory searchIndex;
-
 
     // Leader Election Protocol.
     private UUID electionRound = UUID.randomUUID();
@@ -144,7 +146,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     private SearchProtocolTracker searchProtocolTracker;
 
     // Leader Election Protocol.
-    private Collection<DecoratedAddress> leaderGroupInformation;
+    private List<KAddress> leaderGroupInformation;
 
     // Trackers.
     private MultipleEntryAdditionTracker entryAdditionTracker;
@@ -159,22 +161,20 @@ public final class NPAwareSearch extends ComponentDefinition {
     private UUID preShardTimeoutId;
     private List<LeaderUnit> bufferedUnits;
 
-
     // Pagination
     SearchCache cache;
 
-
-
-
     private static class AddIndexTimeout extends Timeout {
+
         private final int retryLimit;
         private int numberOfRetries = 0;
         private final IndexEntry entry;
 
         /**
-         * @param request    the ScheduleTimeout that holds the Timeout
+         * @param request the ScheduleTimeout that holds the Timeout
          * @param retryLimit the number of retries for the related
-         * @param entry      the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
+         * @param entry the {@link se.sics.ms.types.IndexEntry} this timeout was
+         * scheduled for
          */
         public AddIndexTimeout(ScheduleTimeout request, int retryLimit, IndexEntry entry) {
             super(request);
@@ -197,7 +197,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         /**
-         * @return the {@link se.sics.ms.types.IndexEntry} this timeout was scheduled for
+         * @return the {@link se.sics.ms.types.IndexEntry} this timeout was
+         * scheduled for
          */
         public IndexEntry getEntry() {
             return entry;
@@ -264,12 +265,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         subscribe(gradientSampleHandler, gradientPort);
         subscribe(preShardTimeoutHandler, timerPort);
-        
+
 //      PAL Handlers
-        
 //        subscribe(leaderUnitCheckHandler, pagPort);
 //        subscribe(npTimeoutHandler, timerPort);
-
         // PAGINATION.
         subscribe(searchProtocolTracker.numPartitionsHandler, gradientRoutingPort);
         subscribe(searchProtocolTracker.handleSearchQueryRequest, networkPort);
@@ -311,7 +310,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         setupMarkerLuceneWriter(index, indexWriterConfig);
     }
 
-
     /**
      * Initialize the trackers to be used in the application.
      */
@@ -329,10 +327,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Based on the information provided, create a lucene writer for adding application
-     * entries in the system.
+     * Based on the information provided, create a lucene writer for adding
+     * application entries in the system.
      *
-     * @param index             Directory
+     * @param index Directory
      * @param indexWriterConfig Index Writer Configuration.
      */
     private void setupApplicationLuceneWriter(Directory index, IndexWriterConfig indexWriterConfig) {
@@ -345,7 +343,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
-
     /**
      * Create Lucene Writer for pushing Marker Entries in the system.
      *
@@ -353,11 +350,11 @@ public final class NPAwareSearch extends ComponentDefinition {
      * @param indexWriterConfig config
      */
     private void setupMarkerLuceneWriter(Directory index, IndexWriterConfig indexWriterConfig) {
-        
-        try{
+
+        try {
             markerEntryLuceneAdaptor = new MarkerEntryLuceneAdaptorImpl(index, indexWriterConfig);
             markerEntryLuceneAdaptor.initialEmptyWriterCommit();
-            
+
         } catch (LuceneAdaptorException e) {
             e.printStackTrace();
         }
@@ -379,7 +376,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             trigger(rst, timerPort);
 
 //            rst = new SchedulePeriodicTimeout( (int)(3000 * Math.random()) + MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
-            rst = new SchedulePeriodicTimeout( MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
+            rst = new SchedulePeriodicTimeout(MsConfig.INDEX_EXCHANGE_PERIOD, MsConfig.INDEX_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.EntryExchangeRound(rst));
             trigger(rst, timerPort);
 
@@ -393,19 +390,20 @@ public final class NPAwareSearch extends ComponentDefinition {
     /**
      * Event from the parent maker indicating the change in the address.
      */
-    Handler<SelfAddressUpdate> selfAddressUpdateHandler = new Handler<SelfAddressUpdate>() {
+    Handler selfAddressUpdateHandler = new Handler<AddressUpdate.Indication>() {
         @Override
-        public void handle(SelfAddressUpdate selfAddressUpdate) {
+        public void handle(AddressUpdate.Indication selfAddressUpdate) {
 
             logger.debug("Handling the self address update from the parent maker.");
-            self.setSelfAddress(selfAddressUpdate.self);
+            self.setSelfAddress(selfAddressUpdate.localAddress);
         }
     };
 
     /**
      * Initialize the Index Caches, from the indexes stored in files.
      *
-     * @param luceneAdaptor IndexEntryLuceneAdaptor for access to lucene instance.
+     * @param luceneAdaptor IndexEntryLuceneAdaptor for access to lucene
+     * instance.
      * @throws se.sics.ms.common.LuceneAdaptorException
      */
     public void initializeIndexCaches(IndexEntryLuceneAdaptor luceneAdaptor) throws LuceneAdaptorException {
@@ -413,7 +411,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         boolean continuous = true;
         int readLimit = 20000;
 
-        for (long i = 0; ; i += readLimit) {
+        for (long i = 0;; i += readLimit) {
             Query query = NumericRangeQuery.newLongRange(IndexEntry.ID, i, i + readLimit, true, false);
             List<IndexEntry> indexEntryList = luceneAdaptor.searchIndexEntriesInLucene(query, new Sort(new SortField(IndexEntry.ID, Type.LONG)), readLimit);
 
@@ -454,8 +452,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
-
-
     /**
      * Add index entries for the simulator.
      */
@@ -478,8 +474,8 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Add a new {@link se.sics.ms.types.IndexEntry} to the system and schedule a timeout
-     * to wait for the acknowledgment.
+     * Add a new {@link se.sics.ms.types.IndexEntry} to the system and schedule
+     * a timeout to wait for the acknowledgment.
      *
      * @param entry the {@link se.sics.ms.types.IndexEntry} to be added
      */
@@ -491,9 +487,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Add a new {@link se.sics.ms.types.IndexEntry} to the system, add the given timeout to the timer.
+     * Add a new {@link se.sics.ms.types.IndexEntry} to the system, add the
+     * given timeout to the timer.
      *
-     * @param entry   the {@link se.sics.ms.types.IndexEntry} to be added
+     * @param entry the {@link se.sics.ms.types.IndexEntry} to be added
      * @param timeout timeout for adding the entry
      */
     private void addEntryGlobal(IndexEntry entry, ScheduleTimeout timeout) {
@@ -503,19 +500,17 @@ public final class NPAwareSearch extends ComponentDefinition {
         timeStoringMap.put(timeout.getTimeoutEvent().getTimeoutId(), (new Date()).getTime());
     }
 
-
     /**
      * Handler executed in the role of the leader. Create a new id and search
      * for a the according bucket in the routing table. If it does not include
      * enough nodes to satisfy the replication requirements then create a new id
      * and try again.
      */
-
-    ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>> handleAddIndexEntryRequest =
-            new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request>>() {
+    ClassMatchedHandler handleAddIndexEntryRequest
+            = new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntry.Request>>() {
 
                 @Override
-                public void handle(AddIndexEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Request> event) {
+                public void handle(AddIndexEntry.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntry.Request> event) {
 
                     logger.warn("{}: Received add index entry request from : {}", self.getId(), event.getSource());
                     if (!leader || partitionInProgress) {
@@ -527,15 +522,14 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
             };
 
-
     /**
-     * Based on the information passed initiate an index entry addition protocol.
-     * This mechanism will be used by the
+     * Based on the information passed initiate an index entry addition
+     * protocol. This mechanism will be used by the
      *
      * @param request Add Entry Request
-     * @param source  Source
+     * @param source Source
      */
-    private void initiateEntryAdditionMechanism (AddIndexEntry.Request request, DecoratedAddress source) {
+    private void initiateEntryAdditionMechanism(AddIndexEntry.Request request, KAddress source) {
 
         if (!entryAdditionTracker.canTrack()) {
             logger.warn("{}: Unable to track a new entry addition as limit reached !! ", prefix);
@@ -566,15 +560,15 @@ public final class NPAwareSearch extends ComponentDefinition {
             if (newEntry.equals(IndexEntry.DEFAULT_ENTRY)) {
 
                 logger.debug(" {}: Going to add a new landing entry in the system. ", prefix);
-                lastEpochUpdate = landingEntryTracker.getPreviousEpochContainer() != null 
-                        ? landingEntryTracker.getPreviousEpochContainer() 
+                lastEpochUpdate = landingEntryTracker.getPreviousEpochContainer() != null
+                        ? landingEntryTracker.getPreviousEpochContainer()
                         : null;
-                
-                applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId( 
-                        landingEntryTracker.getEpochId(), self.getId(), ApplicationConst.LANDING_ENTRY_ID), newEntry );
-                
-                addPrepareRequest = new LandingEntryAddPrepare.Request( request.getEntryAdditionRound(), 
-                        applicationEntry, lastEpochUpdate );
+
+                applicationEntry = new ApplicationEntry(new ApplicationEntry.ApplicationEntryId(
+                        landingEntryTracker.getEpochId(), self.getId(), ApplicationConst.LANDING_ENTRY_ID), newEntry);
+
+                addPrepareRequest = new LandingEntryAddPrepare.Request(request.getEntryAdditionRound(),
+                        applicationEntry, lastEpochUpdate);
 
             } else {
 
@@ -594,17 +588,16 @@ public final class NPAwareSearch extends ComponentDefinition {
                 addPrepareRequest = new ApplicationEntryAddPrepare.Request(request.getEntryAdditionRound(), applicationEntry);
             }
 
-
-            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo( request.getEntryAdditionRound(), 
-                    leaderGroupInformation, applicationEntry, 
+            EntryAdditionRoundInfo additionRoundInfo = new EntryAdditionRoundInfo(request.getEntryAdditionRound(),
+                    leaderGroupInformation, applicationEntry,
                     source, lastEpochUpdate);
-            
+
             entryAdditionTracker.startTracking(request.getEntryAdditionRound(), additionRoundInfo);
             logger.debug("Started tracking for the entry addition with id: {} for address: {}", newEntry.getId(), source);
 
-            for (DecoratedAddress destination : leaderGroupInformation) {
+            for (KAddress destination : leaderGroupInformation) {
                 logger.debug("Sending prepare commit request to : {}", destination.getId());
-                trigger( CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, addPrepareRequest), networkPort );
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, addPrepareRequest), networkPort);
             }
 
             ScheduleTimeout st = new ScheduleTimeout(5000);
@@ -618,10 +611,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     }
 
-
     /**
-     * The entry addition prepare phase timed out and I didn't receive all the responses from the leader group nodes.
-     * Reset the tracker but also keep track of the edge case.
+     * The entry addition prepare phase timed out and I didn't receive all the
+     * responses from the leader group nodes. Reset the tracker but also keep
+     * track of the edge case.
      */
     Handler<TimeoutCollection.EntryPrepareResponseTimeout> preparePhaseTimeout = new Handler<TimeoutCollection.EntryPrepareResponseTimeout>() {
         @Override
@@ -640,24 +633,24 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
-
     /**
-     * Get the current insertion id and
-     * increment it to keep track of the next one.
+     * Get the current insertion id and increment it to keep track of the next
+     * one.
      *
      * @return a new id for a new {@link se.sics.ms.types.IndexEntry}
      */
     private long getNextInsertionId() {
-        
-        if (nextInsertionId == Long.MAX_VALUE - 1)
-            nextInsertionId = Long.MIN_VALUE;
 
-        return nextInsertionId ++;
+        if (nextInsertionId == Long.MAX_VALUE - 1) {
+            nextInsertionId = Long.MIN_VALUE;
+        }
+
+        return nextInsertionId++;
     }
 
     /**
-     * No acknowledgment for an issued Entry Request was received
-     * in time. Try to add the entry again or responds with failure to the web client.
+     * No acknowledgment for an issued Entry Request was received in time. Try
+     * to add the entry again or responds with failure to the web client.
      */
     final Handler<AddIndexTimeout> handleAddRequestTimeout = new Handler<AddIndexTimeout>() {
         @Override
@@ -673,7 +666,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                 //If prepare phase was started but no response received, then replicationRequests will have left
                 // over data
 //                replicationRequests.remove(event.getTimeoutId());
-
                 event.incrementTries();
                 ScheduleTimeout rst = new ScheduleTimeout(config.getAddTimeout());
                 rst.setTimeoutEvent(event);
@@ -683,50 +675,50 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry
-     * and make necessary modifications in the structure used to hold the associated data.
+     * Handler for the Prepare Request Phase of the two phase index entry add
+     * commit. The node needs to check for the landing entry and make necessary
+     * modifications in the structure used to hold the associated data.
      */
-    ClassMatchedHandler<ApplicationEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request>> handleEntryAddPrepareRequest =
-            new ClassMatchedHandler<ApplicationEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request>>() {
+    ClassMatchedHandler handleEntryAddPrepareRequest
+            = new ClassMatchedHandler<ApplicationEntryAddPrepare.Request, BasicContentMsg<KAddress, KHeader<KAddress>, ApplicationEntryAddPrepare.Request>>() {
 
                 @Override
-                public void handle(ApplicationEntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Request> event) {
+                public void handle(ApplicationEntryAddPrepare.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, ApplicationEntryAddPrepare.Request> event) {
 
                     logger.debug("{}: Received Application Entry addition prepare request from the node: {}", self.getId(), event.getSource());
                     handleEntryAddPrepare(request, event.getSource());
                 }
             };
 
-
     /**
-     * Handler for the Prepare Request Phase of the two phase index entry add commit. The node needs to check for the landing entry
-     * and make necessary modifications in the structure used to hold the associated data.
+     * Handler for the Prepare Request Phase of the two phase index entry add
+     * commit. The node needs to check for the landing entry and make necessary
+     * modifications in the structure used to hold the associated data.
      */
-    ClassMatchedHandler<LandingEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request>> handleLandingEntryAddPrepareRequest =
-            new ClassMatchedHandler<LandingEntryAddPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request>>() {
+    ClassMatchedHandler handleLandingEntryAddPrepareRequest
+            = new ClassMatchedHandler<LandingEntryAddPrepare.Request, BasicContentMsg<KAddress, KHeader<KAddress>, LandingEntryAddPrepare.Request>>() {
 
                 @Override
-                public void handle(LandingEntryAddPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LandingEntryAddPrepare.Request> event) {
+                public void handle(LandingEntryAddPrepare.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, LandingEntryAddPrepare.Request> event) {
 
                     logger.debug("{}: Received Landing Entry prepare request from the node: {}", self.getId(), event.getSource());
                     handleEntryAddPrepare(request, event.getSource());
                 }
             };
 
-
     /**
-     * Handle the entry addition prepare message from the leader in the partition.
-     * Promise needs to be made in case the leader verification is complete.
+     * Handle the entry addition prepare message from the leader in the
+     * partition. Promise needs to be made in case the leader verification is
+     * complete.
      *
      * @param request EntryPrepare Request
-     * @param source  Message Source.
+     * @param source Message Source.
      */
-    private void handleEntryAddPrepare(EntryAddPrepare.Request request, DecoratedAddress source) {
-
+    private void handleEntryAddPrepare(EntryAddPrepare.Request request, KAddress source) {
 
         ApplicationEntry applicationEntry = request.getApplicationEntry();
         IndexEntry entry = applicationEntry.getEntry();
-        
+
         // FIX : Fix the below condition as it seems tricky.
         if (!entry.equals(IndexEntry.DEFAULT_ENTRY) && (!ApplicationSecurity.isIndexEntrySignatureValid(entry) || !leaderIds.contains(entry.getLeaderId()))) {
             logger.warn("{}: Received a promise for entry addition from unknown node: {}", prefix, source);
@@ -756,35 +748,35 @@ public final class NPAwareSearch extends ComponentDefinition {
         st.setTimeoutEvent(new AwaitingForCommitTimeout(st, request.getApplicationEntry()));
         st.getTimeoutEvent().getTimeoutId();
 
-        pendingForCommit.put( applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate) );
+        pendingForCommit.put(applicationEntry, org.javatuples.Pair.with(st.getTimeoutEvent().getTimeoutId(), previousEpochUpdate));
         trigger(st, timerPort);
     }
 
-
     /**
-     * The promise for the index entry addition expired and therefore the entry needs to be removed from the map.
+     * The promise for the index entry addition expired and therefore the entry
+     * needs to be removed from the map.
      */
     final Handler<AwaitingForCommitTimeout> handleAwaitingForCommitTimeout = new Handler<AwaitingForCommitTimeout>() {
         @Override
         public void handle(AwaitingForCommitTimeout awaitingForCommitTimeout) {
 
             logger.warn("{}: Index entry prepare phase timed out. Reset the map information.");
-            if (pendingForCommit.containsKey(awaitingForCommitTimeout.getApplicationEntry()))
+            if (pendingForCommit.containsKey(awaitingForCommitTimeout.getApplicationEntry())) {
                 pendingForCommit.remove(awaitingForCommitTimeout.getApplicationEntry());
+            }
         }
     };
 
-
     /**
-     * Prepare Commit Message from the peers in the system. Update the tracker and check if all the nodes have replied and
-     * then send the commit message request to the leader nodes who have replied yes.
+     * Prepare Commit Message from the peers in the system. Update the tracker
+     * and check if all the nodes have replied and then send the commit message
+     * request to the leader nodes who have replied yes.
      */
-    ClassMatchedHandler<ApplicationEntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Response>> handleEntryAdditionPrepareResponse =
-            new ClassMatchedHandler<ApplicationEntryAddPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Response>>() {
-
+    ClassMatchedHandler handleEntryAdditionPrepareResponse
+            = new ClassMatchedHandler<ApplicationEntryAddPrepare.Response, BasicContentMsg<KAddress, KHeader<KAddress>, ApplicationEntryAddPrepare.Response>>() {
 
                 @Override
-                public void handle(ApplicationEntryAddPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ApplicationEntryAddPrepare.Response> event) {
+                public void handle(ApplicationEntryAddPrepare.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, ApplicationEntryAddPrepare.Response> event) {
 
                     logger.debug("{}: Received Index entry prepare response from:{}", self.getId(), event.getSource());
 
@@ -796,7 +788,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                         return;
                     }
 
-                    if(info.isPromiseMajority()){
+                    if (info.isPromiseMajority()) {
                         logger.warn("{}: Majority already achieved", prefix);
                         return;
                     }
@@ -831,7 +823,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit);
                                 pushEntry(entryToCommit);   // Commit to local first.
                             }
-                            
 
                             ByteBuffer idBuffer = ByteBuffer.allocate((8 * 2) + 4);
                             idBuffer.putLong(entryToCommit.getEpochId());
@@ -839,12 +830,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                             idBuffer.putLong(entryToCommit.getEntryId());
 
                             String signature = ApplicationSecurity.generateRSASignature(idBuffer.array(), privateKey);
-                            EntryAddCommit.Request entryCommitRequest = new EntryAddCommit.Request( commitTimeout, new ApplicationEntry.ApplicationEntryId( entryToCommit.getEpochId(),
-                                    entryToCommit.getLeaderId(),
-                                    entryToCommit.getEntryId()),
-                                    signature );
+                            EntryAddCommit.Request entryCommitRequest = new EntryAddCommit.Request(commitTimeout, new ApplicationEntry.ApplicationEntryId(entryToCommit.getEpochId(),
+                                            entryToCommit.getLeaderId(),
+                                            entryToCommit.getEntryId()),
+                                    signature);
 
-                            for (DecoratedAddress destination : info.getLeaderGroupAddress()) {
+                            for (KAddress destination : info.getLeaderGroupAddress()) {
                                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, entryCommitRequest), networkPort);
                             }
 
@@ -864,13 +855,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
             };
 
-
     /**
-     * Method which needs to be invoked in case the 
-     * leader pushes the entry onto the leader group in the system. 
-     *  
-     * This method addition increments the max leader unit entries which can be then fetched
-     * by the lower nodes in the system.
+     * Method which needs to be invoked in case the leader pushes the entry onto
+     * the leader group in the system.
+     *
+     * This method addition increments the max leader unit entries which can be
+     * then fetched by the lower nodes in the system.
      *
      * @param entry Application Entry.
      */
@@ -879,34 +869,29 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Check for the leader unit and update the max entries
         // in the leader unit.
         updateLeaderUnitEntries(entry);
-        
+
         // Once the leader unit is updated with the number of entries,
         // try to add entries in the system.
         logger.warn("{}: Call to push Entry in the system, Entry: {}", self.getId(), entry);
         commitEntryLocally(entry);
-        
+
     }
-    
-    
-    
-    
-    
+
     /**
-     * Method enclosing the semantics associated 
-     * with the process of adding the entries in the system.
-     * 
+     * Method enclosing the semantics associated with the process of adding the
+     * entries in the system.
+     *
      * @param entry entry
      * @throws IOException
      * @throws LuceneAdaptorException
      */
-    private void commitEntryLocally( ApplicationEntry entry ) throws IOException, LuceneAdaptorException {
+    private void commitEntryLocally(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
+        if (lowestMissingEntryTracker.isNextEntryToAdd(entry.getApplicationEntryId())) {
 
-        if ( lowestMissingEntryTracker.isNextEntryToAdd(entry.getApplicationEntryId())) {
-            
             commitAndUpdateUtility(entry);
             lowestMissingEntryTracker.updateTrackerInfo(entry);
-            lowestMissingEntryTracker.checkAndRemoveEntryGaps();        
+            lowestMissingEntryTracker.checkAndRemoveEntryGaps();
             lowestMissingEntryTracker.printCurrentTrackingInfo();
 
             // Check for the maximum entries in the leader unit.
@@ -919,168 +904,149 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             // If container switch is not going on, check for the sharding update.
             checkAndInitiateSharding();
-        }
-        
-        else {
+        } else {
             lowestMissingEntryTracker.bufferEntry(entry);
         }
-        
+
     }
-    
-    
-    
+
     /**
-     * The application entry is added as part of the 
-     * push protocol. Update the entries in the leader unit 
-     * 
-     * Better semantics of the 
+     * The application entry is added as part of the push protocol. Update the
+     * entries in the leader unit
+     *
+     * Better semantics of the
+     *
      * @param entry entry
      */
-    private void updateLeaderUnitEntries( ApplicationEntry entry ){
-        
+    private void updateLeaderUnitEntries(ApplicationEntry entry) {
+
         LeaderUnit unit = timeLine.getLooseUnit(entry.getEpochId(), entry.getLeaderId());
-        if(unit == null){
+        if (unit == null) {
             throw new RuntimeException(" Buffered units not handled yet. ");
         }
-        
+
         long existingEntries = unit.getNumEntries();
         ApplicationEntry.ApplicationEntryId entryId = entry.getApplicationEntryId();
 
         // As the entry number start from 0.
         // This is required in case a node suddenly becomes a part of leader group and doesn't have the 
         // previous entries.
-        
-        long resultantEntries = existingEntries >= (entryId.getEntryId() + 1) ? existingEntries 
-                : (entryId.getEntryId() + 1); 
-        
+        long resultantEntries = existingEntries >= (entryId.getEntryId() + 1) ? existingEntries
+                : (entryId.getEntryId() + 1);
+
         unit.setNumEntries(resultantEntries);
     }
 
     /**
-     * Usually the unit commit happens in a pair,
-     * the leader closes previous update and then
-     * commit the current update. It may be a shard or a simple 
+     * Usually the unit commit happens in a pair, the leader closes previous
+     * update and then commit the current update. It may be a shard or a simple
      * unit switch or a network partition commit.
      *
      */
-    private void addUnitPacket(LeaderUnit... units){
+    private void addUnitPacket(LeaderUnit... units) {
 
         for (LeaderUnit unit : units) {
 
-            if(unit == null)
+            if (unit == null) {
                 continue;
+            }
 
-            if(timeLine.isSafeToAdd(unit))
-            {
-                if(!addUnitAndCheckSafety(unit)){
+            if (timeLine.isSafeToAdd(unit)) {
+                if (!addUnitAndCheckSafety(unit)) {
                     break;  // Stop adding beyond unsafe.
                 }
+            } else {
+                bufferedUnits.add(unit);
             }
-            
-            else bufferedUnits.add(unit);
         }
     }
-    
-    
-    
-    
+
     /**
-     * Wrapper method to perform the addition of the leader unit
-     * to the Time Line.
+     * Wrapper method to perform the addition of the leader unit to the Time
+     * Line.
      *
      * @param leaderUnit LeaderUnit.
      */
-    private boolean addUnitAndCheckSafety(LeaderUnit leaderUnit){
+    private boolean addUnitAndCheckSafety(LeaderUnit leaderUnit) {
 
         boolean result = true;
         LeaderUnit storedUnit = timeLine.getLooseUnit(leaderUnit);
-        
-        if(storedUnit != null 
-                && storedUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED){
-            
+
+        if (storedUnit != null
+                && storedUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED) {
+
             // Check for the update. It might happen that the unit trying to 
             // add is already present and closed. ( Usually happens in ShardUpdates and NPUpdates
             // which are already added as self contained closed units. )
-            
             logger.debug("{}: Unit already completed, returning .. ", prefix);      // An Important Check, as Sharding Might Start Happening Again.
             return true;
         }
-        
-        if (timeLine.isSafeToAdd(leaderUnit) )
-        {
+
+        if (timeLine.isSafeToAdd(leaderUnit)) {
 
             if (leaderUnit instanceof ShardLeaderUnit) {
 
                 // Don' t handle any more update after the shard update.
                 logger.debug("{}: Handling Shard Leader Unit.", prefix);
-                
+
                 handleSharding((ShardLeaderUnit) leaderUnit);
                 gradientEntrySet.clear();    // Clear the gradient entry set to prevent pulling the next partition data from other shard nodes.
                 bufferedUnits.clear();      // Expire any buffered units as they might be misleading at this point.
-                
-                result = false;
-            }
 
-            else if (leaderUnit instanceof NPLeaderUnit) {
+                result = false;
+            } else if (leaderUnit instanceof NPLeaderUnit) {
                 // Don't handle any updates after the NP Leader Unit for now. 
                 // We can handle updates after it also.
                 logger.debug("{}: Handling NP Leader Unit.", prefix);
                 result = false;
-            }
-            
-            else{
+            } else {
                 logger.debug("{}: Basic Leader Unit Update", prefix);
                 addUnitToTimeLine(leaderUnit);
             }
 
-        }
-        
-        else{
+        } else {
             // Buffering needs to go here.
             throw new IllegalStateException(" Not safe to add entry in the system. Should have been checked earlier. ");
         }
-        
+
         return result;
     }
 
-
     /**
-     * In case the leader unit that was added by the leader
-     * is not in order regarding the current last leader unit,
-     * the unit is buffered.
-     * 
-     * NOTE: It might be that the buffered list
-     * already contains the leader unit, therefore check before adding.
-     * 
+     * In case the leader unit that was added by the leader is not in order
+     * regarding the current last leader unit, the unit is buffered.
+     *
+     * NOTE: It might be that the buffered list already contains the leader
+     * unit, therefore check before adding.
+     *
      * @param leaderUnit unit toPENDING buffer
      */
     private void bufferUnit(LeaderUnit leaderUnit) {
-       
+
         int index = -1;
-        for(int i=0, len = bufferedUnits.size() ; i < len ; i++){
-            
-            if(bufferedUnits.get(i).getEpochId() == leaderUnit.getEpochId()
-                    && bufferedUnits.get(i).getLeaderId() == leaderUnit.getLeaderId()){
-                index= i;
+        for (int i = 0, len = bufferedUnits.size(); i < len; i++) {
+
+            if (bufferedUnits.get(i).getEpochId() == leaderUnit.getEpochId()
+                    && bufferedUnits.get(i).getLeaderId() == leaderUnit.getLeaderId()) {
+                index = i;
                 break;
             }
         }
-        
-        if(index != -1){
+
+        if (index != -1) {
             bufferedUnits.set(index, leaderUnit);
-        }
-        else {
+        } else {
             bufferedUnits.add(leaderUnit);
             Collections.sort(bufferedUnits, luComparator);
         }
     }
 
     /**
-     * Simply add leader unit to the time line.
-     * At this point the in order addition needs to be implemented by the application.
-     * Because the time line adds whatever is given to it to add.
-     * The application needs to check for the in order add themselves.
-     * 
+     * Simply add leader unit to the time line. At this point the in order
+     * addition needs to be implemented by the application. Because the time
+     * line adds whatever is given to it to add. The application needs to check
+     * for the in order add themselves.
+     *
      * @param unit uni to add.
      */
     private void addUnitToTimeLine(LeaderUnit unit) {
@@ -1088,7 +1054,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         try {
 
             // MAIN MARKER ENTRY INJECTION POINT.
-            if(timeLine.getLooseUnit (unit) == null) {
+            if (timeLine.getLooseUnit(unit) == null) {
 
                 MarkerEntry markerEntry = new MarkerEntry(unit.getEpochId(),
                         unit.getLeaderId());
@@ -1103,54 +1069,52 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             //Some might become applicable to be added.
             informListeningComponentsAboutUpdates(self);
-        } 
-        catch (LuceneAdaptorException e) {
-            
+        } catch (LuceneAdaptorException e) {
+
             e.printStackTrace();
-            throw new RuntimeException("Unable to add marker entry in system",e);
+            throw new RuntimeException("Unable to add marker entry in system", e);
         }
     }
-    
 
     /**
-     * When a leader unit is added in the time line,
-     * it might be possible that a buffered unit becomes available 
-     * for application.
+     * When a leader unit is added in the time line, it might be possible that a
+     * buffered unit becomes available for application.
      */
-    private void checkBufferedUnit(){
+    private void checkBufferedUnit() {
 
         Collections.sort(bufferedUnits, luComparator);
         Iterator<LeaderUnit> unitIterator = bufferedUnits.iterator();
-        
-        while(unitIterator.hasNext()){
+
+        while (unitIterator.hasNext()) {
 
             LeaderUnit nextUnit = unitIterator.next();
-            if(timeLine.isSafeToAdd(nextUnit))
-            {
+            if (timeLine.isSafeToAdd(nextUnit)) {
                 boolean nextSafety = addUnitAndCheckSafety(nextUnit);
                 unitIterator.remove();
-                
-                if(!nextSafety) { // stop adding any more buffered units if they are not safe to add.
+
+                if (!nextSafety) { // stop adding any more buffered units if they are not safe to add.
                     break;
                 }
+            } else {
+                break; // Don't wait for next as they are sorted and therefore break now.
             }
-            
-            else break; // Don't wait for next as they are sorted and therefore break now.
         }
     }
-    
+
     /**
-     * Handler for the entry commit request as part of the index entry addition protocol.
-     * Verify that the request is from the leader and then add the entry to the node.
+     * Handler for the entry commit request as part of the index entry addition
+     * protocol. Verify that the request is from the leader and then add the
+     * entry to the node.
      * <p/>
-     * <b>CAUTION :</b> Currently we are not replying to the node back and simply without any questioning add the entry
-     * locally, simply the verifying the signature.
+     * <b>CAUTION :</b> Currently we are not replying to the node back and
+     * simply without any questioning add the entry locally, simply the
+     * verifying the signature.
      */
-    ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>> handleEntryCommitRequest =
-            new ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request>>() {
+    ClassMatchedHandler handleEntryCommitRequest
+            = new ClassMatchedHandler<EntryAddCommit.Request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryAddCommit.Request>>() {
 
                 @Override
-                public void handle(EntryAddCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryAddCommit.Request> event) {
+                public void handle(EntryAddCommit.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryAddCommit.Request> event) {
 
                     logger.debug("{}: Received index entry commit request from : {}", self.getId(), event.getSource());
                     ApplicationEntry.ApplicationEntryId applicationEntryId = request.getEntryId();
@@ -1166,12 +1130,12 @@ public final class NPAwareSearch extends ComponentDefinition {
                     idBuffer.putLong(applicationEntryId.getEntryId());
 
                     try {
-                        if (!ApplicationSecurity.verifyRSASignature( idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature())){
+                        if (!ApplicationSecurity.verifyRSASignature(idBuffer.array(), leaderIds.get(leaderIds.size() - 1), request.getSignature())) {
                             logger.warn("{}: Returning as signature not verified ... ", self.getId());
                             return;
                         }
 
-                    } catch(Exception e){
+                    } catch (Exception e) {
                         e.printStackTrace();
                         throw new RuntimeException("Entry commit failed", e);
                     }
@@ -1205,41 +1169,37 @@ public final class NPAwareSearch extends ComponentDefinition {
                             // missing tracker needs to be informed about it.
                             lowestMissingEntryTracker.updateInternalState();
 
-                        }
-                        else {
+                        } else {
                             // Landing Entry is no longer stored with Index Entries.
                             pushEntry(toCommit);
                         }
 
-                    } 
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         throw new RuntimeException("Unable to process Entry Commit Request, exiting ... ");
-                    }
-                    
-                    finally {
+                    } finally {
                         pendingForCommit.remove(toCommit); // Remove Entry to prevent memory leak.
                     }
 
                 }
             };
 
-
     /**
-     * Handler for the add index entry response message in the system.
-     * The response is sent by the leader.
+     * Handler for the add index entry response message in the system. The
+     * response is sent by the leader.
      */
-    ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>> handleAddIndexEntryResponse =
-            new ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response>>() {
+    ClassMatchedHandler handleAddIndexEntryResponse
+            = new ClassMatchedHandler<AddIndexEntry.Response, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntry.Response>>() {
 
                 @Override
-                public void handle(AddIndexEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, AddIndexEntry.Response> event) {
+                public void handle(AddIndexEntry.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntry.Response> event) {
 
                     logger.debug("{}: Received add index entry response back:", self.getId());
                     CancelTimeout ct = new CancelTimeout(response.getEntryAdditionRound());
                     trigger(ct, timerPort);
 
-                    if(checkForLandingEntryAdd(response.getEntryAdditionRound()))
+                    if (checkForLandingEntryAdd(response.getEntryAdditionRound())) {
                         return;
+                    }
 
                     timeStoringMap.remove(response.getEntryAdditionRound());
                     trigger(new UiAddIndexEntryResponse(true), uiPort);
@@ -1247,10 +1207,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
             };
 
-
     /**
-     * In special case in which the entry might be a landing entry, check based on the round id and
-     * reset the landing entry addition meta data and update the current epochId with which the leader will be adding the entry in the system.
+     * In special case in which the entry might be a landing entry, check based
+     * on the round id and reset the landing entry addition meta data and update
+     * the current epochId with which the leader will be adding the entry in the
+     * system.
      */
     private boolean checkForLandingEntryAdd(UUID roundId) {
 
@@ -1267,7 +1228,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         return result;
     }
-
 
     /**
      * Periodically garbage collect the data structure used to identify
@@ -1295,8 +1255,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         if (newLeaderPublicKey != null) {
             if (!leaderIds.contains(newLeaderPublicKey)) {
-                if (leaderIds.size() == config.getMaxLeaderIdHistorySize())
+                if (leaderIds.size() == config.getMaxLeaderIdHistorySize()) {
                     leaderIds.remove(leaderIds.get(0));
+                }
                 leaderIds.add(newLeaderPublicKey);
             } else {
                 //if leader already exists in the list, move it to the top
@@ -1313,21 +1274,18 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
-
     final Handler<se.sics.ms.events.paginateAware.UiSearchRequest> paginateSearchRequestHandler = new Handler<se.sics.ms.events.paginateAware.UiSearchRequest>() {
         @Override
         public void handle(se.sics.ms.events.paginateAware.UiSearchRequest uiSearchRequest) {
 
             logger.error("{}: Received paginate aware search request.");
 
-            searchProtocolTracker.initiateShardSearch( uiSearchRequest.getPattern(),
+            searchProtocolTracker.initiateShardSearch(uiSearchRequest.getPattern(),
                     uiSearchRequest.getPaginateInfo(),
                     config.getQueryTimeout(),
-                    MsConfig.GRADIENT_SEARCH_PARALLELISM );
+                    MsConfig.GRADIENT_SEARCH_PARALLELISM);
         }
     };
-
-
 
     final Handler<UiAddIndexEntryRequest> addIndexEntryRequestHandler = new Handler<UiAddIndexEntryRequest>() {
         @Override
@@ -1339,10 +1297,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     final Handler<NumberOfPartitions> handleNumberOfPartitions = new Handler<NumberOfPartitions>() {
         @Override
         public void handle(NumberOfPartitions numberOfPartitions) {
-            
-            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(), 
+
+            searchPartitionsNumber.put(numberOfPartitions.getTimeoutId(),
                     numberOfPartitions.getNumberOfShards());
-            
+
             searchRequestStarted.put(numberOfPartitions.getTimeoutId(), new Pair<Long, Integer>(System.currentTimeMillis(),
                     numberOfPartitions.getNumberOfShards()));
         }
@@ -1376,10 +1334,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getSearchRoundId(),
                 config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
-
 
     /**
      * Close opened indexes to prevent memory leak.
@@ -1399,28 +1356,28 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
-
     /**
-     * Handler for the search request received. The search request contains query to be searched in the local write lucene index.
+     * Handler for the search request received. The search request contains
+     * query to be searched in the local write lucene index.
      */
-    ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>> handleSearchRequest =
-            new ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request>>() {
+    ClassMatchedHandler handleSearchRequest
+            = new ClassMatchedHandler<SearchInfo.Request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchInfo.Request>>() {
 
                 @Override
-                public void handle(SearchInfo.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.Request> event) {
+                public void handle(SearchInfo.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchInfo.Request> event) {
 
                     logger.debug("{}: Received Search Request from : {}", self.getId(), event.getSource());
                     try {
 
-                        ArrayList<ApplicationEntry> result = searchLocal( writeEntryLuceneAdaptor,
+                        ArrayList<ApplicationEntry> result = searchLocal(writeEntryLuceneAdaptor,
                                 request.getPattern(), config.getHitsPerQuery());
-                        
-                        SearchInfo.ResponseUpdated searchMessageResponse = new SearchInfo.ResponseUpdated( request.getRequestId(),
+
+                        SearchInfo.ResponseUpdated searchMessageResponse = new SearchInfo.ResponseUpdated(request.getRequestId(),
                                 result, request.getPartitionId(), 0, 0);
-                        
-                        trigger(CommonHelper.getDecoratedContentMessage( self.getAddress(), event.getSource(),
-                                Transport.UDP, searchMessageResponse), networkPort );
-                        
+
+                        trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(),
+                                        Transport.UDP, searchMessageResponse), networkPort);
+
                     } catch (LuceneAdaptorException e) {
                         logger.warn("{} : Unable to search for index entries in Lucene.", self.getId());
                         e.printStackTrace();
@@ -1429,10 +1386,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
             };
 
-
     // ======================================== CHANGES FOR THE PAGINATION FIX
-
-
     /**
      * Send a search request for a given search pattern to one node in each
      * shard except the local partition.
@@ -1461,29 +1415,14 @@ public final class NPAwareSearch extends ComponentDefinition {
         searchRequest.setSearchRoundId(rst.getTimeoutEvent().getTimeoutId());
 
         trigger(rst, timerPort);
-        trigger(new GradientRoutingPort.SearchRequest( pattern, searchRequest.getSearchRoundId(),
+        trigger(new GradientRoutingPort.SearchRequest(pattern, searchRequest.getSearchRoundId(),
                 config.getQueryTimeout(), fanoutParameter), gradientRoutingPort);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /**
      * Based on the query pattern and the limit of the responses, execute the
-     * query and construct the collection to be returned sorted on the score of the
-     * matching documents.
+     * query and construct the collection to be returned sorted on the score of
+     * the matching documents.
      *
      * @param adaptor Adaptor
      * @param pattern search pattern
@@ -1498,67 +1437,56 @@ public final class NPAwareSearch extends ComponentDefinition {
         return adaptor.getIdScoreCollection(pattern.getQuery(), collector);
     }
 
-
-
-
-
-
-
     // ==========================================
-
-
-
     /**
      * Query the given index store with a given search pattern.
      *
      * @param adaptor adaptor to use
      * @param pattern the {@link se.sics.ms.types.SearchPattern} to use
-     * @param limit   the maximal amount of entries to return
+     * @param limit the maximal amount of entries to return
      * @return a list of matching entries
      * @throws java.io.IOException if Lucene errors occur
      */
-    private ArrayList<ApplicationEntry> searchLocal( ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit ) throws LuceneAdaptorException {
-        
+    private ArrayList<ApplicationEntry> searchLocal(ApplicationLuceneAdaptor adaptor, SearchPattern pattern, int limit) throws LuceneAdaptorException {
+
         TopScoreDocCollector collector = TopScoreDocCollector.create(limit, true);
         ArrayList<ApplicationEntry> entryResult = (ArrayList<ApplicationEntry>) adaptor.searchApplicationEntriesInLucene(pattern.getQuery(), collector);
-        
+
         return entryResult != null ? entryResult : new ArrayList<ApplicationEntry>();
     }
 
-
     /**
      * Node received search response for the current search request.
-     * 
+     *
      */
-    ClassMatchedHandler<SearchInfo.ResponseUpdated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated>> handleSearchResponse = 
-            new ClassMatchedHandler<SearchInfo.ResponseUpdated, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated>>() {
-                
-        @Override
-        public void handle(SearchInfo.ResponseUpdated response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchInfo.ResponseUpdated> event) {
+    ClassMatchedHandler handleSearchResponse
+            = new ClassMatchedHandler<SearchInfo.ResponseUpdated, BasicContentMsg<KAddress, KHeader<KAddress>, SearchInfo.ResponseUpdated>>() {
 
-            if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getSearchRoundId())) {
-                return;
-            }
-            addSearchResponse( response.getResults(), 
-                    response.getPartitionId(), 
-                    response.getSearchTimeoutId());
-        }
-    };
+                @Override
+                public void handle(SearchInfo.ResponseUpdated response, BasicContentMsg<KAddress, KHeader<KAddress>, SearchInfo.ResponseUpdated> event) {
+
+                    if (searchRequest == null || !response.getSearchTimeoutId().equals(searchRequest.getSearchRoundId())) {
+                        return;
+                    }
+                    addSearchResponse(response.getResults(),
+                            response.getPartitionId(),
+                            response.getSearchTimeoutId());
+                }
+            };
 
     /**
      * Add entries to search index.
      *
-     * @param entries   the entries to be added
+     * @param entries the entries to be added
      * @param partition the partition from which the entries originate from
      */
-    private void addSearchResponse (Collection<ApplicationEntry> entries, int partition, UUID requestId) {
-        
+    private void addSearchResponse(Collection<ApplicationEntry> entries, int partition, UUID requestId) {
+
         if (searchRequest.hasResponded(partition)) {
             return;
         }
 
-        try
-        {
+        try {
             addEntries(searchEntryLuceneAdaptor, entries);
             searchRequest.addRespondedPartition(partition);
 
@@ -1574,41 +1502,39 @@ public final class NPAwareSearch extends ComponentDefinition {
                 trigger(ct, timerPort);
                 answerSearchRequestBase();
             }
-        }
-
-        catch (IOException e) {
+        } catch (IOException e) {
             logger.warn("{}: Unable to add the Search Response from the nodes in the system.", prefix);
         }
     }
 
-    
     /**
      * Log the time results for the search results.
-     *  
+     *
      * @param requestId requestId
      * @param timeCompleted time of completion
      * @param numOfPartitions partition number
      */
     private void logSearchTimeResults(UUID requestId, long timeCompleted, Integer numOfPartitions) {
         Pair<Long, Integer> searchIssued = searchRequestStarted.get(requestId);
-        if (searchIssued == null)
+        if (searchIssued == null) {
             return;
+        }
 
-        if (!searchIssued.getSecond().equals(numOfPartitions))
+        if (!searchIssued.getValue1().equals(numOfPartitions)) {
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
-                    config.getQueryTimeout(), numOfPartitions, searchIssued.getSecond()));
-        else
+                    config.getQueryTimeout(), numOfPartitions, searchIssued.getValue1()));
+        } else {
             logger.info(String.format("Search completed in %s ms, hit %s out of %s partitions",
-                    timeCompleted - searchIssued.getFirst(), numOfPartitions, searchIssued.getSecond()));
+                    timeCompleted - searchIssued.getValue0(), numOfPartitions, searchIssued.getValue1()));
+        }
 
         searchRequestStarted.remove(requestId);
     }
 
-
     /**
-     * Based on the median entry and the boolean check, determine
-     * the entry base that needs to be removed and ultimately update the
-     * self with the remaining entries.
+     * Based on the median entry and the boolean check, determine the entry base
+     * that needs to be removed and ultimately update the self with the
+     * remaining entries.
      *
      * @param middleId middle entry.
      * @param isPartition is partition.
@@ -1635,8 +1561,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             int entrySize = writeEntryLuceneAdaptor.getApplicationEntrySize();
             int markerEntrySize = markerEntryLuceneAdaptor.getMarkerEntriesSize();
-            
-            logger.warn("{}: After Sharding,  Marker Entry Size :{}, Application Entry Size :{}", new Object[] {prefix, markerEntrySize, entrySize});
+
+            logger.warn("{}: After Sharding,  Marker Entry Size :{}, Application Entry Size :{}", new Object[]{prefix, markerEntrySize, entrySize});
             lowestMissingEntryTracker.printExistingEntries();
 
             // Re-calculate the size of total and the actual entries in the system.
@@ -1650,10 +1576,11 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the given Lucene directory
+     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the given
+     * Lucene directory
      *
      * @param searchRequestLuceneAdaptor adaptor
-     * @param entries                    a collection of index entries to be added
+     * @param entries a collection of index entries to be added
      * @throws java.io.IOException in case the adding operation failed
      */
     private void addEntries(ApplicationLuceneAdaptor searchRequestLuceneAdaptor, Collection<ApplicationEntry> entries)
@@ -1669,14 +1596,13 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * The search responses that are collected, are added
-     * in the lucene instance and then when its time to reply back,
-     * the application simply searches the created lucene instance
-     * and reply back. It helps the application to perform manipulations on the data like
-     * sorting, searching.
+     * The search responses that are collected, are added in the lucene instance
+     * and then when its time to reply back, the application simply searches the
+     * created lucene instance and reply back. It helps the application to
+     * perform manipulations on the data like sorting, searching.
      */
     private void answerSearchRequestBase() {
-        
+
         ArrayList<ApplicationEntry> result = null;
         try {
             result = searchLocal(searchEntryLuceneAdaptor, searchRequest.getSearchPattern(), config.getMaxSearchResults());
@@ -1693,12 +1619,14 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the Lucene index using the given
-     * writer.
+     * Add the given {@link se.sics.ms.types.ApplicationEntry} to the Lucene
+     * index using the given writer.
      *
-     * @param adaptor the adaptor used to add the {@link se.sics.ms.types.IndexEntry}
-     * @param entry   the {@link se.sics.ms.types.IndexEntry} to be added
-     * @throws se.sics.ms.common.LuceneAdaptorException in case the adding operation failed
+     * @param adaptor the adaptor used to add the
+     * {@link se.sics.ms.types.IndexEntry}
+     * @param entry the {@link se.sics.ms.types.IndexEntry} to be added
+     * @throws se.sics.ms.common.LuceneAdaptorException in case the adding
+     * operation failed
      */
     private void addEntryToLucene(ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws LuceneAdaptorException {
 
@@ -1709,14 +1637,15 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Add the given {@link se.sics.ms.types.IndexEntry} to the Lucene index using the given
-     * writer.
+     * Add the given {@link se.sics.ms.types.IndexEntry} to the Lucene index
+     * using the given writer.
      *
-     * @param adaptor the adaptor used to add the {@link se.sics.ms.types.IndexEntry}
-     * @param entry   the {@link se.sics.ms.types.IndexEntry} to be added
+     * @param adaptor the adaptor used to add the
+     * {@link se.sics.ms.types.IndexEntry}
+     * @param entry the {@link se.sics.ms.types.IndexEntry} to be added
      * @throws java.io.IOException in case the adding operation failed
      */
-    private void addEntry (ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws IOException, LuceneAdaptorException {
+    private void addEntry(ApplicationLuceneAdaptor adaptor, ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
         logger.trace("{}: Adding entry in the system: {}", self.getId(), entry.getApplicationEntryId());
 
@@ -1726,8 +1655,9 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Once the entry passes all the checks for authenticity and being a correctly tracked entry,
-     * the method is invoked, which commits it to Lucene and updates the utility.
+     * Once the entry passes all the checks for authenticity and being a
+     * correctly tracked entry, the method is invoked, which commits it to
+     * Lucene and updates the utility.
      *
      * @param entry entry to add.
      */
@@ -1744,8 +1674,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Start with the main sharding procedure.
-     * Initiate the sharding process.
+     * Start with the main sharding procedure. Initiate the sharding process.
      */
     private void checkAndInitiateSharding() throws LuceneAdaptorException {
 
@@ -1760,35 +1689,32 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             logger.error("{}: Sharding Median ID: {} ", prefix, entryId);
             partitionInProgress = true;
-            
+
             ScheduleTimeout st1 = new ScheduleTimeout(12000);
             TimeoutCollection.PreShardTimeout preShardTimeout = new TimeoutCollection.PreShardTimeout(st1, entryId);
             st1.setTimeoutEvent(preShardTimeout);
             preShardTimeoutId = st1.getTimeoutEvent().getTimeoutId();
             trigger(st1, timerPort);
-            
+
         } else {
             logger.trace("{}: Not the time to shard, return .. ", prefix);
         }
 
     }
 
-
     /**
-     * Pre sharding phase timed out, now lets initiate sharding.
-     * The shard protocol gets initiated only after we check that the sharding 
-     * condition and the leader condition is still valid after the timeout.
+     * Pre sharding phase timed out, now lets initiate sharding. The shard
+     * protocol gets initiated only after we check that the sharding condition
+     * and the leader condition is still valid after the timeout.
      */
     Handler<TimeoutCollection.PreShardTimeout> preShardTimeoutHandler = new Handler<TimeoutCollection.PreShardTimeout>() {
         @Override
         public void handle(TimeoutCollection.PreShardTimeout event) {
 
-            
             // Some condition check needs to be there.
-            
-            if (leader && (preShardTimeoutId != null 
-                    && preShardTimeoutId.equals(event.getTimeoutId())) ) {
-                
+            if (leader && (preShardTimeoutId != null
+                    && preShardTimeoutId.equals(event.getTimeoutId()))) {
+
                 // If after the timeout I am still the leader.
                 LeaderUnit previousUpdate = null;
                 try {
@@ -1798,7 +1724,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                     ShardLeaderUnit sec = new ShardLeaderUnit(
                             previousUpdate.getEpochId() + 1, self.getId(),
                             ApplicationConst.SHARD_UNIT_SIZE, event.medianId,
-                            publicKey );
+                            publicKey);
 
                     // Create Hash of the Shard Update.
                     String hash = ApplicationSecurity.generateShardSignedHash(sec, privateKey);
@@ -1811,30 +1737,27 @@ public final class NPAwareSearch extends ComponentDefinition {
                     shardTracker.initiateSharding(shardRoundId, leaderGroupInformation, previousUpdate, sec);
                     trigger(st, timerPort);
 
-                }
-                catch (LuceneAdaptorException e) {
+                } catch (LuceneAdaptorException e) {
 
                     partitionInProgress = false;
                     e.printStackTrace();
                     throw new RuntimeException(e);
-                }    
-            }
-            
-            else {
+                }
+            } else {
                 logger.debug("{}: Unable to start sharding process as shard conditions don't hold.  ", prefix);
             }
-            
-            
+
         }
     };
-    
+
     /**
-     * Event from the shard tracker that the sharding round has been completed and therefore
-     * the system state needs to be updated in accordance with the sharding.
+     * Event from the shard tracker that the sharding round has been completed
+     * and therefore the system state needs to be updated in accordance with the
+     * sharding.
      *
      * @param shardRoundID shard round
      * @param previousUnit previous unit
-     * @param shardUnit    current shard unit
+     * @param shardUnit current shard unit
      */
     private void handleSharding(UUID shardRoundID, LeaderUnit previousUnit, LeaderUnit shardUnit) {
 
@@ -1847,15 +1770,15 @@ public final class NPAwareSearch extends ComponentDefinition {
             trigger(cancelTimeout, timerPort);
             shardTracker.resetShardingParameters();
         }
-        
+
         addUnitPacket(previousUnit, shardUnit);
         partitionInProgress = false;    // What about this resetting of partitioning in progress ?
     }
 
-
     /**
-     * In case the sharding event is handled by the shard commit or the control pull, the application needs to be informed
-     * immediately, so the application can carry out the necessary sharding steps.
+     * In case the sharding event is handled by the shard commit or the control
+     * pull, the application needs to be informed immediately, so the
+     * application can carry out the necessary sharding steps.
      *
      * @param shardUnit Shard Epoch Unit.
      */
@@ -1884,7 +1807,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             timeLine.addSkipList(skipList);
             addUnitToTimeLine(shardUnit);
-            
+
             logger.debug("{}: TimeLine : {}", prefix, timeLine.getEpochMap());
             lowestMissingEntryTracker.resumeTracking();
 
@@ -1893,13 +1816,11 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     }
 
-
     /**
-     * Based on the median Id and the current tracking update,
-     * generate the skipList which is a list containing the epoch updates
-     * that the node has to jump over because the higher nodes might not have the
-     * information as they would have removed it as part of there partitioning
-     * update.
+     * Based on the median Id and the current tracking update, generate the
+     * skipList which is a list containing the epoch updates that the node has
+     * to jump over because the higher nodes might not have the information as
+     * they would have removed it as part of there partitioning update.
      *
      * @return Skip List
      */
@@ -1916,21 +1837,19 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         // Current Tracking might be lagging
         // behind the original information in the store. Therefore Update it before proceeding forward.
-
         LeaderUnit container = lowestMissingEntryTracker.getCurrentTrackingUnit();
         container = timeLine.getLooseUnit(container);
 
-        if(container == null){
+        if (container == null) {
             throw new IllegalStateException("Unable to get updated value for current tracking.. ");
         }
 
         // Calculate the next in line leader units.
-        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits (container);
+        List<LeaderUnit> pendingUnits = timeLine.getNextLeaderUnits(container);
 
         // ( In case leader pushes the update to node and it is not in order, just buffer it for the time being. )
         // No updates could be buffered at this point as updates are added in order
         // so the shard update will be the next in line to be added when it was detected.
-
         pendingUnits.add(container);
         Collections.sort(pendingUnits, luComparator);
 
@@ -1939,19 +1858,18 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Based on which section of the entries that the nodes will clear
         // Update the pending list.
         // TO DO : FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH for the below fix.
-
         if (partitionSubId) {
             // If right to the median id is removed, skip list should contain
             // entries to right of the median.
             while (iterator.hasNext()) {
 
                 LeaderUnit nextContainer = iterator.next();
-                
-                if(nextContainer.getEpochId() == medianId.getEpochId() 
-                        && nextContainer.getLeaderId() == medianId.getLeaderId()){
+
+                if (nextContainer.getEpochId() == medianId.getEpochId()
+                        && nextContainer.getLeaderId() == medianId.getLeaderId()) {
                     break;
                 }
-                
+
                 if (nextContainer.getEpochId() <= medianId.getEpochId()) {
                     iterator.remove();
                 }
@@ -1964,10 +1882,10 @@ public final class NPAwareSearch extends ComponentDefinition {
             while (iterator.hasNext()) {
 
                 LeaderUnit nextContainer = iterator.next();
-                
-                if( (nextContainer.getEpochId() == medianId.getEpochId() 
-                        && nextContainer.getLeaderId() >= medianId.getLeaderId()) || nextContainer.getEpochId() > medianId.getEpochId()){
-                    
+
+                if ((nextContainer.getEpochId() == medianId.getEpochId()
+                        && nextContainer.getLeaderId() >= medianId.getLeaderId()) || nextContainer.getEpochId() > medianId.getEpochId()) {
+
                     iterator.remove();
                 }
             }
@@ -1976,20 +1894,20 @@ public final class NPAwareSearch extends ComponentDefinition {
         return pendingUnits;
     }
 
-
     /**
-     * Apply the main sharding update to the application in terms of
-     * removing the entries that are not needed and are lying around in the
-     * lucene store in the system.
+     * Apply the main sharding update to the application in terms of removing
+     * the entries that are not needed and are lying around in the lucene store
+     * in the system.
      * <br/>
      * <br/>
-     * The order in which the shard updates that needs to be applied is as follows:<br/>
+     * The order in which the shard updates that needs to be applied is as
+     * follows:<br/>
      * <ul>
      * <li>The updates the level and the partitioning information by sharding to
      * to the next level.</li>
      * <p/>
-     * <li>The system then removes the entries from the entries that should not lie
-     * in the system as part of current partititon information.</li>
+     * <li>The system then removes the entries from the entries that should not
+     * lie in the system as part of current partititon information.</li>
      * <p/>
      * <li>The updated self is then pushed to the listening components.
      * </li>
@@ -2010,9 +1928,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         informListeningComponentsAboutUpdates(self);
     }
 
-
     /**
-     * Handler for the shard round timeout. Check if the sharding completed and if the sharding expired.
+     * Handler for the shard round timeout. Check if the sharding completed and
+     * if the sharding expired.
      */
     Handler<TimeoutCollection.ShardRoundTimeout> shardRoundTimeoutHandler = new Handler<TimeoutCollection.ShardRoundTimeout>() {
 
@@ -2030,14 +1948,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                 logger.debug("{}: Sharding timeout occured after the event is canceled ... ");
             }
 
-
         }
     };
 
-
     /**
-     * Based on the internal state of the node, check if
-     * it's time to shard.
+     * Based on the internal state of the node, check if it's time to shard.
      *
      * @return Shard True/False
      */
@@ -2063,7 +1978,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         return entries.get(0);
     }
 
-
     /**
      * Find an entry for the given id in the local index store.
      *
@@ -2072,17 +1986,16 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId) {
 
-        ApplicationEntry entry  = ApplicationLuceneQueries.findEntryId(
+        ApplicationEntry entry = ApplicationLuceneQueries.findEntryId(
                 writeEntryLuceneAdaptor,
                 entryId);
 
         return entry;
     }
 
-
     /**
-     * Based on the current shard information, determine the updated shard information
-     * value and then split to the current shard to the next level.
+     * Based on the current shard information, determine the updated shard
+     * information value and then split to the current shard to the next level.
      *
      * @return Boolean.
      */
@@ -2113,13 +2026,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                     newDepth, partition, selfCategory);
         }
 
-
         self.setOverlayId(newOverlayId);
         logger.error("Partitioning Occurred at Node: " + self.getId() + " PartitionDepth: " + self.getPartitioningDepth() + " PartitionId: " + self.getPartitionId() + " PartitionType: " + self.getPartitioningType());
 
         return partitionSubId;
     }
-
 
     /**
      * Push updated information to the listening components.
@@ -2129,38 +2040,37 @@ public final class NPAwareSearch extends ComponentDefinition {
     private void informListeningComponentsAboutUpdates(ApplicationSelf self) {
 
         PeerDescriptor updatedDesc = self.getSelfDescriptor();
-        
+
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
-        trigger(new ViewUpdate (electionRound, updatedDesc), electionPort);
-        trigger(new GradientUpdate<PeerDescriptor>(updatedDesc), selfViewUpdatePort);
+        trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
+        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(updatedDesc), selfViewUpdatePort);
 
 //      Send the information to the local aggregator in form of one big packet.
-        SearchComponentInfo componentInfo = new SearchComponentInfo(updatedDesc, 0, leaderAddress);
-        ComponentInfoEvent event = new ComponentInfoEvent(defaultComponentOverlayId, componentInfo);
-        trigger(event, localAggregatorPort);
+        //TODO Alex -reenable
+//        SearchComponentInfo componentInfo = new SearchComponentInfo(updatedDesc, 0, leaderAddress);
+//        ComponentInfoEvent event = new ComponentInfoEvent(defaultComponentOverlayId, componentInfo);
+//        trigger(event, localAggregatorPort);
     }
 
-
     // ======= GRADIENT SAMPLE HANDLER.
-
-    Handler<GradientSample> gradientSampleHandler = new Handler<GradientSample>() {
+    Handler gradientSampleHandler = new Handler<GradientSample>() {
 
         @Override
         public void handle(GradientSample event) {
 
             logger.debug("{}: Received gradient sample", self.getId());
-            
-            if(selfDescriptor != null 
-                    && !selfDescriptor.equals(event.selfView)){
-                
+
+            if (selfDescriptor != null
+                    && !selfDescriptor.equals(event.selfView)) {
+
                 logger.warn("{}: Getting sample for old descriptor from the gradient ... ", prefix);
                 return;
             }
-            
+
             gradientEntrySet.clear();
 
-            Collection<Container> collection = event.gradientSample;
+            List<Container> collection = event.gradientSample;
             for (Container container : collection) {
 
                 if (container.getContent() instanceof PeerDescriptor) {
@@ -2171,9 +2081,7 @@ public final class NPAwareSearch extends ComponentDefinition {
             publishSample(gradientEntrySet);
         }
 
-
     };
-
 
     private void publishSample(Set<PeerDescriptor> samples) {
 
@@ -2187,16 +2095,14 @@ public final class NPAwareSearch extends ComponentDefinition {
         logger.debug(prefix + " " + sb);
     }
 
-
     // ************************************
     // LEADER ELECTION PROTOCOL HANDLERS.
     // ************************************
-
     /**
-     * Node is elected as the leader of the partition.
-     * In addition to this, node has chosen a leader group which it will work with.
+     * Node is elected as the leader of the partition. In addition to this, node
+     * has chosen a leader group which it will work with.
      */
-    Handler<LeaderState.ElectedAsLeader> leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
+    Handler leaderElectionHandler = new Handler<LeaderState.ElectedAsLeader>() {
         @Override
         public void handle(LeaderState.ElectedAsLeader event) {
 
@@ -2214,16 +2120,14 @@ public final class NPAwareSearch extends ComponentDefinition {
                 throw new RuntimeException("Unable to calculate the Landing Entry on becoming the leader.");
             }
 
-
         }
     };
-
 
     /**
      * Handler for the leadership extension request in the system.
      *
      */
-    Handler<ExtensionUpdate> extensionUpdateHandler  = new Handler<ExtensionUpdate>() {
+    Handler extensionUpdateHandler = new Handler<ExtensionUpdate>() {
         @Override
         public void handle(ExtensionUpdate event) {
 
@@ -2234,33 +2138,32 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
-
     /**
      * Remove the decorated address matching self from the collection.
+     *
      * @param collection address collection
      */
-    private void cleanSelfAddress(Collection<DecoratedAddress> collection){
+    private void cleanSelfAddress(List<KAddress> collection) {
 
-        BasicAddress selfPeerAddress = self.getAddress().getBase();
-        Iterator<DecoratedAddress> itr = collection.iterator();
+        Identifier selfId = self.getAddress().getId();
+        Iterator<KAddress> itr = collection.iterator();
         while (itr.hasNext()) {
 
-            BasicAddress addr = itr.next().getBase();
+            KAddress addr = itr.next();
             logger.warn("{}: Leader Group Node :{}", self.getId(), addr.getId());
-            if (selfPeerAddress.getId().equals(addr.getId())) {
+            if (selfId.equals(addr.getId())) {
                 itr.remove();
                 break;
             }
         }
     }
 
-
     /**
-     * Once a node gets elected as leader, the parameters regarding the starting entry addition id and the
-     * latest epoch id as seen by the node needs to be recalculated and the local parameters need to be updated.
-     * Then the leader needs to add landing index entry before anything else.
+     * Once a node gets elected as leader, the parameters regarding the starting
+     * entry addition id and the latest epoch id as seen by the node needs to be
+     * recalculated and the local parameters need to be updated. Then the leader
+     * needs to add landing index entry before anything else.
      */
-
     private void addMarkerUnit() throws LuceneAdaptorException {
 
         // Reset the landing entry addition check for the current round of becoming the leader.
@@ -2283,17 +2186,16 @@ public final class NPAwareSearch extends ComponentDefinition {
         st.setTimeoutEvent(new TimeoutCollection.LandingEntryAddTimeout(st));
         UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
 
-        landingEntryTracker.startTracking( currentEpoch, landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID, lastLeaderUnit );
+        landingEntryTracker.startTracking(currentEpoch, landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID, lastLeaderUnit);
         initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
         logger.warn(landingEntryTracker.toString());
         trigger(st, timerPort);
     }
 
-
     /**
-     * Check the Lucene Instance for the entries that were added in the
-     * precious epoch id instance. The issue with the
+     * Check the Lucene Instance for the entries that were added in the precious
+     * epoch id instance. The issue with the
      *
      * @return
      * @throws se.sics.ms.common.LuceneAdaptorException
@@ -2304,8 +2206,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         if (lastUnit != null) {
 
-            if( (lastUnit.getLeaderUnitStatus() != LeaderUnit.LUStatus.COMPLETED)){
-                
+            if ((lastUnit.getLeaderUnitStatus() != LeaderUnit.LUStatus.COMPLETED)) {
+
                 Query epochUpdateEntriesQuery = ApplicationLuceneQueries.entriesInLeaderPacketQuery(
                         ApplicationEntry.EPOCH_ID, lastUnit.getEpochId(),
                         ApplicationEntry.LEADER_ID,
@@ -2321,17 +2223,14 @@ public final class NPAwareSearch extends ComponentDefinition {
                 lastUnit = new BaseLeaderUnit(
                         lastUnit.getEpochId(),
                         lastUnit.getLeaderId(),
-                        numEntries);    
-            }
-            
-            else{
-                
+                        numEntries);
+            } else {
+
                 lastUnit = new BaseLeaderUnit(
                         lastUnit.getEpochId(),
                         lastUnit.getLeaderId(),
                         lastUnit.getNumEntries());
             }
-            
 
         }
 
@@ -2357,11 +2256,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                     UUID landingEntryRoundId = st.getTimeoutEvent().getTimeoutId();
 
                     // Reset the tracker information for the round.
-                    landingEntryTracker.startTracking( landingEntryTracker.getEpochId(), 
+                    landingEntryTracker.startTracking(landingEntryTracker.getEpochId(),
                             landingEntryRoundId, ApplicationConst.LANDING_ENTRY_ID,
                             landingEntryTracker.getPreviousEpochContainer());
-                    
-                    initiateEntryAdditionMechanism( new AddIndexEntry.Request( landingEntryRoundId, IndexEntry.DEFAULT_ENTRY ), self.getAddress() );
+
+                    initiateEntryAdditionMechanism(new AddIndexEntry.Request(landingEntryRoundId, IndexEntry.DEFAULT_ENTRY), self.getAddress());
 
                     trigger(st, timerPort);
                     throw new UnsupportedOperationException(" Operation regarding the restart of the landing entry addition ... ");
@@ -2373,8 +2272,8 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Node was the leader but due to a better node arriving in the system,
-     * the leader gives up the leadership in order to maintain fairness.
+     * Node was the leader but due to a better node arriving in the system, the
+     * leader gives up the leadership in order to maintain fairness.
      */
     Handler<LeaderState.TerminateBeingLeader> terminateBeingLeaderHandler = new Handler<LeaderState.TerminateBeingLeader>() {
         @Override
@@ -2388,7 +2287,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     /**
      * Update about the current leader in the system.
      */
-    Handler<LeaderUpdate> leaderUpdateHandler = new Handler<LeaderUpdate>() {
+    Handler leaderUpdateHandler = new Handler<LeaderUpdate>() {
         @Override
         public void handle(LeaderUpdate event) {
 
@@ -2400,10 +2299,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Node is chosen by the leader to be part of a leader group. The utility of the node
-     * should increase because of this.
+     * Node is chosen by the leader to be part of a leader group. The utility of
+     * the node should increase because of this.
      */
-    Handler<ElectionState.EnableLGMembership> enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
+    Handler enableLGMembershipHandler = new Handler<ElectionState.EnableLGMembership>() {
         @Override
         public void handle(ElectionState.EnableLGMembership event) {
 
@@ -2415,8 +2314,9 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Node is no longer a part of leader group and therefore would not receive the entry addition directly
-     * from the leader but they would have to pull it from the other neighbouring nodes in the system.
+     * Node is no longer a part of leader group and therefore would not receive
+     * the entry addition directly from the leader but they would have to pull
+     * it from the other neighbouring nodes in the system.
      */
     Handler<ElectionState.DisableLGMembership> disableLGMembershipHandler = new Handler<ElectionState.DisableLGMembership>() {
         @Override
@@ -2429,19 +2329,18 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
-
     /**
-     * Based on the address provided check if the node contains the
-     * leader information in the gradient. If leader information found, start a special pull protocol of
-     * directly pulling the information from the leader.
+     * Based on the address provided check if the node contains the leader
+     * information in the gradient. If leader information found, start a special
+     * pull protocol of directly pulling the information from the leader.
      *
      * @param leaderAddress leader address
      * @return true ( if leader present ).
      */
-    private boolean isLeaderInGradient(DecoratedAddress leaderAddress) {
+    private boolean isLeaderInGradient(KAddress leaderAddress) {
 
         for (PeerDescriptor desc : gradientEntrySet) {
-            if (desc.getVodAddress().getBase().equals(leaderAddress.getBase())) {
+            if (desc.getVodAddress().getId().equals(leaderAddress.getId())) {
                 return true;
             }
         }
@@ -2449,16 +2348,16 @@ public final class NPAwareSearch extends ComponentDefinition {
         return false;
     }
 
-
     /**
-     * Identify the nodes above in the gradient and then return with the higher nodes in the system.
+     * Identify the nodes above in the gradient and then return with the higher
+     * nodes in the system.
      *
      * @param exchangeNumber exchange number
      * @return Higher Nodes.
      */
-    private Collection<DecoratedAddress> getNodesForExchange(int exchangeNumber) {
+    private List<KAddress> getNodesForExchange(int exchangeNumber) {
 
-        Collection<DecoratedAddress> exchangeNodes = new ArrayList<DecoratedAddress>();
+        List<KAddress> exchangeNodes = new ArrayList<>();
         NavigableSet<PeerDescriptor> navigableSet = (NavigableSet<PeerDescriptor>) gradientEntrySet.tailSet(self.getSelfDescriptor());
 
         Iterator<PeerDescriptor> descendingItr = navigableSet.descendingIterator();
@@ -2472,37 +2371,32 @@ public final class NPAwareSearch extends ComponentDefinition {
         return exchangeNodes;
     }
 
-
     /**
-     * Convenient wrapper for canceling a particular
-     * timeout.
+     * Convenient wrapper for canceling a particular timeout.
      *
      * @param timeoutId id for timeout
      */
-    private void cancelTimeout(UUID timeoutId){
+    private void cancelTimeout(UUID timeoutId) {
 
-        if(timeoutId != null ) {
+        if (timeoutId != null) {
 
             CancelTimeout ct = new CancelTimeout(timeoutId);
             trigger(ct, timerPort);
         }
     }
-    
+
     /**
      * *****************************
-     * PAG Handlers.
-     * ***************************** 
+     * PAG Handlers. *****************************
      */
-
-
     /**
-     * Handler for the request to check for presence of 
-     * leader unit in the timeline history of the node.
+     * Handler for the request to check for presence of leader unit in the
+     * timeline history of the node.
      */
     Handler<LUCheck.Request> leaderUnitCheckHandler = new Handler<LUCheck.Request>() {
         @Override
         public void handle(LUCheck.Request event) {
-            
+
             logger.debug("{}: Received request to look up for a leader unit.");
             boolean result = timeLine.getLooseUnit(event.getEpochId(), event.getLeaderId()) != null;
 
@@ -2512,74 +2406,65 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
     };
 
-
     /**
-     * Handler indicating presence of potential network partitioned
-     * nodes in the system.
+     * Handler indicating presence of potential network partitioned nodes in the
+     * system.
      */
     Handler<NPTimeout> npTimeoutHandler = new Handler<NPTimeout>() {
         @Override
         public void handle(NPTimeout event) {
-            
+
             logger.debug("{}: Received probable partitioned nodes from the PAG");
 //            throw new IllegalStateException("Unhandled functionality");
         }
     };
 
-
     /**
      * ****************************
-     * SEARCH REQUEST HANDLING
-     * ****************************
-     * <p/>
+     * SEARCH REQUEST HANDLING **************************** <p/>
      * Inner class used to track the different stages / phases as a part of the
      * search request protocol.
      *
      */
-
     private class SearchProtocolTracker {
 
-
-        public SearchProtocolTracker (){
+        public SearchProtocolTracker() {
             logger.debug("Search Protocol Tracker Booted up.");
         }
 
-
         /**
-         * Initiate the search protocol by fanning out the search
-         * to multiple shards.
+         * Initiate the search protocol by fanning out the search to multiple
+         * shards.
          *
          * @param pattern search pattern
          * @param searchTimeout timeout for search
          * @param fanoutParameter search parallelism
          */
-        private void initiateShardSearch( SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
+        private void initiateShardSearch(SearchPattern pattern, PaginateInfo paginateInfo, Integer searchTimeout, Integer fanoutParameter) {
 
             ScheduleTimeout rst = new ScheduleTimeout(searchTimeout);
             rst.setTimeoutEvent(new TimeoutCollection.SearchTimeout(rst));
 
-            UUID searchRoundId  = rst.getTimeoutEvent().getTimeoutId();
+            UUID searchRoundId = rst.getTimeoutEvent().getTimeoutId();
             searchRequest.startSearch(pattern, paginateInfo, searchRoundId);
 
             trigger(rst, timerPort);
 
 //          CHECK FOR PATTERN IN CACHE.
-            Map<DecoratedAddress, List<IdScorePair>> cachedScoreMap= cache.getScorePairCollection(pattern);
+            Map<Identifier, Pair<KAddress, List<IdScorePair>>> cachedScoreMap = cache.getScorePairCollection(pattern);
 
-            if(cachedScoreMap != null){
+            if (cachedScoreMap != null) {
 
                 logger.debug("{}: Started the search with the cached entries.", prefix);
-                
+
                 List<IdScorePair> maxHitList = createOrderedMaxHitList(cachedScoreMap);
-                Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
+                Map<Identifier, Pair<KAddress, List<IdScorePair>>> paginateEntryIdMap = prepareFetchPhaseInput(cachedScoreMap,
                         maxHitList, paginateInfo);
 
-                if(paginateEntryIdMap  != null){
+                if (paginateEntryIdMap != null) {
                     searchRequest.storeNumHits(maxHitList.size());
                     initiateFetchPhase(paginateEntryIdMap);
-                }
-
-                else {
+                } else {
                     sendEmptyResponse();
                 }
 
@@ -2593,48 +2478,45 @@ public final class NPAwareSearch extends ComponentDefinition {
                     searchTimeout, fanoutParameter), gradientRoutingPort);
         }
 
-
         /**
-         * In case an internal error or there is no hit for the 
-         * search string, the application will reply with an empty list of 
-         * matched entries.
+         * In case an internal error or there is no hit for the search string,
+         * the application will reply with an empty list of matched entries.
          */
-        private void sendEmptyResponse(){
+        private void sendEmptyResponse() {
 
             cancelTimeout(searchRequest.getSearchRoundId());
 
-            sendResponse( 0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
+            sendResponse(0, searchRequest.getPaginateInfo(), searchRequest.getSearchPattern(),
                     new ArrayList<EntryScorePair>());
         }
 
         /**
          * Handler for information about the number of shards in the system.
-         * This information is used by the application to check if all the shards have replied
-         * to the search query.
+         * This information is used by the application to check if all the
+         * shards have replied to the search query.
          */
         Handler<NumberOfPartitions> numPartitionsHandler = new Handler<NumberOfPartitions>() {
             @Override
             public void handle(NumberOfPartitions event) {
 
                 logger.debug("{}: Received number of partitions information from the routing component.");
-                if(searchRequest.getSearchRoundId() != null
-                        && searchRequest.getSearchRoundId().equals(event.getTimeoutId())){
+                if (searchRequest.getSearchRoundId() != null
+                        && searchRequest.getSearchRoundId().equals(event.getTimeoutId())) {
 
                     // As this message just before the requests are sent out to the
                     // peers in different shards it might happen that the response lags due to large message queue
                     // between the components. Therefore
                     searchRequest.setNumberOfShards(event.getNumberOfShards());
-                }
-                else {
+                } else {
                     logger.warn("{}: Received information about the partitions for an old request.");
                 }
             }
         };
 
         /**
-         * Timeout for the main search protocol phase.
-         * The node now looks at the responses that are being collected until this point
-         * and then sends the response back.
+         * Timeout for the main search protocol phase. The node now looks at the
+         * responses that are being collected until this point and then sends
+         * the response back.
          *
          */
         Handler<TimeoutCollection.SearchTimeout> searchProtocolTimeout = new Handler<TimeoutCollection.SearchTimeout>() {
@@ -2644,7 +2526,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                 logger.debug("Search Request Timed out.");
                 UUID searchRoundId = searchRequest.getSearchRoundId();
 
-                if(searchRoundId == null || !searchRoundId.equals(event.getTimeoutId())) {
+                if (searchRoundId == null || !searchRoundId.equals(event.getTimeoutId())) {
                     logger.warn("{}: Timeout happened after the round already finished.");
                     return;
                 }
@@ -2654,77 +2536,76 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         };
 
-
         /**
-         * Handler for the search request received. The search request contains query to be searched in the local write lucene index.
-         * The node as part of the query phase simply returns the score and the identifier of the entry matched.
-         * The reason behind this process is to help with the pagination.
+         * Handler for the search request received. The search request contains
+         * query to be searched in the local write lucene index. The node as
+         * part of the query phase simply returns the score and the identifier
+         * of the entry matched. The reason behind this process is to help with
+         * the pagination.
          *
          */
-        ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>> handleSearchQueryRequest =
-
-                new ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request>>() {
-
-            @Override
-            public void handle(SearchQuery.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Request> event) {
-
-                logger.error("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
-
-                try {
-                    List<IdScorePair> idScoreCollection = getIdScoreCollection(writeEntryLuceneAdaptor,
-                            request.getPattern(), config.getHitsPerQuery());
-
-                    SearchQuery.Response queryResponse = new SearchQuery.Response(request.getRequestId(), request.getPartitionId(), idScoreCollection);
-                    trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, queryResponse), networkPort);
-
-                } catch (LuceneAdaptorException e) {
-
-                    logger.warn("{} : Unable to query phase of the search request", self.getId());
-                    e.printStackTrace();
-                }
-            }
-
-
-        };
-
-
-        /**
-         * Handler for the search query response from the nodes in different shards.
-         * The node simply checks for the partition id from which the response is received and rejects
-         * if already received.
-         * <br/>
-         * The initiating node waits for the responses selcted nodes from all shards.
-         *
-         */
-        ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>> handleSearchQueryResponse=
-                new ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response>>() {
+        ClassMatchedHandler handleSearchQueryRequest
+                = new ClassMatchedHandler<SearchQuery.Request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchQuery.Request>>() {
 
                     @Override
-                    public void handle(SearchQuery.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchQuery.Response> event) {
+                    public void handle(SearchQuery.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchQuery.Request> event) {
+
+                        logger.error("{}: Received Search Query Request from : {}", self.getId(), event.getSource());
+
+                        try {
+                            List<IdScorePair> idScoreCollection = getIdScoreCollection(writeEntryLuceneAdaptor,
+                                    request.getPattern(), config.getHitsPerQuery());
+
+                            SearchQuery.Response queryResponse = new SearchQuery.Response(request.getRequestId(), request.getPartitionId(), idScoreCollection);
+                            trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, queryResponse), networkPort);
+
+                        } catch (LuceneAdaptorException e) {
+
+                            logger.warn("{} : Unable to query phase of the search request", self.getId());
+                            e.printStackTrace();
+                        }
+                    }
+
+                };
+
+        /**
+         * Handler for the search query response from the nodes in different
+         * shards. The node simply checks for the partition id from which the
+         * response is received and rejects if already received.
+         * <br/>
+         * The initiating node waits for the responses selcted nodes from all
+         * shards.
+         *
+         */
+        ClassMatchedHandler handleSearchQueryResponse
+                = new ClassMatchedHandler<SearchQuery.Response, BasicContentMsg<KAddress, KHeader<KAddress>, SearchQuery.Response>>() {
+
+                    @Override
+                    public void handle(SearchQuery.Response content, BasicContentMsg<KAddress, KHeader<KAddress>, SearchQuery.Response> event) {
 
                         logger.error("{}: Received Search Query Response from :{}", self.getId(), event.getSource());
                         UUID searchRoundId = searchRequest.getSearchRoundId();
 
-                        if(searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
+                        if (searchRoundId == null || !searchRoundId.equals(content.getSearchTimeoutId())) {
                             logger.warn("{}: Received a search query response for an expired round");
                             return;
                         }
 
                         logger.error("{}: Before safety check ....", prefix);
 
-                        if( searchRequest.isSafeToAdd(content.getPartitionId())) {
+                        if (searchRequest.isSafeToAdd(content.getPartitionId())) {
 
                             searchRequest.storeIdScoreCollection(event.getSource(), content.getIdScorePairCollection());
-                            if(searchRequest.haveAllShardsResponded()) {
+                            if (searchRequest.haveAllShardsResponded()) {
 
 //                               Once all the shards have responded with the information about the matched ids.
                                 logger.error("{}: Query phase over, moving to the fetch phase.", self.getId());
 
 //                              COMPUTE THE ORDERED LIST CONTAINING MAX POSSIBLE HITS FOR QUERY.
-                                Map<DecoratedAddress, List<IdScorePair>> completeScoreMap = searchRequest.getIdScoreMap();
-                                
-                                if(completeScoreMap.size() > 0){
-                                    
+                                Map<Identifier, Pair<KAddress, List<IdScorePair>>> completeScoreMap = searchRequest.getIdScoreMap();
+
+                                if (completeScoreMap.size() > 0) {
+
                                     List<IdScorePair> maxHitList = createOrderedMaxHitList(completeScoreMap);
 
 //                                  STORE THE METADATA AND UPDATE THE CACHE.
@@ -2733,10 +2614,10 @@ public final class NPAwareSearch extends ComponentDefinition {
 
 //                                  BASED ON THE PAGINATE INFO, CONSTRUCT THE PAGINATE MAP WHICH IS USED FOR FETCH PHASE.
                                     PaginateInfo paginateInfo = searchRequest.getPaginateInfo();
-                                    Map<DecoratedAddress, List<IdScorePair>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
+                                    Map<Identifier, Pair<KAddress, List<IdScorePair>>> paginateEntryIdMap = prepareFetchPhaseInput(completeScoreMap,
                                             maxHitList, paginateInfo);
 
-                                    if(paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()){
+                                    if (paginateEntryIdMap == null || paginateEntryIdMap.isEmpty()) {
 
                                         logger.warn("{}: Unable to initiate the fetch phase as meta data for the phase not available.", prefix);
                                         sendEmptyResponse();
@@ -2744,65 +2625,59 @@ public final class NPAwareSearch extends ComponentDefinition {
                                     }
 
                                     initiateFetchPhase(paginateEntryIdMap);
-                                }
+                                } else {
 
-                                else {
-                                    
                                     logger.debug(" No matching entry found for the corresponding search pattern");
                                     sendEmptyResponse();
                                 }
-                                
-                                
+
                             }
                         }
                     }
                 };
 
-
-
         /**
-         * Based on the responses of the query phase, create
-         * a deterministic order on the entries. In addition to this,
-         * bound the number of entries.
+         * Based on the responses of the query phase, create a deterministic
+         * order on the entries. In addition to this, bound the number of
+         * entries.
          *
          * @param baseMap baseMap
          * @return filteredList
          */
-        private List<IdScorePair> createOrderedMaxHitList( Map<DecoratedAddress, List<IdScorePair>> baseMap){
+        private List<IdScorePair> createOrderedMaxHitList(Map<Identifier, Pair<KAddress, List<IdScorePair>>> baseMap) {
 
             List<IdScorePair> scorePairList = new ArrayList<IdScorePair>();
-            for(Collection<IdScorePair> collection : baseMap.values()){
-                scorePairList.addAll(collection);
+            for (Pair<KAddress, List<IdScorePair>> collection : baseMap.values()) {
+                scorePairList.addAll(collection.getValue1());
             }
 
 //          SORT THE LIST TO CREATE DETERMINISTIC ORDER.
             Collections.sort(scorePairList);
 
 //          LIMIT FINAL SIZE TO MAX SEARCHABLE SIZE.
-            if(scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
+            if (scorePairList.size() > MsConfig.MAX_SEARCH_ENTRIES) {
                 scorePairList = scorePairList.subList(0, MsConfig.MAX_SEARCH_ENTRIES);
             }
 
             return scorePairList;
         }
 
-
         /**
-         * Filter and convert the paginate id score pair map to the structure which is required by
-         * the fetch phase of the search protocol.
+         * Filter and convert the paginate id score pair map to the structure
+         * which is required by the fetch phase of the search protocol.
          *
          * @param maxHitList sorted list
          * @param baseMap base score id map.
          * @return fetch phase data structure.
          */
-        private Map<DecoratedAddress, List<IdScorePair>> prepareFetchPhaseInput(Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo){
+        private Map<Identifier, Pair<KAddress, List<IdScorePair>>> prepareFetchPhaseInput(Map<Identifier, Pair<KAddress, List<IdScorePair>>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo) {
 
-            Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
+            Map<Identifier, Pair<KAddress, List<IdScorePair>>> result = new HashMap<>();
 
-            int from  = paginateInfo.getFrom();
+            int from = paginateInfo.getFrom();
             int size = paginateInfo.getSize() > 0 ? paginateInfo.getSize() : MsConfig.DEFAULT_ENTRIES_PER_PAGE;
 
-            if(from > maxHitList.size()) {
+            if (from > maxHitList.size()) {
 
 //              AS from IDENTIFIER GREATER THAN SIZE, RETURN.
                 logger.warn("{}: Unable to search as range not lying in current range.", prefix);
@@ -2812,29 +2687,29 @@ public final class NPAwareSearch extends ComponentDefinition {
             int to = from + (size);
             to = to > maxHitList.size() ? maxHitList.size() : to;
 
-            List<IdScorePair> paginateList = maxHitList.subList (from, to);
-            Map<DecoratedAddress, List<IdScorePair>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
+            List<IdScorePair> paginateList = maxHitList.subList(from, to);
+            Map<Identifier, Pair<KAddress, List<IdScorePair>>> paginateScoreMap = createRetainedMap(baseMap, paginateList);
 
-            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : paginateScoreMap.entrySet()){
+            for (Pair<KAddress, List<IdScorePair>> entry : paginateScoreMap.values()) {
 
                 List<IdScorePair> entryIds = new ArrayList();
-                for(IdScorePair pair : entry.getValue()){
+                for (IdScorePair pair : entry.getValue1()) {
                     entryIds.add(pair);
                 }
-                result.put(entry.getKey(), entryIds);
+                result.put(entry.getValue0().getId(), Pair.with(entry.getValue0(), entryIds));
             }
 
             return result;
         }
 
         /**
-         * Before the initiation of the fetch phase,
-         * the data pulled during the query phase needs to be cached, to be used on subsequent
-         * requests.
+         * Before the initiation of the fetch phase, the data pulled during the
+         * query phase needs to be cached, to be used on subsequent requests.
          */
-        private void cacheScoreMetaData(SearchPattern pattern, Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> baseList){
+        private void cacheScoreMetaData(SearchPattern pattern, Map<Identifier, Pair<KAddress, List<IdScorePair>>> baseMap,
+                List<IdScorePair> baseList) {
 
-            Map<DecoratedAddress, List<IdScorePair>> retainedMap = createRetainedMap(baseMap, baseList);
+            Map<Identifier, Pair<KAddress, List<IdScorePair>>> retainedMap = createRetainedMap(baseMap, baseList);
             cache.cachePattern(pattern, retainedMap);
 
             ScheduleTimeout st = new ScheduleTimeout(MsConfig.SCORE_DATA_CACHE_TIMEOUT);
@@ -2844,11 +2719,10 @@ public final class NPAwareSearch extends ComponentDefinition {
             trigger(st, timerPort);
         }
 
-
         /**
-         * Application needs to remove the cached search request as
-         * more entries could have been added in the mean time and therefore
-         * in order to make them searchable, older cached ones needs to be deleted.
+         * Application needs to remove the cached search request as more entries
+         * could have been added in the mean time and therefore in order to make
+         * them searchable, older cached ones needs to be deleted.
          */
         Handler<TimeoutCollection.CacheTimeout> cacheTimeoutHandler = new Handler<TimeoutCollection.CacheTimeout>() {
             @Override
@@ -2859,43 +2733,40 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         };
 
-
         /**
-         * Helper method to create a retained collection from the
-         * values supplied.
+         * Helper method to create a retained collection from the values
+         * supplied.
          *
          * @param baseMap baseMap
          * @param referenceList referenceList
-         * @return  collection
+         * @return collection
          */
-        private Map<DecoratedAddress, List<IdScorePair>> createRetainedMap (Map<DecoratedAddress, List<IdScorePair>> baseMap, List<IdScorePair> referenceList){
+        private Map<Identifier, Pair<KAddress, List<IdScorePair>>> createRetainedMap(Map<Identifier, Pair<KAddress, List<IdScorePair>>> baseMap, List<IdScorePair> referenceList) {
 
-            Map<DecoratedAddress, List<IdScorePair>> result = new HashMap<DecoratedAddress, List<IdScorePair>>();
+            Map<Identifier, Pair<KAddress, List<IdScorePair>>> result = new HashMap<>();
 
-            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : baseMap.entrySet()) {
-                List<IdScorePair> retainedValue = new ArrayList<IdScorePair>(entry.getValue());
+            for (Pair<KAddress, List<IdScorePair>> entry : baseMap.values()) {
+                List<IdScorePair> retainedValue = new ArrayList<>(entry.getValue1());
 
                 retainedValue.retainAll(referenceList);
-                if(!retainedValue.isEmpty()){
-                    result.put(entry.getKey(), retainedValue);
+                if (!retainedValue.isEmpty()) {
+                    result.put(entry.getValue0().getId(), Pair.with(entry.getValue0(), retainedValue));
                 }
             }
 
             return result;
         }
 
-
         /**
          * Based on the sorted identifiers and the pagination information,
          * initiate the fetch phase for the application entries.
          */
-        private void initiateFetchPhase(Map<DecoratedAddress, List<IdScorePair>> fetchPhaseInput) {
+        private void initiateFetchPhase(Map<Identifier, Pair<KAddress, List<IdScorePair>>> fetchPhaseInput) {
 
+            for (Pair<KAddress, List<IdScorePair>> entry : fetchPhaseInput.values()) {
 
-            for(Map.Entry<DecoratedAddress, List<IdScorePair>> entry : fetchPhaseInput.entrySet()) {
-
-                SearchFetch.Request fetchRequest = new SearchFetch.Request( searchRequest.getSearchRoundId(), entry.getValue() );
-                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), entry.getKey(),
+                SearchFetch.Request fetchRequest = new SearchFetch.Request(searchRequest.getSearchRoundId(), entry.getValue1());
+                trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), entry.getValue0(),
                         Transport.UDP, fetchRequest), networkPort);
             }
 
@@ -2903,17 +2774,16 @@ public final class NPAwareSearch extends ComponentDefinition {
             searchRequest.initiateFetchPhase(fetchPhaseInput);
         }
 
-
-
         /**
          * Handler for the search fetch request generated by the node once
-         * receives meta information concerning the entries that matched the query.
+         * receives meta information concerning the entries that matched the
+         * query.
          */
-        ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>> handleSearchFetchRequest =
-                new ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request>>() {
+        ClassMatchedHandler handleSearchFetchRequest
+                = new ClassMatchedHandler<SearchFetch.Request, BasicContentMsg<KAddress, KHeader<KAddress>, SearchFetch.Request>>() {
 
                     @Override
-                    public void handle(SearchFetch.Request content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Request> event) {
+                    public void handle(SearchFetch.Request content, BasicContentMsg<KAddress, KHeader<KAddress>, SearchFetch.Request> event) {
 
                         try {
                             logger.debug("{}: Received search fetch request.", prefix);
@@ -2930,30 +2800,25 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
-
-
-
-
         /**
-         * Handler for the search fetch response which involves handling of the responses containing the
-         * application entries.
+         * Handler for the search fetch response which involves handling of the
+         * responses containing the application entries.
          */
-        ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>> handleSearchFetchResponse =
-                new ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response>>() {
+        ClassMatchedHandler handleSearchFetchResponse
+                = new ClassMatchedHandler<SearchFetch.Response, BasicContentMsg<KAddress, KHeader<KAddress>, SearchFetch.Response>>() {
                     @Override
-                    public void handle(SearchFetch.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, SearchFetch.Response> event) {
+                    public void handle(SearchFetch.Response content, BasicContentMsg<KAddress, KHeader<KAddress>, SearchFetch.Response> event) {
 
                         logger.debug("{}: Received search fetch response from :{}", prefix, event.getSource());
                         UUID searchRoundId = searchRequest.getSearchRoundId();
 
-                        if(searchRoundId == null || !searchRoundId.equals(content.getFetchRequestId())) {
+                        if (searchRoundId == null || !searchRoundId.equals(content.getFetchRequestId())) {
                             logger.warn("{}: Received Search Fetch Respnse for an expired response.");
                         }
 
 //              MAIN HANDLING OF RESPONSE.
                         searchRequest.addFetchPhaseResponse(event.getSource(), content.getEntryScorePairs());
-                        if(searchRequest.isSafeToRespond()) {
+                        if (searchRequest.isSafeToRespond()) {
 
 //                  PACK DATA TOGETHER AND SEND BACK RESPONSE.
                             sendResponse();
@@ -2968,37 +2833,36 @@ public final class NPAwareSearch extends ComponentDefinition {
         /**
          * Wrapper over the main response dispatch method.
          */
-        private void sendResponse(){
+        private void sendResponse() {
 
             List<EntryScorePair> entries = searchRequest.getFetchedEntries();
             int numHits = searchRequest.getNumHits();
             SearchPattern pattern = searchRequest.getSearchPattern();
 
-            if(entries == null){
+            if (entries == null) {
                 entries = new ArrayList<EntryScorePair>();
             }
 
-            sendResponse(numHits, searchRequest.getPaginateInfo(),  pattern, entries);
+            sendResponse(numHits, searchRequest.getPaginateInfo(), pattern, entries);
         }
 
-
         /**
-         * Once the application entries for the request have been identified, then
-         * the response needs to be sent back to the requesting client.
+         * Once the application entries for the request have been identified,
+         * then the response needs to be sent back to the requesting client.
          *
          * @param entryScorePairs
          */
-        private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern,  List<EntryScorePair> entryScorePairs){
+        private void sendResponse(int numHits, PaginateInfo paginateInfo, SearchPattern pattern, List<EntryScorePair> entryScorePairs) {
 
             Collections.sort(entryScorePairs);      // Sort the entry score pairs before sending.
             List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>();
-            
-            for(EntryScorePair scorePair : entryScorePairs){
+
+            for (EntryScorePair scorePair : entryScorePairs) {
                 entries.add(scorePair.getEntry());
             }
-            
+
             se.sics.ms.events.paginateAware.UiSearchResponse response = new se.sics.ms.events.paginateAware.UiSearchResponse(pattern, paginateInfo, numHits, entries);
-            logger.debug("{}: Search Response generated . {}", prefix , response);
+            logger.debug("{}: Search Response generated . {}", prefix, response);
             trigger(response, uiPort);
         }
 
@@ -3006,19 +2870,16 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     /**
      * ********************************
-     * SHARDING PROTOCOL TRACKER
-     * ********************************
-     * <p/>
-     * Main tracker for the sharding protocol,
-     * in which the leader informs the leader group nodes about the
-     * shard being overgrown in size which needs to be partitioned.
+     * SHARDING PROTOCOL TRACKER ******************************** <p/>
+     * Main tracker for the sharding protocol, in which the leader informs the
+     * leader group nodes about the shard being overgrown in size which needs to
+     * be partitioned.
      */
-
     public class ShardTracker {
-        
+
         private UUID shardRoundId;
         private LeaderUnitUpdate epochUpdatePacket;
-        private Collection<DecoratedAddress> cohorts;
+        private List<KAddress> cohorts;
         private int promises = 0;
         private org.javatuples.Pair<UUID, LeaderUnitUpdate> shardPacketPair;
         private UUID awaitShardCommit;
@@ -3029,12 +2890,13 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         /**
          * Start the sharding protocol. The protocol simply performs a 2 phase
-         * commit indicating the nearby nodes of event of sharding in which the nodes based on the
-         * based on the state choose a side and remove the entries to balance out the load.
+         * commit indicating the nearby nodes of event of sharding in which the
+         * nodes based on the based on the state choose a side and remove the
+         * entries to balance out the load.
          *
          * @param roundId roundId
          */
-        public void initiateSharding(UUID roundId, Collection<DecoratedAddress> leaderGroupInformation, LeaderUnit previousContainer, LeaderUnit shardContainer) {
+        public void initiateSharding(UUID roundId, List<KAddress> leaderGroupInformation, LeaderUnit previousContainer, LeaderUnit shardContainer) {
 
             if (this.shardRoundId != null || leaderGroupInformation == null || leaderGroupInformation.isEmpty()) {
                 logger.warn("{}: Conditions to initiate sharding not satisfied, returning ... ", prefix);
@@ -3049,11 +2911,10 @@ public final class NPAwareSearch extends ComponentDefinition {
                     epochUpdatePacket,
                     new OverlayId(self.getOverlayId()));
 
-            for (DecoratedAddress destination : cohorts) {
+            for (KAddress destination : cohorts) {
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
             }
         }
-
 
         public void resetShardingParameters() {
 
@@ -3067,12 +2928,11 @@ public final class NPAwareSearch extends ComponentDefinition {
             return this.shardRoundId;
         }
 
-
-        ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>> shardingPrepareRequest =
-                new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request>>() {
+        ClassMatchedHandler shardingPrepareRequest
+                = new ClassMatchedHandler<ShardingPrepare.Request, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingPrepare.Request>>() {
 
                     @Override
-                    public void handle(ShardingPrepare.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Request> event) {
+                    public void handle(ShardingPrepare.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingPrepare.Request> event) {
 
                         logger.debug("{}: Sharding Prepare request received from : {} ", prefix, event.getSource());
 
@@ -3104,7 +2964,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         Handler<TimeoutCollection.AwaitingShardCommit> awaitingShardCommitHandler = new Handler<TimeoutCollection.AwaitingShardCommit>() {
             @Override
             public void handle(TimeoutCollection.AwaitingShardCommit event) {
@@ -3119,15 +2978,14 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         };
 
-
         /**
          * Handle the shard responses from the node in the system.
          */
-        ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>> shardingPrepareResponse =
-                new ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response>>() {
+        ClassMatchedHandler shardingPrepareResponse
+                = new ClassMatchedHandler<ShardingPrepare.Response, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingPrepare.Response>>() {
 
                     @Override
-                    public void handle(ShardingPrepare.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingPrepare.Response> event) {
+                    public void handle(ShardingPrepare.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingPrepare.Response> event) {
 
                         logger.debug("{}: Received Sharding Prepare Response from node : {} ", prefix, event.getSource());
 
@@ -3135,7 +2993,6 @@ public final class NPAwareSearch extends ComponentDefinition {
                             logger.warn("{}: Received a sharding response for an expired round, returning ... ", prefix);
                             return;
                         }
-
 
                         if (promises >= cohorts.size()) {
                             logger.warn("{}: All the necessary promises have already been received, returning .. ", prefix);
@@ -3146,47 +3003,43 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                         if (promises >= cohorts.size()) {
 
-                            try{
+                            try {
 
                                 logger.warn("{}: Sharding Promise round over, moving to commit phase ", prefix);
                                 ShardingCommit.Request request = new ShardingCommit.Request(shardRoundId);
 
-                                for (DecoratedAddress destination : cohorts) {
+                                for (KAddress destination : cohorts) {
                                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                                 }
 
                                 // For now let's apply the partitioning update on the majority of responses.
-
-                                handleSharding( shardRoundId,
+                                handleSharding(shardRoundId,
                                         epochUpdatePacket.getPreviousEpochUpdate(),
                                         epochUpdatePacket.getCurrentEpochUpdate());
 
-                                ShardLeaderUnit slu = (ShardLeaderUnit)epochUpdatePacket.getCurrentEpochUpdate();
+                                ShardLeaderUnit slu = (ShardLeaderUnit) epochUpdatePacket.getCurrentEpochUpdate();
 
                                 ApplicationEntry shardEntry = new ApplicationEntry(
                                         new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), 0));
-                                
+
                                 commitEntryLocally(shardEntry);
-                            } 
-                            
-                            catch(Exception e){
+                            } catch (Exception e) {
                                 throw new RuntimeException("Unable to complete sharding commit.", e);
                             }
                         }
 
-
                     }
                 };
 
-
         /**
-         * Handler for the sharding commit request from the leader in the system.
+         * Handler for the sharding commit request from the leader in the
+         * system.
          */
-        ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>> shardingCommitRequest =
-                new ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request>>() {
+        ClassMatchedHandler shardingCommitRequest
+                = new ClassMatchedHandler<ShardingCommit.Request, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingCommit.Request>>() {
 
                     @Override
-                    public void handle(ShardingCommit.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Request> event) {
+                    public void handle(ShardingCommit.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingCommit.Request> event) {
 
                         logger.debug("{}: Sharding commit request handler invoked ... ", prefix);
                         UUID receivedShardRoundID = request.getShardRoundId();
@@ -3196,8 +3049,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                             logger.warn("{}: Received a request for an expired shard round id, returning ... ");
                             return;
                         }
-                        
-                        try{
+
+                        try {
 
                             // Cancel the awaiting timeout.
                             UUID timeoutId = shardPacketPair.getValue0();
@@ -3207,80 +3060,74 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                             // Shard the node.
                             LeaderUnitUpdate updatePacket = shardPacketPair.getValue1();
-                            handleSharding( null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate() );
+                            handleSharding(null, updatePacket.getPreviousEpochUpdate(), updatePacket.getCurrentEpochUpdate());
 
                             ShardLeaderUnit slu = (ShardLeaderUnit) updatePacket.getCurrentEpochUpdate();
                             ApplicationEntry entry = new ApplicationEntry(
-                                    new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(),0));
+                                    new ApplicationEntry.ApplicationEntryId(slu.getEpochId(), slu.getLeaderId(), 0));
 
                             // Here it might be possible that the missing tracker buffers the entry instead of adding it.
                             // But eventually the tracker should see the entry buffered and add it to lucene.
-                            
                             commitEntryLocally(entry);
 
                             ShardingCommit.Response response = new ShardingCommit.Response(receivedShardRoundID);
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), event.getSource(), Transport.UDP, response), networkPort);
-                            
-                        }
-                        catch(Exception e){
+
+                        } catch (Exception e) {
                             throw new RuntimeException("Unable to complete the sharding process", e);
                         }
-                        
+
                     }
                 };
 
-
-        ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>> shardingCommitResponse =
-                new ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response>>() {
+        ClassMatchedHandler shardingCommitResponse
+                = new ClassMatchedHandler<ShardingCommit.Response, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingCommit.Response>>() {
 
                     @Override
-                    public void handle(ShardingCommit.Response content, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ShardingCommit.Response> event) {
+                    public void handle(ShardingCommit.Response content, BasicContentMsg<KAddress, KHeader<KAddress>, ShardingCommit.Response> event) {
 
                         logger.debug("{}: Received sharding commit response from the node :{}", prefix, event.getSource());
                     }
                 };
 
-
     }
-
 
     /**
      * *********************************
-     * CONTROL PULL TRACKER
-     * *********************************
-     * <p/>
+     * CONTROL PULL TRACKER ********************************* <p/>
      * Tracker for the main control pull mechanism.
      */
     private class ControlPullTracker {
 
-
         private UUID currentPullRound;
-        private Map<DecoratedAddress, ControlPull.Response> pullResponseMap;
+        private Map<Identifier, Pair<KAddress, ControlPull.Response>> pullResponseMap = new HashMap<>();
         private LeaderUnit currentUpdate;
 
         public ControlPullTracker() {
-            pullResponseMap = new HashMap<DecoratedAddress, ControlPull.Response>();
         }
         private GenericECComparator comparator = new GenericECComparator();
 
         /**
-         * Initiate the main control pull mechanism. The mechanism simply asks for any updates that the nodes might have
-         * seen as compared to the update that was sent by the requesting node.
+         * Initiate the main control pull mechanism. The mechanism simply asks
+         * for any updates that the nodes might have seen as compared to the
+         * update that was sent by the requesting node.
          * <p/>
-         * The contract for the control pull mechanism is that the mechanism keeps track of the current
-         * update that it has information as provided by the history tracker. The request for the next updates are made with respect to the
-         * current update. The contract simply states that the replying node should reply with the updated value of the epoch that the node
-         * has requested
+         * The contract for the control pull mechanism is that the mechanism
+         * keeps track of the current update that it has information as provided
+         * by the history tracker. The request for the next updates are made
+         * with respect to the current update. The contract simply states that
+         * the replying node should reply with the updated value of the epoch
+         * that the node has requested
          */
-        Handler<TimeoutCollection.ControlMessageExchangeRound> exchangeRoundHandler =
-                new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
+        Handler<TimeoutCollection.ControlMessageExchangeRound> exchangeRoundHandler
+                = new Handler<TimeoutCollection.ControlMessageExchangeRound>() {
 
                     @Override
                     public void handle(TimeoutCollection.ControlMessageExchangeRound controlMessageExchangeRound) {
 
                         logger.debug("{}: Initiating the control message exchange round", prefix);
 
-                        Collection<DecoratedAddress> addresses = getNodesForExchange(config.getIndexExchangeRequestNumber());
+                        List<KAddress> addresses = getNodesForExchange(config.getIndexExchangeRequestNumber());
                         if (addresses == null || addresses.size() < config.getIndexExchangeRequestNumber()) {
                             logger.debug("{}: Unable to start the control pull mechanism as higher nodes are less than required number", prefix);
                             return;
@@ -3295,37 +3142,37 @@ public final class NPAwareSearch extends ComponentDefinition {
                         ControlPull.Request request = new ControlPull.Request(currentPullRound, overlayId, currentUpdate);
                         pullResponseMap.clear();
 
-                        for (DecoratedAddress destination : addresses) {
+                        for (KAddress destination : addresses) {
                             trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                         }
                     }
                 };
 
-
         /**
-         * Main Handler for the control pull request from the nodes lying low in the gradient. The nodes
-         * simply request the higher nodes that if they have seen any information more than the provided information in the
-         * request packet and in case information is found, it is encoded generically in a byte array and sent to the
-         * requesting nodes in the system.
+         * Main Handler for the control pull request from the nodes lying low in
+         * the gradient. The nodes simply request the higher nodes that if they
+         * have seen any information more than the provided information in the
+         * request packet and in case information is found, it is encoded
+         * generically in a byte array and sent to the requesting nodes in the
+         * system.
          */
-        ClassMatchedHandler<ControlPull.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request>> controlPullRequest =
-                new ClassMatchedHandler<ControlPull.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request>>() {
+        ClassMatchedHandler controlPullRequest
+                = new ClassMatchedHandler<ControlPull.Request, BasicContentMsg<KAddress, KHeader<KAddress>, ControlPull.Request>>() {
 
                     @Override
-                    public void handle(ControlPull.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Request> event) {
+                    public void handle(ControlPull.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, ControlPull.Request> event) {
 
                         logger.debug("{}: Received Control Pull Request from the node :{} ", prefix, event.getSource());
 
                         // TO DO: Process the control pull request and then calculate the updates that needs to be sent back to the user.
-
                         List<LeaderUnit> nextUpdates = new ArrayList<LeaderUnit>();
 
-                        DecoratedAddress address = leaderAddress;
+                        KAddress address = leaderAddress;
                         PublicKey key = leaderKey;
 
                         LeaderUnit receivedUnit = request.getLeaderUnit();
                         LeaderUnit updateUnit = (receivedUnit == null) ? timeLine.getInitialTrackingUnit()
-                                :timeLine.getSelfUnitUpdate(receivedUnit);
+                                : timeLine.getSelfUnitUpdate(receivedUnit);
 
                         if (updateUnit != null) {
 
@@ -3334,7 +3181,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                             nextUpdates.add(receivedUnit);
                             nextUpdates.addAll(timeLine.getNextLeaderUnits(receivedUnit,
-                                    config.getMaximumEpochUpdatesPullSize()));
+                                            config.getMaximumEpochUpdatesPullSize()));
                         }
                         logger.debug("{}: Epoch Update List: {}", prefix, nextUpdates);
 
@@ -3343,18 +3190,19 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Handler of the control pull response from the nodes that the peer requested control information. The requesting node has
-         * the responsibility to actually detect the in order epoch updates and only add those in the system.
-         * For now there is no hash mechanism in the control pull mechanism, so we directly get the responses from the
+         * Handler of the control pull response from the nodes that the peer
+         * requested control information. The requesting node has the
+         * responsibility to actually detect the in order epoch updates and only
+         * add those in the system. For now there is no hash mechanism in the
+         * control pull mechanism, so we directly get the responses from the
          * nodes, assuming all of them are functioning fine.
          */
-        ClassMatchedHandler<ControlPull.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response>> controlPullResponse =
-                new ClassMatchedHandler<ControlPull.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response>>() {
+        ClassMatchedHandler controlPullResponse
+                = new ClassMatchedHandler<ControlPull.Response, BasicContentMsg<KAddress, KHeader<KAddress>, ControlPull.Response>>() {
 
                     @Override
-                    public void handle(ControlPull.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, ControlPull.Response> event) {
+                    public void handle(ControlPull.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, ControlPull.Response> event) {
 
                         logger.debug("{}: Received Control Pull Response from the Node: {}", prefix, event.getSource());
 
@@ -3363,8 +3211,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                             return;
                         }
 
-                        if( !PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId()) ){
-                            logger.debug("{}: Control Pull response from a node:{} which is not extension of self overlayId:{} ", new Object[]{prefix, event.getSource(), new OverlayId(self.getOverlayId()) });
+                        if (!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())) {
+                            logger.debug("{}: Control Pull response from a node:{} which is not extension of self overlayId:{} ", new Object[]{prefix, event.getSource(), new OverlayId(self.getOverlayId())});
                             return;
                         }
 
@@ -3378,8 +3226,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             }
                         }
 
-
-                        pullResponseMap.put(event.getSource(), response);
+                        pullResponseMap.put(event.getSource().getId(), Pair.with(event.getSource(), response));
                         if (pullResponseMap.size() >= config.getIndexExchangeRequestNumber()) {
 
                             logger.debug("{}: Pull Response Map: {}", pullResponseMap);
@@ -3391,10 +3238,10 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Simply check if the received update is an extension of the original update.
-         * There might be a case in which the current tracking update might have been modified.
+         * Simply check if the received update is an extension of the original
+         * update. There might be a case in which the current tracking update
+         * might have been modified.
          *
          * @param receivedUpdate Update Received.
          * @return True is extension of CurrentUpdate.
@@ -3403,11 +3250,10 @@ public final class NPAwareSearch extends ComponentDefinition {
             return (receivedUpdate.getEpochId() == currentUpdate.getEpochId() && receivedUpdate.getLeaderId() == currentUpdate.getLeaderId());
         }
 
-
         /**
-         * Go through all the responses that the node fetched through the pull mechanism
-         * and then find the commonly matched responses and inform the listening components
-         * about the updates received.
+         * Go through all the responses that the node fetched through the pull
+         * mechanism and then find the commonly matched responses and inform the
+         * listening components about the updates received.
          */
         private void performResponseMatch() {
 
@@ -3417,11 +3263,9 @@ public final class NPAwareSearch extends ComponentDefinition {
                 matchLeaderUnits();
 
                 // Leader Matching.
-                ControlPull.Response baseResponse = pullResponseMap.values()
-                        .iterator()
-                        .next();
+                ControlPull.Response baseResponse = pullResponseMap.values().iterator().next().getValue1();
 
-                DecoratedAddress baseLeader = baseResponse.getLeaderAddress();
+                KAddress baseLeader = baseResponse.getLeaderAddress();
                 PublicKey baseLeaderKey = baseResponse.getLeaderKey();
 
                 if (baseLeader == null || baseLeaderKey == null) {
@@ -3429,11 +3273,11 @@ public final class NPAwareSearch extends ComponentDefinition {
                     return;
                 }
 
-                for (ControlPull.Response response : pullResponseMap.values()) {
-                    if (response.getLeaderAddress() == null
-                            || !response.getLeaderAddress().equals(baseLeader)
-                            || response.getLeaderKey() == null
-                            || !response.getLeaderKey().equals(baseLeaderKey)) {
+                for (Pair<KAddress, ControlPull.Response> response : pullResponseMap.values()) {
+                    if (response.getValue1().getLeaderAddress() == null
+                            || !response.getValue1().getLeaderAddress().equals(baseLeader)
+                            || response.getValue1().getLeaderKey() == null
+                            || !response.getValue1().getLeaderKey().equals(baseLeaderKey)) {
 
                         logger.debug("{}: Mismatch Found Returning ... ");
                         return;
@@ -3448,24 +3292,23 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         }
 
-
         /**
-         * Matching of the leader units is tricky and therefore needs to
-         * be handled carefully. We need to divide the leader units in two parts,
+         * Matching of the leader units is tricky and therefore needs to be
+         * handled carefully. We need to divide the leader units in two parts,
          * ONGOING and COMPLETED units.
          */
         private void matchLeaderUnits() {
 
-            if( pullResponseMap.size() > 0 ) {
+            if (pullResponseMap.size() > 0) {
 
                 LeaderUnit ongoingUnit = null;
                 List<LeaderUnit> intersection;
 
-                intersection = new ArrayList<LeaderUnit>(pullResponseMap.values().iterator().next().getNextUpdates());
+                intersection = new ArrayList<LeaderUnit>(pullResponseMap.values().iterator().next().getValue1().getNextUpdates());
 
-                for(LeaderUnit unit: intersection) {
+                for (LeaderUnit unit : intersection) {
 
-                    if(unit.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING){
+                    if (unit.getLeaderUnitStatus() == LeaderUnit.LUStatus.ONGOING) {
 
                         // Ideally do not break because there should never be two ongoing units.
                         // Which could be TESTED here. ADD THE CHECK LATER ON.
@@ -3475,32 +3318,31 @@ public final class NPAwareSearch extends ComponentDefinition {
                 }
 
                 // Perform the matching of the ongoing leader unit separately.
-                if(ongoingUnit != null) {
+                if (ongoingUnit != null) {
                     intersection.remove(ongoingUnit);
                 }
 
                 // Retain without the ONGOING Value i.e Completed Units.
                 // ONGOING One has number of entries and in a very dynamic system it might be that the
                 // node discards the update because the value is changing so frequently.
-
-                for (ControlPull.Response response : pullResponseMap.values()) {
-                    intersection.retainAll(response.getNextUpdates());
+                for (Pair<KAddress, ControlPull.Response> response : pullResponseMap.values()) {
+                    intersection.retainAll(response.getValue1().getNextUpdates());
                 }
 
                 if (ongoingUnit != null) {
 
-                    long baseEntries= ongoingUnit.getNumEntries();
+                    long baseEntries = ongoingUnit.getNumEntries();
 
                     // Check the common ongoing one and take the lowest entries.
-                    for(ControlPull.Response response : pullResponseMap.values()){
+                    for (Pair<KAddress, ControlPull.Response> response : pullResponseMap.values()) {
 
                         boolean unitPresent = false;
-                        for(LeaderUnit unit : response.getNextUpdates()) {
+                        for (LeaderUnit unit : response.getValue1().getNextUpdates()) {
 
-                            if( unit.getEpochId() == ongoingUnit.getEpochId()
+                            if (unit.getEpochId() == ongoingUnit.getEpochId()
                                     && unit.getLeaderId() == ongoingUnit.getLeaderId()) {
 
-                                if(unit.getNumEntries() < baseEntries) {
+                                if (unit.getNumEntries() < baseEntries) {
 
                                     baseEntries = unit.getNumEntries();
                                     ongoingUnit.setNumEntries(baseEntries);
@@ -3511,7 +3353,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             }
                         }
 
-                        if(!unitPresent) {
+                        if (!unitPresent) {
                             ongoingUnit = null;
                             break;
                         }
@@ -3529,9 +3371,9 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         /**
-         * Check for the leader units and add them in the timeline.
-         * There is a special method used for adding it as the application method is responsible
-         * fpor detection on any important in order update.
+         * Check for the leader units and add them in the timeline. There is a
+         * special method used for adding it as the application method is
+         * responsible fpor detection on any important in order update.
          *
          * @param units
          */
@@ -3540,78 +3382,72 @@ public final class NPAwareSearch extends ComponentDefinition {
             if (units == null || units.isEmpty()) {
                 return;
             }
-            
+
             // Certain housekeeping tasks need to be 
             // performed before the system can move forward in terms
             // of adding new units.
             matchAndRemoveBuffered(units);
-            
+
             // Now add the units to the timeline.
             for (LeaderUnit unit : units) {
 
-                if(timeLine.isSafeToAdd(unit))
-                {
-                    if(!addUnitAndCheckSafety(unit)){
+                if (timeLine.isSafeToAdd(unit)) {
+                    if (!addUnitAndCheckSafety(unit)) {
                         break;  // Stop adding beyond unsafe.
                     }
                     checkBufferedUnit(); // Check buffered units after every addition.
+                } else {
+                    bufferedUnits.add(unit);
                 }
-                
-                else bufferedUnits.add(unit);
             }
         }
 
-
         /**
-         * Check common entries between the units received through the pull and the 
-         * buffered entries. In case a match is found, remove that buffered entry from the
-         * collection.
+         * Check common entries between the units received through the pull and
+         * the buffered entries. In case a match is found, remove that buffered
+         * entry from the collection.
          * <br/>
          * Assume collection of units to be sorted.
+         *
          * @param units units
          */
         private void matchAndRemoveBuffered(List<LeaderUnit> units) {
-            
+
             Collections.sort(bufferedUnits, luComparator);
             Collections.sort(units, luComparator);
-            
+
             Iterator<LeaderUnit> itr = bufferedUnits.iterator();
-            
-            while(itr.hasNext()) {
+
+            while (itr.hasNext()) {
 
                 LeaderUnit next = itr.next();
-                
-                for(LeaderUnit unit : units){
-                    
-                    if(next.getEpochId() == unit.getEpochId() 
-                            && next.getLeaderId() == unit.getLeaderId()){
+
+                for (LeaderUnit unit : units) {
+
+                    if (next.getEpochId() == unit.getEpochId()
+                            && next.getLeaderId() == unit.getLeaderId()) {
                         itr.remove();
                     }
                     // In case epoch id has exceeded, break as the units are sorted.
-                    if(unit.getEpochId() > next.getEpochId()) {
+                    if (unit.getEpochId() > next.getEpochId()) {
                         break;
                     }
-                }                
+                }
             }
-            
+
             // Before returning, check if any buffered entry can be added
             // to the system.
             checkBufferedUnit();
         }
-        
-        
-
 
     }
 
     /**
      * **********************************
-     * LOWEST MISSING ENTRY TRACKER
-     * **********************************
-     * <p/>
+     * LOWEST MISSING ENTRY TRACKER ********************************** <p/>
      * Inner class used to keep track of the lowest missing index entry and also
-     * communicate with the Epoch History Tracker, which for now keeps history of the
-     * epoch updates.
+     * communicate with the Epoch History Tracker, which for now keeps history
+     * of the epoch updates.
      */
     private class LowestMissingEntryTracker {
 
@@ -3634,18 +3470,18 @@ public final class NPAwareSearch extends ComponentDefinition {
             this.currentTrackingId = 0;
         }
 
-
         public void printCurrentTrackingInfo() throws IOException, LuceneAdaptorException {
 
             logger.debug("{}: Entry Being Tracked by Application :{} and actual entries: {} and total utility: {}",
                     new Object[]{prefix, getEntryBeingTracked(), self.getActualEntries(), self.getNumberOfEntries()});
         }
 
-
         /**
-         * Handler for the periodic exchange round handler in the system.
-         * The purpose of the exchange round is to initiate the index pull mechanism in the system.
-         * The nodes try to catch up as quickly as possible to the leader group nodes and therefore the frequency of the updates should be more.
+         * Handler for the periodic exchange round handler in the system. The
+         * purpose of the exchange round is to initiate the index pull mechanism
+         * in the system. The nodes try to catch up as quickly as possible to
+         * the leader group nodes and therefore the frequency of the updates
+         * should be more.
          */
         public Handler<TimeoutCollection.EntryExchangeRound> entryExchangeRoundHandler = new Handler<TimeoutCollection.EntryExchangeRound>() {
             @Override
@@ -3673,7 +3509,6 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         };
 
-
         /**
          * Initiate the main entry pull mechanism.
          */
@@ -3682,14 +3517,13 @@ public final class NPAwareSearch extends ComponentDefinition {
             if (currentTrackingUnit != null) {
 
                 UUID entryExchangeRound = UUID.randomUUID();
-                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {} and tracking unit:{} ", new Object[]{ prefix, entryExchangeRound, currentTrackingUnit });
+                logger.debug(" {}: Starting with the index pull mechanism with exchange round: {} and tracking unit:{} ", new Object[]{prefix, entryExchangeRound, currentTrackingUnit});
                 triggerHashExchange(entryExchangeRound);
 
             } else {
                 logger.debug("{}: Unable to Start Entry Pull as the Insufficient Information about Current Tracking Update", prefix);
             }
         }
-
 
         /**
          * Construct the index exchange request and request the higher node
@@ -3707,21 +3541,20 @@ public final class NPAwareSearch extends ComponentDefinition {
                 LeaderPullEntry.Request pullRequest = new LeaderPullEntry.Request(leaderPullRound, entryBeingTracked);
                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), leaderAddress, Transport.UDP, pullRequest), networkPort);
 
-
             } else {
 
-                EntryHashExchange.Request request =
-                        new EntryHashExchange.Request(entryExchangeRound, entryBeingTracked);
+                EntryHashExchange.Request request
+                        = new EntryHashExchange.Request(entryExchangeRound, entryBeingTracked);
 
-                Collection<DecoratedAddress> higherNodesForFetch =
-                        getNodesForExchange(entryExchangeTracker.getHigherNodesCount());
+                List<KAddress> higherNodesForFetch
+                        = getNodesForExchange(entryExchangeTracker.getHigherNodesCount());
 
                 if (higherNodesForFetch == null || higherNodesForFetch.isEmpty()) {
                     logger.info("{}: Unable to start index hash exchange due to insufficient nodes in the system.", prefix);
                     return;
                 }
 
-                for (DecoratedAddress destination : higherNodesForFetch) {
+                for (KAddress destination : higherNodesForFetch) {
                     trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                 }
             }
@@ -3729,20 +3562,22 @@ public final class NPAwareSearch extends ComponentDefinition {
             entryExchangeTracker.startTracking(entryExchangeRound);
         }
 
-
         /**
-         * Handler for request to pull the entries directly from the leader. The node simply checks
-         * the leader information and if the node is currently the leader, then it replies back with the information
-         * requested.
-         * FIX : This handler is a potential hole for the lower nodes to fetch the entries from the partitioned nodes.
-         * So in any handler that deals with returning data to other nodes, the check for the overlay id needs to be there.
-         * <b>Every Node</b> only replies with data to the nodes at same level except for the partitioning information.
+         * Handler for request to pull the entries directly from the leader. The
+         * node simply checks the leader information and if the node is
+         * currently the leader, then it replies back with the information
+         * requested. FIX : This handler is a potential hole for the lower nodes
+         * to fetch the entries from the partitioned nodes. So in any handler
+         * that deals with returning data to other nodes, the check for the
+         * overlay id needs to be there.
+         * <b>Every Node</b> only replies with data to the nodes at same level
+         * except for the partitioning information.
          */
-        ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>> leaderPullRequest =
-                new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request>>() {
+        ClassMatchedHandler leaderPullRequest
+                = new ClassMatchedHandler<LeaderPullEntry.Request, BasicContentMsg<KAddress, KHeader<KAddress>, LeaderPullEntry.Request>>() {
 
                     @Override
-                    public void handle(LeaderPullEntry.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Request> event) {
+                    public void handle(LeaderPullEntry.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, LeaderPullEntry.Request> event) {
 
                         if (leader) {
 
@@ -3760,24 +3595,24 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Main Handler for the pull entry response from the node that the sending node thinks as the current leader.
-         * The response if received contains the information of the next predefined entries from the missing entry the
-         * system originally asked for.
+         * Main Handler for the pull entry response from the node that the
+         * sending node thinks as the current leader. The response if received
+         * contains the information of the next predefined entries from the
+         * missing entry the system originally asked for.
          */
-        ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>> leaderPullResponse =
-                new ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response>>() {
+        ClassMatchedHandler leaderPullResponse
+                = new ClassMatchedHandler<LeaderPullEntry.Response, BasicContentMsg<KAddress, KHeader<KAddress>, LeaderPullEntry.Response>>() {
 
                     @Override
-                    public void handle(LeaderPullEntry.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, LeaderPullEntry.Response> event) {
+                    public void handle(LeaderPullEntry.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, LeaderPullEntry.Response> event) {
 
                         logger.debug("{}: Received leader pull response from the node: {} in the system", prefix, event.getSource());
 
                         try {
                             if (leaderPullRound != null && leaderPullRound.equals(response.getDirectPullRound())) {
 
-                                if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
+                                if (!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())) {
                                     logger.warn("{}: OverlayId extension check failed .. ", prefix);
                                     return;
                                 }
@@ -3787,7 +3622,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 // Only expected entries i.e. less than limit are allowed.
                                 List<ApplicationEntry> entries = new ArrayList<ApplicationEntry>(response.getMissingEntries());
                                 Collections.sort(entries, entryComparator);
-                                commitPulledEntries(entries);  
+                                commitPulledEntries(entries);
                             }
 
                         } catch (Exception ex) {
@@ -3798,19 +3633,19 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                 };
 
-
         /**
-         * Handler for the Entry Hash Exchange Request in which the nodes request for the hashes of the next missing index entries
-         * as part of the lowest missing entry information.
+         * Handler for the Entry Hash Exchange Request in which the nodes
+         * request for the hashes of the next missing index entries as part of
+         * the lowest missing entry information.
          */
-        ClassMatchedHandler<EntryHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Request>> entryHashExchangeRequestHandler =
-                new ClassMatchedHandler<EntryHashExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Request>>() {
+        ClassMatchedHandler entryHashExchangeRequestHandler
+                = new ClassMatchedHandler<EntryHashExchange.Request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryHashExchange.Request>>() {
 
                     @Override
-                    public void handle(EntryHashExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Request> event) {
+                    public void handle(EntryHashExchange.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryHashExchange.Request> event) {
 
                         logger.debug("{}: Received the entry hash exchange request from the node:{} in the system.", prefix, event.getSource());
-                        Collection<EntryHash> entryHashs = new ArrayList<EntryHash>();
+                        List<EntryHash> entryHashs = new ArrayList<EntryHash>();
 
                         List<ApplicationEntry> applicationEntries = ApplicationLuceneQueries.strictEntryIdRangeOnDefaultSort(
                                 writeEntryLuceneAdaptor,
@@ -3826,16 +3661,16 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Handler for the entry hash exchange response in the system. The nodes collect the responses and then
-         * analyze the common hashes in order for the nodes to apply.
+         * Handler for the entry hash exchange response in the system. The nodes
+         * collect the responses and then analyze the common hashes in order for
+         * the nodes to apply.
          */
-        ClassMatchedHandler<EntryHashExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Response>> entryHashExchangeResponseHandler =
-                new ClassMatchedHandler<EntryHashExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Response>>() {
+        ClassMatchedHandler entryHashExchangeResponseHandler
+                = new ClassMatchedHandler<EntryHashExchange.Response, BasicContentMsg<KAddress, KHeader<KAddress>, EntryHashExchange.Response>>() {
 
                     @Override
-                    public void handle(EntryHashExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryHashExchange.Response> event) {
+                    public void handle(EntryHashExchange.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, EntryHashExchange.Response> event) {
 
                         try {
 
@@ -3851,9 +3686,8 @@ public final class NPAwareSearch extends ComponentDefinition {
                             entryExchangeTracker.addEntryHashResponse(event.getSource(), response);
                             if (entryExchangeTracker.allHashResponsesComplete()) {
 
-                                Collection<EntryHash> entryHashCollection = entryExchangeTracker.getCommonEntryHashes(entryExchangeTracker
-                                        .getExchangeRoundEntryHashCollection()
-                                        .values());
+                                List<EntryHash> entryHashCollection = entryExchangeTracker.getCommonEntryHashes(
+                                        entryExchangeTracker.getExchangeRoundEntryHashCollection().values());
 
                                 Collection<ApplicationEntry.ApplicationEntryId> entryIds = new ArrayList<ApplicationEntry.ApplicationEntryId>();
 
@@ -3867,8 +3701,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 }
 
                                 // Trigger request to get application entries from a particular user.
-
-                                DecoratedAddress destination = entryExchangeTracker.getSoftMaxBasedNode();
+                                KAddress destination = entryExchangeTracker.getSoftMaxBasedNode();
                                 EntryExchange.Request request = new EntryExchange.Request(entryExchangeTracker.getExchangeRoundId(), entryIds);
                                 trigger(CommonHelper.getDecoratedContentMessage(self.getAddress(), destination, Transport.UDP, request), networkPort);
                             }
@@ -3880,19 +3713,20 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                 };
 
-
         /**
-         * In case the common required index hashes are located by the nodes in the system,
-         * the node requests for the actual value of the exchange entry from the peer in the system.
+         * In case the common required index hashes are located by the nodes in
+         * the system, the node requests for the actual value of the exchange
+         * entry from the peer in the system.
          * <p/>
-         * The node simply locates for the individual entries required by the node from the lucene instance adds them to the collection
-         * to be returned.
+         * The node simply locates for the individual entries required by the
+         * node from the lucene instance adds them to the collection to be
+         * returned.
          */
-        ClassMatchedHandler<EntryExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request>> entryExchangeRequestHandler =
-                new ClassMatchedHandler<EntryExchange.Request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request>>() {
+        ClassMatchedHandler entryExchangeRequestHandler
+                = new ClassMatchedHandler<EntryExchange.Request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryExchange.Request>>() {
 
                     @Override
-                    public void handle(EntryExchange.Request request, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Request> event) {
+                    public void handle(EntryExchange.Request request, BasicContentMsg<KAddress, KHeader<KAddress>, EntryExchange.Request> event) {
 
                         logger.debug("{}: Received Entry Exchange Request", prefix);
                         int defaultLimit = 1;
@@ -3913,17 +3747,18 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Handler for the actual entries that are received through the last phase of the index pull mechanism.
-         * Simply add them to the lowest missing tracker instance, which will itself handle everything from not allowing the wrong
-         * or entries out of order to be added in the system.
+         * Handler for the actual entries that are received through the last
+         * phase of the index pull mechanism. Simply add them to the lowest
+         * missing tracker instance, which will itself handle everything from
+         * not allowing the wrong or entries out of order to be added in the
+         * system.
          */
-        ClassMatchedHandler<EntryExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response>> entryExchangeResponseHandler =
-                new ClassMatchedHandler<EntryExchange.Response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response>>() {
+        ClassMatchedHandler entryExchangeResponseHandler
+                = new ClassMatchedHandler<EntryExchange.Response, BasicContentMsg<KAddress, KHeader<KAddress>, EntryExchange.Response>>() {
 
                     @Override
-                    public void handle(EntryExchange.Response response, BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, EntryExchange.Response> event) {
+                    public void handle(EntryExchange.Response response, BasicContentMsg<KAddress, KHeader<KAddress>, EntryExchange.Response> event) {
 
                         logger.debug("{}: Received Entry Exchange Response from :{}", prefix, event.getSource());
                         try {
@@ -3933,7 +3768,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                                 return;
                             }
 
-                            if(!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())){
+                            if (!PartitionHelper.isOverlayExtension(response.getOverlayId(), self.getOverlayId(), event.getSource().getId())) {
                                 logger.warn("{}: Entry Exchange Response from an undeserving node, returning ... ");
                                 return;
                             }
@@ -3949,62 +3784,58 @@ public final class NPAwareSearch extends ComponentDefinition {
                     }
                 };
 
-
         /**
-         * Do not allow commit entries beyond the specified
-         * max entries in the system.
-         *  
+         * Do not allow commit entries beyond the specified max entries in the
+         * system.
+         *
          * @param entries entry collection
          */
-        private void commitPulledEntries (Collection<ApplicationEntry> entries) throws IOException, LuceneAdaptorException {
+        private void commitPulledEntries(Collection<ApplicationEntry> entries) throws IOException, LuceneAdaptorException {
 
             Iterator<ApplicationEntry> itr = entries.iterator();
             long limit = currentTrackingUnit.getNumEntries();
-            
-            if( limit <= 0 )
+
+            if (limit <= 0) {
                 return;
-            
-            while(itr.hasNext()){
-                
+            }
+
+            while (itr.hasNext()) {
+
                 long entryId = itr.next().getApplicationEntryId().getEntryId();
-                if( entryId >= limit) {
+                if (entryId >= limit) {
                     // If any entry exceed beyond the limit, remove from the iterator.
                     // Such control is required for the NP Merge.
-                    itr.remove();  
+                    itr.remove();
                 }
             }
-                
+
             // Commit the remaining entries
-            for(ApplicationEntry entry: entries) {
+            for (ApplicationEntry entry : entries) {
                 commitEntryLocally(entry);
             }
 
         }
-        
+
         /**
-         * Main helper method for updating the entry tracker which keeps in sync with the
-         * timeline about the next tracking id and information.
+         * Main helper method for updating the entry tracker which keeps in sync
+         * with the timeline about the next tracking id and information.
          */
         public void updateCurrentLUTracking() {
 
-            if(currentTrackingUnit == null){
+            if (currentTrackingUnit == null) {
 
                 // Initial case, we need to fetch the initial tracking unit.
                 currentTrackingUnit = timeLine.getInitialTrackingUnit();
                 currentTrackingUnit = timeLine.currentTrackUnit(currentTrackingUnit);   // Inform the timeline about the decision to track the unit.
-            }
-
-            else {
+            } else {
                 currentTrackingUnit = timeLine.getSelfUnitUpdate(currentTrackingUnit);
-                if(currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP){
+                if (currentTrackingUnit.getEntryPullStatus() == LeaderUnit.EntryPullStatus.SKIP) {
                     checkAndUpdateTracking();
-                }
-
-                else if((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
+                } else if ((currentTrackingUnit.getLeaderUnitStatus() == LeaderUnit.LUStatus.COMPLETED)
                         && (currentTrackingId >= currentTrackingUnit.getNumEntries())) {
 
                     // Application needs to inform the timeline about the completed entry pull status
-                    if(currentTrackingUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED){
+                    if (currentTrackingUnit.getEntryPullStatus() != LeaderUnit.EntryPullStatus.COMPLETED) {
                         currentTrackingUnit = timeLine.markUnitComplete(currentTrackingUnit);
                     }
 
@@ -4014,14 +3845,12 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         }
 
-
         /**
-         * A simple helper method to check for the
-         * next tracking unit and reset the current tracking information
-         * if update is found.
+         * A simple helper method to check for the next tracking unit and reset
+         * the current tracking information if update is found.
          *
          */
-        private void checkAndUpdateTracking(){
+        private void checkAndUpdateTracking() {
 
             LeaderUnit nextUpdate = timeLine
                     .getNextUnitToTrack(currentTrackingUnit);
@@ -4032,82 +3861,77 @@ public final class NPAwareSearch extends ComponentDefinition {
                 currentTrackingId = 0;
             }
 
-        }        
-
+        }
 
         /**
-         * Check with the lowest missing tracker about the latest entry to add in the system.
-         * In case the entry is not the latest, then the missing tracker will store the entry in a separate map.
+         * Check with the lowest missing tracker about the latest entry to add
+         * in the system. In case the entry is not the latest, then the missing
+         * tracker will store the entry in a separate map.
          *
          * @param entryId
          * @return Add Entry.
          */
         public boolean isNextEntryToAdd(ApplicationEntry.ApplicationEntryId entryId) throws IOException, LuceneAdaptorException {
-            
-            return (currentTrackingUnit != null 
-                && currentTrackingUnit.getEpochId() == entryId.getEpochId()
-                && currentTrackingUnit.getLeaderId() == entryId.getLeaderId()
-                && currentTrackingId == entryId.getEntryId());
+
+            return (currentTrackingUnit != null
+                    && currentTrackingUnit.getEpochId() == entryId.getEpochId()
+                    && currentTrackingUnit.getLeaderId() == entryId.getLeaderId()
+                    && currentTrackingId == entryId.getEntryId());
         }
 
-
-
         /**
-         * Application requests to buffer the current entry 
-         * in the system. Buffer if only the entry is exactly ahead
-         * in terms of entry information.
+         * Application requests to buffer the current entry in the system.
+         * Buffer if only the entry is exactly ahead in terms of entry
+         * information.
          *
          * @param entry entry
          *
          */
         public void bufferEntry(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
-            
+
             ApplicationEntry.ApplicationEntryId entryBeingTracked = getEntryBeingTracked();
-            
-            if( entryBeingTracked.compareTo(entry.getApplicationEntryId()) < 0 ){
+
+            if (entryBeingTracked.compareTo(entry.getApplicationEntryId()) < 0) {
                 logger.debug("{}:  Buffering the Pulled Entry Locally with current tracking id :{}  ", self.getId(), lowestMissingEntryTracker.getCurrentTrackingUnit());
                 existingEntries.put(entry.getApplicationEntryId(), entry);
             }
         }
-        
-        
-        
+
         /**
-         * Once the node receives an entry to be added in the application,
-         * the method needs to be invoked, which according to the entry that needs to be added,
-         * updates the local existing entries map information.
+         * Once the node receives an entry to be added in the application, the
+         * method needs to be invoked, which according to the entry that needs
+         * to be added, updates the local existing entries map information.
          * <p/>
-         * The methods returns the boolean which informs the application if the entry can be added in the system
-         * or not. (It can be added if it is the currently being tracked else goes to the existing entries map).
+         * The methods returns the boolean which informs the application if the
+         * entry can be added in the system or not. (It can be added if it is
+         * the currently being tracked else goes to the existing entries map).
          *
          * @param entry entry to add.
          * @throws java.io.IOException
          * @throws se.sics.ms.common.LuceneAdaptorException
          */
+        public boolean updateTrackerInfo(ApplicationEntry entry) throws IOException, LuceneAdaptorException {
 
-        public boolean updateTrackerInfo (ApplicationEntry entry) throws IOException, LuceneAdaptorException {
-
-            
             boolean result = false;
-            
+
             if (currentTrackingUnit != null) {
 
-                if ( isNextEntryToAdd(entry.getApplicationEntryId()) ) {
+                if (isNextEntryToAdd(entry.getApplicationEntryId())) {
 
                     logger.info("Received update for the current tracked entry");
                     currentTrackingId++;
                     result = true;
                 }
             }
-            
+
             return result;
         }
-        
 
         /**
-         * Get the application entry that is being currently tracked by the application.
-         * Here Tracking means that application is looking for the entry in the system or in other words waiting for
-         * someone or the leader to privide with the entry.
+         * Get the application entry that is being currently tracked by the
+         * application. Here Tracking means that application is looking for the
+         * entry in the system or in other words waiting for someone or the
+         * leader to privide with the entry.
          *
          * @return current entry to pull.
          */
@@ -4126,8 +3950,8 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         /**
-         * The operation itself does nothing but calls
-         * the internal state operations in order.
+         * The operation itself does nothing but calls the internal state
+         * operations in order.
          */
         public void updateInternalState() throws IOException, LuceneAdaptorException {
 
@@ -4138,9 +3962,9 @@ public final class NPAwareSearch extends ComponentDefinition {
             checkAndRemoveEntryGaps();
         }
 
-
         /**
-         * Once you add an entry in the system, check for any gaps that might be occurred and can be removed.
+         * Once you add an entry in the system, check for any gaps that might be
+         * occurred and can be removed.
          *
          * @throws java.io.IOException
          * @throws se.sics.ms.common.LuceneAdaptorException
@@ -4158,11 +3982,10 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         }
 
-
         // ++++ ====== +++++ MAIN SHARDING APPLICATION +++++ ===== ++++++
-
         /**
-         * As the sharding update is going on which will remove the entries from the timeline,
+         * As the sharding update is going on which will remove the entries from
+         * the timeline,
          */
         private void pauseTracking() {
 
@@ -4173,11 +3996,11 @@ public final class NPAwareSearch extends ComponentDefinition {
             entryExchangeTracker.resetTracker(); // Do not handle any responses at this point.
         }
 
-
         /**
-         * Once the sharding is over, reset the tracker to point to the
-         * next tracking update. Depending upon the status of the current tracker position
-         * and the updates to skip, the next tracking information is updated.
+         * Once the sharding is over, reset the tracker to point to the next
+         * tracking update. Depending upon the status of the current tracker
+         * position and the updates to skip, the next tracking information is
+         * updated.
          */
         private void resumeTracking() {
 
@@ -4186,7 +4009,6 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             // Based on the current tracking information,
             // check if the unit has become obsolete ?
-
             if (!timeLine.isTrackable(currentTrackingUnit)) {
 
                 currentTrackingUnit = timeLine
@@ -4204,10 +4026,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         }
 
-
         /**
-         * Check for the buffered entries and then remove the entry with
-         * id's more than the specified id.
+         * Check for the buffered entries and then remove the entry with id's
+         * more than the specified id.
          *
          * @param medianId splitting id.
          */
@@ -4222,10 +4043,9 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         }
 
-
         /**
-         * Check for the buffered entries and then remove the entry with
-         * ids less than the specified id.
+         * Check for the buffered entries and then remove the entry with ids
+         * less than the specified id.
          *
          * @param medianId splitting id.
          */
@@ -4240,11 +4060,9 @@ public final class NPAwareSearch extends ComponentDefinition {
             }
         }
 
-
         private void printExistingEntries() {
             logger.warn("Existing Entries {}:", this.existingEntries.toString());
         }
 
     }
 }
-

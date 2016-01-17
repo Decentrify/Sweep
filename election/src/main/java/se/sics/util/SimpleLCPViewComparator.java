@@ -1,9 +1,9 @@
 package se.sics.util;
 
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.election.api.LCPeerView;
 
 import java.util.Comparator;
+import se.sics.ktoolbox.election.util.LCPeerView;
 
 /**
  * Comparator for the Leader Capable Peer View.

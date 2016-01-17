@@ -2,10 +2,10 @@ package se.sics.ms.util;
 
 import se.sics.ms.data.PartitionCommit;
 import se.sics.ms.data.PartitionPrepare;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * This is the tracker for the partitioning information update.
@@ -15,7 +15,7 @@ import java.util.UUID;
 public class PartitioningTracker {
 
     public UUID partitionRequestId;
-    public Collection<DecoratedAddress> leaderGroupNodes;
+    public List<KAddress> leaderGroupNodes;
     int promises;
     int commits;
     PartitionHelper.PartitionInfo partitionInfo;
@@ -24,7 +24,7 @@ public class PartitioningTracker {
 
     }
 
-    public void startTracking(UUID partitionRequestId , Collection<DecoratedAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
+    public void startTracking(UUID partitionRequestId , List<KAddress> leaderGroupNodes, PartitionHelper.PartitionInfo partitionInfo){
 
         this.partitionRequestId = partitionRequestId;
         this.leaderGroupNodes = leaderGroupNodes;
@@ -65,7 +65,7 @@ public class PartitioningTracker {
         this.commits = 0;
     }
 
-    public Collection<DecoratedAddress> getLeaderGroupNodes(){
+    public List<KAddress> getLeaderGroupNodes(){
         return this.leaderGroupNodes;
     }
 

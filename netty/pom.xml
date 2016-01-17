@@ -6,7 +6,7 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.3-SNAPSHOT</version>
+        <version>1.4-SNAPSHOT</version>
     </parent>
     <groupId>se.sics.ms</groupId>
     <artifactId>netty</artifactId>
@@ -23,36 +23,32 @@
 
         <dependency>
             <groupId>se.sics.ktoolbox.croupier</groupId>
-            <artifactId>croupier-network</artifactId>
-            <version>${croupier.version}</version>
+            <artifactId>network</artifactId>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.gradient</groupId>
             <artifactId>gradient-network</artifactId>
-            <version>${gradient.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.election</groupId>
             <artifactId>election-network</artifactId>
-            <version>${election.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.cm</groupId>
             <artifactId>cm-network</artifactId>
-            <version>${chunkmanager.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.aggregator</groupId>
             <artifactId>network</artifactId>
-            <version>${aggregator.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
-
-
-
-
     </dependencies>
 </project>

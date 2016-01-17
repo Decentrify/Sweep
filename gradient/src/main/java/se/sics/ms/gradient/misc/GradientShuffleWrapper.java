@@ -1,7 +1,7 @@
 package se.sics.ms.gradient.misc;
 
-import se.sics.p2ptoolbox.gradient.msg.GradientShuffle;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
+import se.sics.ktoolbox.gradient.msg.GradientShuffle;
+import se.sics.ktoolbox.util.network.basic.DecoratedHeader;
 
 /**
  * Wrapper class for the Gradient shuffle request.
@@ -10,10 +10,8 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
  */
 public class GradientShuffleWrapper {
     
-    
     public final GradientShuffle.Request content;
     public final DecoratedHeader header;
-
 
     public GradientShuffleWrapper(GradientShuffle.Request content, DecoratedHeader header) {
         

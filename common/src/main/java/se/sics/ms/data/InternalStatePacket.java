@@ -1,7 +1,6 @@
 package se.sics.ms.data;
 
-import se.sics.ktoolbox.aggregator.util.PacketInfo;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.ktoolbox.aggregator.util.AggregatorPacket;
 
 /**
  * Packet representing the internal state of the 
@@ -9,7 +8,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  * 
  * Created by babbarshaer on 2015-09-09.
  */
-public class InternalStatePacket implements PacketInfo {
+public class InternalStatePacket implements AggregatorPacket {
 
     private Integer selfIdentifier;
     private int partitionId;

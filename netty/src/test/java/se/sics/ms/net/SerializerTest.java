@@ -1,7 +1,6 @@
 package se.sics.ms.net;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import junit.framework.Assert;
@@ -20,16 +19,17 @@ import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
 import se.sics.ms.util.PartitioningType;
-import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.*;
 import java.util.*;
-import se.sics.p2ptoolbox.util.nat.NatedTrait;
-import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
+import se.sics.ktoolbox.election.util.PublicKeySerializer;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.basic.BasicAddress;
+import se.sics.ktoolbox.util.network.nat.NatAwareAddressImpl;
+import se.sics.ktoolbox.util.setup.BasicSerializerSetup;
 
 /**
  * Main Test Class for the Serializers used in the application.
@@ -50,7 +50,7 @@ public class SerializerTest {
     }
 
     private static ByteBuf originalBuf, copiedBuf;
-    private static DecoratedAddress selfAddress, destinationAddress;
+    private static KAddress selfAddress, destinationAddress;
     private static PeerDescriptor selfDescriptor;
     private static PeerDescriptor otherDescriptor;
     private static PublicKey publicKey;
@@ -66,8 +66,8 @@ public class SerializerTest {
         
         systemSetup();
 
-        selfAddress = DecoratedAddress.open(localHost, 54321, 1);
-        destinationAddress = DecoratedAddress.open(localHost, 54322, 2);
+        selfAddress = NatAwareAddressImpl.open(new BasicAddress(localHost, 54321, new IntIdentifier(1)));
+        destinationAddress = NatAwareAddressImpl.open(new BasicAddress(localHost, 54322, new IntIdentifier(2)));
         selfDescriptor = new PeerDescriptor(selfAddress, 1);
         otherDescriptor = new PeerDescriptor(destinationAddress, 0);
 
@@ -82,8 +82,7 @@ public class SerializerTest {
     
     private static void systemSetup() {
         int currentId = 128;
-        BasicSerializerSetup.registerBasicSerializers(currentId);
-        currentId = currentId + BasicSerializerSetup.serializerIds;
+        currentId = BasicSerializerSetup.registerBasicSerializers(currentId);
         currentId = SweepSerializerSetup.registerSerializers(currentId);
         
         PublicKeySerializer pkSerializer =  new PublicKeySerializer(currentId++);
@@ -91,8 +90,6 @@ public class SerializerTest {
         Serializers.register(PublicKey.class, "publicKeySerializer");
 
         SweepSerializerSetup.checkSetup();
-        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
-        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
     }
 
     @Before
@@ -600,7 +597,7 @@ public class SerializerTest {
 
         logger.info("Entry Hash Exchange Response Test");
 
-        Collection<EntryHash> entryHashCollection = getEntryHashCollection(3);
+        List<EntryHash> entryHashCollection = getEntryHashCollection(3);
         UUID exchangeRound = UUID.randomUUID();
 
         EntryHashExchange.Response response = new EntryHashExchange.Response(exchangeRound, entryHashCollection);
@@ -919,7 +916,7 @@ public class SerializerTest {
     public void searchFetchRequestTest(){
         logger.info("Search Fetch Request Test");
 
-        Collection<IdScorePair> entryIds = new ArrayList<IdScorePair>();
+        List<IdScorePair> entryIds = new ArrayList<IdScorePair>();
 
         entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(0, 100, 100), new Float(1.32)));
         entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(1, 100, 100), new Float(1.22)));
@@ -935,8 +932,8 @@ public class SerializerTest {
     public void searchFetchResponseTest(){
 
         logger.info("Search Fetch Response Test");
-        Collection<ApplicationEntry> collection = getApplicationEntryCollection(3);
-        Collection<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
+        List<ApplicationEntry> collection = getApplicationEntryCollection(3);
+        List<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
         
         for(ApplicationEntry entry : collection){
             entryScorePairs.add(new EntryScorePair(entry, new Float(1.0)));
@@ -1019,10 +1016,10 @@ public class SerializerTest {
     }
 
 
-    private Collection<IndexEntry> getIndexEntryCollection(int entryNumber){
+    private List<IndexEntry> getIndexEntryCollection(int entryNumber){
 
         IndexEntry entry;
-        Collection<IndexEntry> entryCollection = new ArrayList<IndexEntry>();
+        List<IndexEntry> entryCollection = new ArrayList<IndexEntry>();
 
         while(entryNumber > 0){
 
@@ -1085,10 +1082,10 @@ public class SerializerTest {
 
 
 
-    public Collection<ApplicationEntry> getApplicationEntryCollection(int size) {
+    public List<ApplicationEntry> getApplicationEntryCollection(int size) {
 
-        Collection<IndexEntry> entryCollection = getIndexEntryCollection(10);
-        Collection<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
+        List<IndexEntry> entryCollection = getIndexEntryCollection(10);
+        List<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
 
         for(IndexEntry entry : entryCollection){
             ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, 100, entry.getId());
@@ -1100,10 +1097,10 @@ public class SerializerTest {
 
 
 
-    public Collection<EntryHash> getEntryHashCollection(int size) {
+    public List<EntryHash> getEntryHashCollection(int size) {
 
-        Collection<EntryHash> collection = new ArrayList<EntryHash>();
-        Collection<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
+        List<EntryHash> collection = new ArrayList<EntryHash>();
+        List<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
 
         for(ApplicationEntry entry : entryCollection){
             collection.add(new EntryHash(entry));

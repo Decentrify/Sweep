@@ -1,9 +1,10 @@
 package se.sics.ms.gradient.gradient;
 
+import se.sics.ktoolbox.gradient.GradientFilter;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.gradient.GradientFilter;
 
 /**
  * Application's Gradient Filter.
@@ -36,7 +37,7 @@ public class SweepGradientFilter implements GradientFilter<PeerDescriptor> {
                 .getId();
 
 
-        return PartitionHelper.isOverlayExtension(receivedOverlayId, selfOverlayId, otherDescriptor.getId());
+        return PartitionHelper.isOverlayExtension(receivedOverlayId, selfOverlayId, new IntIdentifier(otherDescriptor.getId()));
 
     }
 

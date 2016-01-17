@@ -6,6 +6,7 @@ import se.sics.ms.types.IndexHash;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -68,10 +69,10 @@ public class EntryHashExchange {
         
     public static class Response {
         
-        private final Collection<EntryHash> entryHashes;
+        private final List<EntryHash> entryHashes;
         private final UUID exchangeRoundId;
         
-        public Response(UUID exchangeRoundId, Collection<EntryHash> entryHashes){
+        public Response(UUID exchangeRoundId, List<EntryHash> entryHashes){
             this.entryHashes = entryHashes;
             this.exchangeRoundId = exchangeRoundId;
         }
@@ -108,7 +109,7 @@ public class EntryHashExchange {
                     '}';
         }
 
-        public Collection<EntryHash> getEntryHashes() {
+        public List<EntryHash> getEntryHashes() {
             return entryHashes;
         }
         

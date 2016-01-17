@@ -1,11 +1,11 @@
 package se.sics.util;
 
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.election.core.util.LeaderFilter;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
+import se.sics.ktoolbox.election.util.LCPeerView;
+import se.sics.ktoolbox.election.util.LeaderFilter;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Filter used by the leader election protocol.
@@ -16,7 +16,7 @@ public class SweepLeaderFilter implements LeaderFilter{
 
 
     @Override
-    public boolean initiateLeadership(Collection<DecoratedAddress> collection) {
+    public boolean initiateLeadership(Collection<KAddress> collection) {
         return false;
     }
 

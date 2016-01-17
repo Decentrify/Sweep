@@ -1,6 +1,5 @@
 package se.sics.util;
 
-import com.google.common.collect.ImmutableMap;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
@@ -10,15 +9,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.ComparatorCollection;
-import se.sics.p2ptoolbox.election.api.LEContainer;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
-import se.sics.p2ptoolbox.util.nat.NatedTrait;
-import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
+import se.sics.ktoolbox.election.util.LEContainer;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.basic.BasicAddress;
 
 /**
  * Unit test for the application rule set.
@@ -60,8 +59,6 @@ public class ApplicationRuleSetTest {
     }
     
     private static void systemSetup() {
-        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
-        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
     }
 
     @Before
@@ -85,9 +82,9 @@ public class ApplicationRuleSetTest {
         int cohortSize = 6;
 
         Collection<LEContainer> containerCollection = createContainers(viewsize);
-        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MIN_VALUE);
+        LEContainer selfContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MIN_VALUE));
 
-        Collection<DecoratedAddress> result = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
+        Collection<KAddress> result = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
         Assert.assertEquals("Cohort Size Comparison", cohortSize, result.size());
 
     }
@@ -100,9 +97,9 @@ public class ApplicationRuleSetTest {
         int cohortSize = 6;
 
         Collection<LEContainer> containerCollection = createContainers(viewsize);
-        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MAX_VALUE);
+        LEContainer selfContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MAX_VALUE));
 
-        Collection<DecoratedAddress> result = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
+        Collection<KAddress> result = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
         Assert.assertEquals("Empty Cohort Size Comparison", 0, result.size());
 
     }
@@ -115,13 +112,13 @@ public class ApplicationRuleSetTest {
         int cohortSize = 6;
 
         Collection<LEContainer> containerCollection = createContainers(viewSize);
-        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MIN_VALUE);
+        LEContainer selfContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MIN_VALUE));
 
-        Collection<LEContainer> reverseSortedCollection = reverseSortCollection(containerComparator, containerCollection);
-        DecoratedAddress expectedBestCohortAddress = reverseSortedCollection.isEmpty() ? null : reverseSortedCollection.iterator().next().getSource();
+        List<LEContainer> reverseSortedCollection = reverseSortCollection(containerComparator, containerCollection);
+        KAddress expectedBestCohortAddress = reverseSortedCollection.isEmpty() ? null : reverseSortedCollection.iterator().next().getSource();
 
-        Collection<DecoratedAddress> cohorts = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
-        DecoratedAddress actualBestCohortAddress = cohorts.isEmpty() ? null : cohorts.iterator().next();
+        List<KAddress> cohorts = lcRuleSet.initiateLeadership(selfContainer, containerCollection, cohortSize);
+        KAddress actualBestCohortAddress = cohorts.isEmpty() ? null : cohorts.iterator().next();
 
         logger.debug("Expected : {}, Actual :{}", expectedBestCohortAddress, actualBestCohortAddress);
         Assert.assertEquals("Best Cohort Test", expectedBestCohortAddress, actualBestCohortAddress);
@@ -136,8 +133,8 @@ public class ApplicationRuleSetTest {
 
         Collection<LEContainer> containerCollection = createContainers(viewSize);
 
-        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MIN_VALUE + 1);
-        LEContainer leaderContainer = createContainer(ipAddress, port, Integer.MIN_VALUE);
+        LEContainer selfContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MIN_VALUE + 1));
+        LEContainer leaderContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MIN_VALUE));
 
         boolean actualResult = cohortsRuleSet.validate(leaderContainer, selfContainer, containerCollection);
         Assert.assertEquals("follower acceptance test", true, actualResult);
@@ -152,9 +149,9 @@ public class ApplicationRuleSetTest {
         int viewSize = 10;
 
         Collection<LEContainer> containerCollection = createContainers(viewSize);
-        LEContainer selfContainer = createContainer(ipAddress, port, Integer.MAX_VALUE);
+        LEContainer selfContainer = createContainer(ipAddress, port, new IntIdentifier(Integer.MAX_VALUE));
 
-        LEContainer leaderContainer = createContainer(ipAddress, port, 8);
+        LEContainer leaderContainer = createContainer(ipAddress, port, new IntIdentifier(8));
         boolean actualResult = cohortsRuleSet.validate(leaderContainer, selfContainer, containerCollection);
 
         Assert.assertEquals("follower acceptance test", false, actualResult);
@@ -172,7 +169,7 @@ public class ApplicationRuleSetTest {
      * @param containers container
      * @return reverse sorted collection.
      */
-    public Collection<LEContainer> reverseSortCollection(Comparator<LEContainer> comparator, Collection<LEContainer> containers){
+    public List<LEContainer> reverseSortCollection(Comparator<LEContainer> comparator, Collection<LEContainer> containers){
 
         List<LEContainer> containerList = new ArrayList<LEContainer>(containers);
         Collections.sort(containerList, comparator);
@@ -189,14 +186,14 @@ public class ApplicationRuleSetTest {
      * @param size
      * @return
      */
-    private Collection<LEContainer> createContainers(int size){
+    private List<LEContainer> createContainers(int size){
 
         logger.debug("Initiating the process of creating the containers.");
 
-        Collection<LEContainer> containerCollection = new ArrayList<LEContainer>();
+        List<LEContainer> containerCollection = new ArrayList<LEContainer>();
         while(size > 0){
 
-            LEContainer container = createContainer(ipAddress, port, size);
+            LEContainer container = createContainer(ipAddress, port, new IntIdentifier(size));
             containerCollection.add(container);
             size --;
         }
@@ -205,9 +202,9 @@ public class ApplicationRuleSetTest {
     }
 
 
-    private LEContainer createContainer(InetAddress ipAddress, int port , int id){
+    private LEContainer createContainer(InetAddress ipAddress, int port, Identifier id){
 
-        DecoratedAddress decoratedAddress = DecoratedAddress.open(ipAddress, port, id);
+        KAddress decoratedAddress = new BasicAddress(ipAddress, port, id);
 
         PeerDescriptor descriptor = new PeerDescriptor(decoratedAddress);
         LEContainer container = new LEContainer(decoratedAddress, descriptor);

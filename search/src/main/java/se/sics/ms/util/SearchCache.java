@@ -3,11 +3,13 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.SearchPattern;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.javatuples.Pair;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Cache encapsulation for the Search protocol.
@@ -19,11 +21,11 @@ import java.util.Map;
 public class SearchCache {
 
     private Logger logger = LoggerFactory.getLogger(SearchCache.class);
-    private Map<SearchPattern, Map<DecoratedAddress, List<IdScorePair>>> queryResponseCache;
+    //<pattern, <srcId, <srcAdr, scoreList>>>
+    private Map<SearchPattern, Map<Identifier, Pair<KAddress, List<IdScorePair>>>> queryResponseCache = new HashMap<>();
 
     public SearchCache(){
         this.logger.trace("Search Cache Created.");
-        this.queryResponseCache = new HashMap<SearchPattern, Map<DecoratedAddress, List<IdScorePair>>>();
     }
 
     /**
@@ -33,7 +35,7 @@ public class SearchCache {
      * @param filePattern pattern
      * @param scorePairCollection collection
      */
-    public void cachePattern(SearchPattern filePattern, Map<DecoratedAddress, List<IdScorePair>> scorePairCollection){
+    public void cachePattern(SearchPattern filePattern, Map<Identifier, Pair<KAddress, List<IdScorePair>>> scorePairCollection){
         queryResponseCache.put(filePattern, scorePairCollection);
     }
 
@@ -44,7 +46,7 @@ public class SearchCache {
      * @param pattern search pattern
      * @return hit - score/id collection.
      */
-    public Map<DecoratedAddress, List<IdScorePair>> getScorePairCollection(SearchPattern pattern){
+    public Map<Identifier, Pair<KAddress, List<IdScorePair>>> getScorePairCollection(SearchPattern pattern){
         return this.queryResponseCache.get(pattern);
     }
 

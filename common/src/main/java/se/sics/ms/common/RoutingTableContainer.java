@@ -1,21 +1,21 @@
 package se.sics.ms.common;
 
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.other.Container;
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.util.Container;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Container used by the routing table to keep track of entries.
  *
  * Created by babbar on 2015-04-17.
  */
-public class RoutingTableContainer implements Container<DecoratedAddress, PeerDescriptor>{
+public class RoutingTableContainer implements Container<KAddress, PeerDescriptor>{
 
     private int age;
-    private DecoratedAddress address;
-    private PeerDescriptor descriptor;
+    public final KAddress address;
+    public final PeerDescriptor descriptor;
 
-    public RoutingTableContainer(int age, DecoratedAddress address,  PeerDescriptor descriptor) {
+    public RoutingTableContainer(int age, KAddress address,  PeerDescriptor descriptor) {
         this.age = age;
         this.address = address;
         this.descriptor = descriptor;
@@ -30,16 +30,21 @@ public class RoutingTableContainer implements Container<DecoratedAddress, PeerDe
     }
 
     @Override
-    public DecoratedAddress getSource() {
-        return this.address;
+    public KAddress getSource() {
+        return address;
     }
 
     @Override
     public PeerDescriptor getContent() {
-        return this.descriptor;
+        return descriptor;
     }
 
     public void incrementAge(){
         age++;
+    }
+
+    @Override
+    public Container copy() {
+        return new RoutingTableContainer(age, address, descriptor);
     }
 }

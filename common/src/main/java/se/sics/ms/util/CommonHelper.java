@@ -1,12 +1,15 @@
 package se.sics.ms.util;
 
 import se.sics.kompics.network.Transport;
-import se.sics.p2ptoolbox.util.network.impl.BasicContentMsg;
-import se.sics.p2ptoolbox.util.network.impl.BasicHeader;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedHeader;
 
 import java.util.*;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.KContentMsg;
+import se.sics.ktoolbox.util.network.KHeader;
+import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
+import se.sics.ktoolbox.util.network.basic.BasicHeader;
+import se.sics.ktoolbox.util.network.basic.DecoratedHeader;
 
 /**
  * Common Helper Common Helper for the
@@ -39,15 +42,15 @@ public class CommonHelper {
      * @param <E> type
      * @return content message
      */
-    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedContentMsg(DecoratedHeader<DecoratedAddress> header, E content){
-        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(header, content);
+    public static <E> KContentMsg<KAddress, KHeader<KAddress>, E> getDecoratedContentMsg(KHeader<KAddress> header, E content){
+        return new BasicContentMsg(header, content);
     }
     
     
-    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedContentMessage(DecoratedAddress sourceAddress, DecoratedAddress destination, Transport transport, E content){
+    public static <E> BasicContentMsg<KAddress, KHeader<KAddress>, E> getDecoratedContentMessage(KAddress sourceAddress, KAddress destination, Transport transport, E content){
         
-        DecoratedHeader<DecoratedAddress> decoratedHeader = new DecoratedHeader<DecoratedAddress>(sourceAddress, destination,  transport);
-        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(decoratedHeader, content);
+        KHeader<KAddress> decoratedHeader = new BasicHeader(sourceAddress, destination,  transport);
+        return new BasicContentMsg(decoratedHeader, content);
         
     }
 
@@ -63,12 +66,10 @@ public class CommonHelper {
      * @param <E> type
      * @return Basic Network Message
      */
-    public static <E> BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E> getDecoratedMsgWithOverlay (DecoratedAddress sourceAddress, DecoratedAddress dest, Transport transport, int overlayId, E content){
+    public static <E> BasicContentMsg<KAddress, DecoratedHeader<KAddress>, E> getDecoratedMsgWithOverlay (KAddress sourceAddress, KAddress dest, Transport transport, Identifier overlayId, E content){
 
-        BasicHeader<DecoratedAddress> basicHeader = new BasicHeader<DecoratedAddress>(sourceAddress, dest,  transport);
-        DecoratedHeader<DecoratedAddress> decoratedHeader = new DecoratedHeader<DecoratedAddress>(basicHeader, null, overlayId);
-        return new BasicContentMsg<DecoratedAddress, DecoratedHeader<DecoratedAddress>, E>(decoratedHeader, content);
+        BasicHeader<KAddress> basicHeader = new BasicHeader(sourceAddress, dest,  transport);
+        DecoratedHeader<KAddress> decoratedHeader = new DecoratedHeader(basicHeader, overlayId);
+        return new BasicContentMsg(decoratedHeader, content);
     }
-
-
 }
