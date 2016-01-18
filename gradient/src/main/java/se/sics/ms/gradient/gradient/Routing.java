@@ -587,7 +587,7 @@ public final class Routing extends ComponentDefinition {
             logger.trace("{}: Pseudo Gradient Received Croupier Sample", self.getId());
 
             if (event.publicSample.isEmpty())
-                logger.info("{}: Pseudo Gradient Received Empty Sample: " + self.getId());
+                logger.info("{}: Pseudo Gradient Received Empty Sample", self.getId());
 
             Collection<Container> rawCroupierSample = new ArrayList<Container>();
             rawCroupierSample.addAll(event.publicSample.values());
