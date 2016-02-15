@@ -1,9 +1,11 @@
 package se.sics.ms.search;
 
+import se.sics.ms.util.SimpleLCPViewComparator;
+import se.sics.ms.util.ApplicationRuleSet;
+import se.sics.ms.util.LEContainerComparator;
 import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.*;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
@@ -55,12 +57,12 @@ import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
 import se.sics.ktoolbox.util.selectors.OverlaySelector;
 import se.sics.ktoolbox.util.update.view.OverlayViewUpdate;
 import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
+import se.sics.ms.gvod.config.SearchConfiguration;
 
 import se.sics.ms.util.CommonHelper;
 import se.sics.ms.util.ComparatorCollection;
 import se.sics.ms.util.HeartbeatServiceEnum;
 import se.sics.ms.util.TimeoutCollection;
-import se.sics.util.*;
 
 public final class SearchPeer extends ComponentDefinition {
 

@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package se.sics.gvod.config;
+package se.sics.ms.gvod.config;
 
 import se.sics.ms.configuration.MsConfig;
 

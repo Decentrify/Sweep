@@ -1,4 +1,4 @@
-package se.kth.ms.partitionaware.api.events;
+package se.sics.ms.partitionaware.api.events;
 
 import se.sics.kompics.KompicsEvent;
 import se.sics.ms.types.PeerDescriptor;

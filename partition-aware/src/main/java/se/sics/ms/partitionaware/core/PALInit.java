@@ -1,4 +1,4 @@
-package se.kth.ms.partitionaware.core;
+package se.sics.ms.partitionaware.core;
 import se.sics.kompics.Init;
 import se.sics.ktoolbox.util.identifiable.Identifier;
 import se.sics.ktoolbox.util.network.KAddress;

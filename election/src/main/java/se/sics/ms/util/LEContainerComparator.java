@@ -1,6 +1,6 @@
 
 
-package se.sics.util;
+package se.sics.ms.util;
 
 
 import java.util.Comparator;

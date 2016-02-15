@@ -1,7 +1,7 @@
 package se.sics.ms.search;
 
-import se.sics.gvod.config.GradientConfiguration;
-import se.sics.gvod.config.SearchConfiguration;
+import se.sics.ms.gvod.config.GradientConfiguration;
+import se.sics.ms.gvod.config.SearchConfiguration;
 import se.sics.kompics.Init;
 import se.sics.ktoolbox.election.ElectionConfig;
 import se.sics.ktoolbox.util.network.KAddress;

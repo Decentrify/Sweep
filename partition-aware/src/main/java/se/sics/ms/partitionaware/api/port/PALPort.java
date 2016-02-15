@@ -1,8 +1,8 @@
-package se.kth.ms.partitionaware.api.port;
+package se.sics.ms.partitionaware.api.port;
 
-import se.kth.ms.partitionaware.api.events.LUCheck;
-import se.kth.ms.partitionaware.api.events.NPEvent;
-import se.kth.ms.partitionaware.api.events.PALUpdate;
+import se.sics.ms.partitionaware.api.events.LUCheck;
+import se.sics.ms.partitionaware.api.events.NPEvent;
+import se.sics.ms.partitionaware.api.events.PALUpdate;
 import se.sics.kompics.PortType;
 
 /**

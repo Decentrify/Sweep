@@ -1,4 +1,4 @@
-package se.sics.util;
+package se.sics.ms.util;
 
 import se.sics.ms.types.PeerDescriptor;
 

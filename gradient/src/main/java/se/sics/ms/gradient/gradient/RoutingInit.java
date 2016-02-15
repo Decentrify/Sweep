@@ -1,6 +1,6 @@
 package se.sics.ms.gradient.gradient;
 
-import se.sics.gvod.config.GradientConfiguration;
+import se.sics.ms.gvod.config.GradientConfiguration;
 import se.sics.kompics.Init;
 import se.sics.ms.common.ApplicationSelf;
 

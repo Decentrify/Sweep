@@ -1,5 +1,8 @@
-package se.sics.util;
+package se.sics.ms.util;
 
+import se.sics.ms.util.SimpleLCPViewComparator;
+import se.sics.ms.util.ApplicationRuleSet;
+import se.sics.ms.util.LEContainerComparator;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;

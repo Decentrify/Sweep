@@ -1,11 +1,11 @@
-package se.kth.ms.partitionaware.core;
+package se.sics.ms.partitionaware.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.kth.ms.partitionaware.api.events.NPEvent;
-import se.kth.ms.partitionaware.api.events.NPTimeout;
-import se.kth.ms.partitionaware.api.events.PALUpdate;
-import se.kth.ms.partitionaware.api.port.PALPort;
+import se.sics.ms.partitionaware.api.events.NPEvent;
+import se.sics.ms.partitionaware.api.events.NPTimeout;
+import se.sics.ms.partitionaware.api.events.PALUpdate;
+import se.sics.ms.partitionaware.api.port.PALPort;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;

@@ -3,7 +3,7 @@ package se.sics.ms.gradient.gradient;
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.config.GradientConfiguration;
+import se.sics.ms.gvod.config.GradientConfiguration;
 import se.sics.kompics.*;
 import se.sics.kompics.network.Network;
 import se.sics.kompics.network.Transport;
