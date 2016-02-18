@@ -33,6 +33,8 @@ import java.security.*;
 import java.util.*;
 import se.sics.ktoolbox.cc.heartbeat.event.CCHeartbeat;
 import se.sics.ktoolbox.cc.heartbeat.event.CCOverlaySample;
+import se.sics.ktoolbox.chunkmanager.ChunkManagerComp;
+import se.sics.ktoolbox.chunkmanager.ChunkManagerConfig;
 import se.sics.ktoolbox.croupier.CroupierComp;
 import se.sics.ktoolbox.croupier.CroupierControlPort;
 import se.sics.ktoolbox.croupier.CroupierPort;
@@ -77,6 +79,7 @@ public final class SearchPeer extends ComponentDefinition {
     Positive<AddressUpdatePort> selfAddressUpdatePort = requires(AddressUpdatePort.class);
 //    Positive<SelfViewUpdatePort> selfViewUpdatePort = requires(SelfViewUpdatePort.class);
 
+    private Component chunkManager;
     private Component croupier;
     private Component gradient, tgradient;
     private Component search, aggregatorComponent, routing;
@@ -103,6 +106,7 @@ public final class SearchPeer extends ComponentDefinition {
         search = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, publicKey, privateKey));
 
         // External Components creating and connection to the local components.
+        connectChunkManager();
         connectCroupier();
         connectGradient();
         connectTreeGradient();
@@ -254,15 +258,25 @@ public final class SearchPeer extends ComponentDefinition {
         connect(timer, routing.getNegative(Timer.class), Channel.TWO_WAY);
 
         // Internal Connections.
-        connect(network, search.getNegative(Network.class), Channel.TWO_WAY);
-        connect(network, routing.getNegative(Network.class), Channel.TWO_WAY);
+        connect(chunkManager.getPositive(Network.class), search.getNegative(Network.class), Channel.TWO_WAY);
+        connect(chunkManager.getPositive(Network.class), routing.getNegative(Network.class), Channel.TWO_WAY);
 
+//        connect(network, search.getNegative(Network.class), Channel.TWO_WAY);
+//        connect(network, routing.getNegative(Network.class), Channel.TWO_WAY);
         connect(indexPort, search.getNegative(SimulationEventsPort.class), Channel.TWO_WAY);
         connect(search.getPositive(LeaderStatusPort.class), routing.getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
         connect(routing.getPositive(GradientRoutingPort.class), search.getNegative(GradientRoutingPort.class), Channel.TWO_WAY);
         connect(internalUiPort, search.getPositive(UiPort.class), Channel.TWO_WAY);
         connect(search.getPositive(SelfChangedPort.class), routing.getNegative(SelfChangedPort.class), Channel.TWO_WAY);
 
+    }
+
+    private void connectChunkManager() {
+        
+        //TODO Alex - remove hardocoded values;
+        chunkManager = create(ChunkManagerComp.class, new ChunkManagerComp.CMInit(new ChunkManagerConfig(30000, 1000), self.getAddress()));
+        connect(chunkManager.getNegative(Network.class), network, Channel.TWO_WAY);
+        connect(chunkManager.getNegative(Timer.class), timer, Channel.TWO_WAY);
     }
 
     /**
