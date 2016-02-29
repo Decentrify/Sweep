@@ -2044,7 +2044,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
-        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(updatedDesc), selfViewUpdatePort);
+        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(false, updatedDesc), selfViewUpdatePort);
 
 //      Send the information to the local aggregator in form of one big packet.
         //TODO Alex -reenable

@@ -116,8 +116,8 @@ public class PartitionAwareGradient extends ComponentDefinition {
         awaitingVerificationSystem = new HashMap<UUID, KAddress>();
 
         // Gradient Connections.
-        GradientComp.GradientInit gInit = new GradientComp.GradientInit(selfAddress, new SimpleUtilityComparator(),
-                new SweepGradientFilter(), systemConfig.seed, overlayId);
+        GradientComp.GradientInit gInit = new GradientComp.GradientInit(overlayId, selfAddress, new SimpleUtilityComparator(),
+                new SweepGradientFilter());
 
         verifiedSet = new Queue<Pair<Long, Integer>>(init.historyBufferSize);
         suspects = new HashSet<Pair<Long, Integer>>();

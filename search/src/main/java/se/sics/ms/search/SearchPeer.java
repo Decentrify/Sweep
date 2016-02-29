@@ -446,8 +446,8 @@ public final class SearchPeer extends ComponentDefinition {
 
         log.info("connecting gradient configuration ...");
         Identifier gradientId = new IntIdentifier(MsConfig.GRADIENT_OVERLAY_ID);
-        gradient = create(GradientComp.class, new GradientComp.GradientInit(self.getAddress(), new SimpleUtilityComparator(),
-                new SweepGradientFilter(), systemConfig.seed, gradientId));
+        gradient = create(GradientComp.class, new GradientComp.GradientInit(gradientId, self.getAddress(), new SimpleUtilityComparator(),
+                new SweepGradientFilter()));
         connect(network, gradient.getNegative(Network.class), new OverlaySelector(gradientId, true), Channel.TWO_WAY);
         connect(timer, gradient.getNegative(Timer.class), Channel.TWO_WAY);
         connect(croupier.getPositive(CroupierPort.class), gradient.getNegative(CroupierPort.class), Channel.TWO_WAY);
@@ -465,8 +465,8 @@ public final class SearchPeer extends ComponentDefinition {
 
         log.info("connecting tree gradient configuration ...");
         Identifier tGradientId = new IntIdentifier(MsConfig.T_GRADIENT_OVERLAY_ID);
-        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(self.getAddress(),
-                new SweepGradientFilter(), systemConfig.seed, tGradientId));
+        tgradient = create(TreeGradientComp.class, new TreeGradientComp.TreeGradientInit(tGradientId, self.getAddress(),
+                new SweepGradientFilter()));
         connect(tgradient.getNegative(Network.class), network, new OverlaySelector(tGradientId, true), Channel.TWO_WAY);
         connect(tgradient.getNegative(Timer.class), timer, Channel.TWO_WAY);
         connect(tgradient.getNegative(CroupierPort.class), croupier.getPositive(CroupierPort.class), Channel.TWO_WAY);
@@ -486,7 +486,7 @@ public final class SearchPeer extends ComponentDefinition {
     private void startGradient() {
 
         log.debug("Starting Gradient component.");
-        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(new PeerDescriptor(self.getAddress())), tgradient.getNegative(ViewUpdatePort.class));
+        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(false, new PeerDescriptor(self.getAddress())), tgradient.getNegative(ViewUpdatePort.class));
     }
 
     private void connectCroupier() {
