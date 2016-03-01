@@ -607,7 +607,7 @@ public final class Routing extends ComponentDefinition {
 
             logger.debug("{}: Received gradient sample", self.getId());
             gradientEntrySet.clear();
-            checkInstanceAndAdd(gradientEntrySet, event.gradientSample);
+            checkInstanceAndAdd(gradientEntrySet, event.getGradientNeighbours());
             performAdditionalHouseKeepingTasks();
 
         }

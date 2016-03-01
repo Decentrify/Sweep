@@ -501,10 +501,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Handler executed in the role of the leader. Create a new id and search
-     * for a the according bucket in the routing table. If it does not include
-     * enough nodes to satisfy the replication requirements then create a new id
-     * and try again.
+     * Handler executed in the role of the leader. Create a new eventId and search
+ for a the according bucket in the routing table. If it does not include
+ enough nodes to satisfy the replication requirements then create a new eventId
+ and try again.
      */
     ClassMatchedHandler handleAddIndexEntryRequest
             = new ClassMatchedHandler<AddIndexEntry.Request, BasicContentMsg<KAddress, KHeader<KAddress>, AddIndexEntry.Request>>() {
@@ -634,10 +634,10 @@ public final class NPAwareSearch extends ComponentDefinition {
     };
 
     /**
-     * Get the current insertion id and increment it to keep track of the next
-     * one.
+     * Get the current insertion eventId and increment it to keep track of the next
+ one.
      *
-     * @return a new id for a new {@link se.sics.ms.types.IndexEntry}
+     * @return a new eventId for a new {@link se.sics.ms.types.IndexEntry}
      */
     private long getNextInsertionId() {
 
@@ -817,7 +817,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
                                 lowestMissingEntryTracker.updateInternalState(); // Update the internal state of the Missing Tracker.
                                 self.resetContainerEntries(); // Update the epoch container entries to be 0, in case epoch gets added.
-                                nextInsertionId = ApplicationConst.STARTING_ENTRY_ID; // Reset the insertion id for the current container.
+                                nextInsertionId = ApplicationConst.STARTING_ENTRY_ID; // Reset the insertion eventId for the current container.
 
                             } else {
                                 logger.debug(" {}: Reached at stage of committing actual entries:{} in the system.", prefix, entryToCommit);
@@ -1209,9 +1209,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     /**
      * In special case in which the entry might be a landing entry, check based
-     * on the round id and reset the landing entry addition meta data and update
-     * the current epochId with which the leader will be adding the entry in the
-     * system.
+ on the round eventId and reset the landing entry addition meta data and update
+ the current epochId with which the leader will be adding the entry in the
+ system.
      */
     private boolean checkForLandingEntryAdd(UUID roundId) {
 
@@ -1859,7 +1859,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         // Update the pending list.
         // TO DO : FIX THE ISSUE OF MULTIPLE LEADER ID's IN AN EPOCH for the below fix.
         if (partitionSubId) {
-            // If right to the median id is removed, skip list should contain
+            // If right to the median eventId is removed, skip list should contain
             // entries to right of the median.
             while (iterator.hasNext()) {
 
@@ -1961,9 +1961,9 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Find an entry for the given id in the local index store.
+     * Find an entry for the given eventId in the local index store.
      *
-     * @param entryId the id of the entry
+     * @param entryId the eventId of the entry
      * @return the entry if found or null if non-existing
      */
     private ApplicationEntry findEntryByIdBase(ApplicationEntry.ApplicationEntryId entryId, TopDocsCollector collector) {
@@ -1979,9 +1979,9 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     /**
-     * Find an entry for the given id in the local index store.
+     * Find an entry for the given eventId in the local index store.
      *
-     * @param entryId the id of the entry
+     * @param entryId the eventId of the entry
      * @return the entry if found or null if non-existing
      */
     private ApplicationEntry findEntryById(ApplicationEntry.ApplicationEntryId entryId) {
@@ -2070,7 +2070,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
             gradientEntrySet.clear();
 
-            List<Container> collection = event.gradientSample;
+            List<Container> collection = event.gradientNeighbours;
             for (Container container : collection) {
 
                 if (container.getContent() instanceof PeerDescriptor) {
@@ -2160,8 +2160,8 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     /**
      * Once a node gets elected as leader, the parameters regarding the starting
-     * entry addition id and the latest epoch id as seen by the node needs to be
-     * recalculated and the local parameters need to be updated. Then the leader
+ entry addition eventId and the latest epoch eventId as seen by the node needs to be
+ recalculated and the local parameters need to be updated. Then the leader
      * needs to add landing index entry before anything else.
      */
     private void addMarkerUnit() throws LuceneAdaptorException {
@@ -2195,7 +2195,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
     /**
      * Check the Lucene Instance for the entries that were added in the precious
-     * epoch id instance. The issue with the
+ epoch eventId instance. The issue with the
      *
      * @return
      * @throws se.sics.ms.common.LuceneAdaptorException
@@ -2374,7 +2374,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     /**
      * Convenient wrapper for canceling a particular timeout.
      *
-     * @param timeoutId id for timeout
+     * @param timeoutId eventId for timeout
      */
     private void cancelTimeout(UUID timeoutId) {
 
@@ -2570,9 +2570,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         /**
          * Handler for the search query response from the nodes in different
-         * shards. The node simply checks for the partition id from which the
-         * response is received and rejects if already received.
-         * <br/>
+         * shards. The node simply checks for the partition eventId from which the
+ response is received and rejects if already received.
+ <br/>
          * The initiating node waits for the responses selcted nodes from all
          * shards.
          *
@@ -2663,11 +2663,11 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         /**
-         * Filter and convert the paginate id score pair map to the structure
-         * which is required by the fetch phase of the search protocol.
+         * Filter and convert the paginate eventId score pair map to the structure
+ which is required by the fetch phase of the search protocol.
          *
          * @param maxHitList sorted list
-         * @param baseMap base score id map.
+         * @param baseMap base score eventId map.
          * @return fetch phase data structure.
          */
         private Map<Identifier, Pair<KAddress, List<IdScorePair>>> prepareFetchPhaseInput(Map<Identifier, Pair<KAddress, List<IdScorePair>>> baseMap, List<IdScorePair> maxHitList, PaginateInfo paginateInfo) {
@@ -3428,7 +3428,7 @@ public final class NPAwareSearch extends ComponentDefinition {
                             && next.getLeaderId() == unit.getLeaderId()) {
                         itr.remove();
                     }
-                    // In case epoch id has exceeded, break as the units are sorted.
+                    // In case epoch eventId has exceeded, break as the units are sorted.
                     if (unit.getEpochId() > next.getEpochId()) {
                         break;
                     }
@@ -3564,13 +3564,13 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         /**
          * Handler for request to pull the entries directly from the leader. The
-         * node simply checks the leader information and if the node is
-         * currently the leader, then it replies back with the information
-         * requested. FIX : This handler is a potential hole for the lower nodes
-         * to fetch the entries from the partitioned nodes. So in any handler
-         * that deals with returning data to other nodes, the check for the
-         * overlay id needs to be there.
-         * <b>Every Node</b> only replies with data to the nodes at same level
+ node simply checks the leader information and if the node is
+ currently the leader, then it replies back with the information
+ requested. FIX : This handler is a potential hole for the lower nodes
+ to fetch the entries from the partitioned nodes. So in any handler
+ that deals with returning data to other nodes, the check for the
+ overlay eventId needs to be there.
+ <b>Every Node</b> only replies with data to the nodes at same level
          * except for the partitioning information.
          */
         ClassMatchedHandler leaderPullRequest
@@ -3818,7 +3818,7 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         /**
          * Main helper method for updating the entry tracker which keeps in sync
-         * with the timeline about the next tracking id and information.
+ with the timeline about the next tracking eventId and information.
          */
         public void updateCurrentLUTracking() {
 
@@ -4027,10 +4027,10 @@ public final class NPAwareSearch extends ComponentDefinition {
         }
 
         /**
-         * Check for the buffered entries and then remove the entry with id's
-         * more than the specified id.
+         * Check for the buffered entries and then remove the entry with eventId's
+ more than the specified eventId.
          *
-         * @param medianId splitting id.
+         * @param medianId splitting eventId.
          */
         private void deleteDocumentsWithIdMoreThen(ApplicationEntry.ApplicationEntryId medianId) {
 
@@ -4045,9 +4045,9 @@ public final class NPAwareSearch extends ComponentDefinition {
 
         /**
          * Check for the buffered entries and then remove the entry with ids
-         * less than the specified id.
+ less than the specified eventId.
          *
-         * @param medianId splitting id.
+         * @param medianId splitting eventId.
          */
         private void deleteDocumentsWithIdLessThen(ApplicationEntry.ApplicationEntryId medianId) {
 
