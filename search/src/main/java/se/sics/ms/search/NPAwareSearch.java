@@ -57,8 +57,8 @@ import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.KHeader;
 import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
 import se.sics.ktoolbox.util.other.Container;
-import se.sics.ktoolbox.util.update.view.OverlayViewUpdate;
-import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdate;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 
 /**
  * This class handles the storing, adding and searching for indexes. It acts in
@@ -76,7 +76,7 @@ public final class NPAwareSearch extends ComponentDefinition {
      */
     public static final boolean PERSISTENT_INDEX = false;
 
-    // ====== PORTS.
+    //***************************CONNECTIONS************************************
     Positive<SimulationEventsPort> simulationEventsPort = positive(SimulationEventsPort.class);
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
@@ -90,8 +90,11 @@ public final class NPAwareSearch extends ComponentDefinition {
     Positive<PALPort> pagPort = requires(PALPort.class);
 
     Positive<AddressUpdatePort> selfAddressUpdatePort = requires(AddressUpdatePort.class);
-    Negative<ViewUpdatePort> selfViewUpdatePort = provides(ViewUpdatePort.class);
-
+    Negative<OverlayViewUpdatePort> selfViewUpdatePort = provides(OverlayViewUpdatePort.class);
+    //***************************CONFIGURATION**********************************
+    private final Identifier tgradientId;
+    //**************************************************************************
+    
     // ======== LOCAL VARIABLES.
     private static final Logger logger = LoggerFactory.getLogger(NPAwareSearch.class);
     private String prefix;
@@ -206,6 +209,7 @@ public final class NPAwareSearch extends ComponentDefinition {
     }
 
     public NPAwareSearch(SearchInit init) {
+        tgradientId = init.tgradientId;
 
         doInit(init);
         subscribe(handleStart, control);
@@ -2044,7 +2048,7 @@ public final class NPAwareSearch extends ComponentDefinition {
         selfDescriptor = updatedDesc;
         trigger(new SelfChangedPort.SelfChangedEvent(self), selfChangedPort);
         trigger(new ViewUpdate(electionRound, updatedDesc), electionPort);
-        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(false, updatedDesc), selfViewUpdatePort);
+        trigger(new OverlayViewUpdate.Indication<PeerDescriptor>(tgradientId, false, updatedDesc), selfViewUpdatePort);
 
 //      Send the information to the local aggregator in form of one big packet.
         //TODO Alex -reenable

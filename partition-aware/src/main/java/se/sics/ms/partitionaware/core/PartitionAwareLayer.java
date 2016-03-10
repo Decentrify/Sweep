@@ -22,8 +22,8 @@ import se.sics.ktoolbox.gradient.msg.GradientShuffle;
 import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.KContentMsg;
 import se.sics.ktoolbox.util.network.basic.DecoratedHeader;
-import se.sics.ktoolbox.util.update.view.ViewUpdate;
-import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
+import se.sics.ktoolbox.util.update.ViewUpdate;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 
 /**
  * The Main Partition Aware Layer.
@@ -40,8 +40,8 @@ public class PartitionAwareLayer extends ComponentDefinition{
     Negative<Network> networkNegative = provides(Network.class);
     Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
     Negative<CroupierPort> croupierPortNegative = provides(CroupierPort.class);
-    Positive<ViewUpdatePort> selfViewUPort = requires(ViewUpdatePort.class);
-    Negative<ViewUpdatePort> croupierViewUPort = provides(ViewUpdatePort.class);
+    Positive<OverlayViewUpdatePort> selfViewUPort = requires(OverlayViewUpdatePort.class);
+    Negative<OverlayViewUpdatePort> croupierViewUPort = provides(OverlayViewUpdatePort.class);
     Negative<PALPort> palPortNegative = provides(PALPort.class);
     
 //  Local Variables.

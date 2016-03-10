@@ -3,7 +3,7 @@ package se.sics.ms.types;
 import java.io.Serializable;
 import se.sics.ktoolbox.election.util.LCPeerView;
 import se.sics.ktoolbox.util.network.KAddress;
-import se.sics.ktoolbox.util.update.view.View;
+import se.sics.ktoolbox.util.update.View;
 
 /**
  * Main descriptor used by application to indicate the current state of the 

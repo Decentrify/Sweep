@@ -37,8 +37,8 @@ import se.sics.ktoolbox.util.network.basic.BasicContentMsg;
 import se.sics.ktoolbox.util.network.basic.DecoratedHeader;
 import se.sics.ktoolbox.util.network.nat.NatType;
 import se.sics.ktoolbox.util.other.Container;
-import se.sics.ktoolbox.util.update.view.ViewUpdate;
-import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdate;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 
 /**
  * Main component for the exerting tight control over the gradient and the
@@ -68,8 +68,8 @@ public class PartitionAwareGradient extends ComponentDefinition {
     private Positive<Timer> timerPositive = requires(Timer.class);
     private Positive<Network> networkPositive = requires(Network.class);
     private Positive<CroupierPort> croupierPortPositive = requires(CroupierPort.class);
-    private Positive<ViewUpdatePort> selfViewUPort = requires(ViewUpdatePort.class);
-    private Negative<ViewUpdatePort> croupierViewUPort = provides(ViewUpdatePort.class);
+    private Positive<OverlayViewUpdatePort> selfViewUPort = requires(OverlayViewUpdatePort.class);
+    private Negative<OverlayViewUpdatePort> croupierViewUPort = provides(OverlayViewUpdatePort.class);
     private Negative<PAGPort> pagPortNegative = provides(PAGPort.class);
     private Negative<GradientPort> gradientPortNegative = provides(GradientPort.class);
 
@@ -116,13 +116,13 @@ public class PartitionAwareGradient extends ComponentDefinition {
         awaitingVerificationSystem = new HashMap<UUID, KAddress>();
 
         // Gradient Connections.
-        GradientComp.GradientInit gInit = new GradientComp.GradientInit(overlayId, selfAddress, new SimpleUtilityComparator(),
-                new SweepGradientFilter());
+//        GradientComp.GradientInit gInit = new GradientComp.GradientInit(overlayId, selfAddress, new SimpleUtilityComparator(),
+//                new SweepGradientFilter());
 
         verifiedSet = new Queue<Pair<Long, Integer>>(init.historyBufferSize);
         suspects = new HashSet<Pair<Long, Integer>>();
 
-        gradient = create(GradientComp.class, gInit);
+//        gradient = create(GradientComp.class, gInit);
         connect(gradient.getNegative(Timer.class), timerPositive, Channel.TWO_WAY);
         connect(gradient.getPositive(GradientPort.class), gradientPortNegative, Channel.TWO_WAY);    // Auxiliary Port for Direct Transfer of Data.
     }
@@ -187,9 +187,9 @@ public class PartitionAwareGradient extends ComponentDefinition {
      * Blocks the direct update from the gradient component to the croupier and
      * relays it through this handler.
      */
-    Handler<ViewUpdate.Indication> croupierUpdateHandler = new Handler<ViewUpdate.Indication>() {
+    Handler<OverlayViewUpdate.Indication> croupierUpdateHandler = new Handler<OverlayViewUpdate.Indication>() {
         @Override
-        public void handle(ViewUpdate.Indication event) {
+        public void handle(OverlayViewUpdate.Indication event) {
 
             logger.debug("{}: Received croupier update from the gradient. ", prefix);
             trigger(event, croupierViewUPort);

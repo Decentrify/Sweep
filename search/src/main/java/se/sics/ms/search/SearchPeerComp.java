@@ -8,6 +8,7 @@ package se.sics.ms.search;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.Channel;
@@ -29,11 +30,15 @@ import se.sics.ktoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.ktoolbox.gradient.GradientPort;
 import se.sics.ktoolbox.overlaymngr.OverlayMngrPort;
 import se.sics.ktoolbox.overlaymngr.events.OMngrTGradient;
-import se.sics.ktoolbox.overlaymngr.util.EventOverlaySelector;
 import se.sics.ktoolbox.util.address.AddressUpdatePort;
 import se.sics.ktoolbox.util.config.impl.SystemKCWrapper;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.identifier.OverlayIdHelper;
 import se.sics.ktoolbox.util.network.KAddress;
-import se.sics.ktoolbox.util.update.view.ViewUpdatePort;
+import se.sics.ktoolbox.util.network.ports.One2NChannel;
+import se.sics.ktoolbox.util.overlays.OverlayIdExtractor;
+import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.gradient.gradient.Routing;
 import se.sics.ms.gradient.gradient.RoutingInit;
@@ -60,23 +65,32 @@ public class SearchPeerComp extends ComponentDefinition {
     private final static Logger LOG = LoggerFactory.getLogger(SearchPeerComp.class);
     private String logPrefix = "";
 
-    private SystemKCWrapper systemConfig;
-    private SearchPeerKCWrapper spConfig;
-    private KeyPair appKey;
-    
+    //*****************************CONNECTIONS**********************************
     private final Positive omngrPort = requires(OverlayMngrPort.class);
-    //these ExtPort should not change
+    //provided external ports
     private final ExtPort extPort;
-    private Component electionLeader, electionFollower;
-    private Component chunkMngrComp;
-    private Component routingComp, searchComp;
-
+    //internal ports;
+    private final One2NChannel<CroupierPort> croupierEnd;
+    private final One2NChannel<GradientPort> gradientEnd;
+    private final One2NChannel<OverlayViewUpdatePort> viewUpdateEnd;
+    //****************************CONFIGURATION*********************************
+    private final SystemKCWrapper systemConfig;
+    private final SearchPeerKCWrapper spConfig;
+    private final KeyPair appKey;
+    //hack - remove later
+    private final GradientConfiguration gradientConfiguration;
+    private final SearchConfiguration searchConfiguration;
+    //*******************************SELF***************************************
     //this should be removed... not really necessary;
     private KAddress selfAdr;
     //hack - remove later
     private final ApplicationSelf self;
-    private final GradientConfiguration gradientConfiguration;
-    private final SearchConfiguration searchConfiguration;
+    //****************************CLEANUP***************************************
+    private Pair<Component, Channel[]> electionLeader, electionFollower;
+    private Pair<Component, Channel[]> chunkMngr;
+    private Pair<Component, Channel[]> routing;
+    private Pair<Component, Channel[]> search;
+    //**************************************************************************
 
     public SearchPeerComp(Init init) {
         systemConfig = new SystemKCWrapper(config());
@@ -88,6 +102,9 @@ public class SearchPeerComp extends ComponentDefinition {
         LOG.info("{}initiating...", logPrefix);
 
         extPort = init.extPort;
+        croupierEnd = One2NChannel.getChannel(extPort.croupierPort, new OverlayIdExtractor());
+        gradientEnd = One2NChannel.getChannel(extPort.gradientPort, new OverlayIdExtractor());
+        viewUpdateEnd = One2NChannel.getChannel(extPort.viewUpdatePort, new OverlayIdExtractor());
 
         //hack
         self = new ApplicationSelf(selfAdr);
@@ -96,6 +113,11 @@ public class SearchPeerComp extends ComponentDefinition {
 
         subscribe(handleStart, control);
         subscribe(handleOverlayResponse, omngrPort);
+
+        connectElection();
+        connectChunkManager();
+        connectRouting();
+        connectSearch();
     }
 
     private KeyPair generateKeys() {
@@ -108,6 +130,93 @@ public class SearchPeerComp extends ComponentDefinition {
             throw new RuntimeException("can't generate keys");
         }
     }
+
+    //******************************CONNECT*************************************
+
+    private void connectElection() {
+        LOG.info("{}connecting election components", logPrefix);
+
+        LEContainerComparator containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(), new ComparatorCollection.AddressComparator());
+        ApplicationRuleSet.SweepLCRuleSet leaderComponentRuleSet = new ApplicationRuleSet.SweepLCRuleSet(containerComparator);
+        ApplicationRuleSet.SweepCohortsRuleSet cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(containerComparator);
+
+        Component leaderComp = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
+                selfAdr, new PeerDescriptor(selfAdr), appKey.getPublic(), appKey.getPrivate(),
+                new SimpleLCPViewComparator(), leaderComponentRuleSet, cohortsRuleSet));
+        Component followerComp = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
+                selfAdr, new PeerDescriptor(selfAdr), appKey.getPublic(), appKey.getPrivate(),
+                new SimpleLCPViewComparator(), leaderComponentRuleSet, cohortsRuleSet));
+
+        Channel[] leaderChannels = new Channel[3];
+        leaderChannels[0] = connect(leaderComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
+        leaderChannels[1] = connect(leaderComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
+        leaderChannels[2] = connect(leaderComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
+        gradientEnd.addChannel(spConfig.tgradientId, leaderComp.getNegative(GradientPort.class));
+
+        Channel[] followerChannels = new Channel[3];
+        followerChannels[0] = connect(followerComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
+        followerChannels[1] = connect(followerComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
+        followerChannels[2] = connect(followerComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
+        gradientEnd.addChannel(spConfig.tgradientId, followerComp.getNegative(GradientPort.class));
+
+        electionLeader = Pair.with(leaderComp, leaderChannels);
+        electionFollower = Pair.with(followerComp, followerChannels);
+    }
+
+    /**
+     * Assumptions - network, timer are created and started
+     */
+    private void connectChunkManager() {
+        //TODO Alex - remove hardcoded values;
+        Component chunkMngrComp = create(ChunkManagerComp.class, new ChunkManagerComp.CMInit(new ChunkManagerConfig(30000, 1000), selfAdr));
+        Channel[] chunkMngrChannels = new Channel[2];
+        chunkMngrChannels[0] = connect(chunkMngrComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
+        chunkMngrChannels[1] = connect(chunkMngrComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
+        chunkMngr = Pair.with(chunkMngrComp, chunkMngrChannels);
+    }
+
+    //TODO Alex - revisit Routing and NPAwareSearch when time - fishy
+    private void connectRouting() {
+        Identifier croupierId = OverlayIdHelper.changeOverlayType((IntIdentifier) spConfig.tgradientId, OverlayIdHelper.Type.CROUPIER);
+        Component routingComp = create(Routing.class, new RoutingInit(systemConfig.seed, self, gradientConfiguration));
+        Channel[] routingChannels = new Channel[4];
+        routingChannels[0] = connect(routingComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
+        routingChannels[1] = connect(routingComp.getNegative(Network.class), chunkMngr.getValue0().getPositive(Network.class), Channel.TWO_WAY);
+        routingChannels[2] = connect(routingComp.getNegative(LeaderElectionPort.class), electionLeader.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        routingChannels[3] = connect(routingComp.getNegative(LeaderElectionPort.class), electionFollower.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        croupierEnd.addChannel(croupierId, routingComp.getNegative(CroupierPort.class));
+        gradientEnd.addChannel(spConfig.tgradientId, routingComp.getNegative(GradientPort.class));
+        //LeaderStatusPort, SelfChangedPort - provided by search
+        //GradientRoutingPort - required by search
+        //what is GradientViewChangePort used for?
+        routing = Pair.with(routingComp, routingChannels);
+    }
+
+    private void connectSearch() {
+        Component searchComp = create(NPAwareSearch.class, new SearchInit(spConfig.tgradientId, systemConfig.seed, 
+                self, searchConfiguration, appKey.getPublic(), appKey.getPrivate()));
+        Channel[] searchChannels = new Channel[10];
+        //requires
+        searchChannels[0] = connect(searchComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
+        searchChannels[1] = connect(searchComp.getNegative(Network.class), chunkMngr.getValue0().getPositive(Network.class), Channel.TWO_WAY);
+        searchChannels[2] = connect(searchComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
+        searchChannels[3] = connect(searchComp.getNegative(LeaderElectionPort.class), electionLeader.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        searchChannels[4] = connect(searchComp.getNegative(LeaderElectionPort.class), electionFollower.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        searchChannels[5] = connect(searchComp.getNegative(GradientRoutingPort.class), routing.getValue0().getPositive(GradientRoutingPort.class), Channel.TWO_WAY);
+        gradientEnd.addChannel(spConfig.tgradientId, searchComp.getNegative(GradientPort.class));
+
+        //provide
+        searchChannels[6] = connect(searchComp.getPositive(LeaderStatusPort.class), routing.getValue0().getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
+        searchChannels[7] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
+        searchChannels[8] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
+        searchChannels[9] = connect(searchComp.getPositive(UiPort.class), extPort.uiPort, Channel.TWO_WAY);
+        viewUpdateEnd.addChannel(spConfig.tgradientId, searchComp.getPositive(OverlayViewUpdatePort.class));
+        //SimulationEventPorts - what is this?
+        //LocalAggregatorPort - skipped for the moment
+        //PALPort/PAGPort - was this working at any point
+        search = Pair.with(searchComp, searchChannels);
+    }
+
     //*****************************CONTROL**************************************
     Handler handleStart = new Handler<Start>() {
         @Override
@@ -120,117 +229,23 @@ public class SearchPeerComp extends ComponentDefinition {
     //**************************CREATE OVERLAYS*********************************
     private void createOverlays() {
         LOG.info("{}setting up the overlays", logPrefix);
-        OMngrTGradient.ConnectRequestBuilder req = new OMngrTGradient.ConnectRequestBuilder();
-        req.setIdentifiers(spConfig.croupierId, spConfig.gradientId, spConfig.tgradientId);
-        req.setupGradient(new SimpleUtilityComparator(), new SweepGradientFilter());
-        trigger(req.build(), omngrPort);
+        OMngrTGradient.ConnectRequest req = new OMngrTGradient.ConnectRequest(spConfig.tgradientId,
+                new SimpleUtilityComparator(), new SweepGradientFilter());
+        trigger(req, omngrPort);
     }
 
     Handler handleOverlayResponse = new Handler<OMngrTGradient.ConnectResponse>() {
         @Override
         public void handle(OMngrTGradient.ConnectResponse event) {
             LOG.info("{}overlays created", logPrefix);
-            connectElection();
-            connectChunkManager();
-            connectRouting();
-            connectSearch();
-            trigger(Start.event, electionLeader.control());
-            trigger(Start.event, electionFollower.control());
-            trigger(Start.event, chunkMngrComp.control());
-            trigger(Start.event, routingComp.control());
-            trigger(Start.event, searchComp.control());
+            trigger(Start.event, electionLeader.getValue0().control());
+            trigger(Start.event, electionFollower.getValue0().control());
+            trigger(Start.event, chunkMngr.getValue0().control());
+            trigger(Start.event, routing.getValue0().control());
+            trigger(Start.event, search.getValue0().control());
         }
     };
 
-    //****************************CONNECT REST**********************************
-    /**
-     * Assumptions - network, timer, overlays are created and started
-     *
-     * @param electionConfig
-     * @param seed
-     */
-    private void connectElection() {
-        LOG.info("{}connecting election components", logPrefix);
-
-        LEContainerComparator containerComparator = new LEContainerComparator(new SimpleLCPViewComparator(), new ComparatorCollection.AddressComparator());
-        ApplicationRuleSet.SweepLCRuleSet leaderComponentRuleSet = new ApplicationRuleSet.SweepLCRuleSet(containerComparator);
-        ApplicationRuleSet.SweepCohortsRuleSet cohortsRuleSet = new ApplicationRuleSet.SweepCohortsRuleSet(containerComparator);
-
-        electionLeader = create(ElectionLeader.class, new ElectionInit<ElectionLeader>(
-                selfAdr, new PeerDescriptor(selfAdr), appKey.getPublic(), appKey.getPrivate(),
-                new SimpleLCPViewComparator(), leaderComponentRuleSet, cohortsRuleSet));
-
-        electionFollower = create(ElectionFollower.class, new ElectionInit<ElectionFollower>(
-                selfAdr, new PeerDescriptor(selfAdr), appKey.getPublic(), appKey.getPrivate(),
-                new SimpleLCPViewComparator(), leaderComponentRuleSet, cohortsRuleSet));
-
-        Channel[] electionChannels = new Channel[8];
-        // Election leader connections.
-        electionChannels[0] = connect(electionLeader.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
-        electionChannels[1] = connect(electionLeader.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        electionChannels[2] = connect(electionLeader.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
-        electionChannels[3] = connect(electionLeader.getNegative(GradientPort.class), extPort.gradientPort,
-                new EventOverlaySelector(spConfig.tgradientId, true), Channel.TWO_WAY);
-
-        // Election follower connections.
-        electionChannels[4] = connect(electionFollower.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
-        electionChannels[5] = connect(electionFollower.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        electionChannels[6] = connect(electionFollower.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
-        electionChannels[7] = connect(electionFollower.getNegative(GradientPort.class), extPort.gradientPort,
-                new EventOverlaySelector(spConfig.tgradientId, true), Channel.TWO_WAY);
-    }
-
-    /**
-     * Assumptions - network, timer are created and started
-     */
-    private void connectChunkManager() {
-        //TODO Alex - remove hardocoded values;
-        chunkMngrComp = create(ChunkManagerComp.class, new ChunkManagerComp.CMInit(new ChunkManagerConfig(30000, 1000), selfAdr));
-        Channel[] chunkMngrChannels = new Channel[2];
-        chunkMngrChannels[0] = connect(chunkMngrComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
-        chunkMngrChannels[1] = connect(chunkMngrComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-    }
-
-    //TODO Alex - revisit Routing and NPAwareSearch when time - fishy
-    private void connectRouting() {
-        routingComp = create(Routing.class, new RoutingInit(systemConfig.seed, self, gradientConfiguration));
-        Channel[] routingChannels = new Channel[6];
-        routingChannels[0] = connect(routingComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        routingChannels[1] = connect(routingComp.getNegative(Network.class), chunkMngrComp.getPositive(Network.class), Channel.TWO_WAY);
-        routingChannels[2] = connect(routingComp.getNegative(CroupierPort.class), extPort.croupierPort,
-                new EventOverlaySelector(spConfig.croupierId, true), Channel.TWO_WAY);
-        routingChannels[3] = connect(routingComp.getNegative(GradientPort.class), extPort.gradientPort,
-                new EventOverlaySelector(spConfig.tgradientId, true), Channel.TWO_WAY);
-        routingChannels[4] = connect(routingComp.getNegative(LeaderElectionPort.class), electionLeader.getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        routingChannels[5] = connect(routingComp.getNegative(LeaderElectionPort.class), electionFollower.getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        //LeaderStatusPort, SelfChangedPort - provided by search
-        //GradientRoutingPort - required by search
-        //what is GradientViewChangePort used for?
-    }
-
-    private void connectSearch() {
-        searchComp = create(NPAwareSearch.class, new SearchInit(systemConfig.seed, self, searchConfiguration, appKey.getPublic(), appKey.getPrivate()));
-        Channel[] searchChannels = new Channel[12];
-        //requires
-        searchChannels[0] = connect(searchComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        searchChannels[1] = connect(searchComp.getNegative(Network.class), chunkMngrComp.getPositive(Network.class), Channel.TWO_WAY);
-        searchChannels[2] = connect(searchComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
-        searchChannels[3] = connect(searchComp.getNegative(GradientPort.class), extPort.gradientPort,
-                new EventOverlaySelector(spConfig.tgradientId, true), Channel.TWO_WAY);
-        searchChannels[4] = connect(searchComp.getNegative(LeaderElectionPort.class), electionLeader.getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        searchChannels[5] = connect(searchComp.getNegative(LeaderElectionPort.class), electionFollower.getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        searchChannels[6] = connect(searchComp.getNegative(GradientRoutingPort.class), routingComp.getPositive(GradientRoutingPort.class), Channel.TWO_WAY);
-        //provide
-        searchChannels[7] = connect(searchComp.getPositive(LeaderStatusPort.class), routingComp.getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
-        searchChannels[8] = connect(searchComp.getPositive(SelfChangedPort.class), routingComp.getNegative(SelfChangedPort.class), Channel.TWO_WAY);
-        searchChannels[9] = connect(searchComp.getPositive(SelfChangedPort.class), routingComp.getNegative(SelfChangedPort.class), Channel.TWO_WAY);
-        searchChannels[10] = connect(searchComp.getPositive(ViewUpdatePort.class), extPort.viewUpdatePort,
-                new EventOverlaySelector(spConfig.tgradientId, true), Channel.TWO_WAY);
-        searchChannels[11] = connect(searchComp.getPositive(UiPort.class), extPort.uiPort, Channel.TWO_WAY);
-        //SimulationEventPorts - what is this?
-        //LocalAggregatorPort - skipped for the moment
-        //PALPort/PAGPort - was this working at any point
-    }
     //**************************************************************************
     public static class Init extends se.sics.kompics.Init<SearchPeerComp> {
 
