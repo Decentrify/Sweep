@@ -3,7 +3,6 @@
 package se.sics.ms.serializer;
 
 import se.sics.ktoolbox.aggregator.AggregatorSerializerSetup;
-import se.sics.ktoolbox.chunkmanager.ChunkManagerSerializerSetup;
 import se.sics.ktoolbox.croupier.CroupierSerializerSetup;
 import se.sics.ktoolbox.election.ElectionSerializerSetup;
 import se.sics.ktoolbox.gradient.GradientSerializerSetup;
@@ -27,10 +26,6 @@ public class SerializerHelper {
         currentId = GradientSerializerSetup.registerSerializers(currentId);
         currentId = ElectionSerializerSetup.registerSerializers(currentId);
         currentId = AggregatorSerializerSetup.registerSerializers(currentId);
-        currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
         SweepSerializerSetup.registerSerializers(currentId);
     }
-
-
-
 }
