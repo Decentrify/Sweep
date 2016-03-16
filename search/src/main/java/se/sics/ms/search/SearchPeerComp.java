@@ -32,10 +32,10 @@ import se.sics.ktoolbox.util.address.AddressUpdatePort;
 import se.sics.ktoolbox.util.config.impl.SystemKCWrapper;
 import se.sics.ktoolbox.util.identifiable.Identifier;
 import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
-import se.sics.ktoolbox.util.identifier.OverlayIdHelper;
 import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.ports.One2NChannel;
 import se.sics.ktoolbox.util.overlays.EventOverlayIdExtractor;
+import se.sics.ktoolbox.util.overlays.id.OverlayIdHelper;
 import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.gradient.gradient.Routing;
@@ -95,7 +95,7 @@ public class SearchPeerComp extends ComponentDefinition {
 
     public SearchPeerComp(Init init) {
         systemConfig = new SystemKCWrapper(config());
-        spConfig = new SearchPeerKCWrapper();
+        spConfig = new SearchPeerKCWrapper(config());
         appKey = generateKeys();
         selfAdr = init.selfAdr;
 
