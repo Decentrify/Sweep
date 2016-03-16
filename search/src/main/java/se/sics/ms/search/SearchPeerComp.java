@@ -64,7 +64,12 @@ public class SearchPeerComp extends ComponentDefinition {
     private String logPrefix = "";
 
     //*****************************CONNECTIONS**********************************
-    private final Positive omngrPort = requires(OverlayMngrPort.class);
+    //*****************************CONNECT TO***********************************
+    //provided external ports
+    private final Positive<OverlayMngrPort> omngrPort = requires(OverlayMngrPort.class);
+    //providing external ports
+    private final Negative<UiPort> uiPort = provides(UiPort.class);
+    //**************************DO NOT CONNECT TO*******************************
     //provided external ports
     private final ExtPort extPort;
     private final One2NChannel<CroupierPort> croupierEnd;
@@ -109,10 +114,6 @@ public class SearchPeerComp extends ComponentDefinition {
 
         subscribe(handleStart, control);
         subscribe(handleOverlayResponse, omngrPort);
-
-        connectElection();
-        connectRouting();
-        connectSearch();
     }
 
     private KeyPair generateKeys() {
@@ -127,7 +128,6 @@ public class SearchPeerComp extends ComponentDefinition {
     }
 
     //******************************CONNECT*************************************
-
     private void connectElection() {
         LOG.info("{}connecting election components", logPrefix);
 
@@ -176,9 +176,9 @@ public class SearchPeerComp extends ComponentDefinition {
     }
 
     private void connectSearch() {
-        Component searchComp = create(NPAwareSearch.class, new SearchInit(spConfig.tgradientId, systemConfig.seed, 
+        Component searchComp = create(NPAwareSearch.class, new SearchInit(spConfig.tgradientId, systemConfig.seed,
                 self, searchConfiguration, appKey.getPublic(), appKey.getPrivate()));
-        Channel[] searchChannels = new Channel[10];
+        Channel[] searchChannels = new Channel[9];
         //requires
         searchChannels[0] = connect(searchComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
         searchChannels[1] = connect(searchComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
@@ -191,32 +191,34 @@ public class SearchPeerComp extends ComponentDefinition {
         //provide
         searchChannels[6] = connect(searchComp.getPositive(LeaderStatusPort.class), routing.getValue0().getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
         searchChannels[7] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
-        searchChannels[8] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
-        searchChannels[9] = connect(searchComp.getPositive(UiPort.class), extPort.uiPort, Channel.TWO_WAY);
+        //searchChannels[8] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
+        searchChannels[8] = connect(searchComp.getPositive(UiPort.class), uiPort, Channel.TWO_WAY);
         viewUpdateEnd.addChannel(spConfig.tgradientId, searchComp.getPositive(OverlayViewUpdatePort.class));
         //SimulationEventPorts - what is this?
         //LocalAggregatorPort - skipped for the moment
         //PALPort/PAGPort - was this working at any point
         search = Pair.with(searchComp, searchChannels);
     }
-
+    
+    private void createOverlays() {
+        LOG.info("{}setting up the tgradient overlay:{}", new Object[]{logPrefix, spConfig.tgradientId});
+        OMngrTGradient.ConnectRequest req = new OMngrTGradient.ConnectRequest(spConfig.tgradientId,
+                new SimpleUtilityComparator(), new SweepGradientFilter());
+        trigger(req, omngrPort);
+    }
     //*****************************CONTROL**************************************
     Handler handleStart = new Handler<Start>() {
         @Override
         public void handle(Start event) {
             LOG.info("{}starting...", logPrefix);
+            connectElection();
+            connectRouting();
+            connectSearch();
             createOverlays();
         }
     };
 
     //**************************CREATE OVERLAYS*********************************
-    private void createOverlays() {
-        LOG.info("{}setting up the overlays", logPrefix);
-        OMngrTGradient.ConnectRequest req = new OMngrTGradient.ConnectRequest(spConfig.tgradientId,
-                new SimpleUtilityComparator(), new SweepGradientFilter());
-        trigger(req, omngrPort);
-    }
-
     Handler handleOverlayResponse = new Handler<OMngrTGradient.ConnectResponse>() {
         @Override
         public void handle(OMngrTGradient.ConnectResponse event) {
@@ -260,21 +262,17 @@ public class SearchPeerComp extends ComponentDefinition {
         public final Positive<CroupierPort> croupierPort;
         public final Positive<GradientPort> gradientPort;
         public final Negative<OverlayViewUpdatePort> viewUpdatePort;
-        //app specific port
-        public final Negative<UiPort> uiPort;
 
-        public ExtPort(Positive<Timer> timerPort, Positive<Network> networkPort, 
+        public ExtPort(Positive<Timer> timerPort, Positive<Network> networkPort,
                 Positive<AddressUpdatePort> addressUpdatePort,
-                Positive<CroupierPort> croupierPort, Positive<GradientPort> gradientPort, 
-                Negative<OverlayViewUpdatePort> viewUpdatePort,
-                Negative uiPort) {
+                Positive<CroupierPort> croupierPort, Positive<GradientPort> gradientPort,
+                Negative<OverlayViewUpdatePort> viewUpdatePort) {
             this.timerPort = timerPort;
             this.networkPort = networkPort;
             this.addressUpdatePort = addressUpdatePort;
             this.croupierPort = croupierPort;
             this.gradientPort = gradientPort;
             this.viewUpdatePort = viewUpdatePort;
-            this.uiPort = uiPort;
         }
     }
 }
