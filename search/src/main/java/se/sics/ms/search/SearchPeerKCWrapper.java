@@ -8,7 +8,7 @@ package se.sics.ms.search;
 import se.sics.kompics.config.Config;
 import se.sics.ktoolbox.util.config.KConfigHelper;
 import se.sics.ktoolbox.util.identifiable.Identifier;
-import se.sics.ktoolbox.util.overlays.id.OverlayIdHelper;
+import se.sics.ktoolbox.util.identifiable.basic.OverlayIdFactory;
 import se.sics.ktoolbox.util.overlays.id.OverlayIdRegistry;
 
 /**
@@ -28,6 +28,6 @@ public class SearchPeerKCWrapper {
         byte ownerPrefix = (byte)intPrefix;
         sweepOverlayPrefix = (byte)(ownerPrefix << 4);
         OverlayIdRegistry.registerPrefix("Sweep", sweepOverlayPrefix);
-        tgradientId = OverlayIdHelper.getIntIdentifier(sweepOverlayPrefix, OverlayIdHelper.Type.TGRADIENT, new byte[]{0,0,1});
+        tgradientId = OverlayIdFactory.getId(sweepOverlayPrefix, OverlayIdFactory.Type.TGRADIENT, new byte[]{0,0,1});
     }
 }

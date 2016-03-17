@@ -35,7 +35,7 @@ import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
 import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.ports.One2NChannel;
 import se.sics.ktoolbox.util.overlays.EventOverlayIdExtractor;
-import se.sics.ktoolbox.util.overlays.id.OverlayIdHelper;
+import se.sics.ktoolbox.util.identifiable.basic.OverlayIdFactory;
 import se.sics.ktoolbox.util.overlays.view.OverlayViewUpdatePort;
 import se.sics.ms.common.ApplicationSelf;
 import se.sics.ms.gradient.gradient.Routing;
@@ -160,7 +160,7 @@ public class SearchPeerComp extends ComponentDefinition {
 
     //TODO Alex - revisit Routing and NPAwareSearch when time - fishy
     private void connectRouting() {
-        Identifier croupierId = OverlayIdHelper.changeOverlayType((IntIdentifier) spConfig.tgradientId, OverlayIdHelper.Type.CROUPIER);
+        Identifier croupierId = OverlayIdFactory.changeType(spConfig.tgradientId, OverlayIdFactory.Type.CROUPIER);
         Component routingComp = create(Routing.class, new RoutingInit(systemConfig.seed, self, gradientConfiguration));
         Channel[] routingChannels = new Channel[4];
         routingChannels[0] = connect(routingComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
