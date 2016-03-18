@@ -2111,7 +2111,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         public void handle(LeaderState.ElectedAsLeader event) {
 
             try {
-
                 logger.error("{}: Self node is elected as leader.", self.getId());
                 leader = true;
                 leaderGroupInformation = event.leaderGroup;

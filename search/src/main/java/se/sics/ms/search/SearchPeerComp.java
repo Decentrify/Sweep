@@ -218,7 +218,6 @@ public class SearchPeerComp extends ComponentDefinition {
         }
     };
 
-    //**************************CREATE OVERLAYS*********************************
     Handler handleOverlayResponse = new Handler<OMngrTGradient.ConnectResponse>() {
         @Override
         public void handle(OMngrTGradient.ConnectResponse event) {
