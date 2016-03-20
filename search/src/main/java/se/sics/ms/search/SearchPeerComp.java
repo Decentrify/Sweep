@@ -31,7 +31,6 @@ import se.sics.ktoolbox.overlaymngr.events.OMngrTGradient;
 import se.sics.ktoolbox.util.address.AddressUpdatePort;
 import se.sics.ktoolbox.util.config.impl.SystemKCWrapper;
 import se.sics.ktoolbox.util.identifiable.Identifier;
-import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
 import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.ports.One2NChannel;
 import se.sics.ktoolbox.util.overlays.EventOverlayIdExtractor;
