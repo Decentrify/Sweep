@@ -102,9 +102,9 @@ public class SearchPeerComp extends ComponentDefinition {
         LOG.info("{}initiating...", logPrefix);
 
         extPort = init.extPort;
-        croupierEnd = One2NChannel.getChannel(extPort.croupierPort, new EventOverlayIdExtractor());
-        gradientEnd = One2NChannel.getChannel(extPort.gradientPort, new EventOverlayIdExtractor());
-        viewUpdateEnd = One2NChannel.getChannel(extPort.viewUpdatePort, new EventOverlayIdExtractor());
+        croupierEnd = One2NChannel.getChannel("search", extPort.croupierPort, new EventOverlayIdExtractor());
+        gradientEnd = One2NChannel.getChannel("search", extPort.gradientPort, new EventOverlayIdExtractor());
+        viewUpdateEnd = One2NChannel.getChannel("search", extPort.viewUpdatePort, new EventOverlayIdExtractor());
 
         //hack
         self = new ApplicationSelf(selfAdr);
