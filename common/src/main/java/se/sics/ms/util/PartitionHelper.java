@@ -8,6 +8,8 @@ import se.sics.ms.types.PeerDescriptor;
 
 import java.security.PublicKey;
 import java.util.*;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
 
 /**
  * Created with IntelliJ IDEA.
@@ -69,8 +71,8 @@ public class PartitionHelper {
      * @param nodeId nodeId
      * @return Extension
      */
-    public static boolean isOverlayExtension(int receivedId, int selfId, int nodeId){
-
+    public static boolean isOverlayExtension(int receivedId, int selfId, Identifier nodeId){
+        int iNodeId = ((IntIdentifier)nodeId).id;
         boolean result = false;
 
         // If they are same level, Overlay Id's should be same.
@@ -88,7 +90,7 @@ public class PartitionHelper {
             int partitionId = 0;
 
             for(int i=0; i<bitsToCheck; i++)
-                partitionId = partitionId | (nodeId & (1<<i));
+                partitionId = partitionId | (iNodeId & (1<<i));
 
             if(partitionId == selfOverlay.getPartitionId())     // Bring node to self level and then check.
                 result = true;

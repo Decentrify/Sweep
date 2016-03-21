@@ -1,5 +1,6 @@
 package se.sics.ms.gradient.ports;
 
+import java.util.ArrayList;
 import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
 import se.sics.kompics.PortType;
@@ -7,16 +8,18 @@ import se.sics.ms.gradient.events.*;
 import se.sics.ms.types.IndexEntry;
 import se.sics.ms.types.SearchPattern;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
+import se.sics.ktoolbox.util.network.KAddress;
 
 public class GradientRoutingPort extends PortType {
-	{
-		negative(AddIndexEntryRequest.class);
+
+    {
+        negative(AddIndexEntryRequest.class);
         negative(IndexHashExchangeRequest.class);
         positive(IndexHashExchangeResponse.class);
         negative(SearchRequest.class);
@@ -30,72 +33,70 @@ public class GradientRoutingPort extends PortType {
         // Generic Pull Based Control Message Exchange.
         negative(InitiateControlMessageExchangeRound.class);
 
-	}
-
+    }
 
     /**
-     * Simply inform the gradient component to begin the control message exchange.
+     * Simply inform the gradient component to begin the control message
+     * exchange.
      */
-    public static class InitiateControlMessageExchangeRound extends Event{
+    public static class InitiateControlMessageExchangeRound extends Event {
+
         private UUID roundId;
         private int controlMessageExchangeNumber;
 
-        public InitiateControlMessageExchangeRound(UUID roundId , int controlMessageExchangeNumber){
+        public InitiateControlMessageExchangeRound(UUID roundId, int controlMessageExchangeNumber) {
             this.roundId = roundId;
             this.controlMessageExchangeNumber = controlMessageExchangeNumber;
         }
 
-        public UUID getRoundId(){
+        public UUID getRoundId() {
             return this.roundId;
         }
 
-        public int getControlMessageExchangeNumber(){
+        public int getControlMessageExchangeNumber() {
             return this.controlMessageExchangeNumber;
         }
     }
 
-
     /**
      * Inform the gradient about the partitioning update and let it handle it.
      */
-    public static class ApplyPartitioningUpdate extends Event{
+    public static class ApplyPartitioningUpdate extends Event {
 
         private final LinkedList<PartitionHelper.PartitionInfo> partitionUpdate;
 
-        public ApplyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionInfo){
-            this.partitionUpdate =partitionInfo;
+        public ApplyPartitioningUpdate(LinkedList<PartitionHelper.PartitionInfo> partitionInfo) {
+            this.partitionUpdate = partitionInfo;
         }
 
-        public LinkedList<PartitionHelper.PartitionInfo> getPartitionUpdates (){
+        public LinkedList<PartitionHelper.PartitionInfo> getPartitionUpdates() {
             return this.partitionUpdate;
         }
 
     }
 
-
     public static class NumberOfShardsRequest implements KompicsEvent {
 
         public UUID requestId;
 
-        public NumberOfShardsRequest(UUID requestId){
+        public NumberOfShardsRequest(UUID requestId) {
             this.requestId = requestId;
         }
     }
-
 
     public static class NumberOfShardsResponse implements KompicsEvent {
 
         public UUID requestId;
         public int numShards;
 
-        public NumberOfShardsResponse(UUID requestId, int numShards){
+        public NumberOfShardsResponse(UUID requestId, int numShards) {
             this.requestId = requestId;
             this.numShards = numShards;
         }
     }
 
-
     public static class AddIndexEntryRequest extends Event {
+
         private final IndexEntry entry;
         private final UUID timeoutId;
 
@@ -115,6 +116,7 @@ public class GradientRoutingPort extends PortType {
     }
 
     public static class IndexHashExchangeRequest extends Event {
+
         private final long lowestMissingIndexEntry;
         private final Long[] existingEntries;
         private final UUID timeoutId;
@@ -146,33 +148,28 @@ public class GradientRoutingPort extends PortType {
 
     public static class IndexHashExchangeResponse implements KompicsEvent {
 
-        private HashSet<DecoratedAddress> nodesSelectedForExchange;
+        public final List<KAddress> nodesSelectedForExchange;
 
-        public IndexHashExchangeResponse(Collection<DecoratedAddress> nodes) {
-            this.nodesSelectedForExchange = new HashSet<DecoratedAddress>(nodes);
-        }
-
-        public HashSet<DecoratedAddress> getNodesSelectedForExchange() {
-            return nodesSelectedForExchange;
+        public IndexHashExchangeResponse(Collection<KAddress> nodes) {
+            this.nodesSelectedForExchange = new ArrayList<>(nodes);
         }
     }
 
     public static class SearchRequest implements KompicsEvent {
-        
+
         private final SearchPattern pattern;
         private final UUID timeoutId;
         private final int queryTimeout;
         private final Integer fanoutParameter;
-        
+
         public SearchRequest(SearchPattern pattern, UUID timeoutId, int queryTimeout, Integer fanoutParameter) {
-            
+
             this.pattern = pattern;
             this.timeoutId = timeoutId;
             this.queryTimeout = queryTimeout;
             this.fanoutParameter = fanoutParameter;
         }
 
-        
         public Integer getFanoutParameter() {
             return fanoutParameter;
         }

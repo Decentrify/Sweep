@@ -1,17 +1,19 @@
 package se.sics.ms.util;
 
-import org.javatuples.*;
-import se.sics.ms.data.AddIndexEntry;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import org.javatuples.Pair;
+import se.sics.ktoolbox.util.ProbabilitiesHelper;
 import se.sics.ms.data.EntryHashExchange;
-import se.sics.ms.data.IndexHashExchange;
-import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.types.EntryHash;
-import se.sics.ms.types.IndexHash;
-import se.sics.p2ptoolbox.util.ProbabilitiesHelper;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
-import java.util.*;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Tracker for the index exchange mechanism.
@@ -29,8 +31,7 @@ public class EntryExchangeTracker {
     private boolean hashRoundAnswered;
     private long seed;
     private Random random;
-
-    Map<DecoratedAddress, Collection<EntryHash>> exchangeRoundEntryHashCollection;
+    Map<Identifier, Pair<KAddress, List<EntryHash>>> exchangeRoundEntryHashCollection = new HashMap<>();
 
 
 
@@ -38,7 +39,6 @@ public class EntryExchangeTracker {
 
         this.seed = seed;
         this.random = new Random(this.seed);
-        this.exchangeRoundEntryHashCollection = new HashMap<DecoratedAddress, Collection<EntryHash>>();
         this.higherNodesCount = higherNodesCount;
     }
 
@@ -82,10 +82,10 @@ public class EntryExchangeTracker {
      * @param address  Address
      * @param response response
      */
-    public void addEntryHashResponse(DecoratedAddress address, EntryHashExchange.Response response) {
+    public void addEntryHashResponse(KAddress address, EntryHashExchange.Response response) {
 
         if (exchangeRoundId != null && exchangeRoundId.equals(response.getExchangeRoundId())) {
-            exchangeRoundEntryHashCollection.put(address, response.getEntryHashes());
+            exchangeRoundEntryHashCollection.put(address.getId(), Pair.with(address, response.getEntryHashes()));
         }
     }
 
@@ -145,40 +145,35 @@ public class EntryExchangeTracker {
     
     
     
-    public Collection<EntryHash> getCommonEntryHashes(Collection<Collection<EntryHash>> entryHashesCollection){
+    public List<EntryHash> getCommonEntryHashes(Collection<Pair<KAddress, List<EntryHash>>> entryHashesCollection){
 
-        Collection<EntryHash> intersection = new ArrayList<EntryHash>();
+        List<EntryHash> intersection = new ArrayList<>();
 
         if(!entryHashesCollection.isEmpty()){
 
-            intersection = entryHashesCollection.iterator().next();
-            for (Collection<EntryHash> anEntryHashesCollection : entryHashesCollection) {
-                intersection.retainAll(anEntryHashesCollection);
+            intersection = entryHashesCollection.iterator().next().getValue1();
+            for (Pair<KAddress, List<EntryHash>> anEntryHashesCollection : entryHashesCollection) {
+                intersection.retainAll(anEntryHashesCollection.getValue1());
             }
         }
 
         return intersection;
-
-
     }
-
-
-
-
 
     /**
      * Use a softmax approach to determine the node to contact to.
      *
      * @return NodeAddress
      */
-    public DecoratedAddress getSoftMaxBasedNode() {
+    public KAddress getSoftMaxBasedNode() {
 
-        DecoratedAddress result = null;
+        KAddress result = null;
         if (exchangeRoundEntryHashCollection != null && !exchangeRoundEntryHashCollection.isEmpty()) {
 
-            List<DecoratedAddress> keyList = new ArrayList<DecoratedAddress>(exchangeRoundEntryHashCollection.keySet());
+            List<Identifier> keyList = new ArrayList<>(exchangeRoundEntryHashCollection.keySet());
             int index = ProbabilitiesHelper.getSoftMaxVal(keyList.size(), random, 10);
-            result = keyList.get(index);
+            Identifier id = keyList.get(index);
+            result = exchangeRoundEntryHashCollection.get(id).getValue0();
         }
 
         return result;
@@ -190,7 +185,7 @@ public class EntryExchangeTracker {
     }
 
 
-    public Map<DecoratedAddress, Collection<EntryHash>> getExchangeRoundEntryHashCollection() {
+    public Map<Identifier, Pair<KAddress, List<EntryHash>>> getExchangeRoundEntryHashCollection() {
         return exchangeRoundEntryHashCollection;
     }
 

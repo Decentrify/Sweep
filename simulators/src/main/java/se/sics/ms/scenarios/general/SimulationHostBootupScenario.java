@@ -18,6 +18,14 @@ public class SimulationHostBootupScenario {
             
             {
 
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1, SweepOperations.getAggregatorComponent(null));
+                    }
+                };
+
+
                 StochasticProcess startCaracalClient = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
@@ -29,7 +37,7 @@ public class SimulationHostBootupScenario {
                 
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
-                        eventInterArrivalTime(constant(1000));
+                        eventInterArrivalTime(constant(2000));
                         raise( 12 , SweepOperations.startSimulationHostComp, uniform(0, Integer.MAX_VALUE) );
                     }
                 };
@@ -74,17 +82,10 @@ public class SimulationHostBootupScenario {
                     }
                 };
 
-//                startAggregatorNode.start();
-//                specialPeerJoin.start();
-                startCaracalClient.start();
+                startAggregatorNode.start();
+                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
                 peerJoin.startAfterTerminationOf(5000, startCaracalClient);
-//                largestPeerJoin.startAfterTerminationOf(1000, peerJoin);
-//                addIndexEntryCommand.startAfterTerminationOf(100000, peerJoin);
-                specialPeerJoin.startAfterTerminationOf(30000, peerJoin);
-//                specialAddEntryCommand.startAfterTerminationOf(60000, specialPeerJoin);
-                
-//                searchIndexEntry.startAfterTerminationOf(50000, peerJoin);
-//                === Add a termination event.
+                addIndexEntryCommand.startAfterTerminationOf(60000, peerJoin);
             }
         };
         

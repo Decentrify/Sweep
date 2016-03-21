@@ -1,10 +1,9 @@
 package se.sics.ms.types;
 
-import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.update.SelfViewUpdate;
-
 import java.io.Serializable;
+import se.sics.ktoolbox.election.util.LCPeerView;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.update.View;
 
 /**
  * Main descriptor used by application to indicate the current state of the 
@@ -12,7 +11,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, SelfViewUpdate{
+public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, View {
 
 //    private int age;
     private transient boolean connected;
@@ -21,11 +20,11 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
     private final boolean isLGMember;
     private LeaderUnit lastLeaderUnit;
 
-    public PeerDescriptor(DecoratedAddress address) {
+    public PeerDescriptor(KAddress address) {
         this(new OverlayAddress(address, 0), false, 0, false, null);
     }
 
-    public PeerDescriptor(DecoratedAddress address, int overlayId){
+    public PeerDescriptor(KAddress address, int overlayId){
         this(new OverlayAddress(address, overlayId), false, 0, false, null);
     }
 
@@ -42,7 +41,7 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
     }
 
 
-    public DecoratedAddress getVodAddress() {
+    public KAddress getVodAddress() {
         return this.overlayAddress.getAddress();
     }
 
@@ -62,7 +61,7 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
 
     @Override
     public String toString() {
-        return ("SearchDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
+        return ("PeerDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
     }
 
     public OverlayAddress getOverlayAddress() {

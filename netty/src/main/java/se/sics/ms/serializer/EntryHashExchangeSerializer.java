@@ -12,6 +12,7 @@ import se.sics.ms.types.EntryHash;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -83,7 +84,7 @@ public class EntryHashExchangeSerializer {
 
             UUID exchangeRound = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
 
-            Collection<EntryHash> entryHashCollection = new ArrayList<EntryHash>();
+            List<EntryHash> entryHashCollection = new ArrayList<EntryHash>();
             Serializer entryHashSerializer = Serializers.lookupSerializer(EntryHash.class);
             SerializerDecoderHelper.readCollectionFromBuff(entryHashCollection, entryHashSerializer, buf, hint);
 

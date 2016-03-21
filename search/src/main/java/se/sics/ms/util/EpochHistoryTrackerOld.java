@@ -3,9 +3,9 @@ package se.sics.ms.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.ms.types.EpochUpdate;
-import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
 
 import java.util.*;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Stores and keep tracks of the epoch history.
@@ -21,10 +21,10 @@ public class EpochHistoryTrackerOld {
     private static Logger logger = LoggerFactory.getLogger(EpochHistoryTrackerOld.class);
     private static final int START_EPOCH_ID = 0;
     private LinkedList<EpochUpdate> bufferedEpochHistory;
-    private BasicAddress selfAddress;
+    private KAddress selfAddress;
     private String prefix;
 
-    public EpochHistoryTrackerOld(BasicAddress address){
+    public EpochHistoryTrackerOld(KAddress address){
 
         logger.trace("Tracker Initialized .. ");
         epochUpdateHistory = new LinkedList<EpochUpdate>();

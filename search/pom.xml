@@ -4,7 +4,7 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.3-SNAPSHOT</version>
+        <version>1.4-SNAPSHOT</version>
     </parent>
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-search</artifactId>
@@ -36,21 +36,19 @@
         <dependency>
             <groupId>se.sics.ktoolbox.cc.heartbeat</groupId>
             <artifactId>core</artifactId>
-            <version>${caracal.client.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.cc.bootstrap</groupId>
             <artifactId>core</artifactId>
-            <version>${caracal.client.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
 
         <dependency>
             <groupId>se.sics.ktoolbox.aggregator.client</groupId>
             <artifactId>core</artifactId>
-            <version>${aggregator.version}</version>
+            <version>${ktoolbox.version}</version>
         </dependency>
-
-
     </dependencies>
 </project>

@@ -1,15 +1,13 @@
 package se.sics.ms.net;
 
 import se.sics.kompics.network.netty.serialization.Serializers;
-import se.sics.ms.data.InternalStatePacket;
-import se.sics.ms.serializer.InternalStatePacketSerializer;
+import se.sics.ktoolbox.util.setup.BasicSerializerSetup;
 import se.sics.ms.data.*;
 import se.sics.ms.serializer.*;
 import se.sics.ms.types.*;
 import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
 
 /**
  * Main class for the setting up of the serializers in the system as well as the basic serializers used.
@@ -94,10 +92,11 @@ public class SweepSerializerSetup {
         searchQueryResponse(SearchQuery.Response.class, "searchQueryResponse"),
         
         searchFetchRequest(SearchFetch.Request.class, "searchFetchRequest"),
-        searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse"),
+        searchFetchResponse(SearchFetch.Response.class, "searchFetchResponse");
         
 //      AGGREGATION PACKET.
-        internalStatePacket(InternalStatePacket.class, "internalStatePacket");
+//        internalStatePacket(InternalStatePacket.class, "internalStatePacket"),
+//        aggregatedInfo(AggregatedInfo.class, "aggregatedStateInfo");
         
         private final Class serializedClass;
         private final String serializerName;
@@ -127,7 +126,7 @@ public class SweepSerializerSetup {
         int currentId = startId;
 
         // Main Object Serializers.
-        SearchDescriptorSerializer sdSerializer = new SearchDescriptorSerializer(currentId++);
+        PeerDescriptorSerializer sdSerializer = new PeerDescriptorSerializer(currentId++);
         Serializers.register(sdSerializer, SweepSerializers.searchDescriptor.serializerName);
         Serializers.register(SweepSerializers.searchDescriptor.serializedClass, SweepSerializers.searchDescriptor.serializerName);
 
@@ -188,11 +187,6 @@ public class SweepSerializerSetup {
         ReplicationCommitSerializer.Request rcRequest = new ReplicationCommitSerializer.Request(currentId++);
         Serializers.register(rcRequest, SweepSerializers.replicationCommitRequest.serializerName);
         Serializers.register(SweepSerializers.replicationCommitRequest.serializedClass, SweepSerializers.replicationCommitRequest.serializerName);
-
-
-
-
-
 
         // Two Phase Commit Protocol.
         ControlInformationSerializer.Request ciRequest = new ControlInformationSerializer.Request(currentId++);
@@ -399,10 +393,14 @@ public class SweepSerializerSetup {
         Serializers.register(SweepSerializers.entryScorePair.serializedClass, SweepSerializers.entryScorePair.serializerName);
 
 
-        InternalStatePacketSerializer ispSerializer = new InternalStatePacketSerializer(currentId++);
-        Serializers.register(ispSerializer, SweepSerializers.internalStatePacket.serializerName);
-        Serializers.register(SweepSerializers.internalStatePacket.serializedClass, SweepSerializers.internalStatePacket.serializerName);
-        
+//        InternalStatePacketSerializer ispSerializer = new InternalStatePacketSerializer(currentId++);
+//        Serializers.register(ispSerializer, SweepSerializers.internalStatePacket.serializerName);
+//        Serializers.register(SweepSerializers.internalStatePacket.serializedClass, SweepSerializers.internalStatePacket.serializerName);
+//
+//        AggregatedInfoSerializer aggInfoSerializer = new AggregatedInfoSerializer(currentId++);
+//        Serializers.register(aggInfoSerializer, SweepSerializers.aggregatedInfo.serializerName);
+//        Serializers.register(SweepSerializers.aggregatedInfo.serializedClass, SweepSerializers.aggregatedInfo.serializerName);
+
         return currentId;
     }
 

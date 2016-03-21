@@ -1,10 +1,10 @@
 package se.sics.ms.data;
 
-import se.sics.ms.types.ApplicationEntry;
 import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -20,10 +20,10 @@ public class SearchFetch {
     public static class Request {
 
         private UUID fetchRequestId;
-        private Collection<IdScorePair> entryIds;
+        private List<IdScorePair> entryIds;
 
 
-        public Request(UUID fetchRequestId, Collection<IdScorePair> entryIds) {
+        public Request(UUID fetchRequestId, List<IdScorePair> entryIds) {
 
             this.fetchRequestId = fetchRequestId;
             this.entryIds = entryIds;
@@ -63,7 +63,7 @@ public class SearchFetch {
             return fetchRequestId;
         }
 
-        public Collection<IdScorePair> getEntryIds() {
+        public List<IdScorePair> getEntryIds() {
             return entryIds;
         }
     }
@@ -75,9 +75,9 @@ public class SearchFetch {
 
 
         private UUID fetchRequestId;
-        private Collection<EntryScorePair> entryScorePairs;
+        private List<EntryScorePair> entryScorePairs;
 
-        public Response(UUID fetchRequestId, Collection<EntryScorePair> entryScorePairs){
+        public Response(UUID fetchRequestId, List<EntryScorePair> entryScorePairs){
 
             this.fetchRequestId = fetchRequestId;
             this.entryScorePairs = entryScorePairs;
@@ -118,7 +118,7 @@ public class SearchFetch {
             return fetchRequestId;
         }
 
-        public Collection<EntryScorePair> getEntryScorePairs() {
+        public List<EntryScorePair> getEntryScorePairs() {
             return entryScorePairs;
         }
     }

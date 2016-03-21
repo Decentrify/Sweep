@@ -1,11 +1,12 @@
 package se.sics.ms.common;
 
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.OverlayIdHelper;
 import se.sics.ms.util.PartitioningType;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  *
@@ -16,7 +17,7 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  */
 public class ApplicationSelf {
 
-    private DecoratedAddress address;
+    private KAddress address;
     private int overlayId;
     private boolean isLGMember;
     private long numberOfEntries;
@@ -24,7 +25,7 @@ public class ApplicationSelf {
     private long actualEntries;     // Entries excluding landing entries.
     private LeaderUnit lastLeaderUnit;
     
-    public ApplicationSelf (DecoratedAddress address){
+    public ApplicationSelf (KAddress address){
 
         this.address = address;
         this.overlayId = 0;
@@ -34,7 +35,7 @@ public class ApplicationSelf {
         this.actualEntries = 0;
     }
 
-    public ApplicationSelf(DecoratedAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries, LeaderUnit lastLeaderUnit){
+    public ApplicationSelf(KAddress address, int overlayId, boolean isLGMember, long numberOfEntries, long epochContainerEntries , long actualEntries, LeaderUnit lastLeaderUnit){
 
         this.address = address;
         this.overlayId = overlayId;
@@ -87,7 +88,7 @@ public class ApplicationSelf {
         this.overlayId = overlayId;
     }
 
-    public DecoratedAddress getAddress(){
+    public KAddress getAddress(){
         return this.address;
     }
 
@@ -96,7 +97,7 @@ public class ApplicationSelf {
     }
 
     public int getId(){
-        return this.address.getId();
+        return ((IntIdentifier)address.getId()).id;
     }
 
     public int getOverlayId(){
@@ -154,7 +155,7 @@ public class ApplicationSelf {
         this.lastLeaderUnit = lastLeaderUnit;
     }
 
-    public void setSelfAddress(DecoratedAddress selfAddress){
+    public void setSelfAddress(KAddress selfAddress){
         this.address = selfAddress;
     }
 }

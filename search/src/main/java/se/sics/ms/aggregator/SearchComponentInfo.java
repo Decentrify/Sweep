@@ -343,9 +343,9 @@
 
 package se.sics.ms.aggregator;
 
-import se.sics.ktoolbox.aggregator.client.util.ComponentInfo;
+import se.sics.ktoolbox.aggregator.util.AggregatorPacket;
+import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ms.types.PeerDescriptor;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 /**
  * Information contained in the search component.
@@ -353,13 +353,13 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  *
  * Created by babbar on 2015-09-06.
  */
-public class SearchComponentInfo implements ComponentInfo {
+public class SearchComponentInfo implements AggregatorPacket {
 
     private PeerDescriptor descriptor;
     private float searchResponse;
-    private DecoratedAddress leaderInfo;
+    private KAddress leaderInfo;
 
-    public SearchComponentInfo (PeerDescriptor descriptor, float searchResponse, DecoratedAddress leaderInfo){
+    public SearchComponentInfo (PeerDescriptor descriptor, float searchResponse, KAddress leaderInfo){
 
         this.descriptor = descriptor;
         this.searchResponse = searchResponse;
@@ -383,13 +383,12 @@ public class SearchComponentInfo implements ComponentInfo {
         return searchResponse;
     }
 
-    public DecoratedAddress getLeaderInfo() {
+    public KAddress getLeaderInfo() {
         return leaderInfo;
     }
 
 
-    @Override
-    public ComponentInfo append(ComponentInfo componentInfo) {
+    public AggregatorPacket append(AggregatorPacket componentInfo) {
 
         if(componentInfo instanceof SearchComponentInfo){
             return componentInfo;

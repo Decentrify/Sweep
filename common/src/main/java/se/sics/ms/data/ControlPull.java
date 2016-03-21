@@ -2,11 +2,11 @@ package se.sics.ms.data;
 
 import se.sics.ms.types.LeaderUnit;
 import se.sics.ms.types.OverlayId;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
 import java.util.List;
 import java.util.UUID;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Main class for the Control pull Mechanism in the system.
@@ -14,9 +14,6 @@ import java.util.UUID;
  * Created by babbar on 2015-05-15.
  */
 public class ControlPull {
-
-
-
     public static class Request {
 
         private UUID pullRound;
@@ -78,13 +75,13 @@ public class ControlPull {
 
 
         private UUID pullRound;
-        private DecoratedAddress leaderAddress;
+        private KAddress leaderAddress;
         private PublicKey leaderKey;
         private List<LeaderUnit> nextUpdates;
         private final int overlayId;
 
 
-        public Response(UUID pullRound, DecoratedAddress leaderAddress,PublicKey leaderKey,  List<LeaderUnit> nextUpdates, int overlayId) {
+        public Response(UUID pullRound, KAddress leaderAddress,PublicKey leaderKey,  List<LeaderUnit> nextUpdates, int overlayId) {
             this.pullRound = pullRound;
             this.leaderAddress = leaderAddress;
             this.leaderKey = leaderKey;
@@ -101,7 +98,7 @@ public class ControlPull {
             Response response = (Response) o;
 
             if (overlayId != response.overlayId) return false;
-            if (leaderAddress != null ? !leaderAddress.equals(response.leaderAddress) : response.leaderAddress != null)
+            if (leaderAddress != null ? !leaderAddress.getId().equals(response.leaderAddress.getId()) : response.leaderAddress != null)
                 return false;
             if (leaderKey != null ? !leaderKey.equals(response.leaderKey) : response.leaderKey != null) return false;
             if (nextUpdates != null ? !nextUpdates.equals(response.nextUpdates) : response.nextUpdates != null)
@@ -114,7 +111,7 @@ public class ControlPull {
         @Override
         public int hashCode() {
             int result = pullRound != null ? pullRound.hashCode() : 0;
-            result = 31 * result + (leaderAddress != null ? leaderAddress.hashCode() : 0);
+            result = 31 * result + (leaderAddress != null ? leaderAddress.getId().hashCode() : 0);
             result = 31 * result + (leaderKey != null ? leaderKey.hashCode() : 0);
             result = 31 * result + (nextUpdates != null ? nextUpdates.hashCode() : 0);
             result = 31 * result + overlayId;
@@ -144,7 +141,7 @@ public class ControlPull {
             return pullRound;
         }
 
-        public DecoratedAddress getLeaderAddress() {
+        public KAddress getLeaderAddress() {
             return leaderAddress;
         }
 

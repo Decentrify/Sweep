@@ -1,6 +1,7 @@
 package se.sics.ms.simulation;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -22,7 +23,9 @@ import se.sics.p2ptoolbox.gradient.GradientConfig;
 import se.sics.p2ptoolbox.tgradient.TreeGradientConfig;
 import se.sics.p2ptoolbox.util.config.SystemConfig;
 import se.sics.p2ptoolbox.util.helper.SystemConfigBuilder;
+import se.sics.p2ptoolbox.util.nat.NatedTrait;
 import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.p2ptoolbox.util.traits.AcceptedTraits;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -39,14 +42,6 @@ public class SweepOperationsHelper {
     private final static ConsistentHashtable<Long> ringNodes;
     private static Map<Integer, TreeSet<Integer>> partitionNodeMap;
     private static Map<Integer, TreeSet<Integer>> partitionNodeMapCopy;
-    private final static CroupierConfig croupierConfiguration;
-    private final static SearchConfiguration searchConfiguration;
-    private final static GradientConfiguration gradientConfiguration;
-    private final static ChunkManagerConfig chunkManagerConfiguration;
-    private final static GradientConfig gradientConfig;
-    private final static ElectionConfig electionConfig;
-    private static SystemConfig systemConfig;
-    private final static TreeGradientConfig treeGradientConfig;
 
     private static Config config;
     private static DecoratedAddress caracalClientAddress;
@@ -63,35 +58,18 @@ public class SweepOperationsHelper {
 
     static {
 
-//        int startId = 128;
-//        int currentId = startId;
-//        BasicSerializerSetup.registerBasicSerializers(currentId);
-//        currentId += BasicSerializerSetup.serializerIds;
-//        currentId = CroupierSerializerSetup.registerSerializers(currentId);
-//        currentId = GradientSerializerSetup.registerSerializers(currentId);
-//        currentId = ElectionSerializerSetup.registerSerializers(currentId);
-//        currentId = AggregatorSerializerSetup.registerSerializers(currentId);
-//        currentId = ChunkManagerSerializerSetup.registerSerializers(currentId);
-//        SerializerSetup.registerSerializers(currentId);
-
+        ImmutableMap acceptedTraits = ImmutableMap.of(NatedTrait.class, 0);
+        DecoratedAddress.setAcceptedTraits(new AcceptedTraits(acceptedTraits));
 
         reservedIdList = new ArrayList<Long>();
         reservedIdList.add((long) 0);
 
         config = ConfigFactory.load("application.conf");
-
         identifierSpaceSize = new Long(3000);
         peersAddressMap = new HashMap<Long, DecoratedAddress>();
         ringNodes = new ConsistentHashtable<Long>();
-
         partitionNodeMap = new HashMap<Integer, TreeSet<Integer>>();
-        croupierConfiguration = new CroupierConfig(config);
-        searchConfiguration = SearchConfiguration.build();
-        gradientConfiguration = GradientConfiguration.build();
-        chunkManagerConfiguration = new ChunkManagerConfig(config);
-        gradientConfig = new GradientConfig(config);
-        electionConfig = new ElectionConfig(config);
-        treeGradientConfig = new TreeGradientConfig(config);
+
         try {
             ip = InetAddress.getLocalHost();
             port = 9999;
@@ -119,65 +97,6 @@ public class SweepOperationsHelper {
         }
         return id;
     }
-
-
-    /**
-     * Based on the NodeId provided, generate an init configuration for the search peer.
-     *
-     * @param id NodeId
-     */
-    public static SearchPeerInit generatePAGPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
-
-        logger.trace(" Generating address for peer with id: {} ", id);
-
-        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip, port, (int)id);
-        Optional<DecoratedAddress> simAddress  = simulatorAddress != null
-
-                ? Optional.of(simulatorAddress)
-                : Optional.<DecoratedAddress>absent();
-
-        systemConfig = new SystemConfig(config, baseSeed + id, decoratedAddress, Optional.<Address>absent(), simAddress);
-        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
-
-        ringNodes.addNode(id);
-        peersAddressMap.put(id, systemConfig.self);
-
-        bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(systemConfig.self);
-
-        return init;
-    }
-
-
-    /**
-     * Based on the NodeId provided, generate an init configuration for the search peer.
-     *
-     * @param id NodeId
-     */
-    public static SearchPeerInit generatePALPeerInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id) {
-
-        logger.trace(" Generating address for peer with id: {} ", id);
-
-        DecoratedAddress decoratedAddress = DecoratedAddress.open(ip,port, (int)id);
-        Optional<DecoratedAddress> simAddress  = simulatorAddress != null
-
-                ? Optional.of(simulatorAddress)
-                : Optional.<DecoratedAddress>absent();
-
-        systemConfig = new SystemConfig(config, baseSeed + id, decoratedAddress, Optional.<Address>absent(), simAddress);
-
-        ApplicationSelf applicationSelf = new ApplicationSelf(decoratedAddress);
-        SearchPeerInit init = new SearchPeerInit(systemConfig, croupierConfiguration, searchConfiguration, gradientConfiguration, chunkManagerConfiguration, gradientConfig, electionConfig, treeGradientConfig);
-
-        ringNodes.addNode(id);
-        peersAddressMap.put(id, applicationSelf.getAddress());
-
-        bootstrapNodes = new ArrayList<DecoratedAddress>();
-        bootstrapNodes.add(applicationSelf.getAddress());
-
-        return init;
-    }
-
 
     /**
      * Based on the id passed, locate the next successor on the ring
@@ -310,8 +229,8 @@ public class SweepOperationsHelper {
                 logger.error("Partition Bucket Nodes for partition:{} : {}", randomPartitionBucket, partitionBucketNodes);
             } else {
 
-                logger.warn("Returning nodes not part of partition bucket. ");
-                logger.warn("Partition Bucket: {}", partitionBucketNodes);
+                logger.debug("Returning nodes not part of partition bucket. ");
+                logger.debug("Partition Bucket: {}", partitionBucketNodes);
                 return getStableId(id);
             }
 
@@ -477,7 +396,7 @@ public class SweepOperationsHelper {
      */
     public static SimulatorHostCompInit getSimHostCompInit(DecoratedAddress simulatorAddress, Set<DecoratedAddress> bootstrap, long id){
 
-        logger.error("Creating Node: - > {}", id);
+        logger.debug("Creating Node: - > {}", id);
 
         DecoratedAddress selfAddress = DecoratedAddress.open(ip, port, (int)id);
         storePeerAddress(selfAddress);
@@ -516,6 +435,8 @@ public class SweepOperationsHelper {
      * @param address client address.
      */
     private static void storePeerAddress(DecoratedAddress address){
+
+        ringNodes.addNode((long)address.getId());
         peersAddressMap.put(Long.valueOf(address.getId()), address);
     }
 
