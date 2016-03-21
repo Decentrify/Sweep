@@ -18,13 +18,6 @@ public class PartitionAwareBootupScenario {
             
             {
 
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-                
                 StochasticProcess peerJoin = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));

@@ -1,11 +1,9 @@
 package se.sics.ms.gradient.events;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.kompics.Event;
 import se.sics.kompics.KompicsEvent;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
 import java.security.PublicKey;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Update about the current leader in the partition.
@@ -14,16 +12,16 @@ import java.security.PublicKey;
  */
 public class LeaderInfoUpdate implements KompicsEvent {
 
-    private DecoratedAddress leaderAddress;
+    private KAddress leaderAddress;
     private PublicKey leaderPublicKey;
 
-    public LeaderInfoUpdate(DecoratedAddress leaderAddress, PublicKey leaderPublicKey) {
+    public LeaderInfoUpdate(KAddress leaderAddress, PublicKey leaderPublicKey) {
         this.leaderAddress = leaderAddress;
         this.leaderPublicKey = leaderPublicKey;
     }
 
 
-    public DecoratedAddress getLeaderAddress() {
+    public KAddress getLeaderAddress() {
         return leaderAddress;
     }
 

@@ -4,7 +4,7 @@
     <parent>
         <groupId>se.kth.ms</groupId>
         <artifactId>mediasearch-parent</artifactId>
-        <version>1.1-SNAPSHOT</version>
+        <version>1.4-SNAPSHOT</version>
     </parent>
     <groupId>se.kth.ms</groupId>
     <artifactId>ms-search</artifactId>
@@ -12,39 +12,43 @@
     <url>http://maven.apache.org</url>
 
     <dependencies>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>partition-aware</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-gradient</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
+
         <dependency>
             <groupId>se.kth.ms</groupId>
             <artifactId>ms-election</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>
+
         <dependency>
-            <groupId>se.kth.ms</groupId>
-            <artifactId>local-aggregator</artifactId>
-            <version>${project.version}</version>
+            <groupId>se.sics.ktoolbox.cc.heartbeat</groupId>
+            <artifactId>core</artifactId>
+            <version>${ktoolbox.version}</version>
         </dependency>
-        
+
         <dependency>
-            <groupId>se.sics.nat-traverser</groupId>
-            <artifactId>nat-traverser</artifactId>
-            <version>${nattraverser.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>log4j</artifactId>
-                    <groupId>log4j</groupId>
-                </exclusion>
-            </exclusions>
+            <groupId>se.sics.ktoolbox.cc.bootstrap</groupId>
+            <artifactId>core</artifactId>
+            <version>${ktoolbox.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>se.sics.ktoolbox.aggregator.client</groupId>
+            <artifactId>core</artifactId>
+            <version>${ktoolbox.version}</version>
         </dependency>
     </dependencies>
 </project>

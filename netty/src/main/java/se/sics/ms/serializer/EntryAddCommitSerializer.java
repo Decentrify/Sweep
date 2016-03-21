@@ -2,14 +2,14 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.data.EntryAddCommit;
-import se.sics.ms.helper.SerializerDecoderHelper;
-import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.types.ApplicationEntry;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 import java.util.UUID;
 
@@ -41,9 +41,9 @@ public class EntryAddCommitSerializer implements Serializer{
             EntryAddCommit.Request request = (EntryAddCommit.Request)o;
             Serializers.lookupSerializer(UUID.class).toBinary(request.getCommitRoundId(), buf);
             Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class).toBinary(request.getEntryId(), buf);
-            SerializerEncoderHelper.writeStringLength65536(buf, request.getSignature());
+            UserEncoderFactory.writeStringLength65536(buf, request.getSignature());
             
-        } catch (MessageEncodingException e) {
+        } catch (EncodingException e) {
             e.printStackTrace();
             throw new RuntimeException("Entry Add Serialization Failed", e);
         }
@@ -57,11 +57,11 @@ public class EntryAddCommitSerializer implements Serializer{
             
             UUID commitRoundId = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(buf, hint);
             ApplicationEntry.ApplicationEntryId entryId = (ApplicationEntry.ApplicationEntryId) Serializers.lookupSerializer(ApplicationEntry.ApplicationEntryId.class).fromBinary(buf, hint);
-            String signature = SerializerDecoderHelper.readStringLength65536(buf);
+            String signature = UserDecoderFactory.readStringLength65536(buf);
             
             return new EntryAddCommit.Request(commitRoundId, entryId, signature);
         } 
-        catch (MessageDecodingException e) {
+        catch (DecodingException e) {
             
             e.printStackTrace();
             throw new RuntimeException("Unable to decode the entry add commit", e);

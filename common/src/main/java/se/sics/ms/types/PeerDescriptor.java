@@ -1,9 +1,9 @@
 package se.sics.ms.types;
 
-import se.sics.p2ptoolbox.election.api.LCPeerView;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-
 import java.io.Serializable;
+import se.sics.ktoolbox.election.util.LCPeerView;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.update.View;
 
 /**
  * Main descriptor used by application to indicate the current state of the 
@@ -11,7 +11,7 @@ import java.io.Serializable;
  *
  * Created by alidar on 8/11/14.
  */
-public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView{
+public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor>, Serializable, LCPeerView, View {
 
 //    private int age;
     private transient boolean connected;
@@ -20,11 +20,11 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
     private final boolean isLGMember;
     private LeaderUnit lastLeaderUnit;
 
-    public PeerDescriptor(DecoratedAddress address) {
+    public PeerDescriptor(KAddress address) {
         this(new OverlayAddress(address, 0), false, 0, false, null);
     }
 
-    public PeerDescriptor(DecoratedAddress address, int overlayId){
+    public PeerDescriptor(KAddress address, int overlayId){
         this(new OverlayAddress(address, overlayId), false, 0, false, null);
     }
 
@@ -41,7 +41,7 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
     }
 
 
-    public DecoratedAddress getVodAddress() {
+    public KAddress getVodAddress() {
         return this.overlayAddress.getAddress();
     }
 
@@ -61,15 +61,13 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
 
     @Override
     public String toString() {
-        return ("SearchDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
+        return ("PeerDescriptor :{ " + this.overlayAddress.toString() + " entries: " + this.getNumberOfIndexEntries() + " member: " + this.isLGMember + " }");
     }
 
     public OverlayAddress getOverlayAddress() {
         return overlayAddress;
     }
 
-
-    @Override
     public int compareTo(PeerDescriptor that) {
 
         if(that == null){
@@ -191,17 +189,14 @@ public class PeerDescriptor implements DescriptorBase, Comparable<PeerDescriptor
         return this.overlayAddress.getPartitionIdDepth();
     }
     
-    @Override
     public boolean isLeaderGroupMember() {
         return this.isLGMember;
     }
 
-    @Override
     public LCPeerView enableLGMembership() {
         return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, true, this.lastLeaderUnit);
     }
 
-    @Override
     public LCPeerView disableLGMembership() {
         return new PeerDescriptor(this.overlayAddress, this.connected, this.numberOfIndexEntries, false, this.lastLeaderUnit);
     }

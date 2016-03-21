@@ -2,13 +2,15 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.util.PartitionHelper;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 import java.util.UUID;
 
@@ -36,9 +38,9 @@ public class PartitionInfoHashSerializer implements Serializer {
         try {
             PartitionHelper.PartitionInfoHash hashObject = (PartitionHelper.PartitionInfoHash)o;
             Serializers.lookupSerializer(UUID.class).toBinary(hashObject.getPartitionRequestId(), byteBuf);
-            SerializerEncoderHelper.writeStringLength65536(byteBuf, hashObject.getHash());
+            UserEncoderFactory.writeStringLength65536(byteBuf, hashObject.getHash());
             
-        } catch (MessageEncodingException e) {
+        } catch (EncodingException e) {
             
             e.printStackTrace();
             throw new RuntimeException(e.getMessage(), e);
@@ -50,10 +52,10 @@ public class PartitionInfoHashSerializer implements Serializer {
         
         try {
             UUID partitionRequestId = (UUID)Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
-            String hash = SerializerDecoderHelper.readStringLength65536(byteBuf);
+            String hash = UserDecoderFactory.readStringLength65536(byteBuf);
             return new PartitionHelper.PartitionInfoHash(partitionRequestId, hash);
             
-        } catch (MessageDecodingException e) {
+        } catch (DecodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage(), e);
         }

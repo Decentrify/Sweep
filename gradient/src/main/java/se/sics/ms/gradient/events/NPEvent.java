@@ -1,9 +1,9 @@
 package se.sics.ms.gradient.events;
 
 import se.sics.kompics.KompicsEvent;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
 
-import java.util.Collection;
+import java.util.List;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Event depicting the case of possible network partition
@@ -13,9 +13,9 @@ import java.util.Collection;
  */
 public class NPEvent implements KompicsEvent{
 
-    public final Collection<DecoratedAddress> npNodes;
+    public final List<KAddress> npNodes;
 
-    public NPEvent(Collection<DecoratedAddress> nodes){
+    public NPEvent(List<KAddress> nodes){
         this.npNodes = nodes;
     }
 

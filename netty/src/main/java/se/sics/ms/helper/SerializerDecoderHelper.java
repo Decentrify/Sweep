@@ -3,12 +3,13 @@ package se.sics.ms.helper;
 import com.google.common.base.Optional;
 import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
+import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.types.IndexEntry;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
 
-import java.io.UnsupportedEncodingException;
+import  static se.sics.p2ptoolbox.util.helper.UserDecoderFactory.*;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -28,7 +29,8 @@ public class SerializerDecoderHelper {
 
 
     public static IndexEntry readIndexEntry(ByteBuf buffer)
-            throws MessageDecodingException {
+            throws DecodingException {
+
         String gId = readStringLength256(buffer);
         Long id = buffer.readLong();
         String url = readStringLength256(buffer);
@@ -61,46 +63,6 @@ public class SerializerDecoderHelper {
 
 
 
-    public static String readStringLength256(ByteBuf buffer) throws MessageDecodingException {
-        int len = readIntAsOneByte(buffer);
-        return len == 0?null:readString(buffer, len);
-    }
-
-
-    public static int readIntAsOneByte(ByteBuf buffer) throws MessageDecodingException {
-        return readUnsignedIntAsOneByte(buffer);
-    }
-
-    private static String readString(ByteBuf buffer, int len) throws MessageDecodingException {
-        byte[] bytes = new byte[len];
-        buffer.readBytes(bytes);
-
-        try {
-            return new String(bytes, "UTF-8");
-        } catch (UnsupportedEncodingException var4) {
-            throw new MessageDecodingException(var4.getMessage());
-        }
-    }
-
-
-    public static String readStringLength65536(ByteBuf buffer) throws MessageDecodingException {
-        int len = readUnsignedIntAsTwoBytes(buffer);
-        return len == 0?null:readString(buffer, len);
-    }
-
-    public static int readUnsignedIntAsOneByte(ByteBuf buffer) {
-        byte value = buffer.readByte();
-        return value & 255;
-    }
-
-    public static int readUnsignedIntAsTwoBytes(ByteBuf buffer) {
-        byte[] bytes = new byte[2];
-        buffer.readBytes(bytes);
-        int temp0 = bytes[0] & 255;
-        int temp1 = bytes[1] & 255;
-        return (temp0 << 8) + temp1;
-    }
-
     /**
      * Read the collection from the buffer.
      *
@@ -130,4 +92,35 @@ public class SerializerDecoderHelper {
         return buf.readBoolean();
     }
 
+
+    /**
+     * Deserialize the object in case the information needs to be checked for null.
+     * Add null check for the object and return the appropriate value.
+     *
+     * @param byteBuf
+     * @param serializerOptional
+     * @param hint
+     * @return
+     */
+
+    public static Object deserializeWithNullCheck(ByteBuf byteBuf, Optional<Serializer> serializerOptional, Optional<Object> hint){
+
+        boolean isNull = byteBuf.readBoolean();
+
+        if(isNull){
+            return null;
+        }
+
+        Object response;
+
+        if(serializerOptional.isPresent()){
+            Serializer serializer = serializerOptional.get();
+            response = serializer.fromBinary(byteBuf, hint);
+        }
+        else {
+            response = Serializers.fromBinary(byteBuf, hint);
+        }
+
+        return response;
+    }
 }

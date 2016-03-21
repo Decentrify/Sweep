@@ -4,6 +4,7 @@ import se.sics.ms.common.RoutingTableContainer;
 import se.sics.ms.types.PeerDescriptor;
 
 import java.util.Comparator;
+import se.sics.ktoolbox.util.network.KAddress;
 
 /**
  * Simple Collection for the comparators acting on {@link se.sics.ms.types.PeerDescriptor}.
@@ -80,6 +81,16 @@ public class ComparatorCollection {
             }
             
             return result;
+        }
+    }
+
+
+
+    public static class AddressComparator implements Comparator<KAddress> {
+
+        @Override
+        public int compare(KAddress o1, KAddress o2) {
+            return o1.getId().compareTo(o2.getId());
         }
     }
 

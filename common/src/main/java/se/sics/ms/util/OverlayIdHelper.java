@@ -1,7 +1,5 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.net.VodAddress;
-
 /**
  * Helper class for the manipulating and calculating the overlayId.
  * Created by babbar on 2015-03-25.
@@ -17,7 +15,7 @@ public class OverlayIdHelper {
      * @param categoryId Category Id
      * @return overlayId.
      */
-    public static int encodePartitionDataAndCategoryIdAsInt(VodAddress.PartitioningType partitioningType,
+    public static int encodePartitionDataAndCategoryIdAsInt(PartitioningType partitioningType,
                                                             int partitionIdDepth, int partitionId, int categoryId) {
 
         // ========= NOTE: Changed the minimum partition depth to 0.
@@ -69,8 +67,8 @@ public class OverlayIdHelper {
      * @param overlayId overlayid
      * @return Partitioning Type
      */
-    public static VodAddress.PartitioningType getPartitioningType(int overlayId) {
-        return VodAddress.PartitioningType.values()[(overlayId & -1073741824) >>> 30];
+    public static PartitioningType getPartitioningType(int overlayId) {
+        return PartitioningType.values()[(overlayId & -1073741824) >>> 30];
     }
 
 }

@@ -10,7 +10,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.configuration.MsConfig;
@@ -19,14 +18,18 @@ import se.sics.ms.types.*;
 import se.sics.ms.util.EntryScorePair;
 import se.sics.ms.util.IdScorePair;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.election.network.util.PublicKeySerializer;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
-import se.sics.p2ptoolbox.util.serializer.BasicSerializerSetup;
+import se.sics.ms.util.PartitioningType;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.*;
 import java.util.*;
+import se.sics.ktoolbox.election.util.PublicKeySerializer;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.network.basic.BasicAddress;
+import se.sics.ktoolbox.util.network.nat.NatAwareAddressImpl;
+import se.sics.ktoolbox.util.setup.BasicSerializerSetup;
 
 /**
  * Main Test Class for the Serializers used in the application.
@@ -47,7 +50,7 @@ public class SerializerTest {
     }
 
     private static ByteBuf originalBuf, copiedBuf;
-    private static DecoratedAddress selfAddress, destinationAddress;
+    private static KAddress selfAddress, destinationAddress;
     private static PeerDescriptor selfDescriptor;
     private static PeerDescriptor otherDescriptor;
     private static PublicKey publicKey;
@@ -59,18 +62,12 @@ public class SerializerTest {
     public static void oneTimeSetup() throws NoSuchAlgorithmException {
 
         logger.info("Executing the one time setup.");
-        int currentId = 128;
         int seed = 100;
-        BasicSerializerSetup.registerBasicSerializers(currentId);
-        currentId = currentId + BasicSerializerSetup.serializerIds;
-        currentId = SerializerSetup.registerSerializers(currentId);
         
-        registerPublicKeySerializer(currentId);
+        systemSetup();
 
-        SerializerSetup.checkSetup();
-
-        selfAddress = new DecoratedAddress(localHost, 54321, 1);
-        destinationAddress = new DecoratedAddress(localHost, 54322, 2);
+        selfAddress = NatAwareAddressImpl.open(new BasicAddress(localHost, 54321, new IntIdentifier(1)));
+        destinationAddress = NatAwareAddressImpl.open(new BasicAddress(localHost, 54322, new IntIdentifier(2)));
         selfDescriptor = new PeerDescriptor(selfAddress, 1);
         otherDescriptor = new PeerDescriptor(destinationAddress, 0);
 
@@ -82,13 +79,17 @@ public class SerializerTest {
         random = new Random(seed);
         generateKeys();
     }
-
-    private static void registerPublicKeySerializer(int currentId) {
-
+    
+    private static void systemSetup() {
+        int currentId = 128;
+        currentId = BasicSerializerSetup.registerBasicSerializers(currentId);
+        currentId = SweepSerializerSetup.registerSerializers(currentId);
+        
         PublicKeySerializer pkSerializer =  new PublicKeySerializer(currentId++);
         Serializers.register(pkSerializer, "publicKeySerializer");
         Serializers.register(PublicKey.class, "publicKeySerializer");
 
+        SweepSerializerSetup.checkSetup();
     }
 
     @Before
@@ -159,7 +160,7 @@ public class SerializerTest {
     public void partitionInfoSerializationTest(){
         logger.info("Partition Info Serialization Test");
 
-        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(10, UUID.randomUUID(), VodAddress.PartitioningType.NEVER_BEFORE, "Hash", publicKey);
+        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(10, UUID.randomUUID(), PartitioningType.NEVER_BEFORE, "Hash", publicKey);
         Serializer piSerializer = Serializers.lookupSerializer(PartitionHelper.PartitionInfo.class);
 
         PartitionHelper.PartitionInfo copiedPartitionInfo = (PartitionHelper.PartitionInfo) addObjectAndCreateCopiedObject(piSerializer, originalBuf, originalPartitionInfo, copiedBuf);
@@ -596,7 +597,7 @@ public class SerializerTest {
 
         logger.info("Entry Hash Exchange Response Test");
 
-        Collection<EntryHash> entryHashCollection = getEntryHashCollection(3);
+        List<EntryHash> entryHashCollection = getEntryHashCollection(3);
         UUID exchangeRound = UUID.randomUUID();
 
         EntryHashExchange.Response response = new EntryHashExchange.Response(exchangeRound, entryHashCollection);
@@ -915,7 +916,7 @@ public class SerializerTest {
     public void searchFetchRequestTest(){
         logger.info("Search Fetch Request Test");
 
-        Collection<IdScorePair> entryIds = new ArrayList<IdScorePair>();
+        List<IdScorePair> entryIds = new ArrayList<IdScorePair>();
 
         entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(0, 100, 100), new Float(1.32)));
         entryIds.add(new IdScorePair(new ApplicationEntry.ApplicationEntryId(1, 100, 100), new Float(1.22)));
@@ -931,8 +932,8 @@ public class SerializerTest {
     public void searchFetchResponseTest(){
 
         logger.info("Search Fetch Response Test");
-        Collection<ApplicationEntry> collection = getApplicationEntryCollection(3);
-        Collection<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
+        List<ApplicationEntry> collection = getApplicationEntryCollection(3);
+        List<EntryScorePair> entryScorePairs = new ArrayList<EntryScorePair>();
         
         for(ApplicationEntry entry : collection){
             entryScorePairs.add(new EntryScorePair(entry, new Float(1.0)));
@@ -1010,15 +1011,15 @@ public class SerializerTest {
 
 
     private PartitionHelper.PartitionInfo getPartitionInfo(){
-        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(random.nextInt(), UUID.randomUUID(), VodAddress.PartitioningType.NEVER_BEFORE, "Hash", publicKey);
+        PartitionHelper.PartitionInfo originalPartitionInfo = new PartitionHelper.PartitionInfo(random.nextInt(), UUID.randomUUID(), PartitioningType.NEVER_BEFORE, "Hash", publicKey);
         return originalPartitionInfo;
     }
 
 
-    private Collection<IndexEntry> getIndexEntryCollection(int entryNumber){
+    private List<IndexEntry> getIndexEntryCollection(int entryNumber){
 
         IndexEntry entry;
-        Collection<IndexEntry> entryCollection = new ArrayList<IndexEntry>();
+        List<IndexEntry> entryCollection = new ArrayList<IndexEntry>();
 
         while(entryNumber > 0){
 
@@ -1081,10 +1082,10 @@ public class SerializerTest {
 
 
 
-    public Collection<ApplicationEntry> getApplicationEntryCollection(int size) {
+    public List<ApplicationEntry> getApplicationEntryCollection(int size) {
 
-        Collection<IndexEntry> entryCollection = getIndexEntryCollection(10);
-        Collection<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
+        List<IndexEntry> entryCollection = getIndexEntryCollection(10);
+        List<ApplicationEntry> applicationEntries = new ArrayList<ApplicationEntry>();
 
         for(IndexEntry entry : entryCollection){
             ApplicationEntry.ApplicationEntryId entryId = getApplicationEntryId(0, 100, entry.getId());
@@ -1096,10 +1097,10 @@ public class SerializerTest {
 
 
 
-    public Collection<EntryHash> getEntryHashCollection(int size) {
+    public List<EntryHash> getEntryHashCollection(int size) {
 
-        Collection<EntryHash> collection = new ArrayList<EntryHash>();
-        Collection<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
+        List<EntryHash> collection = new ArrayList<EntryHash>();
+        List<ApplicationEntry> entryCollection = getApplicationEntryCollection(size);
 
         for(ApplicationEntry entry : entryCollection){
             collection.add(new EntryHash(entry));

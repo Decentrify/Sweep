@@ -2,14 +2,16 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
 import se.sics.ms.types.Id;
 import se.sics.ms.types.IndexHash;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 /**
  * Serializer for the Index Hash Object.
@@ -35,9 +37,9 @@ public class IndexHashSerializer implements Serializer{
         try{
             IndexHash indexHash = (IndexHash)o;
             Serializers.lookupSerializer(Id.class).toBinary(indexHash.getId(), byteBuf);
-            SerializerEncoderHelper.writeStringLength65536(byteBuf, indexHash.getHash());
+            UserEncoderFactory.writeStringLength65536(byteBuf, indexHash.getHash());
         }
-        catch (MessageEncodingException e) {
+        catch (EncodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage(), e);
         }
@@ -51,11 +53,11 @@ public class IndexHashSerializer implements Serializer{
         try {
 
             Id id = (Id) Serializers.lookupSerializer(Id.class).fromBinary(byteBuf, optional);
-            String hash = SerializerDecoderHelper.readStringLength65536(byteBuf);
+            String hash = UserDecoderFactory.readStringLength65536(byteBuf);
             return new IndexHash(id, hash);
 
         }
-        catch (MessageDecodingException e) {
+        catch (DecodingException e) {
             e.printStackTrace();
             throw new RuntimeException(e.getMessage(), e);
         }

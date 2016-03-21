@@ -3,7 +3,6 @@ package se.sics.ms.util;
 import junit.framework.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import se.sics.gvod.net.VodAddress;
 
 /**
  * Test Class for the Overlay Id Helper.
@@ -14,7 +13,7 @@ public class OverlayHelperTest {
 
     public static int partitionId;
     public static int partitionDepth;
-    public static VodAddress.PartitioningType partitioningType;
+    public static PartitioningType partitioningType;
     public static int categoryId;
     public static int overallId;
 
@@ -24,7 +23,7 @@ public class OverlayHelperTest {
         partitionId = 3;
         partitionDepth = 2;
         categoryId=0;
-        partitioningType = VodAddress.PartitioningType.MANY_BEFORE;
+        partitioningType = PartitioningType.MANY_BEFORE;
         overallId = OverlayIdHelper.encodePartitionDataAndCategoryIdAsInt(partitioningType, partitionDepth, partitionId, categoryId);
     }
 
@@ -49,7 +48,7 @@ public class OverlayHelperTest {
 
     @Test
     public void testPartitionType() {
-        VodAddress.PartitioningType createdPartitionType = OverlayIdHelper.getPartitioningType(overallId);
+        PartitioningType createdPartitionType = OverlayIdHelper.getPartitioningType(overallId);
         Assert.assertEquals("Partition Type Comparison Test", partitioningType, createdPartitionType);
     }
 

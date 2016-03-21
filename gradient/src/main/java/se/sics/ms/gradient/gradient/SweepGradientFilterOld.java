@@ -1,11 +1,11 @@
 package se.sics.ms.gradient.gradient;
 
-import se.sics.gvod.net.VodAddress;
+import se.sics.ktoolbox.gradient.GradientFilter;
 import se.sics.ms.types.OverlayAddress;
 import se.sics.ms.types.PartitionId;
 import se.sics.ms.types.PeerDescriptor;
 import se.sics.ms.util.PartitionHelper;
-import se.sics.p2ptoolbox.gradient.GradientFilter;
+import se.sics.ms.util.PartitioningType;
 
 /**
  * Application's Gradient Filter.
@@ -26,12 +26,12 @@ public class SweepGradientFilterOld implements GradientFilter<PeerDescriptor> {
         
         else if (selfOverlayAddress.getPartitionIdDepth() < otherOverlayAddress.getPartitionIdDepth()){
             
-            boolean isNeverBefore = selfOverlayAddress.getPartitioningType() == VodAddress.PartitioningType.NEVER_BEFORE;
+            boolean isNeverBefore = selfOverlayAddress.getPartitioningType() == PartitioningType.NEVER_BEFORE;
 
             if(!isNeverBefore){
 
                 int bitsToCheck = selfOverlayAddress.getPartitionIdDepth();
-                boolean isOnceBefore = selfOverlayAddress.getPartitioningType() == VodAddress.PartitioningType.ONCE_BEFORE;
+                boolean isOnceBefore = selfOverlayAddress.getPartitioningType() == PartitioningType.ONCE_BEFORE;
                 
                 PartitionId generatedPartitionId = PartitionHelper.determineSearchDescriptorPartition(
                         otherDescriptor,

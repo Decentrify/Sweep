@@ -4,32 +4,15 @@
  */
 package se.sics.ms.configuration;
 
-import se.sics.gvod.config.VodConfig;
-
-import java.io.IOException;
-
 /**
  *
  * @author jdowling
  */
-public class MsConfig extends VodConfig {
+public class MsConfig {
 
     public static enum Categories {
         Video, Music, Books, Default
     }
-
-    public static final int ELECTION_DEATH_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_REJECTED_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_VOTE_REQUEST_TIMEOUT = 20 * 1000;
-    public static final int ELECTION_HEARTBEAT_WAIT_TIMEOUT = 10 * 1000;
-    public static final int ELECTION_HEARTBEAT_TIMEOUTDELAY = 5 * 1000;
-
-    public static final int ELECTION_MIN_SIZE_ELECTIONGROUP = 3;
-    public static final double ELECTION_MIN_PERCENTAGE_VOTES = .5d;
-    public static final int ELECTION_HEARTBEAT_TIMEOUT_INTERVAL = 30 * 1000;
-    public static final int ELECTION_MIN_NUMBER_CONVERGED_NODES = 3;
-    public static final double ELECTION_DEATH_VOTE_MAJORITY_PERCENTAGE = .5d;
-    public static final double ELECTION_LEADER_DEATH_MAJORITY_PERCENTAGE = .5d;
 
     public static final int SEARCH_MAX_EXCHANGE_COUNT = 25;
     public static final int SEARCH_QUERY_TIMEOUT = 10*1000;
@@ -82,17 +65,39 @@ public class MsConfig extends VodConfig {
 
     // Epoch Mechanism.
     public static final int MAX_EPOCH_UPDATES = 10;
-    public static final int MAX_EPOCH_CONTAINER_ENTRIES = 100;            // EPOCH CONTAINER SIZE.
-    
-    protected MsConfig(String[] args) throws IOException {
-        super(args);
-    }
+    public static final int MAX_EPOCH_CONTAINER_ENTRIES = 1000;            // EPOCH CONTAINER SIZE.
 
-    public static synchronized MsConfig init(String[] args) throws IOException {
-        if (singleton != null) {
-            return (MsConfig) singleton;
-        }
-        singleton = new MsConfig(args);
-        return (MsConfig) singleton;
-    }
+
+    // Missing.
+    public static final int DEFAULT_RTO = 1 * 1000;
+    public static final int GRADIENT_SHUFFLE_LENGTH = 10;
+    public static final int GRADIENT_UTILITY_THRESHOLD = 10;
+    public static final int GRADIENT_NUM_FINGERS = 5;
+    public static final double GRADIENT_TEMPERATURE = 0.9d;
+    public static final int GRADIENT_SEARCH_TIMEOUT = DEFAULT_RTO * 6;
+    public static final int GRADIENT_NUM_PARALLEL_SEARCHES = 5;
+    public static final int GRADIENT_SEARCH_TTL = 5;
+    public static final int GRADIENT_SHUFFLE_TIMEOUT = DEFAULT_RTO;
+
+    // Caracal Service Identifier.
+    public static final int CROUPIER_SERVICE = 1;
+    public static final long CARACAL_TIMEOUT = 2000;
+
+    // Aggregator Timeout.
+    public static final long AGGREGATOR_TIMEOUT = 5000;
+
+    // Overlay Identifiers.
+    public static final int CROUPIER_OVERLAY_ID = 1;
+    public static final int GRADIENT_OVERLAY_ID = 2;
+    public static final int T_GRADIENT_OVERLAY_ID = 3;
+
+    public static final String SIMULATION_FILE_LOC = "/home/babbar/Documents/Experiments/Result/sweepSimResult.txt";
+    public static final String AVG_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/avgLagJSONDump.txt";
+    public static final String PER_LAG_JSON_DUMP_FILE = "/home/babbar/Documents/Experiments/Result/perLagJSONDump.txt";
+
+    public static final String SIMULATION_DIRECTORY = "/home/babbar/Documents/Experiments/Result";
+    public static final String SIMULATION_FILENAME = "dataDump";
+
+    public static final int SIM_SERIALIZER_START = 0;
+    public static final int MAX_WINDOWS_PER_FILE = 50;
 }

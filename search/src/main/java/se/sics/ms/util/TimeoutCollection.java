@@ -1,6 +1,5 @@
 package se.sics.ms.util;
 
-import se.sics.gvod.net.VodAddress;
 import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
@@ -91,10 +90,10 @@ public class TimeoutCollection {
 
         public long minStoreId;
         public long medianId;
-        public VodAddress.PartitioningType partitioningType;
+        public PartitioningType partitioningType;
         
         
-        public PreShardingTimeout(long minStoreId, long medianId, VodAddress.PartitioningType partitioningType, ScheduleTimeout request) {
+        public PreShardingTimeout(long minStoreId, long medianId, PartitioningType partitioningType, ScheduleTimeout request) {
             super(request);
             this.medianId = medianId;
             this.minStoreId = minStoreId;
@@ -207,6 +206,17 @@ public class TimeoutCollection {
         public CacheTimeout(ScheduleTimeout request, SearchPattern fileNamePattern) {
             super(request);
             this.fileNamePattern = fileNamePattern;
+        }
+    }
+
+
+    /**
+     * Timeout for interacting with the caracal service for bootstrapping.
+     */
+    public static class CaracalTimeout extends Timeout{
+
+        public CaracalTimeout(ScheduleTimeout request) {
+            super(request);
         }
     }
     

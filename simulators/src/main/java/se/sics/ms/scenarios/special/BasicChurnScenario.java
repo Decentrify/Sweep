@@ -22,20 +22,29 @@ public class BasicChurnScenario {
 
             {
 
+
+                StochasticProcess startAggregatorNode = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(300));
+                        raise(1, SweepOperations.getAggregatorComponent(null));
+                    }
+                };
+
+
+                StochasticProcess startCaracalClient = new StochasticProcess() {
+                    {
+                        eventInterArrivalTime(constant(1000));
+                        raise(1 , SweepOperations.startCaracalClient, uniform(0, Integer.MAX_VALUE));
+                    }
+                };
+
+
                 StochasticProcess changeNetworkModel = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(300));
                         raise(1, SweepOperations.uniformNetworkModel);
                     }
                 };
-
-                StochasticProcess startAggregatorNode = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1 , SweepOperations.startAggregatorNodeCmd);
-                    }
-                };
-
 
                 StochasticProcess specialPeerJoin = new StochasticProcess() {
                     {
@@ -85,9 +94,11 @@ public class BasicChurnScenario {
                     }
                 };
 
-                changeNetworkModel.start();
-                startAggregatorNode.startAfterTerminationOf(1000, changeNetworkModel);
-                specialPeerJoin.startAfterTerminationOf(10000, startAggregatorNode);
+
+                startAggregatorNode.start();
+                startCaracalClient.startAfterTerminationOf(5000, startAggregatorNode);
+//                changeNetworkModel.start();
+                specialPeerJoin.startAfterTerminationOf(10000, startCaracalClient);
                 initialPeerJoin.startAfterTerminationOf(5000, specialPeerJoin);
                 addIndexEntryCommand.startAfterTerminationOf(50000, initialPeerJoin);
 

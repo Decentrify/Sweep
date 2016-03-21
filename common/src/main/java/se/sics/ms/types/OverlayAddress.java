@@ -1,7 +1,9 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.net.VodAddress;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import java.util.Comparator;
+import se.sics.ktoolbox.util.identifiable.basic.IntIdentifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ms.util.PartitioningType;
 
 /**
  * Utility Class for representing the address in the system.
@@ -9,10 +11,10 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  */
 public class OverlayAddress implements Comparable<OverlayAddress>{
 
-    private DecoratedAddress address;
+    private KAddress address;
     private OverlayId overlayId;
 
-    public OverlayAddress(DecoratedAddress address, int overlayId) {
+    public OverlayAddress(KAddress address, int overlayId) {
         this.address = address;
         this.overlayId = new OverlayId(overlayId);
     }
@@ -22,7 +24,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
 //    }
 
     public int getId() {
-        return address.getId();
+        return ((IntIdentifier)address.getId()).id;
     }
 
     public int getCategoryId() {
@@ -37,7 +39,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
         return overlayId.getPartitionIdDepth();
     }
 
-    public VodAddress.PartitioningType getPartitioningType() {
+    public PartitioningType getPartitioningType() {
         return overlayId.getPartitioningType();
     }
 
@@ -65,7 +67,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
             return false;
 
         OverlayAddress other = (OverlayAddress) obj;
-        if(! (this.address == null ? other.address == null : this.address.equals(other.address)))
+        if(! (this.address == null ? other.address == null : this.address.getId().equals(other.address.getId())))
             return false;
 
         return (this.overlayId == null ? other.overlayId == null : this.overlayId.equals(other.overlayId));
@@ -73,7 +75,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
 
     public int hashCode() {
         final int prime = 7;
-        int result = prime + ((this.address == null) ? 0 : this.address.hashCode())  +
+        int result = prime + ((this.address == null) ? 0 : this.address.getId().hashCode())  +
                 ((this.overlayId == null) ? 0 : this.overlayId.hashCode());
         return result;
     }
@@ -82,7 +84,7 @@ public class OverlayAddress implements Comparable<OverlayAddress>{
         return overlayId;
     }
 
-    public DecoratedAddress getAddress() {
+    public KAddress getAddress() {
         return address;
     }
 

@@ -1,6 +1,6 @@
 package se.sics.ms.types;
 
-import se.sics.gvod.net.VodAddress;
+import se.sics.ms.util.PartitioningType;
 
 import java.util.LinkedList;
 
@@ -11,21 +11,21 @@ import java.util.LinkedList;
  * Time: 9:55 AM
  */
 public class PartitionId {
-    private VodAddress.PartitioningType partitioningType;
+    private PartitioningType partitioningType;
     private int partitionIdDepth;
     private int partitionId;
 
-    public PartitionId(VodAddress.PartitioningType partitioningType, int partitionIdDepth, int partitionId) {
+    public PartitionId(PartitioningType partitioningType, int partitionIdDepth, int partitionId) {
         this.partitioningType = partitioningType;
         this.partitionIdDepth = partitionIdDepth;
         this.partitionId = partitionId;
     }
 
-    public VodAddress.PartitioningType getPartitioningType() {
+    public PartitioningType getPartitioningType() {
         return partitioningType;
     }
 
-    public void setPartitioningType(VodAddress.PartitioningType partitioningType) {
+    public void setPartitioningType(PartitioningType partitioningType) {
         this.partitioningType = partitioningType;
     }
 
@@ -70,7 +70,7 @@ public class PartitionId {
     public LinkedList<Boolean> getAsLinkedList() {
         LinkedList<Boolean> asList = new LinkedList<Boolean>();
 
-        if(partitioningType == VodAddress.PartitioningType.NEVER_BEFORE) {
+        if(partitioningType == PartitioningType.NEVER_BEFORE) {
             asList.add(false);
             return asList;
         }

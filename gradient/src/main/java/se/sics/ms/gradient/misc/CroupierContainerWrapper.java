@@ -1,9 +1,10 @@
 package se.sics.ms.gradient.misc;
 
-import se.sics.p2ptoolbox.croupier.util.CroupierContainer;
-import se.sics.p2ptoolbox.gradient.util.GradientLocalView;
-import se.sics.p2ptoolbox.util.Container;
-import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
+import se.sics.ktoolbox.gradient.util.GradientLocalView;
+import se.sics.ktoolbox.util.identifiable.Identifier;
+import se.sics.ktoolbox.util.network.KAddress;
+import se.sics.ktoolbox.util.other.Container;
+
 
 /**
  * Wrapper enclosing the container and the corresponding overlayid.
@@ -13,11 +14,10 @@ import se.sics.p2ptoolbox.util.network.impl.DecoratedAddress;
  */
 public class CroupierContainerWrapper {
     
-    
-    public final Container<DecoratedAddress, GradientLocalView> container;
-    public final int overlayId;
+    public final Container<KAddress, GradientLocalView> container;
+    public final Identifier overlayId;
 
-    public CroupierContainerWrapper(Container<DecoratedAddress, GradientLocalView> container, int overlayId) {
+    public CroupierContainerWrapper(Container<KAddress, GradientLocalView> container, Identifier overlayId) {
         this.container = container;
         this.overlayId = overlayId;
     }

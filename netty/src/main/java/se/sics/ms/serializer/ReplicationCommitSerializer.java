@@ -2,13 +2,15 @@ package se.sics.ms.serializer;
 
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import se.sics.gvod.common.msgs.MessageDecodingException;
-import se.sics.gvod.common.msgs.MessageEncodingException;
 import se.sics.kompics.network.netty.serialization.Serializer;
 import se.sics.kompics.network.netty.serialization.Serializers;
 import se.sics.ms.data.ReplicationCommit;
 import se.sics.ms.helper.SerializerDecoderHelper;
 import se.sics.ms.helper.SerializerEncoderHelper;
+import se.sics.p2ptoolbox.util.helper.DecodingException;
+import se.sics.p2ptoolbox.util.helper.EncodingException;
+import se.sics.p2ptoolbox.util.helper.UserDecoderFactory;
+import se.sics.p2ptoolbox.util.helper.UserEncoderFactory;
 
 import java.util.UUID;
 
@@ -40,9 +42,9 @@ public class ReplicationCommitSerializer {
                 ReplicationCommit.Request request = (ReplicationCommit.Request)o;
                 Serializers.lookupSerializer(UUID.class).toBinary(request.getCommitRoundId(), byteBuf);
                 byteBuf.writeLong(request.getEntryId());
-                SerializerEncoderHelper.writeStringLength65536(byteBuf, request.getSignature());
+                UserEncoderFactory.writeStringLength65536(byteBuf, request.getSignature());
             }
-            catch (MessageEncodingException e) {
+            catch (EncodingException e) {
                 e.printStackTrace();
                 throw new RuntimeException(e.getMessage());
             }
@@ -57,10 +59,10 @@ public class ReplicationCommitSerializer {
             try{
                 UUID commitRoundId = (UUID) Serializers.lookupSerializer(UUID.class).fromBinary(byteBuf, optional);
                 long entryId = byteBuf.readLong();
-                String signature = SerializerDecoderHelper.readStringLength65536(byteBuf);
+                String signature = UserDecoderFactory.readStringLength65536(byteBuf);
 
                 return new ReplicationCommit.Request(commitRoundId, entryId, signature);
-            } catch (MessageDecodingException e) {
+            } catch (DecodingException e) {
                 e.printStackTrace();
                 throw new RuntimeException(e.getMessage());
             }
