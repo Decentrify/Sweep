@@ -51,7 +51,7 @@ import se.sics.ms.util.ComparatorCollection;
  */
 public final class Routing extends ComponentDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger("Routing");
+    private static final Logger logger = LoggerFactory.getLogger(Routing.class);
     Positive<Network> networkPort = positive(Network.class);
     Positive<Timer> timerPort = positive(Timer.class);
 
