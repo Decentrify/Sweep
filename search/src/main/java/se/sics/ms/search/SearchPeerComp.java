@@ -28,7 +28,6 @@ import se.sics.ktoolbox.election.api.ports.LeaderElectionPort;
 import se.sics.ktoolbox.gradient.GradientPort;
 import se.sics.ktoolbox.overlaymngr.OverlayMngrPort;
 import se.sics.ktoolbox.overlaymngr.events.OMngrTGradient;
-import se.sics.ktoolbox.util.address.AddressUpdatePort;
 import se.sics.ktoolbox.util.config.impl.SystemKCWrapper;
 import se.sics.ktoolbox.util.identifiable.Identifier;
 import se.sics.ktoolbox.util.network.KAddress;
@@ -81,8 +80,7 @@ public class SearchPeerComp extends ComponentDefinition {
     //hack - remove later
     private final GradientConfiguration gradientConfiguration;
     private final SearchConfiguration searchConfiguration;
-    //*******************************SELF***************************************
-    //this should be removed... not really necessary;
+    //**************************EXTERNAL_STATE**********************************
     private KAddress selfAdr;
     //hack - remove later
     private final ApplicationSelf self;
@@ -141,16 +139,14 @@ public class SearchPeerComp extends ComponentDefinition {
                 selfAdr, new PeerDescriptor(selfAdr), appKey.getPublic(), appKey.getPrivate(),
                 new SimpleLCPViewComparator(), leaderComponentRuleSet, cohortsRuleSet));
 
-        Channel[] leaderChannels = new Channel[3];
+        Channel[] leaderChannels = new Channel[2];
         leaderChannels[0] = connect(leaderComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
         leaderChannels[1] = connect(leaderComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        leaderChannels[2] = connect(leaderComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
         gradientEnd.addChannel(spConfig.tgradientId, leaderComp.getNegative(GradientPort.class));
 
-        Channel[] followerChannels = new Channel[3];
+        Channel[] followerChannels = new Channel[2];
         followerChannels[0] = connect(followerComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
         followerChannels[1] = connect(followerComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
-        followerChannels[2] = connect(followerComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
         gradientEnd.addChannel(spConfig.tgradientId, followerComp.getNegative(GradientPort.class));
 
         electionLeader = Pair.with(leaderComp, leaderChannels);
@@ -177,21 +173,20 @@ public class SearchPeerComp extends ComponentDefinition {
     private void connectSearch() {
         Component searchComp = create(NPAwareSearch.class, new SearchInit(spConfig.tgradientId, systemConfig.seed,
                 self, searchConfiguration, appKey.getPublic(), appKey.getPrivate()));
-        Channel[] searchChannels = new Channel[9];
+        Channel[] searchChannels = new Channel[8];
         //requires
         searchChannels[0] = connect(searchComp.getNegative(Timer.class), extPort.timerPort, Channel.TWO_WAY);
         searchChannels[1] = connect(searchComp.getNegative(Network.class), extPort.networkPort, Channel.TWO_WAY);
-        searchChannels[2] = connect(searchComp.getNegative(AddressUpdatePort.class), extPort.addressUpdatePort, Channel.TWO_WAY);
-        searchChannels[3] = connect(searchComp.getNegative(LeaderElectionPort.class), electionLeader.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        searchChannels[4] = connect(searchComp.getNegative(LeaderElectionPort.class), electionFollower.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
-        searchChannels[5] = connect(searchComp.getNegative(GradientRoutingPort.class), routing.getValue0().getPositive(GradientRoutingPort.class), Channel.TWO_WAY);
+        searchChannels[2] = connect(searchComp.getNegative(LeaderElectionPort.class), electionLeader.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        searchChannels[3] = connect(searchComp.getNegative(LeaderElectionPort.class), electionFollower.getValue0().getPositive(LeaderElectionPort.class), Channel.TWO_WAY);
+        searchChannels[4] = connect(searchComp.getNegative(GradientRoutingPort.class), routing.getValue0().getPositive(GradientRoutingPort.class), Channel.TWO_WAY);
         gradientEnd.addChannel(spConfig.tgradientId, searchComp.getNegative(GradientPort.class));
 
         //provide
-        searchChannels[6] = connect(searchComp.getPositive(LeaderStatusPort.class), routing.getValue0().getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
-        searchChannels[7] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
+        searchChannels[5] = connect(searchComp.getPositive(LeaderStatusPort.class), routing.getValue0().getNegative(LeaderStatusPort.class), Channel.TWO_WAY);
+        searchChannels[6] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
         //searchChannels[8] = connect(searchComp.getPositive(SelfChangedPort.class), routing.getValue0().getNegative(SelfChangedPort.class), Channel.TWO_WAY);
-        searchChannels[8] = connect(searchComp.getPositive(UiPort.class), uiPort, Channel.TWO_WAY);
+        searchChannels[7] = connect(searchComp.getPositive(UiPort.class), uiPort, Channel.TWO_WAY);
         viewUpdateEnd.addChannel(spConfig.tgradientId, searchComp.getPositive(OverlayViewUpdatePort.class));
         //SimulationEventPorts - what is this?
         //LocalAggregatorPort - skipped for the moment
@@ -255,19 +250,16 @@ public class SearchPeerComp extends ComponentDefinition {
         public final Positive<Timer> timerPort;
         //network ports
         public final Positive<Network> networkPort;
-        public final Positive<AddressUpdatePort> addressUpdatePort;
         //overlay ports
         public final Positive<CroupierPort> croupierPort;
         public final Positive<GradientPort> gradientPort;
         public final Negative<OverlayViewUpdatePort> viewUpdatePort;
 
         public ExtPort(Positive<Timer> timerPort, Positive<Network> networkPort,
-                Positive<AddressUpdatePort> addressUpdatePort,
                 Positive<CroupierPort> croupierPort, Positive<GradientPort> gradientPort,
                 Negative<OverlayViewUpdatePort> viewUpdatePort) {
             this.timerPort = timerPort;
             this.networkPort = networkPort;
-            this.addressUpdatePort = addressUpdatePort;
             this.croupierPort = croupierPort;
             this.gradientPort = gradientPort;
             this.viewUpdatePort = viewUpdatePort;

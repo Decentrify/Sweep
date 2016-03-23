@@ -18,7 +18,6 @@ import se.sics.kompics.network.Transport;
 import se.sics.kompics.timer.*;
 import se.sics.kompics.timer.Timer;
 import se.sics.ktoolbox.aggregator.client.LocalAggregatorPort;
-import se.sics.ms.aggregator.SearchComponentInfo;
 import se.sics.ms.common.*;
 import se.sics.ms.configuration.MsConfig;
 import se.sics.ms.data.*;
@@ -50,8 +49,6 @@ import se.sics.ktoolbox.election.event.LeaderUpdate;
 import se.sics.ktoolbox.election.event.ViewUpdate;
 import se.sics.ktoolbox.gradient.GradientPort;
 import se.sics.ktoolbox.gradient.event.GradientSample;
-import se.sics.ktoolbox.util.address.AddressUpdate;
-import se.sics.ktoolbox.util.address.AddressUpdatePort;
 import se.sics.ktoolbox.util.identifiable.Identifier;
 import se.sics.ktoolbox.util.network.KAddress;
 import se.sics.ktoolbox.util.network.KHeader;
@@ -89,7 +86,6 @@ public final class NPAwareSearch extends ComponentDefinition {
     Positive<LeaderElectionPort> electionPort = requires(LeaderElectionPort.class);
     Positive<PALPort> pagPort = requires(PALPort.class);
 
-    Positive<AddressUpdatePort> selfAddressUpdatePort = requires(AddressUpdatePort.class);
     Negative<OverlayViewUpdatePort> selfViewUpdatePort = provides(OverlayViewUpdatePort.class);
     //***************************CONFIGURATION**********************************
     private final Identifier tgradientId;
@@ -283,7 +279,6 @@ public final class NPAwareSearch extends ComponentDefinition {
         subscribe(searchProtocolTracker.cacheTimeoutHandler, timerPort);
 
         subscribe(paginateSearchRequestHandler, uiPort);
-        subscribe(selfAddressUpdateHandler, selfAddressUpdatePort);
     }
 
     /**
@@ -388,18 +383,6 @@ public final class NPAwareSearch extends ComponentDefinition {
             rst = new SchedulePeriodicTimeout(MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD, MsConfig.CONTROL_MESSAGE_EXCHANGE_PERIOD);
             rst.setTimeoutEvent(new TimeoutCollection.ControlMessageExchangeRound(rst));
             trigger(rst, timerPort);
-        }
-    };
-
-    /**
-     * Event from the parent maker indicating the change in the address.
-     */
-    Handler selfAddressUpdateHandler = new Handler<AddressUpdate.Indication>() {
-        @Override
-        public void handle(AddressUpdate.Indication selfAddressUpdate) {
-
-            logger.debug("Handling the self address update from the parent maker.");
-            self.setSelfAddress(selfAddressUpdate.localAddress);
         }
     };
 
